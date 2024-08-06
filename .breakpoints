@@ -1,3 +1,12 @@
 {
-  "files": {}
+  "files": {
+    "components/AddressSelector.tsx": [
+      {
+        "id": "2921233f-d0c2-4839-8954-8ebaf6186192",
+        "line": 1,
+        "version": 37,
+        "index": 0
+      }
+    ]
+  }
 }
