@@ -5,48 +5,53 @@ export interface SignupData {
   email: string;
   password: string;
   name: string;
+  userId: string;
+  phoneNumber: string;
   address1: string;
   address2: string;
   schoolId: string;
-  schoolName: string; // 추가된 필드
-  birthYear: number; // 추가된 생년 필드
-  birthMonth: number; // 추가된 생월 필드
-  birthDay: number; // 추가된 생일 필드
-  phoneNumber: string; // 추가된 필드
+  schoolName: string;
+  birthYear: number;
+  birthMonth: number;
+  birthDay: number;
 }
 
 // 사용자 데이터 타입
 export interface User {
   uid: string;
   email: string | null;
-  name: string | null;
+  name: string;
+  userId: string;
   address1?: string;
   address2?: string;
   schoolId?: string;
-  schoolName?: string; // 학교 이름 필드 추가
+  schoolName?: string;
   experience: number;
   totalExperience: number;
   level: number;
-  birthYear: number; // 추가된 생년 필드
-  birthMonth: number; // 추가된 생월 필드
-  birthDay: number; // 추가된 생일 필드
-  phoneNumber: string; // 추가된 필드
+  birthYear: number;
+  birthMonth: number;
+  birthDay: number;
+  phoneNumber: string;
 }
 
 // 게시글 데이터 타입
 export interface Post {
   id: string;
-  title: string;
-  content: string;
-  author: string;
-  authorId: string;
-  date: any;
-  categoryId: string;
   address1?: string;
   address2?: string;
-  schoolId?: string;
-  likes?: number;
+  author: string;
+  authorId: string;
+  categoryId: string;
   comments?: number;
+  content: string;
+  createdAt: any;
+  updatedAt: any;
+  likedBy: string[];
+  schoolId?: string;
+  schoolName?: string;
+  likes?: number;
+  title: string;
   views?: number;
 }
 
@@ -62,4 +67,43 @@ export interface School {
   id: string;
   KOR_NAME: string;
   ADDRESS: string;
+  SCHOOL_CODE: string;
+}
+
+// 댓글 데이터 타입
+export interface Comment {
+  id: string;
+  postId: string;
+  author: string;
+  content: string;
+  date: Date;
+  parentId: string | null;
+}
+
+// 게임 점수 데이터 타입
+export interface Score {
+  user: string;
+  schoolName: string;
+  address1: string;
+  address2: string;
+  time: number;
+}
+
+// 로그인 데이터 타입
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+// 게시글 생성 데이터 타입
+export interface CreatePostData {
+  title: string;
+  content: string;
+  categoryId: string;
+  author: string;
+  authorId: string;
+  address1?: string;
+  address2?: string;
+  schoolId?: string;
+  schoolName?: string;
 }

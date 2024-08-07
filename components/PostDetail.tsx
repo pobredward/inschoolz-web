@@ -25,16 +25,24 @@ import {
   arrayRemove,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { FaUserCircle } from "react-icons/fa";
+import { updatePost } from "../services/postService";
 
 const PostDetail: React.FC = () => {
   const router = useRouter();
   const { id } = router.query;
   const [post, setPost] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [comments, setComments] = useRecoilState(commentsState);
   const user = useRecoilValue(userState);
   const selectedCategory = useRecoilValue(selectedCategoryState);
   const [liked, setLiked] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const [replyComment, setReplyComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(post?.title || "");
+  const [editedContent, setEditedContent] = useState(post?.content || "");
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -42,11 +50,12 @@ const PostDetail: React.FC = () => {
         const docRef = doc(db, "posts", id as string);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setPost(docSnap.data());
+          setPost({ id: docSnap.id, ...docSnap.data() });
         } else {
           setPost(null);
         }
       }
+      setLoading(false);
     };
 
     const fetchComments = async () => {
@@ -90,12 +99,6 @@ const PostDetail: React.FC = () => {
     }
   }, [id]);
 
-  if (!post) return <div>게시글을 찾을 수 없습니다.</div>;
-
-  const postDate = post.date.toDate
-    ? post.date.toDate()
-    : new Date(post.date.seconds * 1000);
-
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -106,12 +109,41 @@ const PostDetail: React.FC = () => {
       author: user?.name || "익명",
       content: newComment,
       date: new Date(),
+      parentId: null,
     };
 
     try {
       await addDoc(collection(db, "comments"), commentData);
       setComments((prevComments) => [...prevComments, commentData]);
       setNewComment("");
+
+      const postRef = doc(db, "posts", id as string);
+      await updateDoc(postRef, {
+        comments: increment(1),
+      });
+    } catch (e) {
+      console.error("Error adding comment: ", e);
+    }
+  };
+
+  const handleReplySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!replyComment.trim() || !replyingTo) return;
+
+    const commentData = {
+      postId: id,
+      author: user?.name || "익명",
+      content: replyComment,
+      date: new Date(),
+      parentId: replyingTo,
+    };
+
+    try {
+      await addDoc(collection(db, "comments"), commentData);
+      setComments((prevComments) => [...prevComments, commentData]);
+      setReplyComment("");
+      setReplyingTo(null);
 
       const postRef = doc(db, "posts", id as string);
       await updateDoc(postRef, {
@@ -134,7 +166,36 @@ const PostDetail: React.FC = () => {
   };
 
   const handleEdit = () => {
-    router.push(`/posts/edit/${id}`);
+    setIsEditing(!isEditing);
+    setEditedTitle(post?.title || "");
+    setEditedContent(post?.content || "");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!post) return;
+
+    try {
+      await updatePost(post.id, {
+        title: editedTitle,
+        content: editedContent,
+        updatedAt: new Date(),
+      });
+      setPost({
+        ...post,
+        title: editedTitle,
+        content: editedContent,
+        updatedAt: new Date(),
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating post:", error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedTitle(post?.title || "");
+    setEditedContent(post?.content || "");
   };
 
   const handleBackToList = () => {
@@ -142,41 +203,55 @@ const PostDetail: React.FC = () => {
   };
 
   const handleLike = async () => {
-    if (!user || user.uid === post.authorId) return;
+    if (!user || !user.uid || user.uid === post.authorId) return;
 
     const docRef = doc(db, "posts", id as string);
-    if (liked) {
-      await updateDoc(docRef, {
-        likes: increment(-1),
-        likedBy: arrayRemove(user.uid),
-      });
-      setLiked(false);
-    } else {
-      await updateDoc(docRef, {
-        likes: increment(1),
-        likedBy: arrayUnion(user.uid),
-      });
-      setLiked(true);
-    }
+    try {
+      if (liked) {
+        await updateDoc(docRef, {
+          likes: increment(-1),
+          likedBy: arrayRemove(user.uid),
+        });
+        setLiked(false);
+      } else {
+        await updateDoc(docRef, {
+          likes: increment(1),
+          likedBy: arrayUnion(user.uid),
+        });
+        setLiked(true);
+      }
 
-    // Update local post state
-    const updatedPost = { ...post };
-    if (liked) {
-      updatedPost.likes -= 1;
-      updatedPost.likedBy = updatedPost.likedBy.filter(
-        (uid: string) => uid !== user.uid,
-      );
-    } else {
-      updatedPost.likes += 1;
-      updatedPost.likedBy.push(user.uid);
+      const updatedPost = { ...post };
+      if (liked) {
+        updatedPost.likes -= 1;
+        updatedPost.likedBy = updatedPost.likedBy.filter(
+          (uid: string) => uid !== user.uid,
+        );
+      } else {
+        updatedPost.likes += 1;
+        updatedPost.likedBy.push(user.uid);
+      }
+      setPost(updatedPost);
+    } catch (error) {
+      console.error("Error updating likes: ", error);
     }
-    setPost(updatedPost);
+  };
+
+  const handleReply = (commentId: string) => {
+    setReplyingTo(commentId);
   };
 
   const formatDate = (date: any) => {
-    const postDate = date.toDate
-      ? date.toDate()
-      : new Date(date.seconds * 1000);
+    let postDate;
+    if (date instanceof Date) {
+      postDate = date;
+    } else if (date?.toDate) {
+      postDate = date.toDate();
+    } else if (date?.seconds) {
+      postDate = new Date(date.seconds * 1000);
+    } else {
+      postDate = new Date(date);
+    }
     return new Intl.DateTimeFormat("ko-KR", {
       year: "numeric",
       month: "2-digit",
@@ -189,58 +264,120 @@ const PostDetail: React.FC = () => {
 
   return (
     <Layout>
+      {isEditing ? (
+        <EditForm>
+          <EditInput
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+          />
+          <EditTextarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+          />
+          <ButtonContainer>
+            <SaveButton onClick={handleSaveEdit}>저장</SaveButton>
+            <CancelButton onClick={handleCancelEdit}>취소</CancelButton>
+          </ButtonContainer>
+        </EditForm>
+      ) : (
+        <>
+          <PostTitle>{post.title}</PostTitle>
+          <PostContent>{post.content}</PostContent>
+          {user?.uid === post.authorId && (
+            <ButtonContainer>
+              <EditButton onClick={handleEdit}>수정</EditButton>
+              <DeleteButton onClick={handleDelete}>삭제</DeleteButton>
+            </ButtonContainer>
+          )}
+        </>
+      )}
       <Container>
         <CategorySection>
           <CategoryList />
         </CategorySection>
-        <ContentSection>
-          <PostContainer>
-            <PostTitle>{post.title}</PostTitle>
-            <PostDate>{formatDate(post.date)}</PostDate>
-            <PostContent>{post.content}</PostContent>
-            <PostAuthor>작성자: {post.author}</PostAuthor>
-            <PostActions>
-              <ActionItem
-                onClick={handleLike}
-                disabled={!user || user.uid === post.authorId}
-              >
-                {liked ? "❤️ 좋아요 취소" : "🤍 좋아요"} {post.likes}
-              </ActionItem>
-              <ActionItem>💬 댓글 {post.comments}</ActionItem>
-              <ActionItem>👁️ 조회수 {post.views}</ActionItem>
-            </PostActions>
-            <ButtonContainer>
-              <TextButton onClick={handleBackToList}>목록</TextButton>
-              {user?.uid === post.authorId && (
-                <>
-                  <EditButton onClick={handleEdit}>수정</EditButton>
-                  <DeleteButton onClick={handleDelete}>삭제</DeleteButton>
-                </>
-              )}
-            </ButtonContainer>
-          </PostContainer>
-          <CommentsSection>
-            <h3>댓글</h3>
-            {comments.map((comment) => (
-              <CommentItem key={comment.id}>
-                <CommentAuthor>{comment.author}</CommentAuthor>
-                <CommentDate>{formatDate(comment.date)}</CommentDate>
-                <CommentContent>{comment.content}</CommentContent>
-              </CommentItem>
-            ))}
-            {user && (
-              <CommentForm onSubmit={handleCommentSubmit}>
-                <CommentTextarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="댓글을 입력하세요..."
-                  required
-                />
-                <CommentButton type="submit">댓글 작성</CommentButton>
-              </CommentForm>
+        {loading ? (
+          <LoadingMessage>로딩 중...</LoadingMessage>
+        ) : (
+          <ContentWrapper>
+            {!post ? (
+              <ErrorMessage>게시글을 찾을 수 없습니다.</ErrorMessage>
+            ) : (
+              <>
+                <ContentSection>
+                  <PostContainer>
+                    <PostHeader>
+                      <ProfileImage />
+                      <PostInfo>
+                        <PostAuthor>{post.author}</PostAuthor>
+                        <UploadTime>{formatDate(post.date)}</UploadTime>
+                      </PostInfo>
+                    </PostHeader>
+                    <PostTitle>{post.title}</PostTitle>
+                    <PostContent>{post.content}</PostContent>
+                    <PostActions>
+                      <ActionItem onClick={handleLike}>
+                        {liked ? "❤️ 좋아요" : "🤍 좋아요"} {post.likes}
+                      </ActionItem>
+                      <ActionItem>💬 댓글 {post.comments}</ActionItem>
+                      <ActionItem>👁️ 조회수 {post.views}</ActionItem>
+                    </PostActions>
+                    <ButtonContainer>
+                      <TextButton onClick={handleBackToList}>목록</TextButton>
+                      {user?.uid === post.authorId && (
+                        <>
+                          <EditButton onClick={handleEdit}>수정</EditButton>
+                          <DeleteButton onClick={handleDelete}>
+                            삭제
+                          </DeleteButton>
+                        </>
+                      )}
+                    </ButtonContainer>
+                  </PostContainer>
+                  <CommentsSection>
+                    <h3>댓글</h3>
+                    {comments.map((comment) => (
+                      <CommentItem key={comment.id}>
+                        <CommentAuthor>{comment.author}</CommentAuthor>
+                        <CommentDate>{formatDate(comment.date)}</CommentDate>
+                        <CommentContent>{comment.content}</CommentContent>
+                        <CommentActions>
+                          <CommentActionItem
+                            onClick={() => handleReply(comment.id)}
+                          >
+                            답글 달기
+                          </CommentActionItem>
+                        </CommentActions>
+                        {comment.parentId === comment.id && (
+                          <ReplyForm onSubmit={handleReplySubmit}>
+                            <ReplyTextarea
+                              value={replyComment}
+                              onChange={(e) => setReplyComment(e.target.value)}
+                              placeholder="답글을 입력하세요..."
+                              required
+                            />
+                            <ReplyButton type="submit">답글 작성</ReplyButton>
+                          </ReplyForm>
+                        )}
+                      </CommentItem>
+                    ))}
+                    {user && (
+                      <CommentForm onSubmit={handleCommentSubmit}>
+                        <CommentTextarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="댓글을 입력하세요..."
+                          required
+                        />
+                        <CommentButton type="submit">댓글 작성</CommentButton>
+                      </CommentForm>
+                    )}
+                  </CommentsSection>
+                </ContentSection>
+              </>
             )}
-          </CommentsSection>
-        </ContentSection>
+          </ContentWrapper>
+        )}
       </Container>
     </Layout>
   );
@@ -248,54 +385,102 @@ const PostDetail: React.FC = () => {
 
 const Container = styled.div`
   display: flex;
-  gap: 2rem;
   max-width: 100%;
+  min-height: calc(100vh - 60px);
+
   @media (max-width: 768px) {
     flex-direction: column;
   }
 `;
 
 const CategorySection = styled.div`
-  flex: 1;
+  width: 250px;
+  padding: 1rem;
+  border-right: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+
   @media (max-width: 768px) {
-    order: 2;
+    display: none;
   }
+`;
+
+const ContentWrapper = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 `;
 
 const ContentSection = styled.div`
-  flex: 3;
-  @media (max-width: 768px) {
-    order: 1;
-  }
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+`;
+
+const LoadingMessage = styled.div`
+  text-align: center;
+  font-size: 1.2rem;
+  color: #666;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ErrorMessage = styled.div`
+  text-align: center;
+  font-size: 1.2rem;
+  color: #ff6b6b;
 `;
 
 const PostContainer = styled.div`
-  padding: 2rem;
+  padding: 1rem;
   border-radius: 4px;
   background-color: #fff;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   max-width: 100%;
   box-sizing: border-box;
-  position: relative;
+  margin-bottom: 2rem;
+
+  @media (max-width: 769px) {
+    padding: 0rem;
+  }
+`;
+
+const PostHeader = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+`;
+
+const ProfileImage = styled(FaUserCircle)`
+  width: 40px;
+  height: 40px;
+  margin-right: 1rem;
+  color: #ccc;
+`;
+
+const PostInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const PostAuthor = styled.div`
+  font-size: 1rem;
+  font-weight: bold;
+  color: #495057;
+`;
+
+const UploadTime = styled.div`
+  font-size: 0.9rem;
+  color: #6c757d;
 `;
 
 const PostTitle = styled.h2`
   margin: 0 0 1rem 0;
 `;
 
-const PostDate = styled.div`
-  font-size: 0.9rem;
-  color: #6c757d;
-  margin-bottom: 1rem;
-`;
-
 const PostContent = styled.div`
-  margin-bottom: 2rem;
-`;
-
-const PostAuthor = styled.div`
-  font-size: 0.9rem;
-  color: #495057;
+  margin-bottom: 5rem;
 `;
 
 const PostActions = styled.div`
@@ -316,9 +501,6 @@ const ActionItem = styled.span`
 const ButtonContainer = styled.div`
   display: flex;
   gap: 0.5rem;
-  position: absolute;
-  bottom: 1rem;
-  right: 1rem;
 `;
 
 const TextButton = styled.button`
@@ -364,7 +546,9 @@ const DeleteButton = styled.button`
 `;
 
 const CommentsSection = styled.div`
-  margin-top: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
 `;
 
 const CommentItem = styled.div`
@@ -385,6 +569,17 @@ const CommentDate = styled.div`
 
 const CommentContent = styled.div`
   margin-bottom: 0.5rem;
+`;
+
+const CommentActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #6c757d;
+`;
+
+const CommentActionItem = styled.span`
+  cursor: pointer;
 `;
 
 const CommentForm = styled.form`
@@ -414,6 +609,78 @@ const CommentButton = styled.button`
 
   &:hover {
     background-color: #0056b3;
+  }
+`;
+
+const ReplyForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+`;
+
+const ReplyTextarea = styled.textarea`
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  resize: vertical;
+`;
+
+const ReplyButton = styled.button`
+  padding: 0.75rem;
+  background-color: #0070f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+
+  &:hover {
+    background-color: #0056b3;
+  }
+`;
+
+const EditForm = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const EditInput = styled.input`
+  padding: 0.5rem;
+  font-size: 1.2rem;
+`;
+
+const EditTextarea = styled.textarea`
+  padding: 0.5rem;
+  font-size: 1rem;
+  min-height: 200px;
+`;
+
+const Button = styled.button`
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+`;
+
+const SaveButton = styled(Button)`
+  background-color: #28a745;
+
+  &:hover {
+    background-color: #218838;
+  }
+`;
+
+const CancelButton = styled(Button)`
+  background-color: #dc3545;
+
+  &:hover {
+    background-color: #c82333;
   }
 `;
 

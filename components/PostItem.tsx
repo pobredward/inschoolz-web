@@ -37,16 +37,27 @@ interface PostItemProps {
 }
 
 const PostItem: React.FC<PostItemProps> = ({ post }) => {
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      weekday: "short",
-    }).format(new Date(date));
+  const formatDate = (date: any) => {
+      let postDate;
+      if (date instanceof Date) {
+          postDate = date;
+      } else if (date?.toDate) {
+          postDate = date.toDate();
+      } else if (date?.seconds) {
+          postDate = new Date(date.seconds * 1000);
+      } else {
+          postDate = new Date(date);
+      }
+      return new Intl.DateTimeFormat("ko-KR", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          weekday: "short",
+      }).format(postDate);
   };
+
 
   return (
     <PostItemContainer>

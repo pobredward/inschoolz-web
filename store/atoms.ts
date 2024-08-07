@@ -2,19 +2,20 @@ import { atom } from "recoil";
 
 export interface User {
   uid: string;
-  email: string | null;
-  name: string | null;
   address1?: string;
   address2?: string;
+  birthDay?: number;
+  birthMonth?: number;
+  birthYear?: number;
+  email: string | null;
+  experience: number;
+  level: number;
+  name: string;
   schoolId?: string;
   schoolName?: string;
   phoneNumber?: string;
-  experience: number;
-  level: number;
+  userId: string;
   totalExperience: number;
-  birthYear?: string;
-  birthMonth?: string;
-  birthDay?: string;
 }
 
 export const userState = atom<User | null>({
@@ -24,18 +25,20 @@ export const userState = atom<User | null>({
 
 export interface Post {
   id: string;
-  title: string;
-  content: string;
-  author: string;
-  authorId: string;
-  date: any;
-  categoryId: string;
   address1?: string;
   address2?: string;
+  author: string;
+  authorId: string;
+  categoryId: string;
+  comments?: number;
+  content: string;
+  createdAt: any;
+  updatedAt: any;
+  likedBy: string[];
   schoolId?: string;
   schoolName?: string;
   likes?: number;
-  comments?: number;
+  title: string;
   views?: number;
 }
 

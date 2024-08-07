@@ -69,29 +69,34 @@ const MyPage: React.FC = () => {
         <h1>내 정보</h1>
         <InfoContainer>
           <InfoItem>
-            <InfoLabel>이름:</InfoLabel>
+            <InfoLabel>이름: </InfoLabel>
             <InfoValue>{user?.name}</InfoValue>
           </InfoItem>
           <Divider />
           <InfoItem>
-            <InfoLabel>이메일:</InfoLabel>
+            <InfoLabel>ID: </InfoLabel>
+            <InfoValue>{user?.userId}</InfoValue>
+          </InfoItem>
+          <Divider />
+          <InfoItem>
+            <InfoLabel>이메일: </InfoLabel>
             <InfoValue>{user?.email}</InfoValue>
             <Button onClick={() => setIsEmailModalOpen(true)}>변경</Button>
           </InfoItem>
           <Divider />
           <InfoItem>
-            <InfoLabel>비밀번호:</InfoLabel>
+            <InfoLabel>비밀번호: </InfoLabel>
             <Button onClick={() => setIsPasswordModalOpen(true)}>변경</Button>
           </InfoItem>
           <Divider />
           <InfoItem>
-            <InfoLabel>학교:</InfoLabel>
+            <InfoLabel>학교: </InfoLabel>
             <InfoValue>{user?.schoolName}</InfoValue>
             <Button onClick={() => setIsSchoolModalOpen(true)}>변경</Button>
           </InfoItem>
           <Divider />
           <InfoItem>
-            <InfoLabel>생년월일:</InfoLabel>
+            <InfoLabel>생년월일: </InfoLabel>
             <InfoValue>
               {user?.birthYear}년 {user?.birthMonth}월 {user?.birthDay}일
             </InfoValue>
@@ -99,7 +104,7 @@ const MyPage: React.FC = () => {
           </InfoItem>
           <Divider />
           <InfoItem>
-            <InfoLabel>지역:</InfoLabel>
+            <InfoLabel>지역: </InfoLabel>
             <InfoValue>
               {user?.address1} {user?.address2}
             </InfoValue>
@@ -107,7 +112,7 @@ const MyPage: React.FC = () => {
           </InfoItem>
           <Divider />
           <InfoItem>
-            <InfoLabel>휴대폰 번호:</InfoLabel>
+            <InfoLabel>휴대폰 번호: </InfoLabel>
             <InfoValue>{user?.phoneNumber}</InfoValue>
             <Button onClick={() => setIsPhoneModalOpen(true)}>변경</Button>
           </InfoItem>
@@ -179,10 +184,11 @@ const Container = styled.div`
   align-items: center;
   max-width: 600px;
   margin: 2rem auto;
-  padding: 2rem;
+  padding: 1rem;
   background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  /* border-radius: 4px; */
+  /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); */
+  border: none; /* 테두리 제거 */
 `;
 
 const InfoContainer = styled.div`

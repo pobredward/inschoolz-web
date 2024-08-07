@@ -1,3 +1,4 @@
+// CommunityPage.tsx
 import React, { useEffect } from "react";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
@@ -6,25 +7,32 @@ import PostList from "../components/PostList";
 import CreatePostButton from "../components/CreatePostButton";
 import { useRecoilState } from "recoil";
 import { selectedCategoryState } from "../store/atoms";
+import { useRouter } from "next/router";
 
 const CommunityPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
     selectedCategoryState,
   );
+  const router = useRouter();
 
   useEffect(() => {
     setSelectedCategory("national-all");
   }, [setSelectedCategory]);
 
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    router.push(`/community/${categoryId}`);
+  };
+
   return (
     <Layout>
       <Container>
         <CategorySection>
-          <CategoryList />
+          <CategoryList onSelectCategory={handleCategorySelect} />
         </CategorySection>
         <ContentSection>
           <CreatePostButton />
-          <PostList />
+          <PostList selectedCategory={selectedCategory} />
         </ContentSection>
       </Container>
     </Layout>

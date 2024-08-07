@@ -1,6 +1,14 @@
 import { Post, User } from "../store/atoms";
 import { db } from "../lib/firebase";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  doc,
+} from "firebase/firestore";
 
 export async function fetchPostsByCategory(
   categoryId: string,
@@ -34,22 +42,42 @@ export async function fetchFilteredPosts(
   return posts;
 }
 
-interface CreatePostData {
+export interface CreatePostData {
   title: string;
   content: string;
   categoryId: string;
+  author: string;
   authorId: string;
-  authorName: string;
   address1?: string;
   address2?: string;
   schoolId?: string;
+  schoolName?: string;
 }
 
 export async function createPost(postData: CreatePostData) {
+  if (!postData.authorId) {
+    throw new Error("Author ID is required");
+  }
+
   const postsRef = collection(db, "posts");
+  const now = new Date();
   const newPost = {
     ...postData,
-    createdAt: new Date(),
+    createdAt: now,
+    updatedAt: now,
+    likes: 0,
+    comments: 0,
+    views: 0,
+    likedBy: [],
   };
   return addDoc(postsRef, newPost);
+}
+
+export async function updatePost(postId: string, updateData: Partial<Post>) {
+  const postRef = doc(db, "posts", postId);
+  const updatedData = {
+    ...updateData,
+    updatedAt: new Date(),
+  };
+  return updateDoc(postRef, updatedData);
 }

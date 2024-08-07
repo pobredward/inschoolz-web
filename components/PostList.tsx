@@ -89,7 +89,15 @@ const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
   };
 
   const formatPostMeta = (post: Post) => {
-    const date = new Date(post.date.seconds * 1000).toLocaleDateString();
+    const postDate =
+      post.createdAt instanceof Date
+        ? post.createdAt
+        : new Date(post.createdAt.seconds * 1000);
+    const date = new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(postDate);
     const author = post.author;
     const schoolName = post.schoolName;
 
@@ -98,6 +106,10 @@ const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
     } else {
       return `${date} | ${author}`;
     }
+  };
+
+  const renderPostContent = (content: string) => {
+    return content.length > 35 ? `${content.slice(0, 35)}...` : content;
   };
 
   return (
@@ -111,7 +123,7 @@ const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
               <PostTitle>{post.title}</PostTitle>
               <PostCategory>{getCategoryName(post.categoryId)}</PostCategory>
             </PostHeader>
-            <PostContent>{post.content.slice(0, 100)}...</PostContent>
+            <PostContent>{renderPostContent(post.content)}</PostContent>
             <PostFooter>
               <PostDateAuthor>{formatPostMeta(post)}</PostDateAuthor>
               <PostActions>
@@ -130,8 +142,11 @@ const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
 const PostContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 0.8rem;
+
+  @media (max-width: 769px) {
+    gap: 0.2rem;
+  }
 `;
 
 const LoadingMessage = styled.div`
@@ -141,17 +156,15 @@ const LoadingMessage = styled.div`
 `;
 
 const PostItem = styled.div`
-  padding: 1.5rem;
-  border-radius: 8px;
+  padding: 1.2rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background-color: #f9f9f9;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
 
   &:hover {
-    background-color: #f1f1f1;
+    background-color: #f9f9f9;
   }
 `;
 
@@ -169,20 +182,19 @@ const PostCategory = styled.span`
 const PostTitle = styled.h4`
   margin: 0;
   flex-grow: 1;
-  margin-right: 1rem; /* 카테고리와 제목 사이 간격 조정 */
 `;
 
 const PostContent = styled.p`
-  margin: 0.5rem 0 0;
+  margin: 0.2rem 0 0;
   color: #495057;
-  line-height: 1.4;
+  line-height: 1.2;
 `;
 
 const PostFooter = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 `;
 
 const PostDateAuthor = styled.span`

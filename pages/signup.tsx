@@ -1,17 +1,21 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import styled from "@emotion/styled";
 import { useAuth } from "../hooks/useAuth";
 import AddressSelector from "../components/AddressSelector";
 import SchoolSearch from "../components/SchoolSearch";
-import Link from "next/link";
 import { sendEmailVerification } from "firebase/auth";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
 const SignupPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [userId, setUserId] = useState("");
   const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [address1, setAddress1] = useState("");
   const [address2, setAddress2] = useState("");
   const [school, setSchool] = useState<any>(null);
@@ -24,21 +28,40 @@ const SignupPage: React.FC = () => {
   const router = useRouter();
   const { signup } = useAuth();
 
+  const validateUserId = (userId: string): boolean => {
+    return userId.length >= 5;
+  };
+
+  const validateName = (name: string): boolean => {
+    const koreanNameRegex = /^[가-힣]{2,5}$/;
+    return koreanNameRegex.test(name);
+  };
+
+  const checkDuplicateUserId = async (userId: string) => {
+    const q = query(collection(db, "users"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
+  };
+
+  const checkDuplicatePhoneNumber = async (phoneNumber: string) => {
+    const q = query(
+      collection(db, "users"),
+      where("phoneNumber", "==", phoneNumber),
+    );
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !email ||
-      !password ||
-      !confirmPassword ||
-      !name ||
-      !address1 ||
-      !address2 ||
-      !school ||
-      !birthYear ||
-      !birthMonth ||
-      !birthDay
-    ) {
-      setError("모든 필드를 입력해주세요.");
+
+    if (!validateUserId(userId)) {
+      setError("ID는 5글자 이상이어야 합니다.");
+      return;
+    }
+
+    if (!validateName(name)) {
+      setError("실명은 한글 2~5자여야 합니다.");
       return;
     }
 
@@ -47,23 +70,36 @@ const SignupPage: React.FC = () => {
       return;
     }
 
+    const isDuplicateUserId = await checkDuplicateUserId(userId);
+    if (isDuplicateUserId) {
+      setError("이미 사용 중인 ID입니다.");
+      return;
+    }
+
+    const isDuplicatePhoneNumber = await checkDuplicatePhoneNumber(phoneNumber);
+    if (isDuplicatePhoneNumber) {
+      setError("이미 등록된 휴대폰 번호입니다.");
+      return;
+    }
+
     try {
-      const result = await signup.mutateAsync({
+      const user = await signup.mutateAsync({
         email,
         password,
+        userId,
         name,
+        phoneNumber,
         address1,
         address2,
-        schoolId: school.SCHOOL_CODE,
-        schoolName: school.KOR_NAME,
+        schoolId: school?.SCHOOL_CODE || "",
+        schoolName: school?.KOR_NAME || "",
         birthYear,
         birthMonth,
         birthDay,
       });
 
-      if (result.user) {
-        // 이메일 인증 메일 보내기
-        await sendEmailVerification(result.user);
+      if (user) {
+        await sendEmailVerification(user);
         setVerificationSent(true);
       } else {
         throw new Error("User object is undefined");
@@ -98,6 +134,20 @@ const SignupPage: React.FC = () => {
       <h1>회원가입</h1>
       <Form onSubmit={handleSignup}>
         <Input
+          type="text"
+          placeholder="이름"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+        <Input
+          type="text"
+          placeholder="ID (5글자 이상)"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          required
+        />
+        <Input
           type="email"
           placeholder="이메일"
           value={email}
@@ -119,10 +169,10 @@ const SignupPage: React.FC = () => {
           required
         />
         <Input
-          type="text"
-          placeholder="이름"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          type="tel"
+          placeholder="휴대폰 번호"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
           required
         />
         <AddressSelector
@@ -252,7 +302,7 @@ const Select = styled.select`
 const ErrorMessage = styled.p`
   color: red;
   text-align: center;
-  margin-top: 1rem;
+  margin-top: 0rem;
   font-size: 0.9rem;
 `;
 

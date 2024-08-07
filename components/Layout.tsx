@@ -1,3 +1,4 @@
+// components/Layout.tsx
 import React from "react";
 import Head from "next/head";
 import styled from "@emotion/styled";
@@ -18,23 +19,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           content="대한민국 학생들을 위한 올인원 페이지"
         />
         <link rel="icon" href="/favicon.ico" />
-        {/* Open Graph Tags */}
-        <meta property="og:title" content="인스쿨즈" />
-        <meta
-          property="og:description"
-          content="대한민국 학생들을 위한 올인원 페이지"
-        />
-        <meta property="og:image" content="/path-to-your-image.jpg" />
-        <meta property="og:url" content="https://www.inschoolz.com" />
-        <meta property="og:type" content="website" />
-        {/* Twitter Card Tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="인스쿨즈" />
-        <meta
-          name="twitter:description"
-          content="대한민국 학생들을 위한 올인원 페이지"
-        />
-        <meta name="twitter:image" content="/path-to-your-image.jpg" />
       </Head>
       <Navbar />
       <Main>{children}</Main>
@@ -51,11 +35,12 @@ const LayoutWrapper = styled.div`
 
 const Main = styled.main`
   flex: 1;
-  max-width: 1200px;
   width: 100%;
-  margin: 0 auto;
-  padding: 2rem;
+  max-width: 1200px;
+  margin: 20px auto;
+  padding: 1rem;
   box-sizing: border-box;
+  padding-top: 60px; // Navbar의 높이만큼 패딩을 추가
 `;
 
 export default Layout;

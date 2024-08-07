@@ -1,105 +1,137 @@
-// pages/login.tsx
 import { useState } from "react";
-import { NextPage } from "next";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import styled from "@emotion/styled";
-import Layout from "../components/Layout";
 import { useSetRecoilState } from "recoil";
 import { userState } from "../store/atoms";
-import { useMutation } from "react-query";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-} from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { auth, db } from "../lib/firebase";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { FaGoogle } from "react-icons/fa";
 
-const LoginPage: NextPage = () => {
-  const [email, setEmail] = useState("");
+const LoginPage: React.FC = () => {
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const setUser = useSetRecoilState(userState);
 
-  const loginMutation = useMutation(
-    async ({ email, password }: { email: string; password: string }) => {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      return userCredential.user;
-    },
-    {
-      onSuccess: (user) => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      // userId로 사용자 문서 찾기
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("userId", "==", userId));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        setError("사용자를 찾을 수 없습니다.");
+        return;
+      }
+
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+
+      // 이메일로 로그인
+      const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
+      const user = userCredential.user;
+
+      if (user.emailVerified) {
         setUser({
           uid: user.uid,
+          userId: userData.userId,
+          name: userData.name,
           email: user.email,
-          name: user.displayName,
+          phoneNumber: userData.phoneNumber,
+          address1: userData.address1,
+          address2: userData.address2,
+          schoolId: userData.schoolId,
+          schoolName: userData.schoolName,
+          experience: userData.experience,
+          level: userData.level,
+          totalExperience: userData.totalExperience,
+          birthYear: userData.birthYear,
+          birthMonth: userData.birthMonth,
+          birthDay: userData.birthDay,
         });
         router.push("/");
-      },
-      onError: (error: Error) => {
-        setError(error.message);
-      },
-    },
-  );
-
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    loginMutation.mutate({ email, password });
+      } else {
+        setError("이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.");
+      }
+    } catch (error) {
+      setError("로그인에 실패했습니다. 아이디와 비밀번호를 확인해주세요.");
+    }
   };
 
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      setUser({
-        uid: result.user.uid,
-        email: result.user.email,
-        name: result.user.displayName,
-      });
-      router.push("/");
+      const user = result.user;
+
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        // 사용자 정보가 없으면 추가 정보 입력 페이지로 리다이렉트
+        router.push('/complete-signup');
+      } else {
+        const userData = userDoc.data();
+        setUser({
+          uid: user.uid,
+          userId: userData.userId,
+          name: userData.name,
+          email: user.email,
+          phoneNumber: userData.phoneNumber,
+          address1: userData.address1,
+          address2: userData.address2,
+          schoolId: userData.schoolId,
+          schoolName: userData.schoolName,
+          experience: userData.experience,
+          level: userData.level,
+          totalExperience: userData.totalExperience,
+          birthYear: userData.birthYear,
+          birthMonth: userData.birthMonth,
+          birthDay: userData.birthDay,
+        });
+        router.push("/");
+      }
     } catch (error) {
       console.error("Google 로그인 에러:", error);
     }
   };
 
   return (
-    <Layout>
-      <LoginContainer>
-        <h1>로그인</h1>
-        <Form onSubmit={handleEmailLogin}>
-          <Input
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <Button type="submit" disabled={loginMutation.isLoading}>
-            {loginMutation.isLoading ? "로그인 중..." : "로그인"}
-          </Button>
-        </Form>
-        <Divider>또는</Divider>
-        <GoogleButton onClick={handleGoogleLogin}>
-          <FaGoogle /> Google로 로그인
-        </GoogleButton>
-        {error && <ErrorMessage>{error}</ErrorMessage>}
-        <SignupLink>
-          계정이 없으신가요? <Link href="/signup">회원가입</Link>
-        </SignupLink>
-      </LoginContainer>
-    </Layout>
+    <LoginContainer>
+      <h1>로그인</h1>
+      <Form onSubmit={handleLogin}>
+        <Input
+          type="text"
+          placeholder="아이디"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          required
+        />
+        <Input
+          type="password"
+          placeholder="비밀번호"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <Button type="submit">로그인</Button>
+      </Form>
+      <Divider>또는</Divider>
+      <GoogleButton onClick={handleGoogleLogin}>
+        <FaGoogle /> Google로 로그인
+      </GoogleButton>
+      {error && <ErrorMessage>{error}</ErrorMessage>}
+      <SignupLink>
+        계정이 없으신가요? <Link href="/signup">회원가입</Link>
+      </SignupLink>
+    </LoginContainer>
   );
 };
 

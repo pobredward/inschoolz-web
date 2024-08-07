@@ -4,13 +4,18 @@ import { useRouter } from "next/router";
 import { useRecoilState } from "recoil";
 import { categoriesState, selectedCategoryState } from "../store/atoms";
 
-const CategoryList: React.FC = () => {
+const CategoryList: React.FC<{
+  onSelectCategory?: (categoryId: string) => void; // onSelectCategory는 선택적 prop
+}> = ({ onSelectCategory = () => {} }) => { // 기본 함수를 설정하여 오류 방지
   const [categories] = useRecoilState(categoriesState);
-  const [selectedCategory, setSelectedCategory] = useRecoilState(selectedCategoryState);
+  const [selectedCategory, setSelectedCategory] = useRecoilState(
+    selectedCategoryState
+  );
   const router = useRouter();
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
+    onSelectCategory(categoryId); // onSelectCategory 함수 호출
     router.push(`/community/${categoryId}`);
   };
 
