@@ -13,6 +13,7 @@ export const useSignup = (): UseMutationResult<FirebaseUser, Error, SignupData> 
       await updateProfile(user, { displayName: data.name });
 
       await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
         userId: data.userId,
         name: data.name,
         email: data.email,

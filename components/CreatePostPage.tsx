@@ -34,6 +34,8 @@ const CreatePostPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log(user);
+
     if (!user) {
       alert("로그인이 필요합니다.");
       router.push("/login");

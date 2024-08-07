@@ -1,94 +1,96 @@
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import styled from "@emotion/styled";
-import ReactionGame from "../../components/game/ReactionGame";
 import Layout from "../../components/Layout";
+import Leaderboard from "../../components/game/Leaderboard";
+import styled from "@emotion/styled";
+import { FaBolt, FaFeather } from "react-icons/fa";
 
 const GamePage: React.FC = () => {
-  const [selectedGame, setSelectedGame] = useState<string | null>(null);
-
-  const handleGameSelect = (game: string) => {
-    setSelectedGame(game);
-  };
-
   return (
     <Layout>
-      <Container>
-        {selectedGame === null ? (
-          <>
-            <h1>Select a Game</h1>
-            <GameList>
-              <li>
-                <GameLink onClick={() => handleGameSelect("reaction")}>
-                  Reaction Game
-                </GameLink>
-              </li>
-              {/* 다른 게임이 추가되면 여기에 추가 */}
-            </GameList>
-            <Link href="/game/halloffame">
-              <HallOfFameLink>명예의 전당</HallOfFameLink>
-            </Link>
-          </>
-        ) : (
-          <GameContainer>
-            {selectedGame === "reaction" && <ReactionGame />}
-          </GameContainer>
-        )}
-      </Container>
+      <GameContainer>
+        <SectionTitle>미니게임</SectionTitle>
+        <GameSection>
+          <GameCard href="/game/reactiongame">
+            <IconWrapper>
+              <FaBolt size={24} />
+            </IconWrapper>
+            <GameText>반응속도 게임</GameText>
+          </GameCard>
+          <GameCard href="/game/flappybird">
+            <IconWrapper>
+              <FaFeather size={24} />
+            </IconWrapper>
+            <GameText>플래피 버드</GameText>
+          </GameCard>
+        </GameSection>
+        <SectionTitle>리더보드</SectionTitle>
+        <LeaderboardSection>
+          <Leaderboard />
+        </LeaderboardSection>
+      </GameContainer>
     </Layout>
   );
 };
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 50px;
-`;
-
-const GameList = styled.ul`
-  list-style-type: none;
-  padding: 0;
-`;
-
-const GameLink = styled.a`
-  padding: 10px 20px;
-  background-color: #0070f3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 18px;
-  margin-bottom: 10px;
-  display: inline-block;
-
-  &:hover {
-    background-color: #0056b3;
-  }
-`;
-
-const HallOfFameLink = styled.a`
-  padding: 10px 20px;
-  background-color: #ff6347;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 18px;
-  margin-top: 20px;
-  display: inline-block;
-
-  &:hover {
-    background-color: #e55347;
-  }
-`;
 
 const GameContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
+`;
+
+const SectionTitle = styled.h2`
+  text-align: center;
+  margin-bottom: 1rem;
+  width: 100%;
+`;
+
+const GameSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  margin-bottom: 2rem;
+`;
+
+const GameCard = styled(Link)`
+  display: flex;
+  align-items: center;
+  padding: 1.5rem;
+  background-color: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #333;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const IconWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  background-color: #f0f0f0;
+  border-radius: 50%;
+  margin-right: 1rem;
+`;
+
+const GameText = styled.span`
+  font-size: 1.2rem;
+  font-weight: bold;
+`;
+
+const LeaderboardSection = styled.div`
+  width: 100%;
 `;
 
 export default GamePage;

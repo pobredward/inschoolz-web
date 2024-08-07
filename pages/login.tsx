@@ -4,10 +4,22 @@ import Link from "next/link";
 import styled from "@emotion/styled";
 import { useSetRecoilState } from "recoil";
 import { userState } from "../store/atoms";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
 import { auth, db } from "../lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { FaGoogle } from "react-icons/fa";
+import { useMutation } from "react-query";
 
 const LoginPage: React.FC = () => {
   const [userId, setUserId] = useState("");
@@ -16,53 +28,64 @@ const LoginPage: React.FC = () => {
   const router = useRouter();
   const setUser = useSetRecoilState(userState);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    try {
-      // userId로 사용자 문서 찾기
+  const loginMutation = useMutation(
+    async ({ userId, password }: { userId: string; password: string }) => {
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("userId", "==", userId));
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
-        setError("사용자를 찾을 수 없습니다.");
-        return;
+        throw new Error("사용자를 찾을 수 없습니다.");
       }
 
       const userDoc = querySnapshot.docs[0];
       const userData = userDoc.data();
 
-      // 이메일로 로그인
-      const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        userData.email,
+        password,
+      );
       const user = userCredential.user;
 
-      if (user.emailVerified) {
-        setUser({
-          uid: user.uid,
-          userId: userData.userId,
-          name: userData.name,
-          email: user.email,
-          phoneNumber: userData.phoneNumber,
-          address1: userData.address1,
-          address2: userData.address2,
-          schoolId: userData.schoolId,
-          schoolName: userData.schoolName,
-          experience: userData.experience,
-          level: userData.level,
-          totalExperience: userData.totalExperience,
-          birthYear: userData.birthYear,
-          birthMonth: userData.birthMonth,
-          birthDay: userData.birthDay,
-        });
-        router.push("/");
-      } else {
-        setError("이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.");
+      if (!user.emailVerified) {
+        throw new Error(
+          "이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.",
+        );
       }
-    } catch (error) {
-      setError("로그인에 실패했습니다. 아이디와 비밀번호를 확인해주세요.");
-    }
+
+      return {
+        uid: user.uid,
+        userId: userData.userId,
+        name: userData.name,
+        email: user.email,
+        phoneNumber: userData.phoneNumber,
+        address1: userData.address1,
+        address2: userData.address2,
+        schoolId: userData.schoolId,
+        schoolName: userData.schoolName,
+        experience: userData.experience,
+        level: userData.level,
+        totalExperience: userData.totalExperience,
+        birthYear: userData.birthYear,
+        birthMonth: userData.birthMonth,
+        birthDay: userData.birthDay,
+      };
+    },
+    {
+      onSuccess: (data) => {
+        setUser(data);
+        router.push("/");
+      },
+      onError: (error: Error) => {
+        setError(error.message);
+      },
+    },
+  );
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate({ userId, password });
   };
 
   const handleGoogleLogin = async () => {
@@ -76,7 +99,7 @@ const LoginPage: React.FC = () => {
 
       if (!userDoc.exists()) {
         // 사용자 정보가 없으면 추가 정보 입력 페이지로 리다이렉트
-        router.push('/complete-signup');
+        router.push("/complete-signup");
       } else {
         const userData = userDoc.data();
         setUser({
@@ -121,13 +144,15 @@ const LoginPage: React.FC = () => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <Button type="submit">로그인</Button>
+        <Button type="submit" disabled={loginMutation.isLoading}>
+          {loginMutation.isLoading ? "로그인 중..." : "로그인"}
+        </Button>
       </Form>
       <Divider>또는</Divider>
       <GoogleButton onClick={handleGoogleLogin}>
         <FaGoogle /> Google로 로그인
       </GoogleButton>
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {loginMutation.isError && <ErrorMessage>{error}</ErrorMessage>}
       <SignupLink>
         계정이 없으신가요? <Link href="/signup">회원가입</Link>
       </SignupLink>

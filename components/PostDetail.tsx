@@ -27,6 +27,7 @@ import {
 import { db } from "../lib/firebase";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../services/postService";
+import { Post } from "../types";
 
 const PostDetail: React.FC = () => {
   const router = useRouter();
@@ -41,8 +42,8 @@ const PostDetail: React.FC = () => {
   const [replyComment, setReplyComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(post?.title || "");
-  const [editedContent, setEditedContent] = useState(post?.content || "");
+  const [editedTitle, setEditedTitle] = useState("");
+  const [editedContent, setEditedContent] = useState("");
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -50,12 +51,25 @@ const PostDetail: React.FC = () => {
         const docRef = doc(db, "posts", id as string);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setPost({ id: docSnap.id, ...docSnap.data() });
+          const postData = docSnap.data();
+          const formattedPost: Post = {
+            id: docSnap.id,
+            ...postData,
+            createdAt: postData.createdAt
+              ? new Date(postData.createdAt.seconds * 1000)
+              : new Date(),
+            updatedAt: postData.updatedAt
+              ? new Date(postData.updatedAt.seconds * 1000)
+              : new Date(),
+          } as Post; // 타입 단언 사용
+          setPost(formattedPost);
+          setEditedTitle(formattedPost.title);
+          setEditedContent(formattedPost.content);
         } else {
           setPost(null);
         }
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     const fetchComments = async () => {
@@ -99,6 +113,14 @@ const PostDetail: React.FC = () => {
     }
   }, [id]);
 
+  if (loading) {
+    return <LoadingMessage>로딩 중...</LoadingMessage>;
+  }
+
+  if (!post) {
+    return <ErrorMessage>게시글을 찾을 수 없습니다.</ErrorMessage>;
+  }
+
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -108,7 +130,7 @@ const PostDetail: React.FC = () => {
       postId: id,
       author: user?.name || "익명",
       content: newComment,
-      date: new Date(),
+      createdAt: new Date(),
       parentId: null,
     };
 
@@ -135,7 +157,7 @@ const PostDetail: React.FC = () => {
       postId: id,
       author: user?.name || "익명",
       content: replyComment,
-      date: new Date(),
+      createdAt: new Date(),
       parentId: replyingTo,
     };
 
@@ -264,57 +286,41 @@ const PostDetail: React.FC = () => {
 
   return (
     <Layout>
-      {isEditing ? (
-        <EditForm>
-          <EditInput
-            type="text"
-            value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
-          />
-          <EditTextarea
-            value={editedContent}
-            onChange={(e) => setEditedContent(e.target.value)}
-          />
-          <ButtonContainer>
-            <SaveButton onClick={handleSaveEdit}>저장</SaveButton>
-            <CancelButton onClick={handleCancelEdit}>취소</CancelButton>
-          </ButtonContainer>
-        </EditForm>
-      ) : (
-        <>
-          <PostTitle>{post.title}</PostTitle>
-          <PostContent>{post.content}</PostContent>
-          {user?.uid === post.authorId && (
-            <ButtonContainer>
-              <EditButton onClick={handleEdit}>수정</EditButton>
-              <DeleteButton onClick={handleDelete}>삭제</DeleteButton>
-            </ButtonContainer>
-          )}
-        </>
-      )}
       <Container>
         <CategorySection>
           <CategoryList />
         </CategorySection>
-        {loading ? (
-          <LoadingMessage>로딩 중...</LoadingMessage>
-        ) : (
-          <ContentWrapper>
-            {!post ? (
-              <ErrorMessage>게시글을 찾을 수 없습니다.</ErrorMessage>
-            ) : (
-              <>
-                <ContentSection>
-                  <PostContainer>
-                    <PostHeader>
-                      <ProfileImage />
-                      <PostInfo>
-                        <PostAuthor>{post.author}</PostAuthor>
-                        <UploadTime>{formatDate(post.date)}</UploadTime>
-                      </PostInfo>
-                    </PostHeader>
-                    <PostTitle>{post.title}</PostTitle>
-                    <PostContent>{post.content}</PostContent>
+        <ContentWrapper>
+          <ContentSection>
+            <PostContainer>
+              <PostHeader>
+                <ProfileImage />
+                <PostInfo>
+                  <PostAuthor>{post.author}</PostAuthor>
+                  <UploadTime>{formatDate(post.createdAt)}</UploadTime>
+                </PostInfo>
+              </PostHeader>
+              {isEditing ? (
+                <EditForm>
+                  <EditInput
+                    type="text"
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                  />
+                  <EditTextarea
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                  />
+                  <ButtonContainer>
+                    <SaveButton onClick={handleSaveEdit}>저장</SaveButton>
+                    <CancelButton onClick={handleCancelEdit}>취소</CancelButton>
+                  </ButtonContainer>
+                </EditForm>
+              ) : (
+                <>
+                  <PostTitle>{post.title}</PostTitle>
+                  <PostContent>{post.content}</PostContent>
+                  <ActionsAndButtonsContainer>
                     <PostActions>
                       <ActionItem onClick={handleLike}>
                         {liked ? "❤️ 좋아요" : "🤍 좋아요"} {post.likes}
@@ -333,51 +339,49 @@ const PostDetail: React.FC = () => {
                         </>
                       )}
                     </ButtonContainer>
-                  </PostContainer>
-                  <CommentsSection>
-                    <h3>댓글</h3>
-                    {comments.map((comment) => (
-                      <CommentItem key={comment.id}>
-                        <CommentAuthor>{comment.author}</CommentAuthor>
-                        <CommentDate>{formatDate(comment.date)}</CommentDate>
-                        <CommentContent>{comment.content}</CommentContent>
-                        <CommentActions>
-                          <CommentActionItem
-                            onClick={() => handleReply(comment.id)}
-                          >
-                            답글 달기
-                          </CommentActionItem>
-                        </CommentActions>
-                        {comment.parentId === comment.id && (
-                          <ReplyForm onSubmit={handleReplySubmit}>
-                            <ReplyTextarea
-                              value={replyComment}
-                              onChange={(e) => setReplyComment(e.target.value)}
-                              placeholder="답글을 입력하세요..."
-                              required
-                            />
-                            <ReplyButton type="submit">답글 작성</ReplyButton>
-                          </ReplyForm>
-                        )}
-                      </CommentItem>
-                    ))}
-                    {user && (
-                      <CommentForm onSubmit={handleCommentSubmit}>
-                        <CommentTextarea
-                          value={newComment}
-                          onChange={(e) => setNewComment(e.target.value)}
-                          placeholder="댓글을 입력하세요..."
-                          required
-                        />
-                        <CommentButton type="submit">댓글 작성</CommentButton>
-                      </CommentForm>
-                    )}
-                  </CommentsSection>
-                </ContentSection>
-              </>
-            )}
-          </ContentWrapper>
-        )}
+                  </ActionsAndButtonsContainer>
+                </>
+              )}
+            </PostContainer>
+            <CommentsSection>
+              <h3>댓글</h3>
+              {comments.map((comment) => (
+                <CommentItem key={comment.id}>
+                  <CommentAuthor>{comment.author}</CommentAuthor>
+                  <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
+                  <CommentContent>{comment.content}</CommentContent>
+                  <CommentActions>
+                    <CommentActionItem onClick={() => handleReply(comment.id)}>
+                      답글 달기
+                    </CommentActionItem>
+                  </CommentActions>
+                  {comment.parentId === comment.id && (
+                    <ReplyForm onSubmit={handleReplySubmit}>
+                      <ReplyTextarea
+                        value={replyComment}
+                        onChange={(e) => setReplyComment(e.target.value)}
+                        placeholder="답글을 입력하세요..."
+                        required
+                      />
+                      <ReplyButton type="submit">답글 작성</ReplyButton>
+                    </ReplyForm>
+                  )}
+                </CommentItem>
+              ))}
+              {user && (
+                <CommentForm onSubmit={handleCommentSubmit}>
+                  <CommentTextarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="댓글을 입력하세요..."
+                    required
+                  />
+                  <CommentButton type="submit">댓글 작성</CommentButton>
+                </CommentForm>
+              )}
+            </CommentsSection>
+          </ContentSection>
+        </ContentWrapper>
       </Container>
     </Layout>
   );
@@ -486,8 +490,12 @@ const PostContent = styled.div`
 const PostActions = styled.div`
   display: flex;
   gap: 1rem;
-  margin-top: 1rem;
   font-size: 1rem;
+`;
+
+const ButtonContainer = styled.div`
+  display: flex;
+  gap: 0.5rem;
 `;
 
 const ActionItem = styled.span`
@@ -496,11 +504,6 @@ const ActionItem = styled.span`
     cursor: not-allowed;
     color: #ccc;
   }
-`;
-
-const ButtonContainer = styled.div`
-  display: flex;
-  gap: 0.5rem;
 `;
 
 const TextButton = styled.button`
@@ -681,6 +684,19 @@ const CancelButton = styled(Button)`
 
   &:hover {
     background-color: #c82333;
+  }
+`;
+
+const ActionsAndButtonsContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
   }
 `;
 

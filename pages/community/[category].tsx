@@ -73,7 +73,6 @@ const CategoryPage: React.FC = () => {
     <Layout>
       <Container>
         <DesktopCategoryPanel>
-          <CategoryTitle>{getCategoryPath()}</CategoryTitle>
           <CategoryList onSelectCategory={handleCategorySelect} />
         </DesktopCategoryPanel>
         <MobileCategoryWrapper ref={wrapperRef}>
@@ -87,6 +86,7 @@ const CategoryPage: React.FC = () => {
         </MobileCategoryWrapper>
         <ContentSection>
           <CategoryHeader>
+            <CategoryTitle>{getCategoryPath()}</CategoryTitle>
             <CreatePostButton
               onClick={() =>
                 router.push(`/community/${selectedCategory}/create-post`)
@@ -126,14 +126,9 @@ const DesktopCategoryPanel = styled.div`
 `;
 
 const CategoryTitle = styled.div`
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  font-size: 0.8rem;
-  color: #666;
-  background-color: rgba(248, 249, 250, 0.8);
+  font-size: 1.2rem;
+  font-weight: bold;
   padding: 0.2rem 0.5rem;
-  border-radius: 4px;
 `;
 
 const MobileCategoryWrapper = styled.div`
@@ -197,7 +192,7 @@ const ContentSection = styled.div`
 
 const CategoryHeader = styled.div`
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
 `;
