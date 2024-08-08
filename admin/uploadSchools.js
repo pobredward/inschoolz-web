@@ -7,32 +7,32 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
+
 const API_KEY = "722e216b911a442c99db6e6e0731b0a4";
 const API_URL = "https://open.neis.go.kr/hub/schoolInfo";
 
-async function fetchSchoolsData() {
+async function fetchSchoolsData(page, pageSize) {
   try {
     const response = await axios.get(API_URL, {
       params: {
         KEY: API_KEY,
         Type: "json",
-        pIndex: 1,
-        pSize: 10, // 한 번에 가져올 학교 수, 필요에 따라 조정
+        pIndex: page,
+        pSize: pageSize,
       },
     });
     const schoolList = response.data.schoolInfo[1].row;
     return schoolList.map((school, index) => ({
-      SCHOOL_CODE: padNumber(index + 1, 5), // 5자리 숫자로 패딩
+      SCHOOL_CODE: padNumber((page - 1) * pageSize + index + 1, 5),
       KOR_NAME: school.SCHUL_NM,
       ENG_NAME: school.ENG_SCHUL_NM,
       REGION: school.LCTN_SC_NM,
       ADDRESS: school.ORG_RDNMA,
       HOMEPAGE: school.HMPG_ADRES,
-      ORIGINAL_CODE: school.SD_SCHUL_CODE, // 원래의 학교 코드도 보존
+      ORIGINAL_CODE: school.SD_SCHUL_CODE,
     }));
   } catch (error) {
-    console.error("Error fetching schools data:", error);
+    console.error(`Error fetching schools data (page ${page}):`, error);
     return [];
   }
 }
@@ -43,23 +43,10 @@ function padNumber(number, length) {
 
 async function uploadSchoolsToFirebase(schools) {
   const batch = db.batch();
-
-  // 인덱스 문서 생성 또는 업데이트
-  const indexRef = db.collection("schoolIndexes").doc("REGION_KOR_NAME");
-  batch.set(indexRef, {}, { merge: true });
-
   schools.forEach((school) => {
     const schoolRef = db.collection("schools").doc(school.SCHOOL_CODE);
     batch.set(schoolRef, school);
-
-    // 인덱스 업데이트
-    batch.update(indexRef, {
-      [`${school.REGION}_${school.KOR_NAME}`]: FieldValue.arrayUnion(
-        school.SCHOOL_CODE,
-      ),
-    });
   });
-
   try {
     await batch.commit();
     console.log(`${schools.length} schools uploaded to Firebase successfully`);
@@ -68,83 +55,45 @@ async function uploadSchoolsToFirebase(schools) {
   }
 }
 
-async function main() {
-  const schools = await fetchSchoolsData();
-  if (schools.length > 0) {
-    await uploadSchoolsToFirebase(schools);
-  } else {
-    console.log("No schools data to upload");
+async function createIndex() {
+  try {
+    const indexFields = [
+      { fieldPath: "REGION", mode: "ASCENDING" },
+      { fieldPath: "KOR_NAME", mode: "ASCENDING" },
+    ];
+
+    await db.collection("schools").createIndex(indexFields);
+    console.log("Index creation initiated successfully");
+  } catch (error) {
+    console.error("Error creating index:", error);
   }
 }
 
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function main() {
+  const batchSize = 200;
+  let page = 1;
+  let totalSchools = 0;
+
+  while (true) {
+    const schools = await fetchSchoolsData(page, batchSize);
+    if (schools.length === 0) break;
+
+    await uploadSchoolsToFirebase(schools);
+    totalSchools += schools.length;
+
+    console.log(`Processed ${totalSchools} schools so far`);
+
+    await delay(3000); // 3초 대기
+    page++;
+  }
+
+  console.log(`Total schools processed: ${totalSchools}`);
+  await createIndex();
+}
+
 main();
-
-// async function fetchSchoolsData() {
-//   try {
-//     const response = await axios.get(API_URL, {
-//       params: {
-//         KEY: API_KEY,
-//         Type: "json",
-//         pIndex: 1,
-//         pSize: 10, // 한 번에 가져올 학교 수, 필요에 따라 조정
-//       },
-//     });
-//     const schoolList = response.data.schoolInfo[1].row;
-//     return schoolList.map((school, index) => ({
-//       SCHOOL_CODE: padNumber(index + 1, 5), // 5자리 숫자로 패딩
-//       KOR_NAME: school.SCHUL_NM,
-//       ENG_NAME: school.ENG_SCHUL_NM,
-//       REGION: school.LCTN_SC_NM,
-//       ADDRESS: school.ORG_RDNMA,
-//       HOMEPAGE: school.HMPG_ADRES,
-//       ORIGINAL_CODE: school.SD_SCHUL_CODE, // 원래의 학교 코드도 보존
-//     }));
-//   } catch (error) {
-//     console.error("Error fetching schools data:", error);
-//     return [];
-//   }
-// }
-
-// function padNumber(number, length) {
-//   return String(number).padStart(length, "0");
-// }
-
-// async function uploadSchoolsToFirebase(schools) {
-//   const batch = db.batch();
-//   schools.forEach((school) => {
-//     const schoolRef = db.collection("schools").doc(school.SCHOOL_CODE);
-//     batch.set(schoolRef, school);
-//   });
-//   try {
-//     await batch.commit();
-//     console.log(`${schools.length} schools uploaded to Firebase successfully`);
-//   } catch (error) {
-//     console.error("Error uploading schools to Firebase:", error);
-//   }
-// }
-
-// async function createIndex() {
-//   try {
-//     const indexFields = [
-//       { fieldPath: "REGION", mode: "ASCENDING" },
-//       { fieldPath: "KOR_NAME", mode: "ASCENDING" },
-//     ];
-
-//     await db.collection("schools").createIndex(indexFields);
-//     console.log("Index creation initiated successfully");
-//   } catch (error) {
-//     console.error("Error creating index:", error);
-//   }
-// }
-
-// async function main() {
-//   const schools = await fetchSchoolsData();
-//   if (schools.length > 0) {
-//     await uploadSchoolsToFirebase(schools);
-//     await createIndex();
-//   } else {
-//     console.log("No schools data to upload");
-//   }
-// }
-
-// main();

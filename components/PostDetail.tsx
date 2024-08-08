@@ -10,11 +10,11 @@ import {
 import styled from "@emotion/styled";
 import Layout from "./Layout";
 import CategoryList from "./CategoryList";
+import CommentSection from "./CommentSection";
 import {
   collection,
   doc,
   getDoc,
-  addDoc,
   deleteDoc,
   query,
   where,
@@ -28,6 +28,7 @@ import { db } from "../lib/firebase";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../services/postService";
 import { Post } from "../types";
+import { formatDate, formatTime } from "../utils/dateUtils";
 
 const PostDetail: React.FC = () => {
   const router = useRouter();
@@ -38,12 +39,10 @@ const PostDetail: React.FC = () => {
   const user = useRecoilValue(userState);
   const selectedCategory = useRecoilValue(selectedCategoryState);
   const [liked, setLiked] = useState(false);
-  const [newComment, setNewComment] = useState("");
-  const [replyComment, setReplyComment] = useState("");
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedContent, setEditedContent] = useState("");
+  const [commentCount, setCommentCount] = useState(0);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -61,10 +60,11 @@ const PostDetail: React.FC = () => {
             updatedAt: postData.updatedAt
               ? new Date(postData.updatedAt.seconds * 1000)
               : new Date(),
-          } as Post; // 타입 단언 사용
+          } as Post;
           setPost(formattedPost);
           setEditedTitle(formattedPost.title);
           setEditedContent(formattedPost.content);
+          setCommentCount(formattedPost.comments || 0);
         } else {
           setPost(null);
         }
@@ -81,6 +81,7 @@ const PostDetail: React.FC = () => {
           ...doc.data(),
         }));
         setComments(commentsData);
+        setCommentCount(commentsData.length);
       }
     };
 
@@ -113,6 +114,14 @@ const PostDetail: React.FC = () => {
     }
   }, [id]);
 
+  const handleCommentUpdate = (newCommentCount: number) => {
+    setCommentCount(newCommentCount);
+    setPost((prevPost: Post) => ({
+      ...prevPost,
+      comments: newCommentCount,
+    }));
+  };
+
   if (loading) {
     return <LoadingMessage>로딩 중...</LoadingMessage>;
   }
@@ -120,61 +129,6 @@ const PostDetail: React.FC = () => {
   if (!post) {
     return <ErrorMessage>게시글을 찾을 수 없습니다.</ErrorMessage>;
   }
-
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newComment.trim()) return;
-
-    const commentData = {
-      postId: id,
-      author: user?.name || "익명",
-      content: newComment,
-      createdAt: new Date(),
-      parentId: null,
-    };
-
-    try {
-      await addDoc(collection(db, "comments"), commentData);
-      setComments((prevComments) => [...prevComments, commentData]);
-      setNewComment("");
-
-      const postRef = doc(db, "posts", id as string);
-      await updateDoc(postRef, {
-        comments: increment(1),
-      });
-    } catch (e) {
-      console.error("Error adding comment: ", e);
-    }
-  };
-
-  const handleReplySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!replyComment.trim() || !replyingTo) return;
-
-    const commentData = {
-      postId: id,
-      author: user?.name || "익명",
-      content: replyComment,
-      createdAt: new Date(),
-      parentId: replyingTo,
-    };
-
-    try {
-      await addDoc(collection(db, "comments"), commentData);
-      setComments((prevComments) => [...prevComments, commentData]);
-      setReplyComment("");
-      setReplyingTo(null);
-
-      const postRef = doc(db, "posts", id as string);
-      await updateDoc(postRef, {
-        comments: increment(1),
-      });
-    } catch (e) {
-      console.error("Error adding comment: ", e);
-    }
-  };
 
   const handleDelete = async () => {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
@@ -259,10 +213,6 @@ const PostDetail: React.FC = () => {
     }
   };
 
-  const handleReply = (commentId: string) => {
-    setReplyingTo(commentId);
-  };
-
   const formatDate = (date: any) => {
     let postDate;
     if (date instanceof Date) {
@@ -343,43 +293,12 @@ const PostDetail: React.FC = () => {
                 </>
               )}
             </PostContainer>
-            <CommentsSection>
-              <h3>댓글</h3>
-              {comments.map((comment) => (
-                <CommentItem key={comment.id}>
-                  <CommentAuthor>{comment.author}</CommentAuthor>
-                  <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
-                  <CommentContent>{comment.content}</CommentContent>
-                  <CommentActions>
-                    <CommentActionItem onClick={() => handleReply(comment.id)}>
-                      답글 달기
-                    </CommentActionItem>
-                  </CommentActions>
-                  {comment.parentId === comment.id && (
-                    <ReplyForm onSubmit={handleReplySubmit}>
-                      <ReplyTextarea
-                        value={replyComment}
-                        onChange={(e) => setReplyComment(e.target.value)}
-                        placeholder="답글을 입력하세요..."
-                        required
-                      />
-                      <ReplyButton type="submit">답글 작성</ReplyButton>
-                    </ReplyForm>
-                  )}
-                </CommentItem>
-              ))}
-              {user && (
-                <CommentForm onSubmit={handleCommentSubmit}>
-                  <CommentTextarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="댓글을 입력하세요..."
-                    required
-                  />
-                  <CommentButton type="submit">댓글 작성</CommentButton>
-                </CommentForm>
-              )}
-            </CommentsSection>
+            <CommentSection
+              postId={id as string}
+              comments={comments}
+              setComments={setComments}
+              onCommentUpdate={handleCommentUpdate}
+            />
           </ContentSection>
         </ContentWrapper>
       </Container>
@@ -545,103 +464,6 @@ const DeleteButton = styled.button`
 
   &:hover {
     background-color: #c82333;
-  }
-`;
-
-const CommentsSection = styled.div`
-  padding: 1rem;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-`;
-
-const CommentItem = styled.div`
-  border-top: 1px solid #ccc;
-  padding-top: 1rem;
-  margin-top: 1rem;
-`;
-
-const CommentAuthor = styled.div`
-  font-weight: bold;
-`;
-
-const CommentDate = styled.div`
-  font-size: 0.8rem;
-  color: #6c757d;
-  margin-bottom: 0.5rem;
-`;
-
-const CommentContent = styled.div`
-  margin-bottom: 0.5rem;
-`;
-
-const CommentActions = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: #6c757d;
-`;
-
-const CommentActionItem = styled.span`
-  cursor: pointer;
-`;
-
-const CommentForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
-`;
-
-const CommentTextarea = styled.textarea`
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-  resize: vertical;
-`;
-
-const CommentButton = styled.button`
-  padding: 0.75rem;
-  background-color: #0070f3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
-
-  &:hover {
-    background-color: #0056b3;
-  }
-`;
-
-const ReplyForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
-`;
-
-const ReplyTextarea = styled.textarea`
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-  resize: vertical;
-`;
-
-const ReplyButton = styled.button`
-  padding: 0.75rem;
-  background-color: #0070f3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
-
-  &:hover {
-    background-color: #0056b3;
   }
 `;
 

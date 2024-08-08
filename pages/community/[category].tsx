@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/router";
 import styled from "@emotion/styled";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import Link from 'next/link';
 
 const CategoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
@@ -52,7 +53,7 @@ const CategoryPage: React.FC = () => {
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
-    setIsCategoryOpen(false); // 카테고리 선택 시 토글 닫기
+    setIsCategoryOpen(false);
     router.push(`/community/${categoryId}`);
   };
 
@@ -68,6 +69,8 @@ const CategoryPage: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const isNationalCategory = selectedCategory.startsWith("national-");
 
   return (
     <Layout>
@@ -85,17 +88,32 @@ const CategoryPage: React.FC = () => {
           </CategoryDropdown>
         </MobileCategoryWrapper>
         <ContentSection>
-          <CategoryHeader>
-            <CategoryTitle>{getCategoryPath()}</CategoryTitle>
-            <CreatePostButton
-              onClick={() =>
-                router.push(`/community/${selectedCategory}/create-post`)
-              }
-            >
-              글 작성
-            </CreatePostButton>
-          </CategoryHeader>
-          <PostList selectedCategory={selectedCategory} />
+          {(user || isNationalCategory) ? (
+            <>
+              <CategoryHeader>
+                <CategoryTitle>{getCategoryPath()}</CategoryTitle>
+                {user && (
+                  <CreatePostButton
+                    onClick={() =>
+                      router.push(`/community/${selectedCategory}/create-post`)
+                    }
+                  >
+                    글 작성
+                  </CreatePostButton>
+                )}
+              </CategoryHeader>
+              <PostList 
+                selectedCategory={selectedCategory} 
+                isLoggedIn={!!user}
+                isNationalCategory={isNationalCategory}
+              />
+            </>
+          ) : (
+            <LoginPromptContainer>
+              <LoginPromptText>로그인이 필요합니다</LoginPromptText>
+              <LoginButton href="/login">로그인</LoginButton>
+            </LoginPromptContainer>
+          )}
         </ContentSection>
       </Container>
     </Layout>
@@ -207,6 +225,32 @@ const CreatePostButton = styled.button`
   font-size: 0.9rem;
   font-weight: bold;
   transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #0056b3;
+  }
+`;
+
+const LoginPromptContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+`;
+
+const LoginPromptText = styled.p`
+  font-size: 18px;
+  margin-bottom: 20px;
+`;
+
+const LoginButton = styled(Link)`
+  padding: 10px 20px;
+  background-color: #0070f3;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: bold;
 
   &:hover {
     background-color: #0056b3;

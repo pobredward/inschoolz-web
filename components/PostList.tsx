@@ -5,60 +5,52 @@ import { postsState, userState, categoriesState, Post } from "../store/atoms";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useRouter } from "next/router";
+import { formatDate, formatTime } from "../utils/dateUtils";
 
 interface PostListProps {
   selectedCategory: string;
+  isLoggedIn: boolean;
+  isNationalCategory: boolean;
 }
 
-const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
+const PostList: React.FC<PostListProps> = ({
+  selectedCategory,
+  isLoggedIn,
+  isNationalCategory,
+}) => {
   const [posts, setPosts] = useRecoilState(postsState);
-  const [user] = useRecoilState(userState);
   const [categories] = useRecoilState(categoriesState);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchPosts = async () => {
-      if (!user || !user.schoolId || !user.address1 || !user.address2) return;
+      if (isNationalCategory || isLoggedIn) {
+        try {
+          let q = query(
+            collection(db, "posts"),
+            where("categoryId", "==", selectedCategory),
+          );
 
-      try {
-        let q;
-        if (selectedCategory.startsWith("school-")) {
-          q = query(
-            collection(db, "posts"),
-            where("categoryId", "==", selectedCategory),
-            where("schoolId", "==", user.schoolId),
-          );
-        } else if (selectedCategory.startsWith("regional-")) {
-          q = query(
-            collection(db, "posts"),
-            where("categoryId", "==", selectedCategory),
-            where("address1", "==", user.address1),
-            where("address2", "==", user.address2),
-          );
-        } else {
-          q = query(
-            collection(db, "posts"),
-            where("categoryId", "==", selectedCategory),
-          );
+          const querySnapshot = await getDocs(q);
+          const postsData = querySnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as Post),
+          }));
+
+          setPosts(postsData);
+        } catch (error) {
+          console.error("Error fetching posts: ", error);
+        } finally {
+          setLoading(false);
         }
-
-        const querySnapshot = await getDocs(q);
-        const postsData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Post),
-        }));
-
-        setPosts(postsData);
-      } catch (error) {
-        console.error("Error fetching posts: ", error);
-      } finally {
+      } else {
         setLoading(false);
       }
     };
 
     fetchPosts();
-  }, [selectedCategory, user, setPosts]);
+  }, [selectedCategory, isLoggedIn, isNationalCategory, setPosts]);
 
   const getCategoryName = (categoryId: string) => {
     for (let cat of categories) {
@@ -73,17 +65,6 @@ const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
     return "";
   };
 
-  const filteredPosts = posts.filter((post) => {
-    if (selectedCategory.startsWith("school-")) {
-      return post.schoolId === user?.schoolId;
-    } else if (selectedCategory.startsWith("regional-")) {
-      return (
-        post.address1 === user?.address1 && post.address2 === user?.address2
-      );
-    }
-    return post.categoryId === selectedCategory;
-  });
-
   const handlePostClick = (postId: string) => {
     router.push(`/posts/${postId}`);
   };
@@ -93,11 +74,8 @@ const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
       post.createdAt instanceof Date
         ? post.createdAt
         : new Date(post.createdAt.seconds * 1000);
-    const date = new Intl.DateTimeFormat("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(postDate);
+    const date = formatDate(postDate);
+    const time = formatTime(postDate);
     const author = post.author;
     const schoolName = post.schoolName;
 
@@ -112,29 +90,29 @@ const PostList: React.FC<PostListProps> = ({ selectedCategory }) => {
     return content.length > 35 ? `${content.slice(0, 35)}...` : content;
   };
 
+  if (loading) {
+    return <LoadingMessage>로딩 중...</LoadingMessage>;
+  }
+
   return (
     <PostContainer>
-      {loading ? (
-        <LoadingMessage>로딩 중...</LoadingMessage>
-      ) : (
-        filteredPosts.map((post) => (
-          <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
-            <PostHeader>
-              <PostTitle>{post.title}</PostTitle>
-              <PostCategory>{getCategoryName(post.categoryId)}</PostCategory>
-            </PostHeader>
-            <PostContent>{renderPostContent(post.content)}</PostContent>
-            <PostFooter>
-              <PostDateAuthor>{formatPostMeta(post)}</PostDateAuthor>
-              <PostActions>
-                <ActionItem>👍 {post.likes || 0}</ActionItem>
-                <ActionItem>💬 {post.comments || 0}</ActionItem>
-                <ActionItem>👁️ {post.views || 0}</ActionItem>
-              </PostActions>
-            </PostFooter>
-          </PostItem>
-        ))
-      )}
+      {posts.map((post) => (
+        <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
+          <PostHeader>
+            <PostTitle>{post.title}</PostTitle>
+            <PostCategory>{getCategoryName(post.categoryId)}</PostCategory>
+          </PostHeader>
+          <PostContent>{renderPostContent(post.content)}</PostContent>
+          <PostFooter>
+            <PostDateAuthor>{formatPostMeta(post)}</PostDateAuthor>
+            <PostActions>
+              <ActionItem>👍 {post.likes || 0}</ActionItem>
+              <ActionItem>💬 {post.comments || 0}</ActionItem>
+              <ActionItem>👁️ {post.views || 0}</ActionItem>
+            </PostActions>
+          </PostFooter>
+        </PostItem>
+      ))}
     </PostContainer>
   );
 };
