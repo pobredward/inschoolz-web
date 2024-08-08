@@ -10,7 +10,7 @@ interface ExperienceSettings {
   flappyBirdThreshold: number;
   flappyBirdExperience: number;
   friendInvitation: number;
-  maxDailyGames: number; // 추가
+  maxDailyGames: number;
 }
 
 interface UserGameInfo {
@@ -85,6 +85,7 @@ export async function getExperienceSettings(): Promise<ExperienceSettings> {
     flappyBirdThreshold: 50,
     flappyBirdExperience: 20,
     friendInvitation: 15,
+    maxDailyGames: 10,
   };
 
   // 문서가 존재하지 않으면 새로 생성

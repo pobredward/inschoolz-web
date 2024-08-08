@@ -2,7 +2,8 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
-import { collection } from 'firebase/firestore';
+import { collection } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyABlOh9xUQXnAs2NMpkw76hiCvojtCDDBk",
@@ -18,6 +19,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const database = getDatabase(app);
 const db = getFirestore(app);
-export const experienceSettingsRef = collection(db, 'experienceSettings');
+const storage = getStorage(app);
+export const experienceSettingsRef = collection(db, "experienceSettings");
 
-export { app, auth, database, db };
+export { app, auth, database, db, storage };

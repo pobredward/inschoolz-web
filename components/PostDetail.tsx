@@ -24,7 +24,8 @@ import {
   arrayUnion,
   arrayRemove,
 } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { storage, db } from "../lib/firebase";
+import { ref, deleteObject } from "firebase/storage";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../services/postService";
 import { Post } from "../types";
@@ -43,6 +44,10 @@ const PostDetail: React.FC = () => {
   const [editedTitle, setEditedTitle] = useState("");
   const [editedContent, setEditedContent] = useState("");
   const [commentCount, setCommentCount] = useState(0);
+  const [selectedVoteOption, setSelectedVoteOption] = useState<number | null>(
+    null,
+  );
+  const [editedImages, setEditedImages] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -70,6 +75,13 @@ const PostDetail: React.FC = () => {
         }
         setLoading(false);
       }
+    };
+
+    const handleCommentUpdate = (newCommentCount: number) => {
+      setPost((prevPost: any) => ({
+        ...prevPost,
+        comments: newCommentCount,
+      }));
     };
 
     const fetchComments = async () => {
@@ -122,6 +134,70 @@ const PostDetail: React.FC = () => {
     }));
   };
 
+  const handleImageRemove = async (imageUrl: string) => {
+    if (isEditing) {
+      setEditedImages(editedImages.filter((url) => url !== imageUrl));
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!post) return;
+
+    try {
+      // 삭제된 이미지 처리
+      const deletedImages =
+        post.imageUrls?.filter((url) => !editedImages.includes(url)) || [];
+      await Promise.all(
+        deletedImages.map(async (url) => {
+          const imageRef = ref(storage, url);
+          await deleteObject(imageRef);
+        }),
+      );
+
+      await updatePost(post.id, {
+        title: editedTitle,
+        content: editedContent,
+        imageUrls: editedImages,
+        updatedAt: new Date(),
+      });
+      setPost({
+        ...post,
+        title: editedTitle,
+        content: editedContent,
+        imageUrls: editedImages,
+        updatedAt: new Date(),
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating post:", error);
+    }
+  };
+
+  const handleVote = async (optionIndex: number) => {
+    if (!user || selectedVoteOption !== null) return;
+
+    try {
+      const postRef = doc(db, "posts", id as string);
+      await updateDoc(postRef, {
+        [`voteResults.${optionIndex}`]: increment(1),
+        voterIds: arrayUnion(user.uid),
+      });
+
+      setSelectedVoteOption(optionIndex);
+      // Update local post state
+      setPost((prevPost: any) => ({
+        ...prevPost,
+        voteResults: {
+          ...prevPost.voteResults,
+          [optionIndex]: (prevPost.voteResults?.[optionIndex] || 0) + 1,
+        },
+        voterIds: [...(prevPost.voterIds || []), user.uid],
+      }));
+    } catch (error) {
+      console.error("Error voting:", error);
+    }
+  };
+
   if (loading) {
     return <LoadingMessage>로딩 중...</LoadingMessage>;
   }
@@ -145,27 +221,6 @@ const PostDetail: React.FC = () => {
     setIsEditing(!isEditing);
     setEditedTitle(post?.title || "");
     setEditedContent(post?.content || "");
-  };
-
-  const handleSaveEdit = async () => {
-    if (!post) return;
-
-    try {
-      await updatePost(post.id, {
-        title: editedTitle,
-        content: editedContent,
-        updatedAt: new Date(),
-      });
-      setPost({
-        ...post,
-        title: editedTitle,
-        content: editedContent,
-        updatedAt: new Date(),
-      });
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Error updating post:", error);
-    }
   };
 
   const handleCancelEdit = () => {
@@ -261,6 +316,14 @@ const PostDetail: React.FC = () => {
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
                   />
+                  {editedImages.map((imageUrl, index) => (
+                    <ImagePreviewContainer key={index}>
+                      <ImagePreview src={imageUrl} alt={`Image ${index + 1}`} />
+                      <RemoveButton onClick={() => handleImageRemove(imageUrl)}>
+                        X
+                      </RemoveButton>
+                    </ImagePreviewContainer>
+                  ))}
                   <ButtonContainer>
                     <SaveButton onClick={handleSaveEdit}>저장</SaveButton>
                     <CancelButton onClick={handleCancelEdit}>취소</CancelButton>
@@ -270,6 +333,48 @@ const PostDetail: React.FC = () => {
                 <>
                   <PostTitle>{post.title}</PostTitle>
                   <PostContent>{post.content}</PostContent>
+                  {post.imageUrls &&
+                    post.imageUrls.map((url, index) => (
+                      <PostImage
+                        key={index}
+                        src={url}
+                        alt={`Post image ${index + 1}`}
+                      />
+                    ))}
+                  {post.isVotePost && post.voteOptions && (
+                    <VoteSection>
+                      <h3>투표</h3>
+                      {post.voteOptions.map((option, index) => (
+                        <VoteOption
+                          key={index}
+                          onClick={() => handleVote(index)}
+                          disabled={
+                            selectedVoteOption !== null ||
+                            post.voterIds?.includes(user?.uid)
+                          }
+                        >
+                          {option.imageUrl && (
+                            <VoteOptionImage
+                              src={option.imageUrl}
+                              alt={`Vote option ${index + 1}`}
+                            />
+                          )}
+                          <VoteOptionText>{option.text}</VoteOptionText>
+                          {post.voteResults && (
+                            <VoteResult>
+                              {post.voteResults[index] || 0} 표 (
+                              {(
+                                ((post.voteResults[index] || 0) /
+                                  (post.voterIds?.length || 1)) *
+                                100
+                              ).toFixed(1)}
+                              %)
+                            </VoteResult>
+                          )}
+                        </VoteOption>
+                      ))}
+                    </VoteSection>
+                  )}
                   <ActionsAndButtonsContainer>
                     <PostActions>
                       <ActionItem onClick={handleLike}>
@@ -520,6 +625,77 @@ const ActionsAndButtonsContainer = styled.div`
     align-items: flex-start;
     gap: 1rem;
   }
+`;
+
+const PostImage = styled.img`
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border-radius: 4px;
+`;
+
+const VoteSection = styled.div`
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+`;
+
+const ImagePreviewContainer = styled.div`
+  position: relative;
+  display: inline-block;
+  margin-right: 10px;
+  margin-bottom: 10px;
+`;
+
+const ImagePreview = styled.img`
+  max-width: 100px;
+  max-height: 100px;
+  object-fit: cover;
+`;
+
+const RemoveButton = styled.button`
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: red;
+  color: white;
+  border: none;
+  cursor: pointer;
+`;
+
+const VoteOptionImage = styled.img`
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  margin-right: 10px;
+`;
+
+const VoteOptionText = styled.span`
+  flex-grow: 1;
+`;
+
+const VoteOption = styled.button<{ disabled: boolean }>`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  background-color: ${(props) => (props.disabled ? "#e9ecef" : "white")};
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  cursor: ${(props) => (props.disabled ? "default" : "pointer")};
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: ${(props) => (props.disabled ? "#e9ecef" : "#f1f3f5")};
+  }
+`;
+
+const VoteResult = styled.span`
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-left: 10px;
 `;
 
 export default PostDetail;

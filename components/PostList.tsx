@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import { useRecoilState } from "recoil";
 import { postsState, userState, categoriesState, Post } from "../store/atoms";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useRouter } from "next/router";
 import { formatDate, formatTime } from "../utils/dateUtils";
@@ -38,7 +38,12 @@ const PostList: React.FC<PostListProps> = ({
             ...(doc.data() as Post),
           }));
 
-          setPosts(postsData);
+          // 클라이언트 측에서 정렬
+          const sortedPosts = postsData.sort((a, b) => {
+            return b.createdAt.toMillis() - a.createdAt.toMillis();
+          });
+
+          setPosts(sortedPosts);
         } catch (error) {
           console.error("Error fetching posts: ", error);
         } finally {

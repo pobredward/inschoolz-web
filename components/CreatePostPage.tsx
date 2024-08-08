@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
 import { useRecoilState } from "recoil";
@@ -10,36 +10,122 @@ import {
   selectedCategoryState,
   categoriesState,
 } from "../store/atoms";
+import { storage } from "../lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { compressImage } from "../utils/imageUtils";
+import { FaUpload, FaTrash } from "react-icons/fa";
 
 const CreatePostPage: React.FC = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("");
   const [user] = useRecoilState<User | null>(userState);
-  // const [selectedCategory] = useRecoilState(selectedCategoryState);
   const [categories] = useRecoilState(categoriesState);
   const router = useRouter();
   const { category: categoryParam } = router.query;
+  const [images, setImages] = useState<File[]>([]);
+  const [isVotePost, setIsVotePost] = useState(false);
+  const [voteOptions, setVoteOptions] = useState<
+    Array<{ text: string; image: File | null }>
+  >([
+    { text: "", image: null },
+    { text: "", image: null },
+  ]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (categoryParam) {
       setCategory(categoryParam as string);
     }
     if (!user) {
-      // 사용자가 로그인하지 않은 경우 로그인 페이지로 리다이렉트
       router.push("/login");
     }
   }, [categoryParam, user, router]);
 
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newImages = Array.from(e.target.files);
+      if (images.length + newImages.length > 10) {
+        alert("최대 10개의 이미지만 첨부할 수 있습니다.");
+        return;
+      }
+      const compressedImages = await Promise.all(newImages.map(compressImage));
+      setImages([...images, ...compressedImages]);
+    }
+  };
+
+  const handleImageRemove = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
+
+  const handleVoteOptionChange = (index: number, value: string) => {
+    const newOptions = [...voteOptions];
+    newOptions[index].text = value;
+    setVoteOptions(newOptions);
+  };
+
+  const handleVoteImageChange = async (
+    index: number,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const compressedFile = await compressImage(file);
+      const newOptions = [...voteOptions];
+      newOptions[index].image = compressedFile;
+      setVoteOptions(newOptions);
+    }
+  };
+
+  const handleAddVoteOption = () => {
+    if (voteOptions.length < 8) {
+      setVoteOptions([...voteOptions, { text: "", image: null }]);
+    } else {
+      alert("최대 8개의 투표 옵션만 추가할 수 있습니다.");
+    }
+  };
+
+  const handleRemoveVoteOption = (index: number) => {
+    if (voteOptions.length > 2) {
+      setVoteOptions(voteOptions.filter((_, i) => i !== index));
+    } else {
+      alert("최소 2개의 투표 옵션이 필요합니다.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    console.log(user);
 
     if (!user) {
       alert("로그인이 필요합니다.");
       router.push("/login");
       return;
+    }
+
+    const uploadedImageUrls = await Promise.all(
+      images.map(async (image) => {
+        const storageRef = ref(storage, `images/${Date.now()}_${image.name}`);
+        await uploadBytes(storageRef, image);
+        return getDownloadURL(storageRef);
+      }),
+    );
+
+    let uploadedVoteOptions;
+    if (isVotePost) {
+      uploadedVoteOptions = await Promise.all(
+        voteOptions.map(async (option) => {
+          if (option.image) {
+            const storageRef = ref(
+              storage,
+              `vote_images/${Date.now()}_${option.image.name}`,
+            );
+            await uploadBytes(storageRef, option.image);
+            const imageUrl = await getDownloadURL(storageRef);
+            return { text: option.text, imageUrl };
+          }
+          return { text: option.text };
+        }),
+      );
     }
 
     const newPost = {
@@ -52,6 +138,13 @@ const CreatePostPage: React.FC = () => {
       address2: user.address2 || "",
       schoolId: user.schoolId || "",
       schoolName: user.schoolName || "",
+      imageUrls: uploadedImageUrls,
+      isVotePost,
+      voteOptions: isVotePost
+        ? uploadedVoteOptions.filter(
+            (option: { text: string }) => option.text.trim() !== "",
+          )
+        : null,
     };
 
     try {
@@ -102,6 +195,118 @@ const CreatePostPage: React.FC = () => {
               onChange={(e) => setContent(e.target.value)}
               required
             />
+            <Label htmlFor="image">이미지 업로드 (최대 10개)</Label>
+            <ImageUploadButton
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }}
+            >
+              <FaUpload /> 이미지 선택
+            </ImageUploadButton>
+            <HiddenInput
+              ref={fileInputRef}
+              type="file"
+              id="image"
+              accept="image/*"
+              multiple
+              onChange={handleImageChange}
+            />
+            <ImagePreviewContainer>
+              {images.map((image, index) => (
+                <ImagePreviewWrapper key={index}>
+                  <ImagePreview
+                    src={URL.createObjectURL(image)}
+                    alt={`Image preview ${index + 1}`}
+                  />
+                  <RemoveButton
+                    type="button"
+                    onClick={() => handleImageRemove(index)}
+                  >
+                    <FaTrash />
+                  </RemoveButton>
+                </ImagePreviewWrapper>
+              ))}
+            </ImagePreviewContainer>
+            <Label>
+              <input
+                type="checkbox"
+                checked={isVotePost}
+                onChange={(e) => setIsVotePost(e.target.checked)}
+              />
+              투표 게시글로 작성
+            </Label>
+            {isVotePost && (
+              <VoteOptionsContainer>
+                {voteOptions.map((option, index) => (
+                  <VoteOptionContainer key={index}>
+                    <Input
+                      type="text"
+                      value={option.text}
+                      onChange={(e) =>
+                        handleVoteOptionChange(index, e.target.value)
+                      }
+                      placeholder={`투표 옵션 ${index + 1}`}
+                    />
+                    <ImageUploadButton
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById(`vote-image-${index}`)?.click();
+                      }}
+                    >
+                      <FaUpload /> 이미지 선택
+                    </ImageUploadButton>
+                    <HiddenInput
+                      id={`vote-image-${index}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleVoteImageChange(index, e)}
+                    />
+                    {option.image && (
+                      <ImagePreviewWrapper>
+                        <ImagePreview
+                          src={URL.createObjectURL(option.image)}
+                          alt={`Vote option ${index + 1}`}
+                        />
+                        <RemoveButton
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleVoteImageChange(index, {
+                              target: { files: null },
+                            } as any);
+                          }}
+                        >
+                          <FaTrash />
+                        </RemoveButton>
+                      </ImagePreviewWrapper>
+                    )}
+                    <RemoveButton
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleRemoveVoteOption(index);
+                      }}
+                    >
+                      <FaTrash />
+                    </RemoveButton>
+                  </VoteOptionContainer>
+                ))}
+                {voteOptions.length < 8 && (
+                  <Button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleAddVoteOption();
+                    }}
+                  >
+                    투표 옵션 추가
+                  </Button>
+                )}
+              </VoteOptionsContainer>
+            )}
             <ButtonContainer>
               <SubmitButton type="submit">작성하기</SubmitButton>
               <BackButton type="button" onClick={() => router.back()}>
@@ -166,7 +371,7 @@ const ButtonContainer = styled.div`
   gap: 0.5rem;
 `;
 
-const SubmitButton = styled.button`
+const Button = styled.button`
   padding: 0.75rem 1.5rem;
   background-color: #0070f3;
   color: white;
@@ -181,25 +386,81 @@ const SubmitButton = styled.button`
   }
 `;
 
-const BackButton = styled.button`
-  padding: 0.75rem 1.5rem;
+const SubmitButton = styled(Button)``;
+
+const BackButton = styled(Button)`
   background-color: #ccc;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
 
   &:hover {
     background-color: #aaa;
   }
 `;
 
-const PostAuthor = styled.div`
-  font-size: 1rem;
-  font-weight: bold;
-  color: #495057;
+const ImageUploadButton = styled(Button)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  color: #333;
+
+  &:hover {
+    background-color: #e0e0e0;
+  }
+
+  svg {
+    margin-right: 0.5rem;
+  }
+`;
+
+const HiddenInput = styled.input`
+  display: none;
+`;
+
+const ImagePreviewContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 1rem;
+`;
+
+const ImagePreviewWrapper = styled.div`
+  position: relative;
+`;
+
+const ImagePreview = styled.img`
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+`;
+
+const RemoveButton = styled(Button)`
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 5px;
+  background-color: rgba(255, 255, 255, 0.7);
+  color: #ff4d4d;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  svg {
+    font-size: 0.8rem;
+  }
+`;
+
+const VoteOptionsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const VoteOptionContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
 `;
 
 export default CreatePostPage;

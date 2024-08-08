@@ -7,6 +7,8 @@ import AddressSelector from "../components/AddressSelector";
 import SchoolSearch from "../components/SchoolSearch";
 import { sendEmailVerification } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { handleFriendInvitation } from "../utils/experience";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 const SignupPage: React.FC = () => {
@@ -24,6 +26,7 @@ const SignupPage: React.FC = () => {
   const [birthDay, setBirthDay] = useState<number>(0);
   const [error, setError] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
+  const [inviterUserId, setInviterUserId] = useState("");
 
   const router = useRouter();
   const { signup } = useAuth();
@@ -83,6 +86,14 @@ const SignupPage: React.FC = () => {
     }
 
     try {
+      if (inviterUserId) {
+        const inviterDoc = await getDoc(doc(db, "users", inviterUserId));
+        if (!inviterDoc.exists()) {
+          setError("존재하지 않는 초대 코드입니다.");
+          return;
+        }
+      }
+
       const user = await signup.mutateAsync({
         email,
         password,
@@ -101,6 +112,9 @@ const SignupPage: React.FC = () => {
       if (user) {
         await sendEmailVerification(user);
         setVerificationSent(true);
+        if (inviterUserId) {
+          await handleFriendInvitation(inviterUserId, user.uid);
+        }
       } else {
         throw new Error("User object is undefined");
       }
@@ -224,6 +238,12 @@ const SignupPage: React.FC = () => {
             ))}
           </Select>
         </DateOfBirthContainer>
+        <Input
+          type="text"
+          placeholder="초대 코드 (선택사항)"
+          value={inviterUserId}
+          onChange={(e) => setInviterUserId(e.target.value)}
+        />
         <SignupButton type="submit" disabled={signup.isLoading}>
           {signup.isLoading ? "처리 중..." : "회원가입"}
         </SignupButton>

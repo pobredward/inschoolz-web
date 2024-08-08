@@ -9,6 +9,7 @@ import {
   updateDoc,
   doc,
 } from "firebase/firestore";
+import { handlePostCreation } from "../utils/experience";
 
 export async function fetchPostsByCategory(
   categoryId: string,
@@ -42,6 +43,11 @@ export async function fetchFilteredPosts(
   return posts;
 }
 
+export interface VoteOption {
+  text: string;
+  imageUrl?: string;
+}
+
 export interface CreatePostData {
   title: string;
   content: string;
@@ -52,6 +58,9 @@ export interface CreatePostData {
   address2?: string;
   schoolId?: string;
   schoolName?: string;
+  imageUrls?: string[];
+  isVotePost: boolean;
+  voteOptions?: VoteOption[] | null;
 }
 
 export async function createPost(postData: CreatePostData) {
@@ -69,8 +78,25 @@ export async function createPost(postData: CreatePostData) {
     comments: 0,
     views: 0,
     likedBy: [],
+    voteResults:
+      postData.isVotePost && postData.voteOptions
+        ? postData.voteOptions.reduce(
+            (acc, _, index) => {
+              acc[index] = 0;
+              return acc;
+            },
+            {} as { [key: number]: number },
+          )
+        : null,
+    voterIds: [],
   };
-  return addDoc(postsRef, newPost);
+
+  const docRef = await addDoc(postsRef, newPost);
+
+  // 게시글 작성 후 경험치 부여
+  await handlePostCreation(postData.authorId);
+
+  return docRef;
 }
 
 export async function updatePost(postId: string, updateData: Partial<Post>) {
