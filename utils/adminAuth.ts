@@ -1,6 +1,6 @@
 // utils/adminAuth.ts
 
-const ADMIN_PASSWORD = "7988"; // 실제 사용 시 안전한 비밀번호로 변경하세요
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
 
 export function checkAdminPassword(password: string): boolean {
   return password === ADMIN_PASSWORD;

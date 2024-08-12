@@ -104,9 +104,25 @@ export async function updateExperienceSettings(
 
 export async function updateUserExperience(userId: string, amount: number) {
   const userRef = doc(db, "users", userId);
+  const userDoc = await getDoc(userRef);
+  const userData = userDoc.data();
+
+  if (!userData) return;
+
+  let { experience, level, totalExperience } = userData;
+
+  experience += amount;
+  totalExperience += amount;
+
+  while (experience >= level * 10) {
+    experience -= level * 10;
+    level += 1;
+  }
+
   await updateDoc(userRef, {
-    experience: increment(amount),
-    totalExperience: increment(amount),
+    experience,
+    level,
+    totalExperience,
   });
 }
 

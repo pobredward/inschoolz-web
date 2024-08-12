@@ -1,26 +1,27 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
-import { useRecoilState } from "recoil";
+import { useRecoilValue } from "recoil";
 import { useRouter } from "next/router";
 import { createPost } from "../services/postService";
+import { uploadImage } from "../services/imageService";
 import {
   userState,
   User,
   selectedCategoryState,
   categoriesState,
 } from "../store/atoms";
-import { storage } from "../lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { setDoc, doc, collection } from "firebase/firestore";
 import { compressImage } from "../utils/imageUtils";
 import { FaUpload, FaTrash } from "react-icons/fa";
+import { db } from "../lib/firebase";
 
 const CreatePostPage: React.FC = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("");
-  const [user] = useRecoilState<User | null>(userState);
-  const [categories] = useRecoilState(categoriesState);
+  const user = useRecoilValue<User | null>(userState);
+  const categories = useRecoilValue(categoriesState);
   const router = useRouter();
   const { category: categoryParam } = router.query;
   const [images, setImages] = useState<File[]>([]);
@@ -77,6 +78,12 @@ const CreatePostPage: React.FC = () => {
     }
   };
 
+  const handleVoteImageRemove = (index: number) => {
+    const newOptions = [...voteOptions];
+    newOptions[index].image = null;
+    setVoteOptions(newOptions);
+  };
+
   const handleAddVoteOption = () => {
     if (voteOptions.length < 8) {
       setVoteOptions([...voteOptions, { text: "", image: null }]);
@@ -102,54 +109,50 @@ const CreatePostPage: React.FC = () => {
       return;
     }
 
-    const uploadedImageUrls = await Promise.all(
-      images.map(async (image) => {
-        const storageRef = ref(storage, `images/${Date.now()}_${image.name}`);
-        await uploadBytes(storageRef, image);
-        return getDownloadURL(storageRef);
-      }),
-    );
-
-    let uploadedVoteOptions;
-    if (isVotePost) {
-      uploadedVoteOptions = await Promise.all(
-        voteOptions.map(async (option) => {
-          if (option.image) {
-            const storageRef = ref(
-              storage,
-              `vote_images/${Date.now()}_${option.image.name}`,
-            );
-            await uploadBytes(storageRef, option.image);
-            const imageUrl = await getDownloadURL(storageRef);
-            return { text: option.text, imageUrl };
-          }
-          return { text: option.text };
-        }),
-      );
-    }
-
-    const newPost = {
-      title,
-      content,
-      author: user.userId,
-      authorId: user.uid,
-      categoryId: category,
-      address1: user.address1 || "",
-      address2: user.address2 || "",
-      schoolId: user.schoolId || "",
-      schoolName: user.schoolName || "",
-      imageUrls: uploadedImageUrls,
-      isVotePost,
-      voteOptions: isVotePost
-        ? uploadedVoteOptions.filter(
-            (option: { text: string }) => option.text.trim() !== "",
-          )
-        : null,
-    };
-
     try {
-      await createPost(newPost);
-      router.push(`/community/${category}`);
+      const uploadedImageUrls = await Promise.all(
+        images.map((image) => uploadImage(image, user.uid, "post")),
+      );
+
+      let uploadedVoteOptions;
+      if (isVotePost) {
+        uploadedVoteOptions = await Promise.all(
+          voteOptions.map(async (option) => {
+            if (option.image) {
+              const imageUrl = await uploadImage(
+                option.image,
+                user.uid,
+                "vote",
+              );
+              return { text: option.text, imageUrl };
+            }
+            return { text: option.text };
+          }),
+        );
+      }
+
+      const newPost = {
+        title,
+        content,
+        author: user.userId,
+        authorId: user.uid,
+        categoryId: category,
+        address1: user.address1 || "",
+        address2: user.address2 || "",
+        schoolId: user.schoolId || "",
+        schoolName: user.schoolName || "",
+        imageUrls: uploadedImageUrls,
+        isVotePost,
+        voteOptions: isVotePost
+          ? uploadedVoteOptions.filter(
+              (option: { text: string }) => option.text.trim() !== "",
+            )
+          : null,
+      };
+
+      const newPostId = await createPost(newPost);
+
+      router.push(`/posts/${newPostId}`);
     } catch (e) {
       console.error("Error adding document: ", e);
       alert("게시글 작성에 실패했습니다.");
@@ -241,23 +244,23 @@ const CreatePostPage: React.FC = () => {
               <VoteOptionsContainer>
                 {voteOptions.map((option, index) => (
                   <VoteOptionContainer key={index}>
-                    <Input
+                    <VoteInput
                       type="text"
                       value={option.text}
                       onChange={(e) =>
                         handleVoteOptionChange(index, e.target.value)
                       }
-                      placeholder={`투표 옵션 ${index + 1}`}
+                      placeholder={`옵션 ${index + 1}`}
                     />
-                    <ImageUploadButton
+                    <VoteImageUploadButton
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById(`vote-image-${index}`)?.click();
                       }}
                     >
-                      <FaUpload /> 이미지 선택
-                    </ImageUploadButton>
+                      <FaUpload />
+                    </VoteImageUploadButton>
                     <HiddenInput
                       id={`vote-image-${index}`}
                       type="file"
@@ -274,9 +277,7 @@ const CreatePostPage: React.FC = () => {
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();
-                            handleVoteImageChange(index, {
-                              target: { files: null },
-                            } as any);
+                            handleVoteImageRemove(index);
                           }}
                         >
                           <FaTrash />
@@ -308,9 +309,9 @@ const CreatePostPage: React.FC = () => {
               </VoteOptionsContainer>
             )}
             <ButtonContainer>
-              <SubmitButton type="submit">작성하기</SubmitButton>
+              <SubmitButton type="submit">게시</SubmitButton>
               <BackButton type="button" onClick={() => router.back()}>
-                목록으로 돌아가기
+                목록
               </BackButton>
             </ButtonContainer>
           </Form>
@@ -344,13 +345,6 @@ const Label = styled.label`
   margin-bottom: 0.5rem;
 `;
 
-const Input = styled.input`
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-`;
-
 const Select = styled.select`
   padding: 0.75rem;
   border: 1px solid #ccc;
@@ -372,7 +366,7 @@ const ButtonContainer = styled.div`
 `;
 
 const Button = styled.button`
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1rem;
   background-color: #0070f3;
   color: white;
   border: none;
@@ -396,22 +390,6 @@ const BackButton = styled(Button)`
   }
 `;
 
-const ImageUploadButton = styled(Button)`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f0f0f0;
-  color: #333;
-
-  &:hover {
-    background-color: #e0e0e0;
-  }
-
-  svg {
-    margin-right: 0.5rem;
-  }
-`;
-
 const HiddenInput = styled.input`
   display: none;
 `;
@@ -427,11 +405,101 @@ const ImagePreviewWrapper = styled.div`
   position: relative;
 `;
 
+const VoteOptionsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const VoteOptionContainer = styled.div`
+  display: flex;
+  /* align-items: center; */
+  gap: 10px;
+
+  /* @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+  } */
+`;
+
+const Input = styled.input`
+  padding: 0.5rem; // 기존 크기보다 작게 조정
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.875rem; // 폰트 크기 조정
+  flex: 1; // flex를 사용하여 공간을 활용
+
+  @media (max-width: 768px) {
+    width: 90%; // 모바일에서는 전체 너비를 사용
+  }
+`;
+
+const VoteInput = styled.input`
+  width: 300px;
+  height: 60px;
+  padding: 10px; // 기존 크기보다 작게 조정
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.875rem; // 폰트 크기 조정
+
+  @media (max-width: 768px) {
+    width: 160px;
+    height: 40px;
+  }
+`;
+
 const ImagePreview = styled.img`
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
   border-radius: 4px;
+
+  @media (max-width: 768px) {
+    width: 60px;
+    height: 60px;
+  }
+`;
+
+const ImageUploadButton = styled(Button)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  color: #333;
+  padding: 0.5rem;
+
+  &:hover {
+    background-color: #e0e0e0;
+  }
+
+  svg {
+    margin-right: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    width: auto;
+    padding: 0.4rem;
+  }
+`;
+
+const VoteImageUploadButton = styled(Button)`
+  width: 60px;
+  background-color: #f0f0f0;
+  color: #333;
+  padding: 0.5rem;
+
+  &:hover {
+    background-color: #e0e0e0;
+  }
+
+  svg {
+    margin-right: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    width: auto;
+    padding: 0.4rem;
+  }
 `;
 
 const RemoveButton = styled(Button)`
@@ -449,18 +517,10 @@ const RemoveButton = styled(Button)`
   svg {
     font-size: 0.8rem;
   }
-`;
 
-const VoteOptionsContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const VoteOptionContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  @media (max-width: 768px) {
+    padding: 4px;
+  }
 `;
 
 export default CreatePostPage;

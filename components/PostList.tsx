@@ -6,6 +6,7 @@ import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useRouter } from "next/router";
 import { formatDate, formatTime } from "../utils/dateUtils";
+import { FaThumbsUp, FaComment, FaEye, FaBookmark } from "react-icons/fa";
 
 interface PostListProps {
   selectedCategory: string;
@@ -22,6 +23,22 @@ const PostList: React.FC<PostListProps> = ({
   const [categories] = useRecoilState(categoriesState);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [sliceLength, setSliceLength] = useState(50);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth <= 768) {
+        setSliceLength(30);
+      } else {
+        setSliceLength(50);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize(); // 초기 화면 크기에 맞게 설정
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -92,7 +109,9 @@ const PostList: React.FC<PostListProps> = ({
   };
 
   const renderPostContent = (content: string) => {
-    return content.length > 35 ? `${content.slice(0, 35)}...` : content;
+    return content.length > sliceLength
+      ? `${content.slice(0, sliceLength)}...`
+      : content;
   };
 
   if (loading) {
@@ -105,15 +124,28 @@ const PostList: React.FC<PostListProps> = ({
         <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
           <PostHeader>
             <PostTitle>{post.title}</PostTitle>
-            <PostCategory>{getCategoryName(post.categoryId)}</PostCategory>
+            {/* <PostCategory>{getCategoryName(post.categoryId)}</PostCategory> */}
           </PostHeader>
           <PostContent>{renderPostContent(post.content)}</PostContent>
           <PostFooter>
             <PostDateAuthor>{formatPostMeta(post)}</PostDateAuthor>
             <PostActions>
+              {/* <ActionItem>
+                <FaThumbsUp /> {post.likes || 0}
+              </ActionItem>
+              <ActionItem>
+                <FaComment /> {post.comments || 0}
+              </ActionItem>
+              <ActionItem>
+                <FaEye /> {post.views || 0}
+              </ActionItem>
+              <ActionItem>
+                <FaBookmark /> {post.scraps || 0}
+              </ActionItem> */}
               <ActionItem>👍 {post.likes || 0}</ActionItem>
               <ActionItem>💬 {post.comments || 0}</ActionItem>
               <ActionItem>👁️ {post.views || 0}</ActionItem>
+              <ActionItem>🔖 {post.scraps || 0}</ActionItem>
             </PostActions>
           </PostFooter>
         </PostItem>
@@ -143,11 +175,15 @@ const PostItem = styled.div`
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.2rem;
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
 
   &:hover {
     background-color: #f9f9f9;
+  }
+
+  @media (max-width: 769px) {
+    padding: 1rem 0.3rem;
   }
 `;
 
@@ -160,17 +196,30 @@ const PostHeader = styled.div`
 const PostCategory = styled.span`
   font-size: 0.8rem;
   color: #6c757d;
+
+  @media (max-width: 769px) {
+    font-size: 0.6rem;
+  }
 `;
 
 const PostTitle = styled.h4`
   margin: 0;
   flex-grow: 1;
+
+  @media (max-width: 769px) {
+    font-size: 0.8rem;
+  }
 `;
 
 const PostContent = styled.p`
-  margin: 0.2rem 0 0;
-  color: #495057;
+  margin: 0rem;
+  color: #8e9091;
   line-height: 1.2;
+  font-size: 0.9rem;
+
+  @media (max-width: 769px) {
+    font-size: 0.7rem;
+  }
 `;
 
 const PostFooter = styled.div`
@@ -183,13 +232,22 @@ const PostFooter = styled.div`
 const PostDateAuthor = styled.span`
   font-size: 0.8rem;
   color: #6c757d;
+
+  @media (max-width: 769px) {
+    font-size: 0.6rem;
+  }
 `;
 
 const PostActions = styled.div`
   display: flex;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: #6c757d;
+
+  @media (max-width: 769px) {
+    gap: 0.4rem;
+    font-size: 0.5rem;
+  }
 `;
 
 const ActionItem = styled.span`

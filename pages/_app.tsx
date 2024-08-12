@@ -1,49 +1,28 @@
-import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import { RecoilRoot } from "recoil";
 import { QueryClient, QueryClientProvider } from "react-query";
-import { useEffect } from "react";
-import { auth } from "../lib/firebase";
-import { useSetRecoilState } from "recoil";
-import { userState } from "../store/atoms";
 import { Hydrate } from "react-query/hydration";
+import { Global, ThemeProvider } from "@emotion/react";
+import { globalStyles, theme } from "../styles/globalStyles";
+import { useAuthStateManager } from "../hooks/useAuthStateManager";
 
 const queryClient = new QueryClient();
 
 function MyApp({ Component, pageProps }: AppProps) {
+  useAuthStateManager();
+
   return (
     <QueryClientProvider client={queryClient}>
       <RecoilRoot>
-        <AuthStateManager>
+        <ThemeProvider theme={theme}>
+          <Global styles={globalStyles} />
           <Hydrate state={pageProps.dehydratedState}>
             <Component {...pageProps} />
           </Hydrate>
-        </AuthStateManager>
+        </ThemeProvider>
       </RecoilRoot>
     </QueryClientProvider>
   );
-}
-
-function AuthStateManager({ children }: { children: React.ReactNode }) {
-  const setUser = useSetRecoilState(userState);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setUser({
-          uid: user.uid,
-          email: user.email,
-          name: user.displayName,
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [setUser]);
-
-  return <>{children}</>;
 }
 
 export default MyApp;

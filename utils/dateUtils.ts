@@ -1,6 +1,10 @@
 import { Timestamp } from "firebase/firestore";
 
-export function formatDate(date: Date | Timestamp): string {
+export function formatDate(date: Date | Timestamp | undefined): string {
+  if (!date) {
+    return "관리자에 의해 삭제된 게시글입니다.";
+  }
+
   const dateObject = date instanceof Timestamp ? date.toDate() : date;
   const now = new Date();
   const diff = now.getTime() - dateObject.getTime();

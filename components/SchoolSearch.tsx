@@ -6,6 +6,7 @@ import { FaSearch } from "react-icons/fa";
 import { debounce } from "lodash";
 import { useRecoilState } from "recoil";
 import { searchResultsState, selectedSchoolState } from "../store/atoms";
+import { School } from "../types";
 
 interface SchoolSearchProps {
   address1: string;
@@ -13,11 +14,7 @@ interface SchoolSearchProps {
   setSchool: (school: any) => void;
 }
 
-const SchoolSearch: React.FC<SchoolSearchProps> = ({
-  address1,
-  address2,
-  setSchool,
-}) => {
+const SchoolSearch: React.FC<SchoolSearchProps> = ({ setSchool }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useRecoilState(searchResultsState);
@@ -44,9 +41,11 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
       );
 
       const querySnapshot = await getDocs(q);
-      const results = querySnapshot.docs.map((doc) => ({
+      const results: School[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
+        KOR_NAME: doc.data().KOR_NAME,
+        ADDRESS: doc.data().ADDRESS,
+        SCHOOL_CODE: doc.data().SCHOOL_CODE,
       }));
 
       setSearchResults(results);
@@ -79,11 +78,14 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
   };
 
   const handleSchoolSelect = (school: any) => {
-    setSelectedSchool(school);
-    setSchool(school);
-    setIsOpen(false);
-  };
+    setSelectedSchool(school); // Recoil 상태 업데이트
+    setSchool(school); // 부모 컴포넌트로 학교 정보 전달
 
+    // isOpen을 닫는 작업을 안전하게 비동기 처리 후 진행
+    setTimeout(() => {
+      setIsOpen(false);
+    }, 500); // 상태가 안정화될 때까지 잠시 대기
+  };
   return (
     <Container>
       {selectedSchool ? (
@@ -226,6 +228,10 @@ const PopupContent = styled.div`
   max-height: 80vh;
   overflow-y: auto;
   position: relative;
+
+  @media (max-width: 768px) {
+    width: 80%;
+  }
 `;
 
 const CloseButton = styled.button`
@@ -254,7 +260,7 @@ const SearchInput = styled.input`
 
 const SearchActionButton = styled.button`
   padding: 10px 15px;
-  background-color: #0056b3;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   border-radius: 0 4px 4px 0;
@@ -262,7 +268,7 @@ const SearchActionButton = styled.button`
   transition: background-color 0.2s;
 
   &:hover {
-    background-color: #004085;
+    background-color: var(--hover-color);
   }
 `;
 

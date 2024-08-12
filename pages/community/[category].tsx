@@ -10,8 +10,8 @@ import {
 } from "../../store/atoms";
 import { useRouter } from "next/router";
 import styled from "@emotion/styled";
-import { FaChevronDown, FaChevronUp } from "react-icons/fa";
-import Link from 'next/link';
+import { FaChevronDown, FaChevronUp, FaPen } from "react-icons/fa";
+import Link from "next/link";
 
 const CategoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
@@ -30,7 +30,7 @@ const CategoryPage: React.FC = () => {
     }
   }, [category, setSelectedCategory]);
 
-  const getCategoryPath = () => {
+  const getDesktopCategoryPath = () => {
     let categoryPath = "전국";
     categories.forEach((cat) => {
       cat.subcategories?.forEach((subcat) => {
@@ -40,6 +40,26 @@ const CategoryPage: React.FC = () => {
             categoryPath = `${user?.address1} ${user?.address2} > ${subcat.name}`;
           } else if (cat.id === "school") {
             categoryPath = `${user?.schoolName} > ${subcat.name}`;
+          }
+        }
+      });
+    });
+    return categoryPath;
+  };
+
+  const getMobileCategoryPath = () => {
+    let categoryPath = "전국";
+    categories.forEach((cat) => {
+      cat.subcategories?.forEach((subcat) => {
+        if (subcat.id === category) {
+          if (cat.id === "regional") {
+            // 지역 카테고리의 경우
+            categoryPath = `지역 > ${subcat.name}`;
+          } else if (cat.id === "school") {
+            // 학교 카테고리의 경우
+            categoryPath = `학교 > ${subcat.name}`;
+          } else {
+            categoryPath = `${cat.name} > ${subcat.name}`;
           }
         }
       });
@@ -80,18 +100,25 @@ const CategoryPage: React.FC = () => {
         </DesktopCategoryPanel>
         <MobileCategoryWrapper ref={wrapperRef}>
           <CategoryToggle onClick={toggleCategory} isOpen={isCategoryOpen}>
-            <span>{getCategoryPath()}</span>
+            <span>{getMobileCategoryPath()}</span>
             {isCategoryOpen ? <FaChevronUp /> : <FaChevronDown />}
           </CategoryToggle>
           <CategoryDropdown isOpen={isCategoryOpen}>
             <CategoryList onSelectCategory={handleCategorySelect} />
           </CategoryDropdown>
+          <CreatePostButton
+            onClick={() =>
+              router.push(`/community/${selectedCategory}/create-post`)
+            }
+          >
+            <FaPen />
+          </CreatePostButton>
         </MobileCategoryWrapper>
         <ContentSection>
-          {(user || isNationalCategory) ? (
+          {user || isNationalCategory ? (
             <>
               <CategoryHeader>
-                <CategoryTitle>{getCategoryPath()}</CategoryTitle>
+                <CategoryTitle>{getDesktopCategoryPath()}</CategoryTitle>
                 {user && (
                   <CreatePostButton
                     onClick={() =>
@@ -102,8 +129,8 @@ const CategoryPage: React.FC = () => {
                   </CreatePostButton>
                 )}
               </CategoryHeader>
-              <PostList 
-                selectedCategory={selectedCategory} 
+              <PostList
+                selectedCategory={selectedCategory}
                 isLoggedIn={!!user}
                 isNationalCategory={isNationalCategory}
               />
@@ -119,7 +146,6 @@ const CategoryPage: React.FC = () => {
     </Layout>
   );
 };
-
 const Container = styled.div`
   display: flex;
   max-width: 100%;
@@ -150,9 +176,12 @@ const CategoryTitle = styled.div`
 `;
 
 const MobileCategoryWrapper = styled.div`
+  display: flex;
+  justify-content: space-between;
   position: relative;
   z-index: 10;
   margin-bottom: 1rem;
+  gap: 8px;
 
   @media (min-width: 769px) {
     display: none;
@@ -161,9 +190,10 @@ const MobileCategoryWrapper = styled.div`
 
 const CategoryToggle = styled.button<{ isOpen: boolean }>`
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  width: 240px;
   padding: 0.75rem 1rem;
   background-color: white;
   border: 1px solid #e0e0e0;
@@ -172,12 +202,25 @@ const CategoryToggle = styled.button<{ isOpen: boolean }>`
   cursor: pointer;
   transition: all 0.3s ease;
 
+  .text-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  span.arrow,
+  span.subcat {
+    display: block;
+    margin-top: 4px;
+  }
+
   &:hover {
     background-color: #f8f8f8;
   }
 
   svg {
-    margin-left: 0.5rem;
+    margin-left: 8px;
     transition: transform 0.3s ease;
     transform: ${({ isOpen }) => (isOpen ? "rotate(180deg)" : "rotate(0)")};
   }
@@ -188,6 +231,7 @@ const CategoryDropdown = styled.div<{ isOpen: boolean }>`
   top: 100%;
   left: 0;
   right: 0;
+  width: 235px;
   background: white;
   border: 1px solid #e0e0e0;
   border-top: none;
@@ -213,6 +257,10 @@ const CategoryHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const CreatePostButton = styled.button`
@@ -228,6 +276,25 @@ const CreatePostButton = styled.button`
 
   &:hover {
     background-color: #0056b3;
+  }
+
+  @media (max-width: 768px) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 50px;
+    height: 50px;
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    border-radius: 8px; /* 원형 버튼 */
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+
+    &:hover {
+      background-color: #0056b3;
+    }
   }
 `;
 
@@ -246,14 +313,14 @@ const LoginPromptText = styled.p`
 
 const LoginButton = styled(Link)`
   padding: 10px 20px;
-  background-color: #0070f3;
+  background-color: var(--primary-color);
   color: white;
   text-decoration: none;
   border-radius: 5px;
   font-weight: bold;
 
   &:hover {
-    background-color: #0056b3;
+    background-color: var(--hover-color);
   }
 `;
 

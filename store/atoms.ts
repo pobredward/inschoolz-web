@@ -38,8 +38,10 @@ export interface Post {
   schoolId?: string;
   schoolName?: string;
   likes?: number;
+  scraps?: number;
   title: string;
   views?: number;
+  imageUrls?: string[];
 }
 
 export const postsState = atom<Post[]>({
@@ -61,25 +63,25 @@ export const categoriesState = atom<Category[]>({
       name: "전국",
       subcategories: [
         { id: "national-free", name: "자유 게시판" },
-        { id: "national-popular", name: "학교별 인기글" },
+        { id: "national-study", name: "공부/진로" },
+        { id: "national-popular", name: "HOT 게시글" },
       ],
     },
     {
       id: "regional",
       name: "지역",
       subcategories: [
-        { id: "regional-share", name: "나눔" },
-        { id: "regional-common", name: "공유" },
+        { id: "regional-free", name: "자유 게시판" },
+        { id: "regional-share", name: "나눔 게시판" },
+        { id: "regional-academy", name: "학원 공유" },
       ],
     },
     {
       id: "school",
       name: "학교",
       subcategories: [
-        { id: "school-notice", name: "공지사항" },
         { id: "school-free", name: "자유 게시판" },
-        { id: "school-club", name: "교내 동아리 활동" },
-        { id: "school-counseling", name: "심리 상담 & 익명 고민 상담" },
+        { id: "school-graduate", name: "졸업생 게시판" },
       ],
     },
   ],

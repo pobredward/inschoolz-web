@@ -29,7 +29,13 @@ import { ref, deleteObject } from "firebase/storage";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../services/postService";
 import { Post } from "../types";
-import { formatDate, formatTime } from "../utils/dateUtils";
+import { FaBookmark } from "react-icons/fa";
+import {
+  scrapPost,
+  unscrapPost,
+  isPostScrapped,
+} from "../services/postService";
+import { deletePost } from "../services/postService";
 
 const PostDetail: React.FC = () => {
   const router = useRouter();
@@ -48,6 +54,7 @@ const PostDetail: React.FC = () => {
     null,
   );
   const [editedImages, setEditedImages] = useState<string[]>([]);
+  const [isScrapped, setIsScrapped] = useState(false);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -110,6 +117,7 @@ const PostDetail: React.FC = () => {
     fetchPost();
     fetchComments();
     checkIfLiked();
+    checkIfScrapped();
   }, [id, setComments, user]);
 
   useEffect(() => {
@@ -173,6 +181,36 @@ const PostDetail: React.FC = () => {
     }
   };
 
+  const checkIfScrapped = async () => {
+    if (user && post) {
+      const scrapped = await isPostScrapped(user.uid, post.id);
+      setIsScrapped(scrapped);
+    }
+  };
+
+  const handleScrap = async () => {
+    if (!user || !post) return;
+
+    try {
+      if (isScrapped) {
+        await unscrapPost(user.uid, post.id);
+        setIsScrapped(false);
+      } else {
+        await scrapPost(user.uid, post.id);
+        setIsScrapped(true);
+      }
+      // Update post state with new scrap count
+      setPost((prevPost) => ({
+        ...prevPost,
+        scraps: isScrapped
+          ? (prevPost.scraps || 1) - 1
+          : (prevPost.scraps || 0) + 1,
+      }));
+    } catch (error) {
+      console.error("Error updating scrap:", error);
+    }
+  };
+
   const handleVote = async (optionIndex: number) => {
     if (!user || selectedVoteOption !== null) return;
 
@@ -203,17 +241,23 @@ const PostDetail: React.FC = () => {
   }
 
   if (!post) {
-    return <ErrorMessage>게시글을 찾을 수 없습니다.</ErrorMessage>;
+    return (
+      <Layout>
+        <ErrorMessage>게시글을 찾을 수 없습니다.</ErrorMessage>
+      </Layout>
+    );
   }
 
   const handleDelete = async () => {
     if (!window.confirm("정말 삭제하시겠습니까?")) return;
 
     try {
-      await deleteDoc(doc(db, "posts", id as string));
+      if (!user || !post) return;
+      await deletePost(post.id, user.uid);
       router.push(`/community/${selectedCategory}`);
     } catch (e) {
       console.error("Error deleting post: ", e);
+      alert("게시글 삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -378,10 +422,16 @@ const PostDetail: React.FC = () => {
                   <ActionsAndButtonsContainer>
                     <PostActions>
                       <ActionItem onClick={handleLike}>
-                        {liked ? "❤️ 좋아요" : "🤍 좋아요"} {post.likes}
+                        {liked ? "❤️ " : "🤍 "} {post.likes}
                       </ActionItem>
-                      <ActionItem>💬 댓글 {post.comments}</ActionItem>
-                      <ActionItem>👁️ 조회수 {post.views}</ActionItem>
+                      <ActionItem>💬 {post.comments}</ActionItem>
+                      <ActionItem>👁️ {post.views}</ActionItem>
+                      <ActionItem
+                        onClick={handleScrap}
+                        style={{ color: isScrapped ? "green" : "inherit" }}
+                      >
+                        🔖 {post.scraps || 0}
+                      </ActionItem>
                     </PostActions>
                     <ButtonContainer>
                       <TextButton onClick={handleBackToList}>목록</TextButton>
@@ -443,6 +493,10 @@ const ContentSection = styled.div`
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
+
+  @media (max-width: 768px) {
+    padding: 0rem;
+  }
 `;
 
 const LoadingMessage = styled.div`
@@ -467,9 +521,9 @@ const PostContainer = styled.div`
   background-color: #fff;
   max-width: 100%;
   box-sizing: border-box;
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
 
-  @media (max-width: 769px) {
+  @media (max-width: 768px) {
     padding: 0rem;
   }
 `;
@@ -515,6 +569,12 @@ const PostActions = styled.div`
   display: flex;
   gap: 1rem;
   font-size: 1rem;
+
+  @media (max-width: 768px) {
+    display: flex;
+    gap: 0.8rem;
+    font-size: 0.8rem;
+  }
 `;
 
 const ButtonContainer = styled.div`
@@ -531,7 +591,7 @@ const ActionItem = styled.span`
 `;
 
 const TextButton = styled.button`
-  padding: 0.5rem;
+  padding: 0.2rem;
   background: none;
   color: #0070f3;
   border: none;
@@ -542,33 +602,45 @@ const TextButton = styled.button`
   &:hover {
     text-decoration: underline;
   }
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+  }
 `;
 
 const EditButton = styled.button`
-  padding: 0.5rem;
-  background-color: #28a745;
-  color: white;
+  padding: 0.2rem;
+  background: none;
+  color: var(--text-color);
   border: none;
-  border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
+  font-weight: bold;
 
   &:hover {
-    background-color: #218838;
+    text-decoration: underline;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
   }
 `;
 
 const DeleteButton = styled.button`
-  padding: 0.5rem;
-  background-color: #dc3545;
-  color: white;
+  padding: 0.2rem;
+  background: none;
+  color: #ff0000;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
+  font-weight: bold;
 
   &:hover {
-    background-color: #c82333;
+    text-decoration: underline;
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
   }
 `;
 
@@ -620,10 +692,10 @@ const ActionsAndButtonsContainer = styled.div`
   align-items: center;
   margin-top: 1rem;
 
-  @media (max-width: 768px) {
+  /* @media (max-width: 768px) {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 1rem; */
   }
 `;
 

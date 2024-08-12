@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import styled from "@emotion/styled";
-import { FaUserCircle, FaHeart, FaEdit, FaTrash } from "react-icons/fa";
+import { FaUserCircle, FaHeart, FaPaperPlane } from "react-icons/fa";
 import { useRecoilValue } from "recoil";
 import { userState } from "../store/atoms";
 import {
@@ -13,8 +13,9 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { formatDate, formatTime } from "../utils/dateUtils";
+import { formatDate } from "../utils/dateUtils";
 import { createComment } from "../services/commentService";
+import { deleteComment } from "../services/commentService";
 
 interface Comment {
   id: string;
@@ -46,6 +47,28 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [replyContent, setReplyContent] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "0px"; // 초기 높이로 리셋
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${scrollHeight}px`;
+    }
+
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setReplyingTo(null);
+        setEditingCommentId(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscKey);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscKey);
+    };
+  }, [newComment]);
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +95,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     } catch (e) {
       console.error("Error adding comment: ", e);
     }
+  };
+
+  const toggleReply = (commentId: string) => {
+    setReplyingTo((prevState) => (prevState === commentId ? null : commentId));
+    setReplyContent("");
   };
 
   const handleReplySubmit = async (parentId: string) => {
@@ -176,19 +204,16 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const handleDelete = async (commentId: string) => {
     if (!window.confirm("정말로 이 댓글을 삭제하시겠습니까?")) return;
 
-    const commentRef = doc(db, "comments", commentId);
     try {
-      await deleteDoc(commentRef);
+      if (!user) return;
+      await deleteComment(commentId, postId, user.uid);
+
       const newComments = comments.filter((c) => c.id !== commentId);
       setComments(newComments);
       onCommentUpdate(newComments.length);
-
-      const postRef = doc(db, "posts", postId);
-      await updateDoc(postRef, {
-        comments: newComments.length,
-      });
     } catch (e) {
       console.error("Error deleting comment: ", e);
+      alert("댓글 삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -219,7 +244,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           <ProfileIcon />
           <CommentAuthor>{comment.author}</CommentAuthor>
           <CommentDate>
-            {formatDate(comment.createdAt)} {formatTime(comment.createdAt)}
+            {formatDate(comment.createdAt)}
+            {/* {formatTime(comment.createdAt)} */}
           </CommentDate>
         </CommentHeader>
         {editingCommentId === comment.id ? (
@@ -233,7 +259,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
             />
-            <EditButton type="submit">저장</EditButton>
+            <SaveButton type="submit">저장</SaveButton>
             <CancelButton onClick={() => setEditingCommentId(null)}>
               취소
             </CancelButton>
@@ -251,7 +277,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <LikeCount>{comment.likes}</LikeCount>
           </LikeButton>
           {depth === 0 && (
-            <ReplyButton onClick={() => setReplyingTo(comment.id)}>
+            <ReplyButton onClick={() => toggleReply(comment.id)}>
               답글
             </ReplyButton>
           )}
@@ -263,7 +289,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 수정
               </EditButton>
               <DeleteButton onClick={() => handleDelete(comment.id)}>
-                <FaTrash />
+                삭제
               </DeleteButton>
             </>
           )}
@@ -280,7 +306,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               onChange={(e) => setReplyContent(e.target.value)}
               placeholder="답글을 입력하세요..."
             />
-            <ReplySubmitButton type="submit">답글 작성</ReplySubmitButton>
+            <ReplySubmitButton type="submit">작성</ReplySubmitButton>
           </ReplyForm>
         )}
         {renderComments(comment.id, depth + 1)}
@@ -292,23 +318,24 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     <CommentSectionContainer>
       {user && (
         <CommentForm onSubmit={handleCommentSubmit}>
-          <CommentTextarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="댓글을 입력하세요..."
-            required
-          />
-          <CommentButton type="submit">댓글 작성</CommentButton>
+          <CommentInputWrapper>
+            <CommentTextarea
+              ref={textareaRef}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="댓글을 입력하세요..."
+              required
+            />
+            <SubmitButton type="button" onClick={handleCommentSubmit}>
+              <FaPaperPlane />
+            </SubmitButton>
+          </CommentInputWrapper>
         </CommentForm>
       )}
       {renderComments()}
     </CommentSectionContainer>
   );
 };
-
-const CommentSectionContainer = styled.div`
-  margin-top: 1rem;
-`;
 
 const CommentForm = styled.form`
   display: flex;
@@ -317,30 +344,55 @@ const CommentForm = styled.form`
   margin-bottom: 1rem;
 `;
 
-const CommentTextarea = styled.textarea`
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  resize: vertical;
-  min-height: 80px;
+const CommentInputWrapper = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
 `;
 
-const CommentButton = styled.button`
-  align-self: flex-end;
-  padding: 0.5rem 1rem;
-  background-color: #0070f3;
+const CommentTextarea = styled.textarea`
+  flex-grow: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  resize: none;
+  overflow-y: auto;
+  min-height: 0px;
+  max-height: 200px;
+  height: 0px;
+`;
+
+const SubmitButton = styled.button`
+  background-color: var(--primary-button);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 30%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: var(--hover-color);
+  }
+`;
+
+const CommentSectionContainer = styled.div`
+  padding: 0.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0rem;
+  }
 `;
 
 const CommentItem = styled.div<{ depth: number; isLast: boolean }>`
   border-radius: ${(props) => (props.depth > 0 ? "15px" : "0")};
-  margin-left: ${(props) => props.depth * 20}px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  margin-left: ${(props) => props.depth * 10}px;
+  padding: 0.5rem;
+  margin-bottom: 0.3rem;
   background-color: ${(props) => (props.depth > 0 ? "#f8f9fa" : "transparent")};
   ${(props) =>
     props.depth === 0 &&
@@ -369,7 +421,7 @@ const CommentAuthor = styled.span`
 
 const CommentDate = styled.span`
   color: #6c757d;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
 `;
 
 const CommentContent = styled.p`
@@ -405,12 +457,6 @@ const LikeCount = styled.span`
   margin-left: 0.25rem;
 `;
 
-const DeleteButton = styled(ActionButton)`
-  &:hover {
-    color: #dc3545;
-  }
-`;
-
 const ReplyButton = styled.button`
   background: none;
   border: none;
@@ -423,27 +469,30 @@ const ReplyButton = styled.button`
 const ReplyForm = styled.form`
   margin-top: 1rem;
   display: flex;
-  flex-direction: column;
   gap: 0.5rem;
 `;
 
 const ReplyTextarea = styled.textarea`
-  width: 100%;
+  flex: 1;
+  width: 60%;
   padding: 0.5rem;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 15px;
   resize: vertical;
-  min-height: 60px;
+  max-height: 100px;
 `;
 
 const ReplySubmitButton = styled.button`
-  align-self: flex-end;
+  width: 60px;
   padding: 0.5rem 1rem;
-  background-color: #0070f3;
+  margin-top: 1.2rem;
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  color: white;
+  font-weight: bold;
 `;
 
 const EditForm = styled.form`
@@ -454,12 +503,12 @@ const EditForm = styled.form`
 `;
 
 const EditTextarea = styled.textarea`
-  width: 100%;
+  width: 95%;
   padding: 0.5rem;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 20px;
   resize: vertical;
-  min-height: 60px;
+  height: 50px;
 `;
 
 const EditButton = styled.button`
@@ -469,6 +518,21 @@ const EditButton = styled.button`
   cursor: pointer;
   font-size: 0.8rem;
   padding: 0;
+  &:hover {
+    color: var(--text-color);
+  }
+`;
+
+const DeleteButton = styled(ActionButton)`
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0;
+  &:hover {
+    color: #dc3545;
+  }
 `;
 
 const CancelButton = styled.button`
@@ -478,6 +542,20 @@ const CancelButton = styled.button`
   border: none;
   border-radius: 4px;
   cursor: pointer;
+`;
+
+const SaveButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: var(--hover-color);
+  }
 `;
 
 export default CommentSection;

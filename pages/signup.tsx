@@ -1,15 +1,25 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import Layout from "../components/Layout";
 import styled from "@emotion/styled";
-import { useAuth } from "../hooks/useAuth";
+import { useAuthStateManager } from "../hooks/useAuthStateManager";
 import AddressSelector from "../components/AddressSelector";
 import SchoolSearch from "../components/SchoolSearch";
 import { sendEmailVerification } from "firebase/auth";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  setDoc,
+  doc,
+} from "firebase/firestore";
 import { handleFriendInvitation } from "../utils/experience";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { db, auth } from "../lib/firebase";
+import { errorMessages } from "../utils/errorMessages";
+import { useMutation } from "react-query";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
 const SignupPage: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -27,12 +37,91 @@ const SignupPage: React.FC = () => {
   const [error, setError] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
   const [inviterUserId, setInviterUserId] = useState("");
+  const [userIdMessage, setUserIdMessage] = useState("");
 
   const router = useRouter();
-  const { signup } = useAuth();
+  const { updateUserState } = useAuthStateManager();
+
+  const signupMutation = useMutation(
+    async (userData: any) => {
+      const {
+        email,
+        password,
+        userId,
+        name,
+        phoneNumber,
+        address1,
+        address2,
+        schoolId,
+        schoolName,
+        birthYear,
+        birthMonth,
+        birthDay,
+      } = userData;
+
+      // Firebase Auth로 사용자 생성
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const user = userCredential.user;
+
+      // Firestore에 사용자 정보 저장
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email,
+        userId,
+        name,
+        phoneNumber,
+        address1,
+        address2,
+        schoolId,
+        schoolName,
+        birthYear,
+        birthMonth,
+        birthDay,
+        experience: 0,
+        totalExperience: 0,
+        level: 1,
+      });
+
+      // 이메일 인증 메일 발송
+      await sendEmailVerification(user);
+
+      // 초대 코드가 입력된 경우, 초대한 유저와 초대받은 유저 모두 경험치를 얻음
+      if (inviterUserId) {
+        const inviterUserQuery = query(
+          collection(db, "users"),
+          where("userId", "==", inviterUserId),
+        );
+        const inviterSnapshot = await getDocs(inviterUserQuery);
+
+        if (!inviterSnapshot.empty) {
+          const inviterDoc = inviterSnapshot.docs[0];
+          const inviterId = inviterDoc.id;
+
+          // handleFriendInvitation 호출
+          await handleFriendInvitation(inviterId, user.uid);
+        }
+      }
+
+      return user;
+    },
+    {
+      onSuccess: async (user) => {
+        setVerificationSent(true);
+        const updatedUser = await updateUserState(user);
+        // 필요한 경우 여기서 Recoil 상태를 업데이트할 수 있습니다.
+      },
+      onError: (error: Error) => {
+        setError(error.message || errorMessages.UNKNOWN_ERROR);
+      },
+    },
+  );
 
   const validateUserId = (userId: string): boolean => {
-    return userId.length >= 5;
+    return userId.length >= 6 && userId.length <= 20;
   };
 
   const validateName = (name: string): boolean => {
@@ -40,10 +129,34 @@ const SignupPage: React.FC = () => {
     return koreanNameRegex.test(name);
   };
 
-  const checkDuplicateUserId = async (userId: string) => {
-    const q = query(collection(db, "users"), where("userId", "==", userId));
+  const validatePassword = (password: string): boolean => {
+    const passwordRegex =
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    return passwordRegex.test(password);
+  };
+
+  const checkDuplicateEmail = async (email: string) => {
+    const q = query(collection(db, "users"), where("email", "==", email));
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
+  };
+
+  const checkDuplicateUserId = async (userId: string) => {
+    if (!validateUserId(userId)) {
+      setUserIdMessage(errorMessages.INVALID_PASSWORD);
+      return true;
+    }
+
+    const q = query(collection(db, "users"), where("userId", "==", userId));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      setUserIdMessage(errorMessages.DUPLICATE_USER_ID);
+      return true;
+    } else {
+      setUserIdMessage("사용 가능한 ID입니다.");
+      return false;
+    }
   };
 
   const checkDuplicatePhoneNumber = async (phoneNumber: string) => {
@@ -58,8 +171,26 @@ const SignupPage: React.FC = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (
+      !name ||
+      !userId ||
+      !email ||
+      !password ||
+      !confirmPassword ||
+      !phoneNumber ||
+      !address1 ||
+      !address2 ||
+      !school ||
+      !birthYear ||
+      !birthMonth ||
+      !birthDay
+    ) {
+      setError("모든 필드를 입력해주세요.");
+      return;
+    }
+
     if (!validateUserId(userId)) {
-      setError("ID는 5글자 이상이어야 합니다.");
+      setError("ID는 6자 이상 20자 이하이어야 합니다.");
       return;
     }
 
@@ -68,8 +199,21 @@ const SignupPage: React.FC = () => {
       return;
     }
 
+    if (!validatePassword(password)) {
+      setError(
+        "비밀번호는 8자리 이상이며, 숫자, 영문, 특수문자(@$!%*#?&)를 각각 하나 이상 포함해야 합니다.",
+      );
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    const isDuplicateEmail = await checkDuplicateEmail(email);
+    if (isDuplicateEmail) {
+      setError("이미 사용 중인 이메일 주소입니다.");
       return;
     }
 
@@ -85,16 +229,33 @@ const SignupPage: React.FC = () => {
       return;
     }
 
-    try {
-      if (inviterUserId) {
-        const inviterDoc = await getDoc(doc(db, "users", inviterUserId));
-        if (!inviterDoc.exists()) {
-          setError("존재하지 않는 초대 코드입니다.");
-          return;
-        }
-      }
+    const phoneRegex = /^01[016789]-?\d{3,4}-?\d{4}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      setError("올바른 휴대폰 번호 형식이 아닙니다.");
+      return;
+    }
 
-      const user = await signup.mutateAsync({
+    const currentYear = new Date().getFullYear();
+    if (birthYear < 1900 || birthYear > currentYear) {
+      setError("올바른 출생 연도를 입력해주세요.");
+      return;
+    }
+    if (birthMonth < 1 || birthMonth > 12) {
+      setError("올바른 출생 월을 선택해주세요.");
+      return;
+    }
+    if (birthDay < 1 || birthDay > 31) {
+      setError("올바른 출생일을 선택해주세요.");
+      return;
+    }
+
+    if (!school || !school.SCHOOL_CODE) {
+      setError("학교를 선택해주세요.");
+      return;
+    }
+
+    try {
+      await signupMutation.mutateAsync({
         email,
         password,
         userId,
@@ -108,155 +269,174 @@ const SignupPage: React.FC = () => {
         birthMonth,
         birthDay,
       });
-
-      if (user) {
-        await sendEmailVerification(user);
-        setVerificationSent(true);
-        if (inviterUserId) {
-          await handleFriendInvitation(inviterUserId, user.uid);
-        }
-      } else {
-        throw new Error("User object is undefined");
-      }
     } catch (error) {
-      if (error instanceof Error) {
-        setError(`회원가입에 실패했습니다: ${error.message}`);
-      } else {
-        setError("회원가입에 실패했습니다. 다시 시도해주세요.");
-      }
+      setError((error as Error).message || errorMessages.UNKNOWN_ERROR);
     }
   };
 
   if (verificationSent) {
     return (
-      <VerificationMessage>
-        <h2>이메일 인증을 완료해주세요</h2>
-        <p>
-          {email}로 인증 메일을 보냈습니다. 메일함을 확인하고 인증 링크를
-          클릭해주세요.
-        </p>
-        <p>
-          인증이 완료되면 <Link href="/login">로그인</Link> 페이지로 이동하여
-          로그인해주세요.
-        </p>
-      </VerificationMessage>
+      <Container>
+        <VerificationMessage>
+          <h2>이메일 인증을 완료해주세요</h2>
+          <p>
+            {email}로 인증 메일을 보냈습니다. 메일함을 확인하고 인증 링크를
+            클릭해주세요.
+          </p>
+          <p>
+            인증이 완료되면 <Link href="/login">로그인</Link> 페이지로 이동하여
+            로그인해주세요.
+          </p>
+        </VerificationMessage>
+      </Container>
     );
   }
 
   return (
-    <SignupContainer>
-      <h1>회원가입</h1>
-      <Form onSubmit={handleSignup}>
-        <Input
-          type="text"
-          placeholder="이름"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <Input
-          type="text"
-          placeholder="ID (5글자 이상)"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          required
-        />
-        <Input
-          type="email"
-          placeholder="이메일"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <Input
-          type="password"
-          placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <Input
-          type="password"
-          placeholder="비밀번호 확인"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-        />
-        <Input
-          type="tel"
-          placeholder="휴대폰 번호"
-          value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
-          required
-        />
-        <AddressSelector
-          address1={address1}
-          address2={address2}
-          setAddress1={setAddress1}
-          setAddress2={setAddress2}
-        />
-        <SchoolSearch
-          address1={address1}
-          address2={address2}
-          setSchool={setSchool}
-        />
-        <DateOfBirthContainer>
-          <Select
-            value={birthYear}
-            onChange={(e) => setBirthYear(parseInt(e.target.value))}
+    <Layout>
+      <Container>
+        <h1>회원가입</h1>
+        <Form onSubmit={handleSignup}>
+          <Label>이름</Label>
+          <Input
+            type="text"
+            placeholder="이름 입력 (실명)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             required
-          >
-            <option value="">년도</option>
-            {Array.from({ length: 100 }, (_, i) => (
-              <option key={i} value={2023 - i}>
-                {2023 - i}
-              </option>
-            ))}
-          </Select>
-          <Select
-            value={birthMonth}
-            onChange={(e) => setBirthMonth(parseInt(e.target.value))}
+          />
+          <Label>아이디</Label>
+          <InputContainer>
+            <IdInput
+              type="text"
+              placeholder="아이디 입력 (6자~20자)"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              required
+            />
+            <IdButton
+              type="button"
+              onClick={async () => {
+                await checkDuplicateUserId(userId);
+              }}
+            >
+              중복 확인
+            </IdButton>
+          </InputContainer>
+          {userIdMessage && (
+            <Message isSuccess={userIdMessage === "사용 가능한 ID입니다."}>
+              {userIdMessage}
+            </Message>
+          )}
+          <Label>
+            이메일
+            {/* <SmallText>이후 변경이 불가합니다</SmallText> */}
+          </Label>
+
+          <Input
+            type="email"
+            placeholder="이메일 입력"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
-          >
-            <option value="">월</option>
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {i + 1}
-              </option>
-            ))}
-          </Select>
-          <Select
-            value={birthDay}
-            onChange={(e) => setBirthDay(parseInt(e.target.value))}
+          />
+          <Label>비밀번호</Label>
+          <Input
+            type="password"
+            placeholder="비밀번호 입력 (특수문자 포함 8자 이상)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
-          >
-            <option value="">일</option>
-            {Array.from({ length: 31 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {i + 1}
-              </option>
-            ))}
-          </Select>
-        </DateOfBirthContainer>
-        <Input
-          type="text"
-          placeholder="초대 코드 (선택사항)"
-          value={inviterUserId}
-          onChange={(e) => setInviterUserId(e.target.value)}
-        />
-        <SignupButton type="submit" disabled={signup.isLoading}>
-          {signup.isLoading ? "처리 중..." : "회원가입"}
-        </SignupButton>
-      </Form>
-      {error && <ErrorMessage>{error}</ErrorMessage>}
-      <LoginLink>
-        이미 계정이 있으신가요? <Link href="/login">로그인</Link>
-      </LoginLink>
-    </SignupContainer>
+          />
+          <Label>비밀번호 확인</Label>
+          <Input
+            type="password"
+            placeholder="비밀번호 재입력"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+          <Label>휴대폰 번호</Label>
+          <Input
+            type="tel"
+            placeholder="휴대폰 번호 ( '-' 제외 11자)"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            required
+          />
+          <Label>주소</Label>
+          <AddressSelector
+            address1={address1}
+            address2={address2}
+            setAddress1={setAddress1}
+            setAddress2={setAddress2}
+          />
+          <Label>학교</Label>
+          <SchoolSearch
+            address1={address1}
+            address2={address2}
+            setSchool={setSchool}
+          />
+          <Label>생년월일</Label>
+          <DateOfBirthContainer>
+            <Select
+              value={birthYear}
+              onChange={(e) => setBirthYear(parseInt(e.target.value))}
+              required
+            >
+              <option value="">년도</option>
+              {Array.from({ length: 100 }, (_, i) => (
+                <option key={i} value={2023 - i}>
+                  {2023 - i}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={birthMonth}
+              onChange={(e) => setBirthMonth(parseInt(e.target.value))}
+              required
+            >
+              <option value="">월</option>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={birthDay}
+              onChange={(e) => setBirthDay(parseInt(e.target.value))}
+              required
+            >
+              <option value="">일</option>
+              {Array.from({ length: 31 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+            </Select>
+          </DateOfBirthContainer>
+          <Label>초대 코드 (선택사항)</Label>
+          <Input
+            type="text"
+            placeholder="추천 친구의 인스쿨즈 아이디 입력"
+            value={inviterUserId}
+            onChange={(e) => setInviterUserId(e.target.value)}
+          />
+          <Button type="submit" disabled={signupMutation.isLoading}>
+            {signupMutation.isLoading ? "처리 중..." : "회원가입"}
+          </Button>
+        </Form>
+        {error && <ErrorMessage>{error}</ErrorMessage>}
+        <LoginLink>
+          이미 계정이 있으신가요? <Link href="/login">로그인</Link>
+        </LoginLink>
+      </Container>
+    </Layout>
   );
 };
 
-const SignupContainer = styled.div`
+const Container = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -265,8 +445,12 @@ const SignupContainer = styled.div`
   padding: 2rem 1rem;
 
   h1 {
-    font-size: 2rem;
     margin-bottom: 2rem;
+    color: #333;
+  }
+
+  @media (max-width: 768px) {
+    max-width: 90%;
   }
 `;
 
@@ -274,65 +458,100 @@ const Form = styled.form`
   display: flex;
   flex-direction: column;
   width: 100%;
-  gap: 1rem;
+  gap: 0.1rem;
 `;
 
-const Input = styled.input`
+const Button = styled.button`
   padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-  width: 100%;
-`;
-
-const SignupButton = styled.button`
-  padding: 0.75rem;
-  background-color: #0070f3;
+  height: 100%;
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: bold;
-  width: 100%;
+  transition: background-color 0.3s ease;
 
   &:hover {
-    background-color: #0060df;
+    background-color: var(--primary-hover);
   }
 
   &:disabled {
-    background-color: #cccccc;
+    background-color: var(--gray-button);
     cursor: not-allowed;
   }
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--gray-button);
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  margin: 0 0 0.5rem 0;
+`;
+
+const IdInput = styled(Input)`
+  flex: 2 2 0;
+  margin: 0;
+`;
+
+const IdButton = styled(Button)`
+  flex: 1 1 0;
+  margin: 0;
+`;
+
+const InputContainer = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+`;
+
+const Select = styled.select`
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--gray-button);
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
 `;
 
 const DateOfBirthContainer = styled.div`
   display: flex;
   gap: 0.5rem;
+  margin: 0 0 0.5rem 0;
 `;
 
-const Select = styled.select`
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-  flex: 1;
+const Label = styled.label`
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+`;
+
+const SmallText = styled.span`
+  font-weight: normal;
+  color: red;
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+`;
+
+const Message = styled.p<{ isSuccess: boolean }>`
+  color: ${(props) => (props.isSuccess ? "green" : "red")};
+  margin: 0 0 0.5rem 0;
 `;
 
 const ErrorMessage = styled.p`
   color: red;
   text-align: center;
-  margin-top: 0rem;
-  font-size: 0.9rem;
 `;
 
 const LoginLink = styled.p`
   text-align: center;
   margin-top: 1rem;
-  font-size: 0.9rem;
 
   a {
-    color: #0070f3;
+    color: var(--primary-text);
     text-decoration: none;
 
     &:hover {
@@ -342,13 +561,11 @@ const LoginLink = styled.p`
 `;
 
 const VerificationMessage = styled.div`
-  max-width: 400px;
-  margin: 2rem auto;
-  padding: 2rem 1rem;
   text-align: center;
 
   h2 {
     margin-bottom: 1rem;
+    color: #333;
   }
 
   p {
@@ -356,7 +573,7 @@ const VerificationMessage = styled.div`
   }
 
   a {
-    color: #0070f3;
+    color: var(--primary-text);
     text-decoration: none;
 
     &:hover {

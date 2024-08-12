@@ -1,27 +1,30 @@
-// CommunityPage.tsx
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
 import CategoryList from "../components/CategoryList";
 import PostList from "../components/PostList";
 import CreatePostButton from "../components/CreatePostButton";
-import { useRecoilState } from "recoil";
-import { selectedCategoryState } from "../store/atoms";
+import { useRecoilState, useRecoilValue } from "recoil";
+import { selectedCategoryState, userState } from "../store/atoms";
 import { useRouter } from "next/router";
 
 const CommunityPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
     selectedCategoryState,
   );
+  const user = useRecoilValue(userState);
   const router = useRouter();
+  const [isNationalCategory, setIsNationalCategory] = useState(false);
 
   useEffect(() => {
     setSelectedCategory("national-all");
-  }, [setSelectedCategory]);
+    setIsNationalCategory(selectedCategory.startsWith("national-"));
+  }, [setSelectedCategory, selectedCategory]);
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     router.push(`/community/${categoryId}`);
+    setIsNationalCategory(categoryId.startsWith("national-"));
   };
 
   return (
@@ -32,7 +35,11 @@ const CommunityPage: React.FC = () => {
         </CategorySection>
         <ContentSection>
           <CreatePostButton />
-          <PostList selectedCategory={selectedCategory} />
+          <PostList
+            selectedCategory={selectedCategory}
+            isLoggedIn={!!user}
+            isNationalCategory={isNationalCategory}
+          />
         </ContentSection>
       </Container>
     </Layout>

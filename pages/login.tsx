@@ -1,25 +1,14 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import Layout from "../components/Layout";
 import styled from "@emotion/styled";
 import { useSetRecoilState } from "recoil";
 import { userState } from "../store/atoms";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-} from "firebase/auth";
-import { auth, db } from "../lib/firebase";
-import {
-  doc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
-import { FaGoogle } from "react-icons/fa";
 import { useMutation } from "react-query";
+import { useAuthStateManager } from "../hooks/useAuthStateManager";
+import { errorMessages } from "../utils/errorMessages";
+import { auth } from "../lib/firebase";
 
 const LoginPage: React.FC = () => {
   const [userId, setUserId] = useState("");
@@ -27,58 +16,29 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState("");
   const router = useRouter();
   const setUser = useSetRecoilState(userState);
+  const { login, updateUserState } = useAuthStateManager();
 
   const loginMutation = useMutation(
     async ({ userId, password }: { userId: string; password: string }) => {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("userId", "==", userId));
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        throw new Error("사용자를 찾을 수 없습니다.");
+      if (!userId.trim() || !password.trim()) {
+        throw new Error(errorMessages.EMPTY_FIELDS);
       }
 
-      const userDoc = querySnapshot.docs[0];
-      const userData = userDoc.data();
+      // 여기서 userId를 이메일로 변환하는 로직이 필요할 수 있습니다.
+      // 예: const email = await getUserEmailByUserId(userId);
+      const email = userId; // 임시로 userId를 email로 사용
 
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        userData.email,
-        password,
-      );
-      const user = userCredential.user;
-
-      if (!user.emailVerified) {
-        throw new Error(
-          "이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.",
-        );
-      }
-
-      return {
-        uid: user.uid,
-        userId: userData.userId,
-        name: userData.name,
-        email: user.email,
-        phoneNumber: userData.phoneNumber,
-        address1: userData.address1,
-        address2: userData.address2,
-        schoolId: userData.schoolId,
-        schoolName: userData.schoolName,
-        experience: userData.experience,
-        level: userData.level,
-        totalExperience: userData.totalExperience,
-        birthYear: userData.birthYear,
-        birthMonth: userData.birthMonth,
-        birthDay: userData.birthDay,
-      };
+      await login(email, password);
+      const updatedUser = await updateUserState(auth.currentUser);
+      return updatedUser;
     },
     {
-      onSuccess: (data) => {
-        setUser(data);
+      onSuccess: (userData) => {
+        setUser(userData);
         router.push("/");
       },
       onError: (error: Error) => {
-        setError(error.message);
+        setError(error.message || errorMessages.UNKNOWN_ERROR);
       },
     },
   );
@@ -88,75 +48,35 @@ const LoginPage: React.FC = () => {
     loginMutation.mutate({ userId, password });
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        // 사용자 정보가 없으면 추가 정보 입력 페이지로 리다이렉트
-        router.push("/complete-signup");
-      } else {
-        const userData = userDoc.data();
-        setUser({
-          uid: user.uid,
-          userId: userData.userId,
-          name: userData.name,
-          email: user.email,
-          phoneNumber: userData.phoneNumber,
-          address1: userData.address1,
-          address2: userData.address2,
-          schoolId: userData.schoolId,
-          schoolName: userData.schoolName,
-          experience: userData.experience,
-          level: userData.level,
-          totalExperience: userData.totalExperience,
-          birthYear: userData.birthYear,
-          birthMonth: userData.birthMonth,
-          birthDay: userData.birthDay,
-        });
-        router.push("/");
-      }
-    } catch (error) {
-      console.error("Google 로그인 에러:", error);
-    }
-  };
-
   return (
-    <LoginContainer>
-      <h1>로그인</h1>
-      <Form onSubmit={handleLogin}>
-        <Input
-          type="text"
-          placeholder="아이디"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          required
-        />
-        <Input
-          type="password"
-          placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <Button type="submit" disabled={loginMutation.isLoading}>
-          {loginMutation.isLoading ? "로그인 중..." : "로그인"}
-        </Button>
-      </Form>
-      <Divider>또는</Divider>
-      <GoogleButton onClick={handleGoogleLogin}>
-        <FaGoogle /> Google로 로그인
-      </GoogleButton>
-      {loginMutation.isError && <ErrorMessage>{error}</ErrorMessage>}
-      <SignupLink>
-        계정이 없으신가요? <Link href="/signup">회원가입</Link>
-      </SignupLink>
-    </LoginContainer>
+    <Layout>
+      <LoginContainer>
+        <h1>로그인</h1>
+        <Form onSubmit={handleLogin}>
+          <Input
+            type="text"
+            placeholder="이메일"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            required
+          />
+          <Input
+            type="password"
+            placeholder="비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <Button type="submit" disabled={loginMutation.isLoading}>
+            {loginMutation.isLoading ? "로그인 중..." : "로그인"}
+          </Button>
+        </Form>
+        {loginMutation.isError && <ErrorMessage>{error}</ErrorMessage>}
+        <SignupLink>
+          계정이 없으신가요? <Link href="/signup">회원가입</Link>
+        </SignupLink>
+      </LoginContainer>
+    </Layout>
   );
 };
 
@@ -170,6 +90,7 @@ const LoginContainer = styled.div`
 
   h1 {
     margin-bottom: 2rem;
+    color: #333;
   }
 `;
 
@@ -181,24 +102,33 @@ const Form = styled.form`
 `;
 
 const Input = styled.input`
+  width: 100%;
   padding: 0.75rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1rem;
+  box-sizing: border-box;
 `;
 
 const Button = styled.button`
+  width: 100%;
   padding: 0.75rem;
-  background-color: #0070f3;
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: bold;
+  transition: background-color 0.3s ease;
 
   &:hover {
-    background-color: #0060df;
+    background-color: var(--primary-hover);
+  }
+
+  &:disabled {
+    background-color: var(--gray-button);
+    cursor: not-allowed;
   }
 `;
 
@@ -208,7 +138,6 @@ const GoogleButton = styled(Button)`
   justify-content: center;
   align-items: center;
   gap: 0.5rem;
-  width: 100%;
 
   &:hover {
     background-color: #3367d6;
@@ -249,7 +178,7 @@ const SignupLink = styled.p`
   margin-top: 1rem;
 
   a {
-    color: #0070f3;
+    color: var(--primary-text);
     text-decoration: none;
 
     &:hover {

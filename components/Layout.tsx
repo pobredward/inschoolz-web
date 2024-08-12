@@ -41,6 +41,11 @@ const Main = styled.main`
   padding: 1rem;
   box-sizing: border-box;
   padding-top: 60px; // Navbar의 높이만큼 패딩을 추가
+
+  @media (max-width: 768px) {
+    padding: 0.8rem;
+    padding-top: 60px;
+  }
 `;
 
 export default Layout;

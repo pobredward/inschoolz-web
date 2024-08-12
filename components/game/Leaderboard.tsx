@@ -6,10 +6,13 @@ import {
   orderBy,
   limit,
   getDocs,
-  onSnapshot,
+  startAfter,
+  where,
+  QueryDocumentSnapshot,
+  DocumentData,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { FaBolt, FaFeather, FaSync } from "react-icons/fa";
+import { FaBolt, FaFeather } from "react-icons/fa";
 import { useAuth } from "../../hooks/useAuth";
 
 interface LeaderboardEntry {
@@ -19,7 +22,7 @@ interface LeaderboardEntry {
   rank?: number;
 }
 
-const ENTRIES_PER_PAGE = 30;
+const ENTRIES_PER_PAGE = 10;
 
 const Leaderboard: React.FC = () => {
   const [activeGame, setActiveGame] = useState<"reactionGame" | "flappyBird">(
@@ -28,173 +31,137 @@ const Leaderboard: React.FC = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null);
-  const [userRankPosition, setUserRankPosition] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResult, setSearchResult] = useState<LeaderboardEntry | null>(
+    null,
+  );
   const { user } = useAuth();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastVisible, setLastVisible] =
+    useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToLeaderboard();
-    return () => unsubscribe();
-  }, [activeGame, currentPage, user]);
-
-  const subscribeToLeaderboard = () => {
-    const leaderboardRef = collection(db, `${activeGame}Scores`);
-    const q = query(
-      leaderboardRef,
-      orderBy("bestScore", activeGame === "reactionGame" ? "asc" : "desc"),
-    );
-
-    return onSnapshot(
-      q,
-      async (querySnapshot) => {
-        const allScores = querySnapshot.docs.map((doc) => ({
-          userId: doc.data().userId,
-          schoolName: doc.data().schoolName,
-          bestScore: doc.data().bestScore,
-        }));
-
-        // 모든 점수를 정렬하고 rank 할당
-        const sortedScores = allScores
-          .sort((a, b) =>
-            activeGame === "reactionGame"
-              ? a.bestScore - b.bestScore
-              : b.bestScore - a.bestScore,
-          )
-          .map((score, index) => ({ ...score, rank: index + 1 }));
-
-        // 페이지에 해당하는 데이터만 선택
-        const startIndex = (currentPage - 1) * ENTRIES_PER_PAGE;
-        const leaderboardData = sortedScores.slice(
-          startIndex,
-          startIndex + ENTRIES_PER_PAGE,
-        );
-
-        setLeaderboard(leaderboardData);
-        setTotalPages(Math.ceil(sortedScores.length / ENTRIES_PER_PAGE));
-
-        // 사용자 순위 업데이트
-        if (user) {
-          const userScore = sortedScores.find(
-            (score) => score.userId === user.userId,
-          );
-          if (userScore) {
-            setUserRank(userScore);
-            setUserRankPosition(userScore.rank);
-          } else {
-            setUserRank(null);
-            setUserRankPosition(null);
-          }
-        }
-      },
-      (error) => {
-        console.error("Error fetching leaderboard:", error);
-      },
-    );
-  };
+    fetchLeaderboard();
+  }, [activeGame, currentPage]);
 
   const fetchLeaderboard = async () => {
     const leaderboardRef = collection(db, `${activeGame}Scores`);
-    const q = query(
-      leaderboardRef,
-      orderBy("bestScore", activeGame === "reactionGame" ? "asc" : "desc"),
-      limit(ENTRIES_PER_PAGE),
-    );
+    let q;
 
-    try {
-      const querySnapshot = await getDocs(q);
-      const leaderboardData = querySnapshot.docs.map((doc, index) => ({
-        userId: doc.data().userId,
-        schoolName: doc.data().schoolName,
-        bestScore: doc.data().bestScore,
-        rank: index + 1,
-      }));
-      setLeaderboard(leaderboardData);
-
-      // 전체 문서 수를 가져와 총 페이지 수 계산
-      const countSnapshot = await getDocs(
-        collection(db, `${activeGame}Scores`),
+    if (currentPage === 1) {
+      q = query(
+        leaderboardRef,
+        orderBy("bestScore", activeGame === "reactionGame" ? "asc" : "desc"),
+        limit(ENTRIES_PER_PAGE),
       );
-      setTotalPages(Math.ceil(countSnapshot.size / ENTRIES_PER_PAGE));
-    } catch (error) {
-      console.error("Error fetching leaderboard:", error);
-      setLeaderboard([]);
+    } else if (lastVisible) {
+      q = query(
+        leaderboardRef,
+        orderBy("bestScore", activeGame === "reactionGame" ? "asc" : "desc"),
+        startAfter(lastVisible),
+        limit(ENTRIES_PER_PAGE),
+      );
+    } else {
+      // If lastVisible is null but we're not on the first page, we can't fetch the data
+      return;
     }
+
+    const querySnapshot = await getDocs(q);
+    const leaderboardData: LeaderboardEntry[] = [];
+    querySnapshot.forEach((doc) => {
+      leaderboardData.push({
+        ...(doc.data() as LeaderboardEntry),
+        rank: (currentPage - 1) * ENTRIES_PER_PAGE + leaderboardData.length + 1,
+      });
+    });
+
+    setLeaderboard(leaderboardData);
+    setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
+
+    // Get total count for pagination
+    const countQuery = query(leaderboardRef);
+    const countSnapshot = await getDocs(countQuery);
+    setTotalPages(Math.ceil(countSnapshot.size / ENTRIES_PER_PAGE));
   };
 
-  const fetchUserRank = async () => {
-    if (!user) return;
+  const handleSearch = async () => {
+    if (!searchTerm) return;
 
     const leaderboardRef = collection(db, `${activeGame}Scores`);
     const q = query(
       leaderboardRef,
+      where("userId", "==", searchTerm),
       orderBy("bestScore", activeGame === "reactionGame" ? "asc" : "desc"),
     );
 
-    try {
-      const querySnapshot = await getDocs(q);
-      const allScores = querySnapshot.docs.map((doc, index) => ({
-        userId: doc.data().userId,
-        schoolName: doc.data().schoolName,
-        bestScore: doc.data().bestScore,
-        rank: index + 1,
-      }));
-      const userScore = allScores.find((score) => score.userId === user.userId);
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data() as LeaderboardEntry;
 
-      if (userScore) {
-        setUserRank(userScore);
-        setUserRankPosition(userScore.rank);
-      } else {
-        setUserRank(null);
-        setUserRankPosition(null);
-      }
-    } catch (error) {
-      console.error("Error fetching user rank:", error);
+      // Get the rank of the user
+      const rankQuery = query(
+        leaderboardRef,
+        orderBy("bestScore", activeGame === "reactionGame" ? "asc" : "desc"),
+      );
+
+      const rankSnapshot = await getDocs(rankQuery);
+      const rank =
+        rankSnapshot.docs.findIndex((doc) => doc.id === userDoc.id) + 1;
+
+      setSearchResult({ ...userData, rank });
+    } else {
+      setSearchResult(null);
     }
   };
 
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
+  const handleGameChange = (game: "reactionGame" | "flappyBird") => {
+    setActiveGame(game);
+    setCurrentPage(1);
+    setLastVisible(null);
   };
 
-  const renderLeaderboardRow = (
-    entry: LeaderboardEntry & { rank: number },
-    isUserRank: boolean,
-  ) => (
-    <LeaderboardRow key={entry.userId} isUserRank={isUserRank}>
-      <td>{entry.rank}</td>
-      <td>{entry.userId}</td>
-      <td>{entry.schoolName}</td>
-      <td>
-        {activeGame === "reactionGame"
-          ? `${entry.bestScore}ms`
-          : entry.bestScore}
-      </td>
-    </LeaderboardRow>
-  );
-
-  const handleRefresh = () => {
-    // 리더보드를 강제로 새로고침
-    subscribeToLeaderboard();
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    if (page === 1) {
+      setLastVisible(null);
+    }
   };
 
   return (
     <LeaderboardContainer>
-      <LeaderboardNav>
-        <NavItem
+      <TabContainer>
+        <Tab
           active={activeGame === "reactionGame"}
-          onClick={() => setActiveGame("reactionGame")}
+          onClick={() => handleGameChange("reactionGame")}
         >
           <FaBolt /> 반응속도 게임
-        </NavItem>
-        <NavItem
+        </Tab>
+        <Tab
           active={activeGame === "flappyBird"}
-          onClick={() => setActiveGame("flappyBird")}
+          onClick={() => handleGameChange("flappyBird")}
         >
           <FaFeather /> 플래피 버드
-        </NavItem>
-      </LeaderboardNav>
-
+        </Tab>
+      </TabContainer>
+      <SearchContainer>
+        <SearchInput
+          type="text"
+          placeholder="사용자 ID 검색"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <SearchButton onClick={handleSearch}>검색</SearchButton>
+      </SearchContainer>
+      {searchResult && (
+        <SearchResult>
+          검색 결과: {searchResult.userId} (랭킹: {searchResult.rank}위, 최고
+          점수:{" "}
+          {activeGame === "reactionGame"
+            ? `${searchResult.bestScore}ms`
+            : searchResult.bestScore}
+          )
+        </SearchResult>
+      )}
       <LeaderboardTable>
         <thead>
           <tr>
@@ -205,22 +172,26 @@ const Leaderboard: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {userRank && renderLeaderboardRow(userRank, true)}
-          {leaderboard.map((entry) => {
-            if (userRank && entry.rank === userRank.rank) {
-              return renderLeaderboardRow(userRank, true);
-            }
-            return renderLeaderboardRow(entry, false);
-          })}
+          {leaderboard.map((entry) => (
+            <tr key={entry.userId}>
+              <td>{entry.rank}</td>
+              <td>{entry.userId}</td>
+              <td>{entry.schoolName}</td>
+              <td>
+                {activeGame === "reactionGame"
+                  ? `${entry.bestScore}ms`
+                  : entry.bestScore}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </LeaderboardTable>
-
       <Pagination>
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
           <PageButton
             key={page}
-            onClick={() => handlePageChange(page)}
             active={currentPage === page}
+            onClick={() => handlePageChange(page)}
           >
             {page}
           </PageButton>
@@ -231,19 +202,21 @@ const Leaderboard: React.FC = () => {
 };
 
 const LeaderboardContainer = styled.div`
-  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  /* padding: 2rem; */
 `;
 
-const LeaderboardNav = styled.div`
+const TabContainer = styled.div`
   display: flex;
   justify-content: center;
   margin-bottom: 1rem;
 `;
 
-const NavItem = styled.button<{ active: boolean }>`
+const Tab = styled.button<{ active: boolean }>`
   padding: 0.5rem 1rem;
   margin: 0 0.5rem;
-  background-color: ${(props) => (props.active ? "#0070f3" : "#f0f0f0")};
+  background-color: ${(props) => (props.active ? "#7ed957" : "#f0f0f0")};
   color: ${(props) => (props.active ? "white" : "#333")};
   border: none;
   border-radius: 5px;
@@ -254,32 +227,53 @@ const NavItem = styled.button<{ active: boolean }>`
   transition: all 0.3s ease;
 
   &:hover {
-    background-color: ${(props) => (props.active ? "#0070f3" : "#e0e0e0")};
+    background-color: ${(props) => (props.active ? "#7ed957" : "#e0e0e0")};
   }
+`;
+
+const SearchContainer = styled.div`
+  display: flex;
+  margin-bottom: 1rem;
+`;
+
+const SearchInput = styled.input`
+  flex-grow: 1;
+  padding: 0.5rem;
+  margin-right: 0.5rem;
+`;
+
+const SearchButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #7ed957;
+  color: white;
+  border: none;
+  cursor: pointer;
+`;
+
+const SearchResult = styled.div`
+  margin-bottom: 1rem;
+  font-weight: bold;
 `;
 
 const LeaderboardTable = styled.table`
   width: 100%;
   border-collapse: collapse;
+  margin-top: 2rem;
 
   th,
   td {
+    border: 1px solid #ddd;
     padding: 0.5rem;
     text-align: left;
-    border-bottom: 1px solid #e0e0e0;
   }
 
   th {
-    background-color: #f0f0f0;
+    background-color: #f2f2f2;
     font-weight: bold;
   }
 
   tr:nth-of-type(even) {
     background-color: #f8f8f8;
-  }
-
-  tr.highlight {
-    background-color: #fffde7;
   }
 `;
 
@@ -292,22 +286,10 @@ const Pagination = styled.div`
 const PageButton = styled.button<{ active: boolean }>`
   padding: 0.5rem 1rem;
   margin: 0 0.25rem;
-  background-color: ${(props) => (props.active ? "#0070f3" : "#f0f0f0")};
-  color: ${(props) => (props.active ? "white" : "#333")};
+  background-color: ${(props) => (props.active ? "#7ed957" : "#f2f2f2")};
+  color: ${(props) => (props.active ? "white" : "black")};
   border: none;
-  border-radius: 5px;
   cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:hover {
-    background-color: ${(props) => (props.active ? "#0070f3" : "#e0e0e0")};
-  }
-`;
-
-const LeaderboardRow = styled.tr<{ isUserRank: boolean }>`
-  background-color: ${(props) =>
-    props.isUserRank ? "#f0f0f0" : "transparent"};
-  font-weight: ${(props) => (props.isUserRank ? "bold" : "normal")};
 `;
 
 export default Leaderboard;

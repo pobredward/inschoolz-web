@@ -6,7 +6,9 @@ import { db } from "../../lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import Modal from "../../components/modal/DefaultModal";
+import { useMediaQuery } from "react-responsive";
 
+// 상수 정의
 const GRAVITY = 0.2;
 const JUMP_STRENGTH = -6;
 const PIPE_SPEED = 1.2;
@@ -21,6 +23,7 @@ const FlappyBird: React.FC = () => {
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState({ title: "", message: "" });
+  const isMobile = useMediaQuery({ query: "(max-width: 768px)" });
 
   const birdRef = useRef({ y: 250, velocity: 0 });
   const pipesRef = useRef<{ x: number; topHeight: number }[]>([]);
@@ -63,8 +66,11 @@ const FlappyBird: React.FC = () => {
       birdRef.current.y += birdRef.current.velocity;
 
       // Update pipes
+      const pipeSpeed = isMobile ? PIPE_SPEED * 0.8 : PIPE_SPEED;
+      const pipeGap = isMobile ? PIPE_GAP * 1.2 : PIPE_GAP;
+
       pipesRef.current.forEach((pipe) => {
-        pipe.x -= PIPE_SPEED;
+        pipe.x -= pipeSpeed;
       });
 
       // Remove off-screen pipes
@@ -77,7 +83,7 @@ const FlappyBird: React.FC = () => {
         pipesRef.current.length === 0 ||
         pipesRef.current[pipesRef.current.length - 1].x < canvas.width - 200
       ) {
-        const topHeight = Math.random() * (canvas.height - PIPE_GAP - 100) + 50;
+        const topHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
         pipesRef.current.push({ x: canvas.width, topHeight });
       }
 
@@ -86,7 +92,7 @@ const FlappyBird: React.FC = () => {
       pipesRef.current.forEach((pipe) => {
         if (
           bird.y < pipe.topHeight ||
-          bird.y > pipe.topHeight + PIPE_GAP ||
+          bird.y > pipe.topHeight + pipeGap ||
           bird.y > canvas.height - 20 ||
           bird.y < 0
         ) {
@@ -114,9 +120,9 @@ const FlappyBird: React.FC = () => {
         ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
         ctx.fillRect(
           pipe.x,
-          pipe.topHeight + PIPE_GAP,
+          pipe.topHeight + pipeGap,
           PIPE_WIDTH,
-          canvas.height - pipe.topHeight - PIPE_GAP,
+          canvas.height - pipe.topHeight - pipeGap,
         );
       });
 
@@ -137,7 +143,7 @@ const FlappyBird: React.FC = () => {
         cancelAnimationFrame(animationFrameId.current);
       }
     };
-  }, [gameOver]);
+  }, [gameOver, isMobile]);
 
   const startGame = () => {
     setGameOver(false);
@@ -169,8 +175,11 @@ const FlappyBird: React.FC = () => {
     birdRef.current.y += birdRef.current.velocity;
 
     // Update pipes
+    const pipeSpeed = isMobile ? PIPE_SPEED * 0.8 : PIPE_SPEED;
+    const pipeGap = isMobile ? PIPE_GAP * 1.2 : PIPE_GAP;
+
     pipesRef.current.forEach((pipe) => {
-      pipe.x -= PIPE_SPEED;
+      pipe.x -= pipeSpeed;
     });
 
     // Remove off-screen pipes
@@ -181,7 +190,7 @@ const FlappyBird: React.FC = () => {
       pipesRef.current.length === 0 ||
       pipesRef.current[pipesRef.current.length - 1].x < canvas.width - 200
     ) {
-      const topHeight = Math.random() * (canvas.height - PIPE_GAP - 100) + 50;
+      const topHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
       pipesRef.current.push({ x: canvas.width, topHeight });
     }
 
@@ -190,7 +199,7 @@ const FlappyBird: React.FC = () => {
     pipesRef.current.forEach((pipe) => {
       if (
         bird.y < pipe.topHeight ||
-        bird.y > pipe.topHeight + PIPE_GAP ||
+        bird.y > pipe.topHeight + pipeGap ||
         bird.y > canvas.height - 20 ||
         bird.y < 0
       ) {
@@ -219,9 +228,9 @@ const FlappyBird: React.FC = () => {
       ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
       ctx.fillRect(
         pipe.x,
-        pipe.topHeight + PIPE_GAP,
+        pipe.topHeight + pipeGap,
         PIPE_WIDTH,
-        canvas.height - pipe.topHeight - PIPE_GAP,
+        canvas.height - pipe.topHeight - pipeGap,
       );
     });
 
@@ -271,7 +280,12 @@ const FlappyBird: React.FC = () => {
     <Layout>
       <GameContainer>
         <h1>Flappy Bird</h1>
-        <Canvas ref={canvasRef} width={400} height={600} onClick={handleJump} />
+        <Canvas
+          ref={canvasRef}
+          width={isMobile ? 300 : 400}
+          height={isMobile ? 450 : 600}
+          onClick={handleJump}
+        />
         {gameOver && <StartButton onClick={startGame}>게임 시작</StartButton>}
         <p>최고 점수: {bestScore}</p>
         <BackButton href="/game">메인 메뉴로 돌아가기</BackButton>
@@ -293,8 +307,10 @@ const GameContainer = styled.div`
   padding: 2rem;
 `;
 
-const Canvas = styled.canvas`
+const Canvas = styled.canvas<{ width: number; height: number }>`
   border: 1px solid black;
+  width: ${(props) => props.width}px;
+  height: ${(props) => props.height}px;
 `;
 
 const StartButton = styled.button`
