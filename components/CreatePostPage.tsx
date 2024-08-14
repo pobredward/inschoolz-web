@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
 import { useRecoilValue } from "recoil";
 import { useRouter } from "next/router";
-import { createPost } from "../services/postService";
+import { createPost, updatePost } from "../services/postService";
 import { uploadImage } from "../services/imageService";
 import {
   userState,
@@ -15,6 +15,11 @@ import { setDoc, doc, collection } from "firebase/firestore";
 import { compressImage } from "../utils/imageUtils";
 import { FaUpload, FaTrash } from "react-icons/fa";
 import { db } from "../lib/firebase";
+import {
+  updateUserExperience,
+  getExperienceSettings,
+} from "../utils/experience";
+import ExperienceModal from "../components/modal/ExperienceModal";
 
 const CreatePostPage: React.FC = () => {
   const [title, setTitle] = useState("");
@@ -33,6 +38,12 @@ const CreatePostPage: React.FC = () => {
     { text: "", image: null },
   ]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [modalContent, setModalContent] = useState({ title: "", message: "" });
+  const [showModal, setShowModal] = useState(false);
+  const [newPostId, setNewPostId] = useState<string | null>(null);
+  const [showExpModal, setShowExpModal] = useState(false);
+  const [expGained, setExpGained] = useState(0);
+  const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (categoryParam) {
@@ -110,8 +121,29 @@ const CreatePostPage: React.FC = () => {
     }
 
     try {
+      // 게시글 먼저 생성하여 postId를 받음
+      const newPost = {
+        title,
+        content,
+        author: user.userId,
+        authorId: user.uid,
+        categoryId: category,
+        address1: user.address1 || "",
+        address2: user.address2 || "",
+        schoolId: user.schoolId || "",
+        schoolName: user.schoolName || "",
+        imageUrls: [], // 이미지를 나중에 추가할 것이므로 빈 배열
+        isVotePost,
+        voteOptions: null, // 이 부분도 나중에 추가
+      };
+
+      const createdPostId = await createPost(newPost);
+
+      // 생성된 postId로 이미지 업로드
       const uploadedImageUrls = await Promise.all(
-        images.map((image) => uploadImage(image, user.uid, "post")),
+        images.map((image) =>
+          uploadImage(image, user.uid, "post", createdPostId),
+        ),
       );
 
       let uploadedVoteOptions;
@@ -123,6 +155,7 @@ const CreatePostPage: React.FC = () => {
                 option.image,
                 user.uid,
                 "vote",
+                createdPostId,
               );
               return { text: option.text, imageUrl };
             }
@@ -131,31 +164,40 @@ const CreatePostPage: React.FC = () => {
         );
       }
 
-      const newPost = {
-        title,
-        content,
-        author: user.userId,
-        authorId: user.uid,
-        categoryId: category,
-        address1: user.address1 || "",
-        address2: user.address2 || "",
-        schoolId: user.schoolId || "",
-        schoolName: user.schoolName || "",
+      // 업로드된 이미지 URL을 게시글에 업데이트
+      await updatePost(createdPostId, {
         imageUrls: uploadedImageUrls,
-        isVotePost,
         voteOptions: isVotePost
           ? uploadedVoteOptions.filter(
               (option: { text: string }) => option.text.trim() !== "",
             )
           : null,
-      };
+      });
 
-      const newPostId = await createPost(newPost);
+      setNewPostId(createdPostId);
 
-      router.push(`/posts/${newPostId}`);
+      // 경험치 업데이트
+      const settings = await getExperienceSettings();
+      const result = await updateUserExperience(
+        user.uid,
+        settings.postCreation,
+        "게시글을 작성했습니다",
+      );
+      setExpGained(result.expGained);
+      if (result.levelUp) {
+        setNewLevel(result.newLevel);
+      }
+      setShowExpModal(true);
     } catch (e) {
       console.error("Error adding document: ", e);
-      alert("게시글 작성에 실패했습니다.");
+      alert(`게시글 작성에 실패했습니다: ${e.message}`);
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowExpModal(false);
+    if (newPostId) {
+      router.push(`/posts/${newPostId}`);
     }
   };
 
@@ -317,6 +359,12 @@ const CreatePostPage: React.FC = () => {
           </Form>
         </ContentSection>
       </Container>
+      <ExperienceModal
+        isOpen={showExpModal}
+        onClose={handleModalClose}
+        expGained={expGained}
+        newLevel={newLevel}
+      />
     </Layout>
   );
 };

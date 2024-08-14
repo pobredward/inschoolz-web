@@ -4,55 +4,70 @@ import { useRecoilState } from "recoil";
 import { userState, User, Post } from "../../store/atoms";
 import styled from "@emotion/styled";
 import Layout from "../../components/Layout";
-import { useAuthStateManager } from "../../hooks/useAuthStateManager";
-import { deleteUser, updateUserProfile } from "../../services/userService";
+import { useMutation, useQuery } from "react-query";
+import { auth, db } from "../../lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { updateUserProfile, deleteUser } from "../../services/userService";
 import ConfirmModal from "../../components/modal/ConfirmModal";
 import SchoolSearch from "../../components/SchoolSearch";
 import AddressSelector from "../../components/AddressSelector";
-import { useMutation, useQuery } from "react-query";
-import { auth } from "../../lib/firebase";
+import { fetchUserScraps } from "../../services/postService";
 import { errorMessages } from "../../utils/errorMessages";
 import { FaFileAlt, FaComments, FaBookmark } from "react-icons/fa";
-import { fetchUserScraps } from "../../services/postService";
 
 const MyPage: React.FC = () => {
   const [user, setUser] = useRecoilState(userState);
   const router = useRouter();
-  const { updateUserState } = useAuthStateManager();
 
-  const [editedUser, setEditedUser] = useState(user);
+  const [editedUser, setEditedUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [scrappedPosts, setScrappedPosts] = useState<Post[]>([]);
 
   useEffect(() => {
     if (user) {
+      setEditedUser(user); // 초기화
       fetchUserScraps(user.uid).then(setScrappedPosts);
     }
   }, [user]);
 
-  const { data: fetchedUser, isLoading } = useQuery(
-    "user",
-    () => updateUserState(auth.currentUser),
-    {
-      enabled: !!user,
-      onSuccess: (data) => {
-        setUser(data);
+  const fetchUserData = async () => {
+    if (auth.currentUser) {
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (userDoc.exists()) {
+        return userDoc.data() as User;
+      } else {
+        throw new Error(errorMessages.USER_NOT_FOUND);
+      }
+    }
+    return null;
+  };
+
+  const fetchUserMutation = useMutation(fetchUserData, {
+    onSuccess: (data) => {
+      if (data) {
         setEditedUser(data);
-      },
+        setIsEditing(true);
+      }
     },
-  );
+    onError: () => {
+      alert("사용자 정보를 불러오는 중 오류가 발생했습니다.");
+    },
+  });
 
   const updateProfileMutation = useMutation(
     (updatedData: Partial<User>) => updateUserProfile(user!.uid, updatedData),
     {
       onSuccess: async () => {
-        const updatedUser = await updateUserState(auth.currentUser);
-        setUser(updatedUser);
-        setIsEditing(false);
-        alert("프로필이 성공적으로 업데이트되었습니다.");
+        const updatedUser = await fetchUserData();
+        if (updatedUser) {
+          setUser(updatedUser);
+          setEditedUser(updatedUser);
+          setIsEditing(false);
+          alert("프로필이 성공적으로 업데이트되었습니다.");
+        }
       },
-      onError: (error: Error) => {
+      onError: () => {
         alert(errorMessages.PROFILE_UPDATE_ERROR);
       },
     },
@@ -63,7 +78,7 @@ const MyPage: React.FC = () => {
       alert("계정이 성공적으로 삭제되었습니다.");
       router.push("/");
     },
-    onError: (error: Error) => {
+    onError: () => {
       alert(errorMessages.ACCOUNT_DELETE_ERROR);
     },
   });
@@ -85,10 +100,16 @@ const MyPage: React.FC = () => {
     setEditedUser((prev) => ({ ...prev!, address1, address2 }));
   };
 
-  const handleSave = () => {
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault(); // 폼 제출을 방지
+
     if (editedUser && user) {
       updateProfileMutation.mutate(editedUser);
     }
+  };
+
+  const handleEditButtonClick = () => {
+    fetchUserMutation.mutate(); // 서버에서 최신 사용자 데이터를 가져옴
   };
 
   const handleDeleteAccount = () => {
@@ -97,12 +118,12 @@ const MyPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!user || !editedUser) {
-    return <div>사용자 정보를 불러올 수 없습니다.</div>;
+  if (!user) {
+    return (
+      <Layout>
+        <div>사용자 정보를 불러올 수 없습니다.</div>
+      </Layout>
+    );
   }
 
   return (
@@ -133,16 +154,15 @@ const MyPage: React.FC = () => {
         </Section>
 
         <Section>
-          <SectionTitle>내 경험치</SectionTitle>
           <ExperienceContainer>
-            <LevelInfo>LEVEL {user.level}</LevelInfo>
+            <LevelInfo>LV.{user.level}</LevelInfo>
             <ExperienceBar>
               <ExperienceFill
                 width={(user.experience / (user.level * 10)) * 100}
               />
             </ExperienceBar>
             <ExperienceInfo>
-              {user.experience} / {user.level * 10} XP
+              {user.experience} / {user.level * 10} EXP
             </ExperienceInfo>
           </ExperienceContainer>
         </Section>
@@ -150,14 +170,14 @@ const MyPage: React.FC = () => {
         <Section>
           <SectionTitle>내 정보</SectionTitle>
           {isEditing ? (
-            <Form>
+            <Form onSubmit={handleSave}>
               <FormGroup>
                 <Label htmlFor="name">이름</Label>
                 <Input
                   type="text"
                   id="name"
                   name="name"
-                  value={editedUser.name}
+                  value={editedUser?.name || ""}
                   onChange={handleInputChange}
                   required
                 />
@@ -168,7 +188,7 @@ const MyPage: React.FC = () => {
                   type="text"
                   id="userId"
                   name="userId"
-                  value={editedUser.userId}
+                  value={editedUser?.userId || ""}
                   readOnly
                 />
               </FormGroup>
@@ -178,41 +198,37 @@ const MyPage: React.FC = () => {
                   type="email"
                   id="email"
                   name="email"
-                  value={editedUser.email || ""}
+                  value={editedUser?.email || ""}
                   readOnly
                 />
               </FormGroup>
-              <FormGroup>
+              {/* <FormGroup>
                 <Label htmlFor="phoneNumber">휴대폰 번호</Label>
                 <Input
                   type="tel"
                   id="phoneNumber"
                   name="phoneNumber"
-                  value={editedUser.phoneNumber}
+                  value={editedUser?.phoneNumber || ""}
                   onChange={handleInputChange}
                   required
                 />
-              </FormGroup>
+              </FormGroup> */}
               <FormGroup>
                 <Label>주소</Label>
                 <AddressSelector
-                  address1={editedUser.address1 || ""}
-                  address2={editedUser.address2 || ""}
+                  address1={editedUser?.address1 || ""}
+                  address2={editedUser?.address2 || ""}
                   setAddress1={(value) =>
-                    handleAddressChange(value, editedUser.address2 || "")
+                    handleAddressChange(value, editedUser?.address2 || "")
                   }
                   setAddress2={(value) =>
-                    handleAddressChange(editedUser.address1 || "", value)
+                    handleAddressChange(editedUser?.address1 || "", value)
                   }
                 />
               </FormGroup>
               <FormGroup>
                 <Label>학교</Label>
-                <SchoolSearch
-                  address1={editedUser.address1 || ""}
-                  address2={editedUser.address2 || ""}
-                  setSchool={handleSchoolChange}
-                />
+                <SchoolSearch setSchool={handleSchoolChange} />
               </FormGroup>
               <FormGroup>
                 <Label>생년월일</Label>
@@ -220,7 +236,7 @@ const MyPage: React.FC = () => {
                   <BirthInput
                     type="number"
                     name="birthYear"
-                    value={editedUser.birthYear}
+                    value={editedUser?.birthYear || ""}
                     onChange={handleInputChange}
                     placeholder="년"
                     required
@@ -228,7 +244,7 @@ const MyPage: React.FC = () => {
                   <BirthInput
                     type="number"
                     name="birthMonth"
-                    value={editedUser.birthMonth}
+                    value={editedUser?.birthMonth || ""}
                     onChange={handleInputChange}
                     placeholder="월"
                     required
@@ -236,7 +252,7 @@ const MyPage: React.FC = () => {
                   <BirthInput
                     type="number"
                     name="birthDay"
-                    value={editedUser.birthDay}
+                    value={editedUser?.birthDay || ""}
                     onChange={handleInputChange}
                     placeholder="일"
                     required
@@ -244,15 +260,15 @@ const MyPage: React.FC = () => {
                 </BirthDateContainer>
               </FormGroup>
               <ButtonContainer>
+                <CancelButton onClick={() => setIsEditing(false)}>
+                  취소
+                </CancelButton>
                 <ConfirmButton
-                  onClick={handleSave}
+                  type="submit"
                   disabled={updateProfileMutation.isLoading}
                 >
                   {updateProfileMutation.isLoading ? "저장 중..." : "완료"}
                 </ConfirmButton>
-                <CancelButton onClick={() => setIsEditing(false)}>
-                  취소
-                </CancelButton>
               </ButtonContainer>
             </Form>
           ) : (
@@ -290,10 +306,10 @@ const MyPage: React.FC = () => {
                 </InfoValue>
               </InfoItem>
               <ButtonContainer>
-                <EditButton onClick={() => setIsEditing(true)}>수정</EditButton>
                 <DeleteButton onClick={() => setIsDeleteModalOpen(true)}>
                   회원 탈퇴
                 </DeleteButton>
+                <EditButton onClick={handleEditButtonClick}>수정</EditButton>
               </ButtonContainer>
             </InfoContainer>
           )}
@@ -304,11 +320,13 @@ const MyPage: React.FC = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleDeleteAccount}
         title="회원 탈퇴 확인"
-        message="정말로 탈퇴하시겠습니까? 모든 데이터가 삭제됩니다."
+        message="정말로 탈퇴하시겠습니까? 게시글, 댓글, 게임 기록 등 모든 데이터가 삭제되고 복구할 수 없습니다."
       />
     </Layout>
   );
 };
+
+// 스타일 컴포넌트 정의
 
 const Container = styled.div`
   max-width: 800px;
@@ -350,7 +368,6 @@ const ActivityBox = styled.div`
 
 const ActivityText = styled.p`
   font-size: 14px;
-  /* font-weight: semi-bold; */
   margin: 0;
 `;
 
@@ -433,7 +450,6 @@ const ButtonContainer = styled.div`
   margin-top: 1rem;
 
   @media (max-width: 768px) {
-    flex-direction: column;
     gap: 0.5rem;
   }
 `;

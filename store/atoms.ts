@@ -23,6 +23,11 @@ export const userState = atom<User | null>({
   default: null,
 });
 
+export interface VoteOption {
+  text: string;
+  imageUrl?: string;
+}
+
 export interface Post {
   id: string;
   address1?: string;
@@ -42,6 +47,7 @@ export interface Post {
   title: string;
   views?: number;
   imageUrls?: string[];
+  voteOptions?: VoteOption[] | null;
 }
 
 export const postsState = atom<Post[]>({
@@ -64,7 +70,7 @@ export const categoriesState = atom<Category[]>({
       subcategories: [
         { id: "national-free", name: "자유 게시판" },
         { id: "national-study", name: "공부/진로" },
-        { id: "national-popular", name: "HOT 게시글" },
+        { id: "national-hot", name: "HOT 게시글" },
       ],
     },
     {

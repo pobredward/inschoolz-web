@@ -1,54 +1,51 @@
 import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import { useRecoilState } from "recoil";
-import { postsState, userState, categoriesState, Post } from "../store/atoms";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { postsState, categoriesState, Post } from "../store/atoms";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useRouter } from "next/router";
-import { formatDate, formatTime } from "../utils/dateUtils";
+import { formatDate } from "../utils/dateUtils";
 import { FaThumbsUp, FaComment, FaEye, FaBookmark } from "react-icons/fa";
 
-interface PostListProps {
-  selectedCategory: string;
-  isLoggedIn: boolean;
-  isNationalCategory: boolean;
-}
-
-const PostList: React.FC<PostListProps> = ({
-  selectedCategory,
-  isLoggedIn,
-  isNationalCategory,
-}) => {
+const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
   const [posts, setPosts] = useRecoilState(postsState);
   const [categories] = useRecoilState(categoriesState);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [sliceLength, setSliceLength] = useState(50);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth <= 768) {
-        setSliceLength(30);
-      } else {
-        setSliceLength(50);
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize(); // 초기 화면 크기에 맞게 설정
-
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPageGroup, setCurrentPageGroup] = useState(1); // 페이지 그룹 상태
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredPosts, setFilteredPosts] = useState([]);
+  const [dateFilter, setDateFilter] = useState("all");
+  const [searchScope, setSearchScope] = useState("all");
 
   useEffect(() => {
     const fetchPosts = async () => {
       if (isNationalCategory || isLoggedIn) {
+        let q;
         try {
-          let q = query(
-            collection(db, "posts"),
-            where("categoryId", "==", selectedCategory),
-          );
-
+          if (selectedCategory === "national-hot") {
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            q = query(
+              collection(db, "posts"),
+              where("categoryId", "==", "national-free"),
+              where("likes", ">=", 3),
+              where("createdAt", ">=", oneWeekAgo),
+            );
+          } else {
+            q = query(
+              collection(db, "posts"),
+              where("categoryId", "==", selectedCategory),
+            );
+          }
           const querySnapshot = await getDocs(q);
           const postsData = querySnapshot.docs.map((doc) => ({
             id: doc.id,
@@ -61,6 +58,7 @@ const PostList: React.FC<PostListProps> = ({
           });
 
           setPosts(sortedPosts);
+          setFilteredPosts(sortedPosts); // 전체 게시글을 기본으로 설정
         } catch (error) {
           console.error("Error fetching posts: ", error);
         } finally {
@@ -74,44 +72,98 @@ const PostList: React.FC<PostListProps> = ({
     fetchPosts();
   }, [selectedCategory, isLoggedIn, isNationalCategory, setPosts]);
 
-  const getCategoryName = (categoryId: string) => {
-    for (let cat of categories) {
-      if (cat.subcategories) {
-        for (let subcat of cat.subcategories) {
-          if (subcat.id === categoryId) {
-            return `${cat.name} | ${subcat.name}`;
-          }
-        }
-      }
-    }
-    return "";
-  };
-
-  const handlePostClick = (postId: string) => {
+  const handlePostClick = (postId) => {
     router.push(`/posts/${postId}`);
   };
 
-  const formatPostMeta = (post: Post) => {
-    const postDate =
-      post.createdAt instanceof Date
-        ? post.createdAt
-        : new Date(post.createdAt.seconds * 1000);
-    const date = formatDate(postDate);
-    const time = formatTime(postDate);
-    const author = post.author;
-    const schoolName = post.schoolName;
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
 
-    if (selectedCategory.startsWith("national-")) {
-      return `${date} | ${author} | ${schoolName}`;
+  const handleDateFilterChange = (e) => {
+    setDateFilter(e.target.value);
+  };
+
+  const handleSearchScopeChange = (e) => {
+    setSearchScope(e.target.value);
+  };
+
+  const handleSearchSubmit = () => {
+    const searchTermLower = searchTerm.toLowerCase();
+    const now = new Date();
+    let filtered = posts;
+
+    // 날짜 필터 적용
+    if (dateFilter !== "all") {
+      let dateThreshold;
+      if (dateFilter === "1day") {
+        dateThreshold = new Date(now.setDate(now.getDate() - 1));
+      } else if (dateFilter === "1week") {
+        dateThreshold = new Date(now.setDate(now.getDate() - 7));
+      } else if (dateFilter === "1month") {
+        dateThreshold = new Date(now.setMonth(now.getMonth() - 1));
+      }
+      filtered = filtered.filter(
+        (post) => post.createdAt.toDate() >= dateThreshold,
+      );
+    }
+
+    // 검색 범위 필터 적용
+    if (searchScope === "title") {
+      filtered = filtered.filter((post) =>
+        post.title.toLowerCase().includes(searchTermLower),
+      );
+    } else if (searchScope === "author") {
+      filtered = filtered.filter((post) =>
+        post.author.toLowerCase().includes(searchTermLower),
+      );
+    } else if (searchScope === "comments") {
+      filtered = filtered.filter((post) =>
+        post.comments.some((comment) =>
+          comment.toLowerCase().includes(searchTermLower),
+        ),
+      );
     } else {
-      return `${date} | ${author}`;
+      filtered = filtered.filter(
+        (post) =>
+          post.title.toLowerCase().includes(searchTermLower) ||
+          post.content.toLowerCase().includes(searchTermLower) ||
+          post.author.toLowerCase().includes(searchTermLower) ||
+          post.comments.some((comment) =>
+            comment.toLowerCase().includes(searchTermLower),
+          ),
+      );
+    }
+
+    setFilteredPosts(filtered);
+    setCurrentPage(1); // 검색 결과 페이지를 1로 초기화
+  };
+
+  const indexOfLastPost = currentPage * 10;
+  const indexOfFirstPost = indexOfLastPost - 10;
+  const currentPosts = filteredPosts.slice(indexOfFirstPost, indexOfLastPost);
+
+  const totalPages = Math.ceil(filteredPosts.length / 10);
+  const pagesPerGroup = 10; // 한 페이지 그룹에 표시할 페이지 수
+  const totalPageGroups = Math.ceil(totalPages / pagesPerGroup); // 전체 페이지 그룹 수
+  const startPage = (currentPageGroup - 1) * pagesPerGroup + 1;
+  const endPage = Math.min(currentPageGroup * pagesPerGroup, totalPages);
+
+  const changePage = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: "smooth" }); // 페이지 변경 시 화면 맨 위로 스크롤
+  };
+
+  const nextPageGroup = () => {
+    if (currentPageGroup < totalPageGroups) {
+      setCurrentPageGroup(currentPageGroup + 1);
     }
   };
 
-  const renderPostContent = (content: string) => {
-    return content.length > sliceLength
-      ? `${content.slice(0, sliceLength)}...`
-      : content;
+  const prevPageGroup = () => {
+    if (currentPageGroup > 1) {
+      setCurrentPageGroup(currentPageGroup - 1);
+    }
   };
 
   if (loading) {
@@ -119,49 +171,145 @@ const PostList: React.FC<PostListProps> = ({
   }
 
   return (
-    <PostContainer>
-      {posts.map((post) => (
-        <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
-          <PostHeader>
-            <PostTitle>{post.title}</PostTitle>
-            {/* <PostCategory>{getCategoryName(post.categoryId)}</PostCategory> */}
-          </PostHeader>
-          <PostContent>{renderPostContent(post.content)}</PostContent>
-          <PostFooter>
-            <PostDateAuthor>{formatPostMeta(post)}</PostDateAuthor>
-            <PostActions>
-              {/* <ActionItem>
-                <FaThumbsUp /> {post.likes || 0}
-              </ActionItem>
-              <ActionItem>
-                <FaComment /> {post.comments || 0}
-              </ActionItem>
-              <ActionItem>
-                <FaEye /> {post.views || 0}
-              </ActionItem>
-              <ActionItem>
-                <FaBookmark /> {post.scraps || 0}
-              </ActionItem> */}
-              <ActionItem>👍 {post.likes || 0}</ActionItem>
-              <ActionItem>💬 {post.comments || 0}</ActionItem>
-              <ActionItem>👁️ {post.views || 0}</ActionItem>
-              <ActionItem>🔖 {post.scraps || 0}</ActionItem>
-            </PostActions>
-          </PostFooter>
-        </PostItem>
-      ))}
-    </PostContainer>
+    <div>
+      <PostContainer>
+        {currentPosts.map((post) => (
+          <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
+            <PostHeader>
+              <PostTitle>{post.title}</PostTitle>
+            </PostHeader>
+            <PostContent>{post.content.slice(0, 100)}...</PostContent>
+            <PostFooter>
+              <PostDateAuthor>
+                {formatDate(post.createdAt)} | {post.author}
+              </PostDateAuthor>
+              <PostActions>
+                <ActionItem>👍 {post.likes || 0}</ActionItem>
+                <ActionItem>💬 {post.comments.length || 0}</ActionItem>
+                <ActionItem>👁️ {post.views || 0}</ActionItem>
+                <ActionItem>🔖 {post.scraps || 0}</ActionItem>
+              </PostActions>
+            </PostFooter>
+          </PostItem>
+        ))}
+      </PostContainer>
+      <Pagination>
+        {currentPageGroup > 1 && (
+          <PageNavigationButton onClick={prevPageGroup}>
+            {"< 이전"}
+          </PageNavigationButton>
+        )}
+        {Array.from({ length: endPage - startPage + 1 }, (_, index) => (
+          <PageNumber
+            key={startPage + index}
+            onClick={() => changePage(startPage + index)}
+            isActive={startPage + index === currentPage}
+          >
+            {startPage + index}
+          </PageNumber>
+        ))}
+        {currentPageGroup < totalPageGroups && (
+          <PageNavigationButton onClick={nextPageGroup}>
+            {"다음 >"}
+          </PageNavigationButton>
+        )}
+      </Pagination>
+      <ControlBar>
+        <Filters>
+          <Filter>
+            <label></label>
+            <select value={dateFilter} onChange={handleDateFilterChange}>
+              <option value="all">전체 기간</option>
+              <option value="1day">1일</option>
+              <option value="1week">1주일</option>
+              <option value="1month">1개월</option>
+            </select>
+          </Filter>
+          <Filter>
+            <label></label>
+            <select value={searchScope} onChange={handleSearchScopeChange}>
+              <option value="all">전체 내용</option>
+              <option value="title">제목</option>
+              <option value="author">작성자</option>
+              <option value="comments">댓글</option>
+            </select>
+          </Filter>
+        </Filters>
+        <SearchBar>
+          <SearchInput
+            type="text"
+            placeholder="검색어를 입력하세요"
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+          <SearchButton onClick={handleSearchSubmit}>검색</SearchButton>
+        </SearchBar>
+      </ControlBar>
+    </div>
   );
 };
+
+const ControlBar = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1rem 0;
+  gap: 0.5rem;
+`;
+
+const SearchBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const SearchInput = styled.input`
+  padding: 0.5rem;
+  font-size: 1rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+`;
+
+const SearchButton = styled.button`
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  color: white;
+  background-color: #007bff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #0056b3;
+  }
+`;
+
+const Filters = styled.div`
+  display: flex;
+  gap: 0.1rem;
+`;
+
+const Filter = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    font-size: 1rem;
+  }
+
+  select {
+    padding: 0.5rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+`;
 
 const PostContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-
-  @media (max-width: 769px) {
-    gap: 0.2rem;
-  }
 `;
 
 const LoadingMessage = styled.div`
@@ -171,19 +319,14 @@ const LoadingMessage = styled.div`
 `;
 
 const PostItem = styled.div`
-  padding: 1.2rem;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
 
   &:hover {
-    background-color: #f9f9f9;
-  }
-
-  @media (max-width: 769px) {
-    padding: 1rem 0.3rem;
+    background-color: #f1f1f1;
   }
 `;
 
@@ -193,33 +336,16 @@ const PostHeader = styled.div`
   align-items: center;
 `;
 
-const PostCategory = styled.span`
-  font-size: 0.8rem;
-  color: #6c757d;
-
-  @media (max-width: 769px) {
-    font-size: 0.6rem;
-  }
-`;
-
 const PostTitle = styled.h4`
   margin: 0;
   flex-grow: 1;
-
-  @media (max-width: 769px) {
-    font-size: 0.8rem;
-  }
 `;
 
 const PostContent = styled.p`
-  margin: 0rem;
+  margin: 0;
   color: #8e9091;
   line-height: 1.2;
   font-size: 0.9rem;
-
-  @media (max-width: 769px) {
-    font-size: 0.7rem;
-  }
 `;
 
 const PostFooter = styled.div`
@@ -232,10 +358,6 @@ const PostFooter = styled.div`
 const PostDateAuthor = styled.span`
   font-size: 0.8rem;
   color: #6c757d;
-
-  @media (max-width: 769px) {
-    font-size: 0.6rem;
-  }
 `;
 
 const PostActions = styled.div`
@@ -243,17 +365,30 @@ const PostActions = styled.div`
   gap: 0.5rem;
   font-size: 0.7rem;
   color: #6c757d;
-
-  @media (max-width: 769px) {
-    gap: 0.4rem;
-    font-size: 0.5rem;
-  }
 `;
 
 const ActionItem = styled.span`
   display: flex;
   align-items: center;
   cursor: pointer;
+`;
+
+const Pagination = styled.div`
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+`;
+
+const PageNumber = styled.span<{ isActive: boolean }>`
+  margin: 0 0.5rem;
+  cursor: pointer;
+  font-weight: ${(props) => (props.isActive ? "bold" : "normal")};
+`;
+
+const PageNavigationButton = styled.span`
+  margin: 0 0.5rem;
+  cursor: pointer;
+  font-weight: bold;
 `;
 
 export default PostList;

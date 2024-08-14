@@ -15,11 +15,15 @@ import {
   setDoc,
   doc,
 } from "firebase/firestore";
-import { handleFriendInvitation } from "../utils/experience";
 import { db, auth } from "../lib/firebase";
 import { errorMessages } from "../utils/errorMessages";
 import { useMutation } from "react-query";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  updateUserExperience,
+  getExperienceSettings,
+} from "../utils/experience";
+import ExperienceModal from "../components/modal/ExperienceModal";
 
 const SignupPage: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -39,6 +43,10 @@ const SignupPage: React.FC = () => {
   const [inviterUserId, setInviterUserId] = useState("");
   const [userIdMessage, setUserIdMessage] = useState("");
 
+  const [showExpModal, setShowExpModal] = useState(false);
+  const [expGained, setExpGained] = useState(0);
+  const [newLevel, setNewLevel] = useState(1);
+
   const router = useRouter();
   const { updateUserState } = useAuthStateManager();
 
@@ -54,6 +62,7 @@ const SignupPage: React.FC = () => {
         address2,
         schoolId,
         schoolName,
+        schoolAddress,
         birthYear,
         birthMonth,
         birthDay,
@@ -73,17 +82,19 @@ const SignupPage: React.FC = () => {
         email,
         userId,
         name,
-        phoneNumber,
+        // phoneNumber,
         address1,
         address2,
         schoolId,
         schoolName,
+        schoolAddress,
         birthYear,
         birthMonth,
         birthDay,
         experience: 0,
         totalExperience: 0,
         level: 1,
+        invitedBy: inviterUserId || null,
       });
 
       // 이메일 인증 메일 발송
@@ -101,8 +112,28 @@ const SignupPage: React.FC = () => {
           const inviterDoc = inviterSnapshot.docs[0];
           const inviterId = inviterDoc.id;
 
-          // handleFriendInvitation 호출
-          await handleFriendInvitation(inviterId, user.uid);
+          const settings = await getExperienceSettings();
+          const invitationExp = settings.friendInvitation;
+
+          // 초대한 사용자의 경험치 업데이트
+          await updateUserExperience(
+            inviterId,
+            invitationExp,
+            "친구 초대 완료",
+          );
+
+          // 초대받은 사용자(새 사용자)의 경험치 업데이트
+          const newUserResult = await updateUserExperience(
+            user.uid,
+            invitationExp,
+            "친구 초대로 가입",
+          );
+
+          setExpGained(newUserResult.expGained);
+          if (newUserResult.levelUp) {
+            setNewLevel(newUserResult.newLevel);
+          }
+          setShowExpModal(true);
         }
       }
 
@@ -112,7 +143,7 @@ const SignupPage: React.FC = () => {
       onSuccess: async (user) => {
         setVerificationSent(true);
         const updatedUser = await updateUserState(user);
-        // 필요한 경우 여기서 Recoil 상태를 업데이트할 수 있습니다.
+        // Recoil 상태 업데이트 (필요한 경우)
       },
       onError: (error: Error) => {
         setError(error.message || errorMessages.UNKNOWN_ERROR);
@@ -177,7 +208,7 @@ const SignupPage: React.FC = () => {
       !email ||
       !password ||
       !confirmPassword ||
-      !phoneNumber ||
+      // !phoneNumber ||
       !address1 ||
       !address2 ||
       !school ||
@@ -223,17 +254,17 @@ const SignupPage: React.FC = () => {
       return;
     }
 
-    const isDuplicatePhoneNumber = await checkDuplicatePhoneNumber(phoneNumber);
-    if (isDuplicatePhoneNumber) {
-      setError("이미 등록된 휴대폰 번호입니다.");
-      return;
-    }
+    // const isDuplicatePhoneNumber = await checkDuplicatePhoneNumber(phoneNumber);
+    // if (isDuplicatePhoneNumber) {
+    //   setError("이미 등록된 휴대폰 번호입니다.");
+    //   return;
+    // }
 
-    const phoneRegex = /^01[016789]-?\d{3,4}-?\d{4}$/;
-    if (!phoneRegex.test(phoneNumber)) {
-      setError("올바른 휴대폰 번호 형식이 아닙니다.");
-      return;
-    }
+    // const phoneRegex = /^01[016789]-?\d{3,4}-?\d{4}$/;
+    // if (!phoneRegex.test(phoneNumber)) {
+    //   setError("올바른 휴대폰 번호 형식이 아닙니다.");
+    //   return;
+    // }
 
     const currentYear = new Date().getFullYear();
     if (birthYear < 1900 || birthYear > currentYear) {
@@ -260,11 +291,12 @@ const SignupPage: React.FC = () => {
         password,
         userId,
         name,
-        phoneNumber,
+        // phoneNumber,
         address1,
         address2,
         schoolId: school?.SCHOOL_CODE || "",
         schoolName: school?.KOR_NAME || "",
+        schoolAddress: school?.ADDRESS || "",
         birthYear,
         birthMonth,
         birthDay,
@@ -284,8 +316,8 @@ const SignupPage: React.FC = () => {
             클릭해주세요.
           </p>
           <p>
-            인증이 완료되면 <Link href="/login">로그인</Link> 페이지로 이동하여
-            로그인해주세요.
+            인증이 완료되면 <Link href="/">메인 페이지</Link>로 이동하여
+            인스쿨즈를 시작해보세요!
           </p>
         </VerificationMessage>
       </Container>
@@ -356,14 +388,14 @@ const SignupPage: React.FC = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
           />
-          <Label>휴대폰 번호</Label>
+          {/* <Label>휴대폰 번호</Label>
           <Input
             type="tel"
             placeholder="휴대폰 번호 ( '-' 제외 11자)"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             required
-          />
+          /> */}
           <Label>주소</Label>
           <AddressSelector
             address1={address1}
@@ -372,11 +404,7 @@ const SignupPage: React.FC = () => {
             setAddress2={setAddress2}
           />
           <Label>학교</Label>
-          <SchoolSearch
-            address1={address1}
-            address2={address2}
-            setSchool={setSchool}
-          />
+          <SchoolSearch setSchool={setSchool} />
           <Label>생년월일</Label>
           <DateOfBirthContainer>
             <Select
@@ -431,6 +459,17 @@ const SignupPage: React.FC = () => {
         <LoginLink>
           이미 계정이 있으신가요? <Link href="/login">로그인</Link>
         </LoginLink>
+        {showExpModal && (
+          <ExperienceModal
+            isOpen={showExpModal}
+            onClose={() => {
+              setShowExpModal(false);
+              router.push("/");
+            }}
+            expGained={expGained}
+            newLevel={newLevel}
+          />
+        )}
       </Container>
     </Layout>
   );

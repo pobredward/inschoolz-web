@@ -1,8 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import Layout from "../../components/Layout";
-import Leaderboard from "../../components/game/Leaderboard";
+import Leaderboard from "../../components/LeaderBoard";
 import styled from "@emotion/styled";
+
+
 import { FaBolt, FaFeather } from "react-icons/fa";
 
 const GamePage: React.FC = () => {

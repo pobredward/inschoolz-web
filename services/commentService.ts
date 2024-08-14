@@ -11,7 +11,6 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { handleCommentCreation } from "../utils/experience";
 import { deleteCommentImage } from "./imageService";
 
 export interface Comment {
@@ -50,9 +49,6 @@ export async function createComment(commentData: Omit<Comment, "id">) {
     isReply: !!commentData.parentId,
     parentId: commentData.parentId,
   });
-
-  // 댓글 작성 후 경험치 부여
-  await handleCommentCreation(commentData.authorId);
 
   return { ...commentData, id: docRef.id };
 }

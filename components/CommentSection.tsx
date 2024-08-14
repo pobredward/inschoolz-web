@@ -11,18 +11,23 @@ import {
   arrayUnion,
   arrayRemove,
   doc,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { formatDate } from "../utils/dateUtils";
-import { createComment } from "../services/commentService";
-import { deleteComment } from "../services/commentService";
+import { createComment, deleteComment } from "../services/commentService";
+import {
+  updateUserExperience,
+  getExperienceSettings,
+} from "../utils/experience";
+import ExperienceModal from "../components/modal/ExperienceModal";
 
 interface Comment {
   id: string;
   author: string;
   authorId: string;
   content: string;
-  createdAt: Date;
+  createdAt: any;
   parentId: string | null;
   likes: number;
   likedBy: string[];
@@ -48,6 +53,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showExpModal, setShowExpModal] = useState(false);
+  const [expGained, setExpGained] = useState(0);
+  const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -92,6 +100,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       );
       setNewComment("");
       onCommentUpdate(comments.length + 1);
+
+      const settings = await getExperienceSettings();
+      const result = await updateUserExperience(
+        user.uid,
+        settings.commentCreation,
+        "댓글을 작성했습니다",
+      );
+      setExpGained(result.expGained);
+      if (result.levelUp) {
+        setNewLevel(result.newLevel);
+      }
+      setShowExpModal(true);
+
+      // ... 나머지 로직
     } catch (e) {
       console.error("Error adding comment: ", e);
     }
@@ -128,6 +150,20 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       await updateDoc(postRef, {
         comments: newComments.length,
       });
+
+      const settings = await getExperienceSettings();
+      const result = await updateUserExperience(
+        user.uid,
+        settings.commentCreation,
+        "대댓글을 작성했습니다",
+      );
+      setExpGained(result.expGained);
+      if (result.levelUp) {
+        setNewLevel(result.newLevel);
+      }
+      setShowExpModal(true);
+
+      // ... 나머지 로직
     } catch (e) {
       console.error("Error adding reply: ", e);
     }
@@ -315,25 +351,33 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   return (
-    <CommentSectionContainer>
-      {user && (
-        <CommentForm onSubmit={handleCommentSubmit}>
-          <CommentInputWrapper>
-            <CommentTextarea
-              ref={textareaRef}
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="댓글을 입력하세요..."
-              required
-            />
-            <SubmitButton type="button" onClick={handleCommentSubmit}>
-              <FaPaperPlane />
-            </SubmitButton>
-          </CommentInputWrapper>
-        </CommentForm>
-      )}
-      {renderComments()}
-    </CommentSectionContainer>
+    <>
+      <CommentSectionContainer>
+        {user && (
+          <CommentForm onSubmit={handleCommentSubmit}>
+            <CommentInputWrapper>
+              <CommentTextarea
+                ref={textareaRef}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="댓글을 입력하세요..."
+                required
+              />
+              <SubmitButton type="button" onClick={handleCommentSubmit}>
+                <FaPaperPlane />
+              </SubmitButton>
+            </CommentInputWrapper>
+          </CommentForm>
+        )}
+        {renderComments()}
+      </CommentSectionContainer>
+      <ExperienceModal
+        isOpen={showExpModal}
+        onClose={() => setShowExpModal(false)}
+        expGained={expGained}
+        newLevel={newLevel}
+      />
+    </>
   );
 };
 
@@ -357,7 +401,7 @@ const CommentTextarea = styled.textarea`
   border-radius: 20px;
   resize: none;
   overflow-y: auto;
-  min-height: 0px;
+  min-height: 30px;
   max-height: 200px;
   height: 0px;
 `;

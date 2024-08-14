@@ -1,5 +1,3 @@
-// pages/game/reactiongame.tsx
-
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import styled from "@emotion/styled";
@@ -7,10 +5,10 @@ import { useAuth } from "../../hooks/useAuth";
 import { db } from "../../lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import Link from "next/link";
-import Modal from "../../components/modal/DefaultModal";
+import DefaultModal from "../../components/modal/DefaultModal";
+import ExperienceModal from "../../components/modal/ExperienceModal";
 import {
-  handleGameScore,
-  getUserGameInfo,
+  updateUserExperience,
   getExperienceSettings,
 } from "../../utils/experience";
 
@@ -25,6 +23,10 @@ const ReactionGame: React.FC = () => {
   const [modalContent, setModalContent] = useState({ title: "", message: "" });
   const [remainingPlays, setRemainingPlays] = useState<number | null>(null);
   const { user } = useAuth();
+  const [showExpModal, setShowExpModal] = useState(false);
+  const [expGained, setExpGained] = useState(0);
+  const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
+  const [gamesPlayed, setGamesPlayed] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -51,14 +53,14 @@ const ReactionGame: React.FC = () => {
   // };
 
   const startGame = () => {
-    if (!user || remainingPlays === 0) {
-      setModalContent({
-        title: "게임 불가",
-        message: "오늘의 게임 횟수를 모두 사용했습니다.",
-      });
-      setShowModal(true);
-      return;
-    }
+    // if (!user || remainingPlays === 0) {
+    //   setModalContent({
+    //     title: "게임 불가",
+    //     message: "오늘의 게임 횟수를 모두 사용했습니다.",
+    //   });
+    //   setShowModal(true);
+    //   return;
+    // }
 
     setGameState("ready");
     const delay = Math.floor(Math.random() * 3000) + 2000; // 2-5 seconds delay
@@ -77,7 +79,6 @@ const ReactionGame: React.FC = () => {
       try {
         await handleGameScore(user!.uid, "reactionGame", reactionTime);
         showResult(reactionTime);
-        // await updateRemainingPlays();
       } catch (error) {
         if (error instanceof Error) {
           setModalContent({
@@ -88,14 +89,29 @@ const ReactionGame: React.FC = () => {
         }
       }
     } else if (gameState === "ready") {
-      setGameState("waiting");
-      setModalContent({
-        title: "너무 빨리 클릭!",
-        message: "너무 빨리 클릭했습니다! 다시 시도해주세요.",
-      });
-      setShowModal(true);
+      // ... 기존 로직 ...
     } else {
       startGame();
+    }
+  };
+
+  const handleGameScore = async (
+    userId: string,
+    game: "reactionGame",
+    score: number,
+  ) => {
+    const settings = await getExperienceSettings();
+    if (score <= settings.reactionGameThreshold) {
+      const result = await updateUserExperience(
+        userId,
+        settings.reactionGameExperience,
+        "반응 게임 성공",
+      );
+      setExpGained(result.expGained);
+      if (result.levelUp) {
+        setNewLevel(result.newLevel);
+      }
+      setShowExpModal(true);
     }
   };
 
@@ -142,11 +158,17 @@ const ReactionGame: React.FC = () => {
         {/* <p>남은 플레이 횟수: {remainingPlays}</p> */}
         <BackButton href="/game">메인 메뉴로 돌아가기</BackButton>
       </GameContainer>
-      <Modal
+      <DefaultModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={modalContent.title}
         message={modalContent.message}
+      />
+      <ExperienceModal
+        isOpen={showExpModal}
+        onClose={() => setShowExpModal(false)}
+        expGained={expGained}
+        newLevel={newLevel}
       />
     </Layout>
   );

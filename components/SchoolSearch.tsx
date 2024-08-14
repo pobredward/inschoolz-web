@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import styled from "@emotion/styled";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -9,12 +9,14 @@ import { searchResultsState, selectedSchoolState } from "../store/atoms";
 import { School } from "../types";
 
 interface SchoolSearchProps {
-  address1: string;
-  address2: string;
+  initialSchool?: { KOR_NAME: string; ADDRESS: string }; // 기존 학교 정보
   setSchool: (school: any) => void;
 }
 
-const SchoolSearch: React.FC<SchoolSearchProps> = ({ setSchool }) => {
+const SchoolSearch: React.FC<SchoolSearchProps> = ({
+  initialSchool,
+  setSchool,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useRecoilState(searchResultsState);
@@ -22,6 +24,13 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({ setSchool }) => {
     useRecoilState(selectedSchoolState);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 초기 학교 정보 설정
+  useEffect(() => {
+    if (initialSchool) {
+      setSelectedSchool(initialSchool);
+    }
+  }, [initialSchool, setSelectedSchool]);
 
   const handleSearch = async (term: string) => {
     if (term.length < 2) {
@@ -78,14 +87,20 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({ setSchool }) => {
   };
 
   const handleSchoolSelect = (school: any) => {
-    setSelectedSchool(school); // Recoil 상태 업데이트
-    setSchool(school); // 부모 컴포넌트로 학교 정보 전달
+    setSelectedSchool(school);
+    setSchool(school);
 
     // isOpen을 닫는 작업을 안전하게 비동기 처리 후 진행
     setTimeout(() => {
       setIsOpen(false);
-    }, 500); // 상태가 안정화될 때까지 잠시 대기
+    }, 100);
   };
+
+  const handleEditButtonClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setIsOpen(true);
+  };
+
   return (
     <Container>
       {selectedSchool ? (
@@ -94,7 +109,7 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({ setSchool }) => {
             <SchoolName>{selectedSchool.KOR_NAME}</SchoolName>
             <SchoolAddress>{selectedSchool.ADDRESS}</SchoolAddress>
           </SelectedSchoolInfo>
-          <EditButtonContainer onClick={() => setIsOpen(true)}>
+          <EditButtonContainer onClick={handleEditButtonClick}>
             <FaSearch size={20} />
             <EditButtonText>재검색</EditButtonText>
           </EditButtonContainer>

@@ -2,6 +2,7 @@ import { NextPage } from "next";
 import Head from "next/head";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
+import HotPostsPreview from "../components/HotPostsPreview";
 
 const HomePage: NextPage = () => {
   return (

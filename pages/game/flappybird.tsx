@@ -5,15 +5,20 @@ import { useAuth } from "../../hooks/useAuth";
 import { db } from "../../lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import Link from "next/link";
-import Modal from "../../components/modal/DefaultModal";
+import DefaultModal from "../../components/modal/DefaultModal";
 import { useMediaQuery } from "react-responsive";
+import {
+  updateUserExperience,
+  getExperienceSettings,
+} from "../../utils/experience";
+import ExperienceModal from "../../components/modal/ExperienceModal";
 
 // 상수 정의
 const GRAVITY = 0.2;
 const JUMP_STRENGTH = -6;
-const PIPE_SPEED = 1.2;
-const PIPE_WIDTH = 80;
-const PIPE_GAP = 180;
+const PIPE_SPEED = 1.5;
+const PIPE_WIDTH = 50;
+const PIPE_GAP = 200;
 
 const FlappyBird: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,6 +35,14 @@ const FlappyBird: React.FC = () => {
   const scoreRef = useRef(0);
   const gameOverRef = useRef(true);
   const animationFrameId = useRef<number | null>(null);
+  const [showExpModal, setShowExpModal] = useState(false);
+  const [expGained, setExpGained] = useState(0);
+  const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
+  const [showDefaultModal, setShowDefaultModal] = useState(false);
+  const [defaultModalContent, setDefaultModalContent] = useState({
+    title: "",
+    message: "",
+  });
 
   useEffect(() => {
     if (user) {
@@ -243,10 +256,13 @@ const FlappyBird: React.FC = () => {
   };
 
   const endGame = async () => {
-    if (gameOverRef.current) return; // Prevent multiple calls
+    if (gameOverRef.current) return;
 
     gameOverRef.current = true;
     setGameOver(true);
+
+    let message = `점수: ${scoreRef.current}\n최고 점수: ${bestScore}`;
+    let newBestScore = false;
 
     if (user && scoreRef.current > bestScore) {
       await setDoc(doc(db, "flappyBirdScores", user.uid), {
@@ -257,17 +273,48 @@ const FlappyBird: React.FC = () => {
         bestScore: scoreRef.current,
       });
       setBestScore(scoreRef.current);
-      setModalContent({
-        title: "새로운 최고 점수!",
-        message: `축하합니다! 새로운 최고 점수: ${scoreRef.current}`,
-      });
-    } else {
-      setModalContent({
-        title: "게임 오버",
-        message: `점수: ${scoreRef.current}\n최고 점수: ${bestScore}`,
-      });
+      newBestScore = true;
+      message += "\n새로운 최고 점수를 달성했습니다!";
     }
-    setShowModal(true);
+
+    setDefaultModalContent({
+      title: "게임 오버",
+      message: message,
+    });
+    setShowDefaultModal(true);
+
+    if (user) {
+      try {
+        await handleGameScore(user.uid, scoreRef.current);
+      } catch (error) {
+        console.error("Error updating experience:", error);
+      }
+    }
+  };
+
+  const handleGameScore = async (userId: string, score: number) => {
+    const settings = await getExperienceSettings();
+    if (score >= settings.flappyBirdThreshold) {
+      const result = await updateUserExperience(
+        userId,
+        settings.flappyBirdExperience,
+        "Flappy Bird 게임 성공",
+      );
+      setExpGained(result.expGained);
+      if (result.levelUp) {
+        setNewLevel(result.newLevel);
+      }
+      setShowExpModal(true);
+    }
+  };
+
+  const handleExpModalClose = () => {
+    setShowExpModal(false);
+  };
+
+  const handleDefaultModalClose = () => {
+    setShowDefaultModal(false);
+    // 게임 재시작 로직 추가
   };
 
   const handleJump = () => {
@@ -290,11 +337,17 @@ const FlappyBird: React.FC = () => {
         <p>최고 점수: {bestScore}</p>
         <BackButton href="/game">메인 메뉴로 돌아가기</BackButton>
       </GameContainer>
-      <Modal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        title={modalContent.title}
-        message={modalContent.message}
+      <ExperienceModal
+        isOpen={showExpModal}
+        onClose={handleExpModalClose}
+        expGained={expGained}
+        newLevel={newLevel}
+      />
+      <DefaultModal
+        isOpen={showDefaultModal}
+        onClose={handleDefaultModalClose}
+        title={defaultModalContent.title}
+        message={defaultModalContent.message}
       />
     </Layout>
   );

@@ -13,7 +13,7 @@ const storage = getStorage();
 
 export const uploadImage = async (
   file: File,
-  userId: string,
+  uid: string,
   type: "post" | "comment" | "profile" | "vote",
   id?: string,
 ): Promise<string> => {
@@ -23,19 +23,23 @@ export const uploadImage = async (
 
   switch (type) {
     case "post":
-      filePath = `posts/${id}/images/general/${fileName}`;
+      if (!id) throw new Error("Post ID is required for uploading post images");
+      filePath = `posts/${id}/images/${fileName}`;
       break;
     case "comment":
+      if (!id)
+        throw new Error("Comment ID is required for uploading comment images");
       filePath = `comments/${id}/image.${fileExtension}`;
       break;
     case "profile":
-      filePath = `users/${userId}/profile.${fileExtension}`;
+      filePath = `users/${uid}/profile.${fileExtension}`;
       break;
     case "vote":
-      filePath = `posts/${id}/images/vote/${fileName}`;
+      if (!id) throw new Error("Post ID is required for uploading vote images");
+      filePath = `posts/${id}/vote_images/${fileName}`;
       break;
     default:
-      filePath = `temp/${userId}/${fileName}`;
+      filePath = `temp/${uid}/${fileName}`;
   }
 
   const fileRef = ref(storage, filePath);
@@ -44,8 +48,13 @@ export const uploadImage = async (
   return getDownloadURL(fileRef);
 };
 
-export const deleteUserImages = async (userId: string): Promise<void> => {
-  const userProfileRef = ref(storage, `users/${userId}`);
+export const deleteImage = async (imageUrl: string): Promise<void> => {
+  const imageRef = ref(storage, imageUrl);
+  await deleteObject(imageRef);
+};
+
+export const deleteUserImages = async (uid: string): Promise<void> => {
+  const userProfileRef = ref(storage, `users/${uid}`);
 
   try {
     const fileList = await listAll(userProfileRef);

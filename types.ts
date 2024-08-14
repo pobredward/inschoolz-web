@@ -35,6 +35,11 @@ export interface User {
   phoneNumber: string;
 }
 
+export interface VoteOption {
+  text: string;
+  imageUrl?: string;
+}
+
 // 게시글 데이터 타입
 export interface Post {
   id: string;
@@ -53,6 +58,8 @@ export interface Post {
   likes?: number;
   title: string;
   views?: number;
+  imageUrls?: string[];
+  voteOptions?: VoteOption[] | null;
 }
 
 // 카테고리 데이터 타입

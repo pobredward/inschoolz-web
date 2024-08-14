@@ -14,7 +14,6 @@ import {
   setDoc,
   Timestamp,
 } from "firebase/firestore";
-import { handlePostCreation } from "../utils/experience";
 import { deletePostImages } from "./imageService";
 
 export async function fetchPostsByCategory(
@@ -106,8 +105,6 @@ export async function createPost(postData: CreatePostData) {
       createdAt: now,
       postId: docRef.id,
     });
-
-    await handlePostCreation(postData.authorId);
 
     return docRef.id; // 게시글 ID 반환
   } catch (error) {

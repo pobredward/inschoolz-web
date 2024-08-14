@@ -14,6 +14,7 @@ const Navbar: React.FC = () => {
   const { user } = useAuth();
   const [currentUser, setCurrentUser] = useRecoilState(userState);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [logoSrc, setLogoSrc] = useState("/logo_1170x730.png");
   const logout = useLogout();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,6 +40,23 @@ const Navbar: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth <= 768) {
+        setLogoSrc("/logo_240x240.png");
+      } else {
+        setLogoSrc("/logo_1170x730.png");
+      }
+    };
+
+    handleResize(); // 초기 로드 시 로고 이미지 설정
+    window.addEventListener("resize", handleResize); // 윈도우 크기 변경 시 로고 이미지 설정
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -68,7 +86,7 @@ const Navbar: React.FC = () => {
           <LogoWrapper href="/">
             <LogoContainer>
               <Image
-                src="/logo_1170x730.png"
+                src={logoSrc}
                 alt="인스쿨즈 로고"
                 layout="fill"
                 objectFit="cover"
@@ -178,13 +196,13 @@ const LogoContainer = styled.div`
   overflow: hidden;
 
   @media (max-width: 768px) {
-    width: 100px;
+    width: 32px;
     height: 32px;
   }
 
   @media (max-width: 350px) {
-    width: 80px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
   }
 `;
 
@@ -193,11 +211,11 @@ const NavLinks = styled.div`
   gap: 1rem;
 
   @media (max-width: 768px) {
-    gap: 0.3rem;
+    gap: 0.5rem;
   }
 
   @media (max-width: 350px) {
-    gap: 0.1rem;
+    gap: 0.2rem;
   }
 `;
 
@@ -231,10 +249,6 @@ const UserInfo = styled.div`
   flex-direction: column;
   align-items: flex-end;
   margin-right: 10px;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
 `;
 
 const LevelText = styled.div`

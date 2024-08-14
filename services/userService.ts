@@ -44,6 +44,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
     await updateDoc(doc(db, "users", userId), {
       name: "탈퇴한 회원",
       email: "deleted@example.com",
+      userId: "",
       phoneNumber: "",
       address1: "",
       address2: "",
@@ -114,12 +115,12 @@ export async function fetchUserComments(userId: string) {
         ...commentDoc.data(),
         id: commentDoc.id,
         isReply: commentData.isReply,
-        parentId: commentData.parentId
+        parentId: commentData.parentId,
       };
     }
     return null;
   });
 
   const comments = await Promise.all(commentsPromises);
-  return comments.filter(comment => comment !== null);
+  return comments.filter((comment) => comment !== null);
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { useRecoilValue, useRecoilState } from "recoil";
 import {
@@ -6,6 +6,8 @@ import {
   userState,
   commentsState,
   selectedCategoryState,
+  categoriesState,
+  Category,
 } from "../store/atoms";
 import styled from "@emotion/styled";
 import Layout from "./Layout";
@@ -29,13 +31,17 @@ import { ref, deleteObject } from "firebase/storage";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../services/postService";
 import { Post } from "../types";
-import { FaBookmark } from "react-icons/fa";
+import { FaBookmark, FaTrash, FaUpload } from "react-icons/fa";
+import { uploadImage, deleteImage } from "../services/imageService";
 import {
   scrapPost,
   unscrapPost,
   isPostScrapped,
+  deletePost,
 } from "../services/postService";
-import { deletePost } from "../services/postService";
+import { ImageGallery, Modal } from "./ImageGallery";
+import DefaultModal from "./modal/DefaultModal";
+import { compressImage } from "../utils/imageUtils";
 
 const PostDetail: React.FC = () => {
   const router = useRouter();
@@ -53,8 +59,16 @@ const PostDetail: React.FC = () => {
   const [selectedVoteOption, setSelectedVoteOption] = useState<number | null>(
     null,
   );
-  const [editedImages, setEditedImages] = useState<string[]>([]);
+  const [editedImages, setEditedImages] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [isScrapped, setIsScrapped] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [currentVoteImage, setCurrentVoteImage] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [modalContent, setModalContent] = useState({ title: "", message: "" });
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const categories = useRecoilValue(categoriesState);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -77,18 +91,14 @@ const PostDetail: React.FC = () => {
           setEditedTitle(formattedPost.title);
           setEditedContent(formattedPost.content);
           setCommentCount(formattedPost.comments || 0);
+          setEditedImages([]);
+          setPreviewImages(formattedPost.imageUrls || []);
+          setExistingImages(formattedPost.imageUrls || []);
         } else {
           setPost(null);
         }
         setLoading(false);
       }
-    };
-
-    const handleCommentUpdate = (newCommentCount: number) => {
-      setPost((prevPost: any) => ({
-        ...prevPost,
-        comments: newCommentCount,
-      }));
     };
 
     const fetchComments = async () => {
@@ -122,13 +132,25 @@ const PostDetail: React.FC = () => {
 
   useEffect(() => {
     const incrementViewCount = async () => {
-      if (id) {
-        const docRef = doc(db, "posts", id as string);
-        await updateDoc(docRef, {
-          views: increment(1),
-        });
+      if (!id) return;
+
+      const viewKey = `post_${id}_viewedAt`;
+      const lastViewedAt = localStorage.getItem(viewKey);
+      const now = new Date().getTime();
+
+      if (lastViewedAt && now - parseInt(lastViewedAt) < 60000) {
+        // 1분 이내에 동일한 사용자가 조회한 경우, 조회수를 증가시키지 않음
+        return;
       }
+
+      localStorage.setItem(viewKey, now.toString());
+
+      const docRef = doc(db, "posts", id as string);
+      await updateDoc(docRef, {
+        views: increment(1),
+      });
     };
+
     if (id) {
       incrementViewCount();
     }
@@ -142,42 +164,82 @@ const PostDetail: React.FC = () => {
     }));
   };
 
-  const handleImageRemove = async (imageUrl: string) => {
-    if (isEditing) {
-      setEditedImages(editedImages.filter((url) => url !== imageUrl));
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newImages = Array.from(e.target.files);
+      if (editedImages.length + newImages.length > 10) {
+        alert("최대 10개의 이미지만 첨부할 수 있습니다.");
+        return;
+      }
+      const compressedImages = await Promise.all(newImages.map(compressImage));
+      setEditedImages([...editedImages, ...compressedImages]);
+      setPreviewImages([
+        ...previewImages,
+        ...compressedImages.map(URL.createObjectURL),
+      ]);
+    }
+  };
+
+  const handleImageRemove = async (index: number) => {
+    if (index < existingImages.length) {
+      // 기존 이미지 삭제
+      const imageUrl = existingImages[index];
+      try {
+        await deleteImage(imageUrl);
+        setExistingImages(existingImages.filter((_, i) => i !== index));
+        setPreviewImages(previewImages.filter((_, i) => i !== index));
+      } catch (error) {
+        console.error("Error deleting image:", error);
+        alert("이미지 삭제 중 오류가 발생했습니다.");
+      }
+    } else {
+      // 새로 추가된 이미지 삭제
+      const adjustedIndex = index - existingImages.length;
+      setEditedImages(editedImages.filter((_, i) => i !== adjustedIndex));
+      setPreviewImages(previewImages.filter((_, i) => i !== index));
     }
   };
 
   const handleSaveEdit = async () => {
-    if (!post) return;
+    if (!post || !user) return;
 
     try {
-      // 삭제된 이미지 처리
-      const deletedImages =
-        post.imageUrls?.filter((url) => !editedImages.includes(url)) || [];
-      await Promise.all(
-        deletedImages.map(async (url) => {
-          const imageRef = ref(storage, url);
-          await deleteObject(imageRef);
-        }),
+      // Step 1: 새로 추가된 이미지를 먼저 업로드
+      const uploadedImageUrls = await Promise.all(
+        editedImages.map((image) =>
+          uploadImage(image, user.uid, "post", post.id),
+        ),
       );
 
-      await updatePost(post.id, {
+      // Step 2: 기존 이미지와 새로 업로드된 이미지 URL을 통합
+      const updatedImageUrls = [...existingImages, ...uploadedImageUrls];
+
+      // Step 3: 게시글 업데이트 - 이미지 URL이 준비된 후에만 업데이트 수행
+      const updatedPost = {
         title: editedTitle,
         content: editedContent,
-        imageUrls: editedImages,
+        categoryId: post.categoryId,
+        imageUrls: updatedImageUrls, // 통합된 이미지 URL 배열
         updatedAt: new Date(),
-      });
+      };
+
+      // Update the post in the database
+      await updatePost(post.id, updatedPost);
+
+      // Step 4: 상태 업데이트 및 수정 모드 종료
       setPost({
         ...post,
-        title: editedTitle,
-        content: editedContent,
-        imageUrls: editedImages,
-        updatedAt: new Date(),
+        ...updatedPost,
       });
       setIsEditing(false);
+      setModalContent({
+        title: "수정 완료",
+        message: "게시글 수정이 완료되었습니다.",
+      });
+      setShowModal(true);
     } catch (error) {
       console.error("Error updating post:", error);
+      alert("게시글 수정 중 오류가 발생했습니다.");
     }
   };
 
@@ -209,6 +271,11 @@ const PostDetail: React.FC = () => {
     } catch (error) {
       console.error("Error updating scrap:", error);
     }
+  };
+
+  const openVoteImageModal = (imageUrl: string) => {
+    setCurrentVoteImage(imageUrl);
+    setModalOpen(true);
   };
 
   const handleVote = async (optionIndex: number) => {
@@ -262,15 +329,16 @@ const PostDetail: React.FC = () => {
   };
 
   const handleEdit = () => {
-    setIsEditing(!isEditing);
+    setIsEditing(true);
     setEditedTitle(post?.title || "");
     setEditedContent(post?.content || "");
+    setEditedImages([]);
+    setPreviewImages(post?.imageUrls || []);
+    setExistingImages(post?.imageUrls || []);
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setEditedTitle(post?.title || "");
-    setEditedContent(post?.content || "");
   };
 
   const handleBackToList = () => {
@@ -351,40 +419,85 @@ const PostDetail: React.FC = () => {
               </PostHeader>
               {isEditing ? (
                 <EditForm>
-                  <EditInput
+                  <Label htmlFor="title">제목</Label>
+                  <Input
                     type="text"
+                    id="title"
                     value={editedTitle}
                     onChange={(e) => setEditedTitle(e.target.value)}
+                    required
                   />
-                  <EditTextarea
+                  <Label htmlFor="category">카테고리</Label>
+                  <Select
+                    id="category"
+                    value={post.categoryId}
+                    onChange={(e) =>
+                      setPost({ ...post, categoryId: e.target.value })
+                    }
+                    required
+                  >
+                    {categories.map((cat: Category) => (
+                      <optgroup key={cat.id} label={cat.name}>
+                        {cat.subcategories?.map((subcat: Category) => (
+                          <option key={subcat.id} value={subcat.id}>
+                            {subcat.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </Select>
+                  <Label htmlFor="content">내용</Label>
+                  <Textarea
+                    id="content"
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
+                    required
                   />
-                  {editedImages.map((imageUrl, index) => (
-                    <ImagePreviewContainer key={index}>
-                      <ImagePreview src={imageUrl} alt={`Image ${index + 1}`} />
-                      <RemoveButton onClick={() => handleImageRemove(imageUrl)}>
-                        X
-                      </RemoveButton>
-                    </ImagePreviewContainer>
-                  ))}
+                  <Label htmlFor="image">이미지 업로드 (최대 10개)</Label>
+                  <ImageUploadButton
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FaUpload /> 이미지 선택
+                  </ImageUploadButton>
+                  <HiddenInput
+                    ref={fileInputRef}
+                    type="file"
+                    id="image"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                  />
+                  <ImagePreviewContainer>
+                    {previewImages.map((image, index) => (
+                      <ImagePreviewWrapper key={index}>
+                        <ImagePreview
+                          src={image}
+                          alt={`Image preview ${index + 1}`}
+                        />
+                        <RemoveButton
+                          type="button"
+                          onClick={() => handleImageRemove(index)}
+                        >
+                          <FaTrash />
+                        </RemoveButton>
+                      </ImagePreviewWrapper>
+                    ))}
+                  </ImagePreviewContainer>
                   <ButtonContainer>
                     <SaveButton onClick={handleSaveEdit}>저장</SaveButton>
-                    <CancelButton onClick={handleCancelEdit}>취소</CancelButton>
+                    <CancelButton onClick={() => setIsEditing(false)}>
+                      취소
+                    </CancelButton>
                   </ButtonContainer>
                 </EditForm>
               ) : (
                 <>
                   <PostTitle>{post.title}</PostTitle>
                   <PostContent>{post.content}</PostContent>
-                  {post.imageUrls &&
-                    post.imageUrls.map((url, index) => (
-                      <PostImage
-                        key={index}
-                        src={url}
-                        alt={`Post image ${index + 1}`}
-                      />
-                    ))}
+                  {post.imageUrls && post.imageUrls.length > 0 && (
+                    <ImageGallery images={post.imageUrls} />
+                  )}
                   {post.isVotePost && post.voteOptions && (
                     <VoteSection>
                       <h3>투표</h3>
@@ -401,6 +514,10 @@ const PostDetail: React.FC = () => {
                             <VoteOptionImage
                               src={option.imageUrl}
                               alt={`Vote option ${index + 1}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openVoteImageModal(option.imageUrl);
+                              }}
                             />
                           )}
                           <VoteOptionText>{option.text}</VoteOptionText>
@@ -457,6 +574,12 @@ const PostDetail: React.FC = () => {
           </ContentSection>
         </ContentWrapper>
       </Container>
+      <DefaultModal
+        title={modalContent.title}
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        message={modalContent.message}
+      />
     </Layout>
   );
 };
@@ -577,6 +700,113 @@ const PostActions = styled.div`
   }
 `;
 
+///////////////
+
+const EditForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const Label = styled.label`
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+`;
+
+const Input = styled.input`
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+`;
+
+const Select = styled.select`
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+`;
+
+const Textarea = styled.textarea`
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  min-height: 200px;
+`;
+
+const ImageUploadButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  color: #333;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+
+  &:hover {
+    background-color: #e0e0e0;
+  }
+
+  svg {
+    margin-right: 0.5rem;
+  }
+`;
+
+const HiddenInput = styled.input`
+  display: none;
+`;
+
+const ImagePreviewContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 1rem;
+`;
+
+const ImagePreviewWrapper = styled.div`
+  position: relative;
+`;
+
+const ImagePreview = styled.img`
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+`;
+
+const RemoveButton = styled.button`
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 5px;
+  background-color: rgba(255, 255, 255, 0.7);
+  color: #ff4d4d;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  svg {
+    font-size: 0.8rem;
+  }
+`;
+
+/////////////////////////
+
+const EditButtonContainer = styled.div`
+  display: flex;
+  margin-left: auto;
+  gap: 0.5rem;
+`;
+
 const ButtonContainer = styled.div`
   display: flex;
   gap: 0.5rem;
@@ -644,12 +874,6 @@ const DeleteButton = styled.button`
   }
 `;
 
-const EditForm = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
 const EditInput = styled.input`
   padding: 0.5rem;
   font-size: 1.2rem;
@@ -671,18 +895,20 @@ const Button = styled.button`
 `;
 
 const SaveButton = styled(Button)`
-  background-color: #28a745;
+  background-color: var(--primary-button);
+  color: white;
 
   &:hover {
-    background-color: #218838;
+    background-color: var(--primary-hover);
   }
 `;
 
 const CancelButton = styled(Button)`
-  background-color: #dc3545;
+  background-color: var(--delete-button);
+  color: white;
 
   &:hover {
-    background-color: #c82333;
+    background-color: var(--delete-hover);
   }
 `;
 
@@ -711,29 +937,6 @@ const VoteSection = styled.div`
   padding: 1rem;
   background-color: #f8f9fa;
   border-radius: 4px;
-`;
-
-const ImagePreviewContainer = styled.div`
-  position: relative;
-  display: inline-block;
-  margin-right: 10px;
-  margin-bottom: 10px;
-`;
-
-const ImagePreview = styled.img`
-  max-width: 100px;
-  max-height: 100px;
-  object-fit: cover;
-`;
-
-const RemoveButton = styled.button`
-  position: absolute;
-  top: 0;
-  right: 0;
-  background-color: red;
-  color: white;
-  border: none;
-  cursor: pointer;
 `;
 
 const VoteOptionImage = styled.img`

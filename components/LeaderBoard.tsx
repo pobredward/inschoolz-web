@@ -11,9 +11,9 @@ import {
   QueryDocumentSnapshot,
   DocumentData,
 } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { db } from "../lib/firebase";
 import { FaBolt, FaFeather } from "react-icons/fa";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../hooks/useAuth";
 
 interface LeaderboardEntry {
   userId: string;
