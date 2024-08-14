@@ -207,6 +207,16 @@ const CreatePostPage: React.FC = () => {
         <ContentSection>
           <h1>게시글 작성</h1>
           <Form onSubmit={handleSubmit}>
+            <GuidelineLink
+              href="/community-guidelines.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              커뮤니티 이용 가이드 확인하기
+            </GuidelineLink>
+            <WarningText>
+              제제 사항에 해당하는 경우 제재 조치가 취해질 수 있습니다.
+            </WarningText>
             <Label htmlFor="title">제목</Label>
             <Input
               type="text"
@@ -569,6 +579,19 @@ const RemoveButton = styled(Button)`
   @media (max-width: 768px) {
     padding: 4px;
   }
+`;
+
+const GuidelineLink = styled.a`
+  color: #0070f3;
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+const WarningText = styled.p`
+  color: #ff0000;
+  font-size: 0.9rem;
 `;
 
 export default CreatePostPage;

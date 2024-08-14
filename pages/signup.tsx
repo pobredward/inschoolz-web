@@ -39,7 +39,7 @@ const SignupPage: React.FC = () => {
   const [birthMonth, setBirthMonth] = useState<number>(0);
   const [birthDay, setBirthDay] = useState<number>(0);
   const [error, setError] = useState("");
-  const [verificationSent, setVerificationSent] = useState(false);
+  // const [verificationSent, setVerificationSent] = useState(false);
   const [inviterUserId, setInviterUserId] = useState("");
   const [userIdMessage, setUserIdMessage] = useState("");
 
@@ -141,7 +141,7 @@ const SignupPage: React.FC = () => {
     },
     {
       onSuccess: async (user) => {
-        setVerificationSent(true);
+        // setVerificationSent(true);
         const updatedUser = await updateUserState(user);
         // Recoil 상태 업데이트 (필요한 경우)
       },
@@ -306,23 +306,23 @@ const SignupPage: React.FC = () => {
     }
   };
 
-  if (verificationSent) {
-    return (
-      <Container>
-        <VerificationMessage>
-          <h2>이메일 인증을 완료해주세요</h2>
-          <p>
-            {email}로 인증 메일을 보냈습니다. 메일함을 확인하고 인증 링크를
-            클릭해주세요.
-          </p>
-          <p>
-            인증이 완료되면 <Link href="/">메인 페이지</Link>로 이동하여
-            인스쿨즈를 시작해보세요!
-          </p>
-        </VerificationMessage>
-      </Container>
-    );
-  }
+  // if (verificationSent) {
+  //   return (
+  //     <Container>
+  //       <VerificationMessage>
+  //         <h2>이메일 인증을 완료해주세요</h2>
+  //         <p>
+  //           {email}로 인증 메일을 보냈습니다. 메일함을 확인하고 인증 링크를
+  //           클릭해주세요.
+  //         </p>
+  //         <p>
+  //           인증이 완료되면 <Link href="/">메인 페이지</Link>로 이동하여
+  //           인스쿨즈를 시작해보세요!
+  //         </p>
+  //       </VerificationMessage>
+  //     </Container>
+  //   );
+  // }
 
   return (
     <Layout>

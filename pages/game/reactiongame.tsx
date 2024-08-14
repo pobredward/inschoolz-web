@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
 import styled from "@emotion/styled";
 import { useAuth } from "../../hooks/useAuth";
 import { db } from "../../lib/firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, increment } from "firebase/firestore";
 import Link from "next/link";
 import DefaultModal from "../../components/modal/DefaultModal";
 import ExperienceModal from "../../components/modal/ExperienceModal";
@@ -26,12 +26,12 @@ const ReactionGame: React.FC = () => {
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
-  const [gamesPlayed, setGamesPlayed] = useState(0);
+  const timeoutRef = useRef<number | null>(null); // 타임아웃을 추적하기 위한 ref
 
   useEffect(() => {
     if (user) {
       fetchBestScore();
-      // updateRemainingPlays();
+      updateRemainingPlays();
     }
   }, [user]);
 
@@ -44,27 +44,55 @@ const ReactionGame: React.FC = () => {
     }
   };
 
-  // const updateRemainingPlays = async () => {
-  //   if (user) {
-  //     const gameInfo = await getUserGameInfo(user.uid);
-  //     const settings = await getExperienceSettings();
-  //     setRemainingPlays(settings.maxDailyGames - gameInfo.reactionGamePlays);
-  //   }
-  // };
+  const getUserGameInfo = async (userId: string) => {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    if (!userDoc.exists()) {
+      throw new Error("User data not found");
+    }
+    const gameInfo = userDoc.data().gameInfo || {
+      reactionGamePlays: 0,
+      flappyBirdPlays: 0,
+    };
+
+    const today = new Date().toISOString().split("T")[0];
+    if (gameInfo.lastResetDate !== today) {
+      gameInfo.reactionGamePlays = 0;
+      gameInfo.flappyBirdPlays = 0;
+      gameInfo.lastResetDate = today;
+
+      await updateDoc(doc(db, "users", userId), {
+        "gameInfo.reactionGamePlays": 0,
+        "gameInfo.flappyBirdPlays": 0,
+        "gameInfo.lastResetDate": today,
+      });
+    }
+
+    return gameInfo;
+  };
+
+  const updateRemainingPlays = async () => {
+    if (user) {
+      const gameInfo = await getUserGameInfo(user.uid);
+      const settings = await getExperienceSettings();
+
+      const remaining = settings.maxDailyGames - gameInfo.reactionGamePlays;
+      setRemainingPlays(remaining);
+    }
+  };
 
   const startGame = () => {
-    // if (!user || remainingPlays === 0) {
-    //   setModalContent({
-    //     title: "게임 불가",
-    //     message: "오늘의 게임 횟수를 모두 사용했습니다.",
-    //   });
-    //   setShowModal(true);
-    //   return;
-    // }
+    if (!user || remainingPlays === 0) {
+      setModalContent({
+        title: "게임 불가",
+        message: "오늘의 게임 횟수를 모두 사용했습니다.",
+      });
+      setShowModal(true);
+      return;
+    }
 
     setGameState("ready");
     const delay = Math.floor(Math.random() * 3000) + 2000; // 2-5 seconds delay
-    setTimeout(() => {
+    timeoutRef.current = window.setTimeout(() => {
       setGameState("clicking");
       setStartTime(Date.now());
     }, delay);
@@ -76,8 +104,16 @@ const ReactionGame: React.FC = () => {
       setEndTime(clickTime);
       const reactionTime = clickTime - startTime;
       setGameState("waiting");
+
       try {
         await handleGameScore(user!.uid, "reactionGame", reactionTime);
+
+        const userRef = doc(db, "users", user!.uid);
+        await updateDoc(userRef, {
+          "gameInfo.reactionGamePlays": increment(1),
+        });
+
+        await updateRemainingPlays();
         showResult(reactionTime);
       } catch (error) {
         if (error instanceof Error) {
@@ -89,7 +125,25 @@ const ReactionGame: React.FC = () => {
         }
       }
     } else if (gameState === "ready") {
-      // ... 기존 로직 ...
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current); // 기존 타임아웃을 취소
+        timeoutRef.current = null;
+      }
+
+      setGameState("waiting");
+
+      const userRef = doc(db, "users", user!.uid);
+      await updateDoc(userRef, {
+        "gameInfo.reactionGamePlays": increment(1),
+      });
+
+      await updateRemainingPlays();
+
+      setModalContent({
+        title: "너무 일찍 클릭했습니다!",
+        message: "신호가 뜨고 나서 클릭해야 합니다. 기회가 소진되었습니다.",
+      });
+      setShowModal(true);
     } else {
       startGame();
     }
@@ -155,7 +209,7 @@ const ReactionGame: React.FC = () => {
           {gameState === "clicking" && <p>클릭하세요!</p>}
         </GameArea>
         {bestScore && <p>최고 기록: {bestScore}ms</p>}
-        {/* <p>남은 플레이 횟수: {remainingPlays}</p> */}
+        <p>남은 플레이 횟수: {remainingPlays}</p>
         <BackButton href="/game">메인 메뉴로 돌아가기</BackButton>
       </GameContainer>
       <DefaultModal

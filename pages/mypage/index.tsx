@@ -23,11 +23,38 @@ const MyPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [scrappedPosts, setScrappedPosts] = useState<Post[]>([]);
+  const [initialSchool, setInitialSchool] = useState<
+    { id: string; KOR_NAME: string; ADDRESS: string } | undefined
+  >(undefined);
 
   useEffect(() => {
     if (user) {
       setEditedUser(user); // 초기화
       fetchUserScraps(user.uid).then(setScrappedPosts);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const fetchSchoolData = async () => {
+      if (user?.schoolId) {
+        try {
+          const schoolDoc = await getDoc(doc(db, "schools", user.schoolId));
+          if (schoolDoc.exists()) {
+            const schoolData = schoolDoc.data();
+            setInitialSchool({
+              id: schoolDoc.id,
+              KOR_NAME: schoolData.KOR_NAME,
+              ADDRESS: schoolData.ADDRESS,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching school data:", error);
+        }
+      }
+    };
+
+    if (user) {
+      fetchSchoolData();
     }
   }, [user]);
 
@@ -162,7 +189,7 @@ const MyPage: React.FC = () => {
               />
             </ExperienceBar>
             <ExperienceInfo>
-              {user.experience} / {user.level * 10} EXP
+              {Math.round((user.experience / user.level) * 10)}%
             </ExperienceInfo>
           </ExperienceContainer>
         </Section>
@@ -228,7 +255,10 @@ const MyPage: React.FC = () => {
               </FormGroup>
               <FormGroup>
                 <Label>학교</Label>
-                <SchoolSearch setSchool={handleSchoolChange} />
+                <SchoolSearch
+                  initialSchool={initialSchool}
+                  setSchool={handleSchoolChange}
+                />
               </FormGroup>
               <FormGroup>
                 <Label>생년월일</Label>

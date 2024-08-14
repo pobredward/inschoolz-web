@@ -25,10 +25,13 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 초기 학교 정보 설정
   useEffect(() => {
     if (initialSchool) {
-      setSelectedSchool(initialSchool);
+      setSelectedSchool({
+        id: "", // 적절한 id 값을 설정해 주세요. 예: initialSchool.id || ""
+        KOR_NAME: initialSchool.KOR_NAME,
+        ADDRESS: initialSchool.ADDRESS,
+      });
     }
   }, [initialSchool, setSelectedSchool]);
 
@@ -115,7 +118,7 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
           </EditButtonContainer>
         </SelectedSchoolContainer>
       ) : (
-        <SearchButton onClick={() => setIsOpen(true)}>
+        <SearchButton onClick={() => setIsOpen(true)} type="button">
           학교 검색하기
         </SearchButton>
       )}
@@ -132,7 +135,10 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
               />
-              <SearchActionButton onClick={() => handleSearch(searchTerm)}>
+              <SearchActionButton
+                onClick={() => handleSearch(searchTerm)}
+                type="button"
+              >
                 <FaSearch />
               </SearchActionButton>
             </SearchInputContainer>
