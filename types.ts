@@ -60,6 +60,7 @@ export interface Post {
   views?: number;
   imageUrls?: string[];
   voteOptions?: VoteOption[] | null;
+  isDeleted?: boolean;
 }
 
 // 카테고리 데이터 타입

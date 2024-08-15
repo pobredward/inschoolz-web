@@ -106,26 +106,28 @@ const CategoryPage: React.FC = () => {
           <CategoryDropdown isOpen={isCategoryOpen}>
             <CategoryList onSelectCategory={handleCategorySelect} />
           </CategoryDropdown>
-          <CreatePostButton
-            onClick={() =>
-              router.push(`/community/${selectedCategory}/create-post`)
-            }
-          >
-            <FaPen />
-          </CreatePostButton>
+          {user && selectedCategory !== "national-hot" && (
+            <CreatePostButton
+              onClick={() =>
+                router.push(`/community/${selectedCategory}/create-post`)
+              }
+            >
+              <FaPen />
+            </CreatePostButton>
+          )}
         </MobileCategoryWrapper>
         <ContentSection>
           {user || isNationalCategory ? (
             <>
               <CategoryHeader>
                 <CategoryTitle>{getDesktopCategoryPath()}</CategoryTitle>
-                {user && (
+                {user && selectedCategory !== "national-hot" && (
                   <CreatePostButton
                     onClick={() =>
                       router.push(`/community/${selectedCategory}/create-post`)
                     }
                   >
-                    글 작성
+                    <FaPen />
                   </CreatePostButton>
                 )}
               </CategoryHeader>

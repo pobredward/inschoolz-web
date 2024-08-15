@@ -1,11 +1,22 @@
 import React, { useState, useCallback, useEffect } from "react";
 import styled from "@emotion/styled";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  doc,
+} from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaStar } from "react-icons/fa";
 import { debounce } from "lodash";
 import { useRecoilState } from "recoil";
 import { searchResultsState, selectedSchoolState } from "../store/atoms";
+import { useAuth } from "../hooks/useAuth";
 import { School } from "../types";
 
 interface SchoolSearchProps {
@@ -17,6 +28,7 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
   initialSchool,
   setSchool,
 }) => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useRecoilState(searchResultsState);
@@ -24,16 +36,55 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     useRecoilState(selectedSchoolState);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [favoriteSchools, setFavoriteSchools] = useState<School[]>([]);
 
   useEffect(() => {
-    if (initialSchool) {
-      setSelectedSchool({
-        id: "", // 적절한 id 값을 설정해 주세요. 예: initialSchool.id || ""
-        KOR_NAME: initialSchool.KOR_NAME,
-        ADDRESS: initialSchool.ADDRESS,
-      });
+    if (user) {
+      const fetchFavoriteSchools = async () => {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const favoriteSchoolIds = userDoc.data().favoriteSchools || [];
+          const favoriteSchoolDocs = await Promise.all(
+            favoriteSchoolIds.map((id: string) =>
+              getDoc(doc(db, "schools", id)),
+            ),
+          );
+          setFavoriteSchools(
+            favoriteSchoolDocs.map(
+              (doc) => ({ id: doc.id, ...doc.data() }) as School,
+            ),
+          );
+        }
+      };
+      fetchFavoriteSchools();
     }
-  }, [initialSchool, setSelectedSchool]);
+  }, [user]);
+
+  const toggleFavoriteSchool = async (school: School) => {
+    if (!user || !school.id) return;
+
+    const userRef = doc(db, "users", user.uid);
+    const isFavorite = favoriteSchools.some((fav) => fav.id === school.id);
+
+    try {
+      // Firebase에서 학교 ID 추가 또는 제거
+      await updateDoc(userRef, {
+        favoriteSchools: isFavorite
+          ? arrayRemove(school.id)
+          : arrayUnion(school.id),
+      });
+
+      // 상태 업데이트: School 객체 배열로 유지
+      setFavoriteSchools((prev) =>
+        isFavorite
+          ? prev.filter((fav) => fav.id !== school.id)
+          : [...prev, school],
+      );
+    } catch (error) {
+      console.error("Error updating favorite schools: ", error);
+    }
+  };
 
   const handleSearch = async (term: string) => {
     if (term.length < 2) {
@@ -89,9 +140,21 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     }
   };
 
-  const handleSchoolSelect = (school: any) => {
+  const handleSchoolSelect = async (school: School) => {
     setSelectedSchool(school);
     setSchool(school);
+
+    if (user) {
+      const userRef = doc(db, "users", user.uid);
+      try {
+        await updateDoc(userRef, {
+          schoolName: school.KOR_NAME,
+          schoolAddress: school.ADDRESS,
+        });
+      } catch (error) {
+        console.error("Error updating school information: ", error);
+      }
+    }
 
     // isOpen을 닫는 작업을 안전하게 비동기 처리 후 진행
     setTimeout(() => {
@@ -119,43 +182,88 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
         </SelectedSchoolContainer>
       ) : (
         <SearchButton onClick={() => setIsOpen(true)} type="button">
-          학교 검색하기
+          학교 검색
         </SearchButton>
       )}
       {isOpen && (
         <Overlay>
           <PopupContent>
             <CloseButton onClick={() => setIsOpen(false)}>&times;</CloseButton>
-            <h2>학교 검색</h2>
-            <SearchInputContainer>
-              <SearchInput
-                type="text"
-                placeholder="학교 이름 입력"
-                value={searchTerm}
-                onChange={handleInputChange}
-                onKeyPress={handleKeyPress}
-              />
-              <SearchActionButton
-                onClick={() => handleSearch(searchTerm)}
-                type="button"
-              >
-                <FaSearch />
-              </SearchActionButton>
-            </SearchInputContainer>
+            {user && <h2>내 학교</h2>}
             {loading ? (
               <div>Loading...</div>
             ) : (
               <ResultsList>
-                {searchResults.map((school) => (
-                  <ResultItem
-                    key={school.id}
-                    onClick={() => handleSchoolSelect(school)}
-                  >
-                    <SchoolName>{school.KOR_NAME}</SchoolName>
-                    <SchoolAddress>{school.ADDRESS}</SchoolAddress>
-                  </ResultItem>
-                ))}
-                {error && <NoResultsMessage>{error}</NoResultsMessage>}
+                {favoriteSchools.length > 0 && (
+                  <FavoriteSection>
+                    {/* <SectionTitle>관심 학교</SectionTitle> */}
+                    <ResultsList>
+                      {favoriteSchools.map((school) => (
+                        <ResultItem
+                          key={school.id}
+                          onClick={() => handleSchoolSelect(school)}
+                        >
+                          <InfoWrapper>
+                            <SchoolName>{school.KOR_NAME}</SchoolName>
+                            <SchoolAddress>{school.ADDRESS}</SchoolAddress>
+                          </InfoWrapper>
+                          <StarIcon
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteSchool(school);
+                            }}
+                            isFavorite={true}
+                          >
+                            <FaStar />
+                          </StarIcon>
+                        </ResultItem>
+                      ))}
+                    </ResultsList>
+                  </FavoriteSection>
+                )}
+                <SearchSection>
+                  <h2>학교 검색</h2>
+                  <SearchInputContainer>
+                    <SearchInput
+                      type="text"
+                      placeholder="학교 이름 입력"
+                      value={searchTerm}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                    />
+                    <SearchActionButton
+                      onClick={() => handleSearch(searchTerm)}
+                      type="button"
+                    >
+                      <FaSearch />
+                    </SearchActionButton>
+                  </SearchInputContainer>
+                  {error && <NoResultsMessage>{error}</NoResultsMessage>}
+                  <ResultsList>
+                    {searchResults.map((school) => (
+                      <ResultItem
+                        key={school.id}
+                        onClick={() => handleSchoolSelect(school)}
+                      >
+                        <InfoWrapper>
+                          <SchoolName>{school.KOR_NAME}</SchoolName>
+                          <SchoolAddress>{school.ADDRESS}</SchoolAddress>
+                        </InfoWrapper>
+                        <StarIcon
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavoriteSchool(school);
+                          }}
+                          isFavorite={favoriteSchools.some(
+                            (fav) => fav.id === school.id,
+                          )}
+                        >
+                          <FaStar />
+                        </StarIcon>
+                      </ResultItem>
+                    ))}
+                  </ResultsList>
+                </SearchSection>
               </ResultsList>
             )}
             <ClosePopupButton onClick={() => setIsOpen(false)}>
@@ -167,6 +275,46 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     </Container>
   );
 };
+
+const SectionTitle = styled.h3`
+  margin-bottom: 10px;
+`;
+
+const SearchSection = styled.div``;
+
+const FavoriteSection = styled.div`
+  margin-bottom: 20px;
+`;
+
+const InfoWrapper = styled.div`
+  flex-grow: 1;
+`;
+
+const StarIcon = styled.div<{ isFavorite: boolean }>`
+  color: ${({ isFavorite }) => (isFavorite ? "gold" : "#ccc")};
+  cursor: pointer;
+  margin-left: 10px;
+`;
+
+const ResultItem = styled.li`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid #dee2e6;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #f8f9fa;
+  }
+`;
+
+const ResultsList = styled.ul`
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+`;
 
 const Container = styled.div`
   margin-bottom: 20px;
@@ -290,27 +438,6 @@ const SearchActionButton = styled.button`
 
   &:hover {
     background-color: var(--hover-color);
-  }
-`;
-
-const ResultsList = styled.ul`
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-`;
-
-const ResultItem = styled.li`
-  padding: 12px;
-  border-bottom: 1px solid #dee2e6;
-  cursor: pointer;
-  transition: background-color 0.2s;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background-color: #f8f9fa;
   }
 `;
 

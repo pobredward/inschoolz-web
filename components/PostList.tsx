@@ -12,7 +12,13 @@ import {
 import { db } from "../lib/firebase";
 import { useRouter } from "next/router";
 import { formatDate } from "../utils/dateUtils";
-import { FaThumbsUp, FaComment, FaEye, FaBookmark } from "react-icons/fa";
+import {
+  FaThumbsUp,
+  FaComment,
+  FaEye,
+  FaBookmark,
+  FaSearch,
+} from "react-icons/fa";
 
 const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
   const [posts, setPosts] = useRecoilState(postsState);
@@ -175,17 +181,31 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
       <PostContainer>
         {currentPosts.map((post) => (
           <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
-            <PostHeader>
-              <PostTitle>{post.title}</PostTitle>
-            </PostHeader>
-            <PostContent>{post.content.slice(0, 100)}...</PostContent>
+            <PostMainContent>
+              <PostHeader>
+                <PostTitle>{post.title}</PostTitle>
+              </PostHeader>
+              <PostContent>{post.content.slice(0, 100)}...</PostContent>
+            </PostMainContent>
+            <ImagePreviewContainer>
+              {post.imageUrls &&
+                post.imageUrls
+                  .slice(0, 2)
+                  .map((imageUrl, index) => (
+                    <ImagePreview
+                      key={index}
+                      src={imageUrl}
+                      alt={`Preview ${index + 1}`}
+                    />
+                  ))}
+            </ImagePreviewContainer>
             <PostFooter>
               <PostDateAuthor>
                 {formatDate(post.createdAt)} | {post.author}
               </PostDateAuthor>
               <PostActions>
                 <ActionItem>👍 {post.likes || 0}</ActionItem>
-                <ActionItem>💬 {post.comments.length || 0}</ActionItem>
+                <ActionItem>💬 {post.comments || 0}</ActionItem>
                 <ActionItem>👁️ {post.views || 0}</ActionItem>
                 <ActionItem>🔖 {post.scraps || 0}</ActionItem>
               </PostActions>
@@ -219,7 +239,7 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
           <Filter>
             <label></label>
             <select value={dateFilter} onChange={handleDateFilterChange}>
-              <option value="all">전체 기간</option>
+              <option value="all">기간</option>
               <option value="1day">1일</option>
               <option value="1week">1주일</option>
               <option value="1month">1개월</option>
@@ -228,7 +248,7 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
           <Filter>
             <label></label>
             <select value={searchScope} onChange={handleSearchScopeChange}>
-              <option value="all">전체 내용</option>
+              <option value="all">내용</option>
               <option value="title">제목</option>
               <option value="author">작성자</option>
               <option value="comments">댓글</option>
@@ -238,11 +258,13 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
         <SearchBar>
           <SearchInput
             type="text"
-            placeholder="검색어를 입력하세요"
+            placeholder="검색어 입력"
             value={searchTerm}
             onChange={handleSearchChange}
           />
-          <SearchButton onClick={handleSearchSubmit}>검색</SearchButton>
+          <SearchButton onClick={handleSearchSubmit}>
+            <FaSearch />
+          </SearchButton>
         </SearchBar>
       </ControlBar>
     </div>
@@ -261,6 +283,10 @@ const SearchBar = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    gap: 0.3rem;
+  }
 `;
 
 const SearchInput = styled.input`
@@ -268,6 +294,11 @@ const SearchInput = styled.input`
   font-size: 1rem;
   border-radius: 4px;
   border: 1px solid #ccc;
+
+  @media (max-width: 768px) {
+    padding: 0.3rem;
+    width: 100px;
+  }
 `;
 
 const SearchButton = styled.button`
@@ -282,6 +313,11 @@ const SearchButton = styled.button`
   &:hover {
     background-color: #0056b3;
   }
+
+
+  @media (max-width: 768px) {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
 `;
 
 const Filters = styled.div`
@@ -294,6 +330,10 @@ const Filter = styled.div`
   align-items: center;
   gap: 0.5rem;
 
+  @media (max-width: 768px) {
+    gap: 0.3rem;
+  }
+
   label {
     font-size: 1rem;
   }
@@ -303,6 +343,11 @@ const Filter = styled.div`
     font-size: 1rem;
     border-radius: 4px;
     border: 1px solid #ccc;
+
+    @media (max-width: 768px) {
+      padding: 0.4rem;
+      font-size: 0.8rem;
+    }
   }
 `;
 
@@ -318,18 +363,6 @@ const LoadingMessage = styled.div`
   color: #666;
 `;
 
-const PostItem = styled.div`
-  padding: 1rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-
-  &:hover {
-    background-color: #f1f1f1;
-  }
-`;
-
 const PostHeader = styled.div`
   display: flex;
   justify-content: space-between;
@@ -341,14 +374,50 @@ const PostTitle = styled.h4`
   flex-grow: 1;
 `;
 
+const PostItem = styled.div`
+  padding: 1rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+
+  &:hover {
+    background-color: #f1f1f1;
+  }
+`;
+
+const PostMainContent = styled.div`
+  flex: 1;
+  min-width: 60%;
+  margin-right: 1rem;
+`;
+
 const PostContent = styled.p`
-  margin: 0;
+  margin: 0.5rem 0;
   color: #8e9091;
   line-height: 1.2;
   font-size: 0.9rem;
 `;
 
+const ImagePreviewContainer = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  max-width: 40%;
+`;
+
+const ImagePreview = styled.img`
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 4px;
+`;
+
 const PostFooter = styled.div`
+  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;

@@ -9,6 +9,7 @@ import { auth, db } from "../../lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { updateUserProfile, deleteUser } from "../../services/userService";
 import ConfirmModal from "../../components/modal/ConfirmModal";
+import PasswordConfirmModal from "../../components/modal/PasswordConfirmModal";
 import SchoolSearch from "../../components/SchoolSearch";
 import AddressSelector from "../../components/AddressSelector";
 import { fetchUserScraps } from "../../services/postService";
@@ -18,7 +19,8 @@ import { FaFileAlt, FaComments, FaBookmark } from "react-icons/fa";
 const MyPage: React.FC = () => {
   const [user, setUser] = useRecoilState(userState);
   const router = useRouter();
-
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [editedUser, setEditedUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -26,6 +28,8 @@ const MyPage: React.FC = () => {
   const [initialSchool, setInitialSchool] = useState<
     { id: string; KOR_NAME: string; ADDRESS: string } | undefined
   >(undefined);
+
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -100,15 +104,37 @@ const MyPage: React.FC = () => {
     },
   );
 
-  const deleteAccountMutation = useMutation(() => deleteUser(user!.uid), {
-    onSuccess: () => {
-      alert("계정이 성공적으로 삭제되었습니다.");
-      router.push("/");
+  const deleteAccountMutation = useMutation(
+    () => deleteUser(user!.uid, password),
+    {
+      onSuccess: () => {
+        setUser(null);
+        router.push("/");
+      },
+      onError: (error) => {
+        console.error("Error deleting account:", error);
+        alert("계정 삭제 중 오류가 발생했습니다. 다시 로그인 후 시도해주세요.");
+      },
     },
-    onError: () => {
-      alert(errorMessages.ACCOUNT_DELETE_ERROR);
-    },
-  });
+  );
+
+  const handleDeleteButtonClick = () => {
+    setIsPasswordModalOpen(true);
+  };
+
+  const handlePasswordConfirm = () => {
+    if (!password) {
+      alert("비밀번호를 입력해주세요.");
+      return;
+    }
+    setIsPasswordModalOpen(false);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteAccount = () => {
+    deleteAccountMutation.mutate();
+    setIsDeleteModalOpen(false);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -137,12 +163,6 @@ const MyPage: React.FC = () => {
 
   const handleEditButtonClick = () => {
     fetchUserMutation.mutate(); // 서버에서 최신 사용자 데이터를 가져옴
-  };
-
-  const handleDeleteAccount = () => {
-    if (user) {
-      deleteAccountMutation.mutate();
-    }
   };
 
   if (!user) {
@@ -336,7 +356,7 @@ const MyPage: React.FC = () => {
                 </InfoValue>
               </InfoItem>
               <ButtonContainer>
-                <DeleteButton onClick={() => setIsDeleteModalOpen(true)}>
+                <DeleteButton onClick={handleDeleteButtonClick}>
                   회원 탈퇴
                 </DeleteButton>
                 <EditButton onClick={handleEditButtonClick}>수정</EditButton>
@@ -345,18 +365,30 @@ const MyPage: React.FC = () => {
           )}
         </Section>
       </Container>
+      <PasswordConfirmModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onConfirm={handlePasswordConfirm}
+        title="비밀번호 확인"
+      >
+        <Input
+          type="password"
+          placeholder="비밀번호를 입력하세요"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </PasswordConfirmModal>
+
       <ConfirmModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleDeleteAccount}
+        onConfirm={confirmDeleteAccount}
         title="회원 탈퇴 확인"
         message="정말로 탈퇴하시겠습니까? 게시글, 댓글, 게임 기록 등 모든 데이터가 삭제되고 복구할 수 없습니다."
       />
     </Layout>
   );
 };
-
-// 스타일 컴포넌트 정의
 
 const Container = styled.div`
   max-width: 800px;
@@ -425,7 +457,7 @@ const ExperienceBar = styled.div`
 `;
 
 const ExperienceFill = styled.div<{ width: number }>`
-  width: ${(props) => props.width}%;
+  width: ${(props) => `${Math.max(0, Math.min(100, props.width))}%`};
   height: 100%;
   background-color: #0070f3;
 `;

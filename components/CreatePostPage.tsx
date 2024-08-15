@@ -5,6 +5,7 @@ import { useRecoilValue } from "recoil";
 import { useRouter } from "next/router";
 import { createPost, updatePost } from "../services/postService";
 import { uploadImage } from "../services/imageService";
+import CategoryList from "./CategoryList";
 import {
   userState,
   User,
@@ -53,6 +54,13 @@ const CreatePostPage: React.FC = () => {
       router.push("/login");
     }
   }, [categoryParam, user, router]);
+
+  const filteredCategories = categories.map((cat) => ({
+    ...cat,
+    subcategories: cat.subcategories.filter(
+      (subcat) => subcat.id !== "national-hot",
+    ), // "HOT 게시글" 필터링
+  }));
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -204,19 +212,12 @@ const CreatePostPage: React.FC = () => {
   return (
     <Layout>
       <Container>
+        <CategorySection>
+          <CategoryList />
+        </CategorySection>
         <ContentSection>
           <h1>게시글 작성</h1>
           <Form onSubmit={handleSubmit}>
-            <GuidelineLink
-              href="/community-guidelines.html"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              커뮤니티 이용 가이드 확인하기
-            </GuidelineLink>
-            <WarningText>
-              제제 사항에 해당하는 경우 제재 조치가 취해질 수 있습니다.
-            </WarningText>
             <Label htmlFor="title">제목</Label>
             <Input
               type="text"
@@ -233,7 +234,7 @@ const CreatePostPage: React.FC = () => {
               required
             >
               <option value="">카테고리 선택</option>
-              {categories.map((cat) => (
+              {filteredCategories.map((cat) => (
                 <optgroup key={cat.id} label={cat.name}>
                   {cat.subcategories?.map((subcat) => (
                     <option key={subcat.id} value={subcat.id}>
@@ -383,6 +384,18 @@ const Container = styled.div`
   display: flex;
   @media (max-width: 768px) {
     flex-direction: column;
+  }
+`;
+
+const CategorySection = styled.div`
+  width: 250px;
+  padding: 1rem;
+  border-right: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+
+  @media (max-width: 768px) {
+    display: none;
   }
 `;
 
@@ -579,19 +592,6 @@ const RemoveButton = styled(Button)`
   @media (max-width: 768px) {
     padding: 4px;
   }
-`;
-
-const GuidelineLink = styled.a`
-  color: #0070f3;
-  text-decoration: none;
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const WarningText = styled.p`
-  color: #ff0000;
-  font-size: 0.9rem;
 `;
 
 export default CreatePostPage;

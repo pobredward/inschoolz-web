@@ -6,10 +6,11 @@ import { categoriesState, selectedCategoryState } from "../store/atoms";
 
 const CategoryList: React.FC<{
   onSelectCategory?: (categoryId: string) => void; // onSelectCategory는 선택적 prop
-}> = ({ onSelectCategory = () => {} }) => { // 기본 함수를 설정하여 오류 방지
+}> = ({ onSelectCategory = () => {} }) => {
+  // 기본 함수를 설정하여 오류 방지
   const [categories] = useRecoilState(categoriesState);
   const [selectedCategory, setSelectedCategory] = useRecoilState(
-    selectedCategoryState
+    selectedCategoryState,
   );
   const router = useRouter();
 

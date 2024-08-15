@@ -48,6 +48,7 @@ export interface Post {
   views?: number;
   imageUrls?: string[];
   voteOptions?: VoteOption[] | null;
+  isDeleted?: boolean;
 }
 
 export const postsState = atom<Post[]>({
@@ -102,6 +103,7 @@ export interface School {
   id: string;
   KOR_NAME: string;
   ADDRESS: string;
+  SCHOOL_CODE: string;
 }
 
 export const searchResultsState = atom<School[]>({

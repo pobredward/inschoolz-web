@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "@emotion/styled";
-import { FaUserCircle, FaHeart, FaPaperPlane } from "react-icons/fa";
+import {
+  FaUserCircle,
+  FaHeart,
+  FaPaperPlane,
+  FaTrash,
+  FaEdit,
+} from "react-icons/fa";
 import { useRecoilValue } from "recoil";
 import { userState } from "../store/atoms";
 import {
@@ -31,6 +37,7 @@ interface Comment {
   parentId: string | null;
   likes: number;
   likedBy: string[];
+  isDeleted: boolean;
 }
 
 interface CommentSectionProps {
@@ -84,13 +91,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     const commentData = {
       postId,
-      author: user.name || "익명",
+      author: user.userId || "익명",
       authorId: user.uid,
       content: newComment,
       createdAt: new Date(),
       parentId: null,
       likes: 0,
       likedBy: [],
+      isDeleted: false,
     };
 
     try {
@@ -129,13 +137,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     const replyData = {
       postId,
-      author: user.name || "익명",
+      author: user.userId || "익명",
       authorId: user.uid,
       content: replyContent,
       createdAt: new Date(),
       parentId,
       likes: 0,
       likedBy: [],
+      isDeleted: false,
     };
 
     try {
@@ -279,12 +288,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         <CommentHeader>
           <ProfileIcon />
           <CommentAuthor>{comment.author}</CommentAuthor>
-          <CommentDate>
-            {formatDate(comment.createdAt)}
-            {/* {formatTime(comment.createdAt)} */}
-          </CommentDate>
+          <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
         </CommentHeader>
-        {editingCommentId === comment.id ? (
+        {comment.isDeleted ? (
+          <DeletedCommentContent>삭제된 메시지입니다</DeletedCommentContent>
+        ) : editingCommentId === comment.id ? (
           <EditForm
             onSubmit={(e) => {
               e.preventDefault();
@@ -301,35 +309,37 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             </CancelButton>
           </EditForm>
         ) : (
-          <CommentContent>{comment.content}</CommentContent>
+          <>
+            <CommentContent>{comment.content}</CommentContent>
+            <CommentActions>
+              <LikeButton onClick={() => handleLike(comment.id)}>
+                <FaHeart
+                  color={
+                    user && comment.likedBy.includes(user.uid) ? "red" : "gray"
+                  }
+                />
+                <LikeCount>{comment.likes}</LikeCount>
+              </LikeButton>
+              {depth === 0 && (
+                <ReplyButton onClick={() => toggleReply(comment.id)}>
+                  답글
+                </ReplyButton>
+              )}
+              {user && user.uid === comment.authorId && !comment.isDeleted && (
+                <>
+                  <EditButton
+                    onClick={() => handleEdit(comment.id, comment.content)}
+                  >
+                    수정
+                  </EditButton>
+                  <DeleteButton onClick={() => handleDelete(comment.id)}>
+                    삭제
+                  </DeleteButton>
+                </>
+              )}
+            </CommentActions>
+          </>
         )}
-        <CommentActions>
-          <LikeButton onClick={() => handleLike(comment.id)}>
-            <FaHeart
-              color={
-                user && comment.likedBy.includes(user.uid) ? "red" : "gray"
-              }
-            />
-            <LikeCount>{comment.likes}</LikeCount>
-          </LikeButton>
-          {depth === 0 && (
-            <ReplyButton onClick={() => toggleReply(comment.id)}>
-              답글
-            </ReplyButton>
-          )}
-          {user && user.uid === comment.authorId && (
-            <>
-              <EditButton
-                onClick={() => handleEdit(comment.id, comment.content)}
-              >
-                수정
-              </EditButton>
-              <DeleteButton onClick={() => handleDelete(comment.id)}>
-                삭제
-              </DeleteButton>
-            </>
-          )}
-        </CommentActions>
         {replyingTo === comment.id && (
           <ReplyForm
             onSubmit={(e) => {
@@ -380,6 +390,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     </>
   );
 };
+
+const DeletedCommentContent = styled.p`
+  color: #888;
+  /* font-style: italic; */
+  margin: 0.5rem 0;
+`;
 
 const CommentForm = styled.form`
   display: flex;
@@ -590,7 +606,7 @@ const CancelButton = styled.button`
 
 const SaveButton = styled.button`
   padding: 0.5rem 1rem;
-  background-color: var(--primary-color);
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 4px;
@@ -598,7 +614,7 @@ const SaveButton = styled.button`
   transition: background-color 0.3s ease;
 
   &:hover {
-    background-color: var(--hover-color);
+    background-color: var(--primary-hover);
   }
 `;
 
