@@ -4,20 +4,25 @@ import Layout from "../../components/Layout";
 import Leaderboard from "../../components/LeaderBoard";
 import styled from "@emotion/styled";
 
-
-import { FaBolt, FaFeather } from "react-icons/fa";
+import { FaBolt, FaFeather, FaTh } from "react-icons/fa";
 
 const GamePage: React.FC = () => {
   return (
     <Layout>
       <GameContainer>
-        <SectionTitle>미니게임</SectionTitle>
+        {/* <SectionTitle>미니게임</SectionTitle> */}
         <GameSection>
           <GameCard href="/game/reactiongame">
             <IconWrapper>
               <FaBolt size={24} />
             </IconWrapper>
             <GameText>반응속도 게임</GameText>
+          </GameCard>
+          <GameCard href="/game/tilegame">
+            <IconWrapper>
+              <FaTh size={24} />
+            </IconWrapper>
+            <GameText>타일 게임</GameText>
           </GameCard>
           <GameCard href="/game/flappybird">
             <IconWrapper>
@@ -26,7 +31,7 @@ const GamePage: React.FC = () => {
             <GameText>플래피 버드</GameText>
           </GameCard>
         </GameSection>
-        <SectionTitle>리더보드</SectionTitle>
+        {/*  <SectionTitle>리더보드</SectionTitle> */}
         <LeaderboardSection>
           <Leaderboard />
         </LeaderboardSection>

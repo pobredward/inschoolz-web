@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { useRecoilState } from "recoil";
 import { userState, User, Post } from "../../store/atoms";
@@ -15,12 +15,13 @@ import AddressSelector from "../../components/AddressSelector";
 import { fetchUserScraps } from "../../services/postService";
 import { errorMessages } from "../../utils/errorMessages";
 import { FaFileAlt, FaComments, FaBookmark } from "react-icons/fa";
+import ProfileImage from "../../components/ProfileImage";
+import AttendanceCheck from "../../components/AttandanceCheck";
 
 const MyPage: React.FC = () => {
   const [user, setUser] = useRecoilState(userState);
   const router = useRouter();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [editedUser, setEditedUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -28,12 +29,15 @@ const MyPage: React.FC = () => {
   const [initialSchool, setInitialSchool] = useState<
     { id: string; KOR_NAME: string; ADDRESS: string } | undefined
   >(undefined);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(
+    user?.profileImageUrl || null,
+  );
 
   const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (user) {
-      setEditedUser(user); // 초기화
+      setEditedUser(user);
       fetchUserScraps(user.uid).then(setScrappedPosts);
     }
   }, [user]);
@@ -149,8 +153,14 @@ const MyPage: React.FC = () => {
     }));
   };
 
-  const handleAddressChange = (address1: string, address2: string) => {
-    setEditedUser((prev) => ({ ...prev!, address1, address2 }));
+  const handleAddressChange = (
+    field: "address1" | "address2",
+    value: string,
+  ) => {
+    setEditedUser((prevState) => ({
+      ...prevState!,
+      [field]: value,
+    }));
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -176,8 +186,28 @@ const MyPage: React.FC = () => {
   return (
     <Layout>
       <Container>
+        <ProfileImage
+          user={user}
+          profileImageUrl={profileImageUrl}
+          setProfileImageUrl={setProfileImageUrl}
+        />
+
         <Section>
-          <SectionTitle>내 활동</SectionTitle>
+          <ExperienceContainer>
+            <LevelInfo>LV.{user.level}</LevelInfo>
+            <ExperienceBar>
+              <ExperienceFill
+                width={(user.experience / (user.level * 10)) * 100}
+              />
+            </ExperienceBar>
+            <ExperienceInfo>
+              {Math.round((user.experience / user.level) * 10)}%
+            </ExperienceInfo>
+          </ExperienceContainer>
+        </Section>
+
+        <Section>
+          {/* <SectionTitle>내 활동</SectionTitle> */}
           <ActivityContainer>
             <ActivityBox onClick={() => router.push("/mypage/posts")}>
               <IconWrapper>
@@ -201,21 +231,11 @@ const MyPage: React.FC = () => {
         </Section>
 
         <Section>
-          <ExperienceContainer>
-            <LevelInfo>LV.{user.level}</LevelInfo>
-            <ExperienceBar>
-              <ExperienceFill
-                width={(user.experience / (user.level * 10)) * 100}
-              />
-            </ExperienceBar>
-            <ExperienceInfo>
-              {Math.round((user.experience / user.level) * 10)}%
-            </ExperienceInfo>
-          </ExperienceContainer>
+          <AttendanceCheck />
         </Section>
 
         <Section>
-          <SectionTitle>내 정보</SectionTitle>
+          {/* <SectionTitle>내 정보</SectionTitle> */}
           {isEditing ? (
             <Form onSubmit={handleSave}>
               <FormGroup>
@@ -266,10 +286,10 @@ const MyPage: React.FC = () => {
                   address1={editedUser?.address1 || ""}
                   address2={editedUser?.address2 || ""}
                   setAddress1={(value) =>
-                    handleAddressChange(value, editedUser?.address2 || "")
+                    handleAddressChange("address1", value)
                   }
                   setAddress2={(value) =>
-                    handleAddressChange(editedUser?.address1 || "", value)
+                    handleAddressChange("address2", value)
                   }
                 />
               </FormGroup>
@@ -280,6 +300,32 @@ const MyPage: React.FC = () => {
                   setSchool={handleSchoolChange}
                 />
               </FormGroup>
+              <GradeClassWrapper>
+                <SmallFormGroup>
+                  <SmallWrapper>
+                    <SmallInput
+                      type="text"
+                      id="grade"
+                      name="grade"
+                      value={editedUser?.grade || ""}
+                      onChange={handleInputChange}
+                      required
+                    />
+                    <SmallLabel htmlFor="grade">학년</SmallLabel>
+                  </SmallWrapper>
+                  <SmallWrapper>
+                    <SmallInput
+                      type="text"
+                      id="classNumber"
+                      name="classNumber"
+                      value={editedUser?.classNumber || ""}
+                      onChange={handleInputChange}
+                      required
+                    />
+                    <SmallLabel htmlFor="classNumber">반</SmallLabel>
+                  </SmallWrapper>
+                </SmallFormGroup>
+              </GradeClassWrapper>
               <FormGroup>
                 <Label>생년월일</Label>
                 <BirthDateContainer>
@@ -335,10 +381,10 @@ const MyPage: React.FC = () => {
                 <InfoLabel>이메일:</InfoLabel>
                 <InfoValue>{user.email}</InfoValue>
               </InfoItem>
-              <InfoItem>
+              {/* <InfoItem>
                 <InfoLabel>휴대폰 번호:</InfoLabel>
                 <InfoValue>{user.phoneNumber}</InfoValue>
-              </InfoItem>
+              </InfoItem> */}
               <InfoItem>
                 <InfoLabel>주소:</InfoLabel>
                 <InfoValue>
@@ -347,7 +393,9 @@ const MyPage: React.FC = () => {
               </InfoItem>
               <InfoItem>
                 <InfoLabel>학교:</InfoLabel>
-                <InfoValue>{user.schoolName}</InfoValue>
+                <InfoValue>
+                  {user.schoolName} {user.grade}학년 {user.classNumber}반
+                </InfoValue>
               </InfoItem>
               <InfoItem>
                 <InfoLabel>생년월일:</InfoLabel>
@@ -401,7 +449,7 @@ const Container = styled.div`
 `;
 
 const Section = styled.section`
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 `;
 
 const SectionTitle = styled.h2`
@@ -416,7 +464,7 @@ const ActivityContainer = styled.div`
 
 const ActivityBox = styled.div`
   flex: 1;
-  padding: 1rem;
+  padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   text-align: center;
@@ -434,8 +482,8 @@ const ActivityText = styled.p`
 `;
 
 const IconWrapper = styled.div`
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.2rem;
+  margin-bottom: 0.3rem;
 `;
 
 const ExperienceContainer = styled.div`
@@ -459,7 +507,7 @@ const ExperienceBar = styled.div`
 const ExperienceFill = styled.div<{ width: number }>`
   width: ${(props) => `${Math.max(0, Math.min(100, props.width))}%`};
   height: 100%;
-  background-color: #0070f3;
+  background-color: var(--primary-button);
 `;
 
 const ExperienceInfo = styled.div`
@@ -476,6 +524,42 @@ const Form = styled.form`
 const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
+`;
+
+const SmallFormGroup = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+`;
+
+const SmallWrapper = styled.div`
+  display: flex;
+  gap: 10px;
+`;
+
+const SmallInput = styled.input`
+  width: 40%;
+  padding: 0.75rem;
+  border: 1px solid var(--gray-button);
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  margin: 0 0 0.5rem 0;
+`;
+
+const SmallLabel = styled.label`
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+  margin: auto 0;
+`;
+
+const GradeClassWrapper = styled.div`
+  display: flex;
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
 `;
 
 const Label = styled.label`

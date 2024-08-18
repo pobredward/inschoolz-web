@@ -86,8 +86,8 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     }
   };
 
-  const handleSearch = async (term: string) => {
-    if (term.length < 2) {
+  const handleSearch = async () => {
+    if (searchTerm.length < 2) {
       setError("검색어는 2글자 이상이어야 합니다.");
       return;
     }
@@ -99,8 +99,8 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
       const schoolsRef = collection(db, "schools");
       const q = query(
         schoolsRef,
-        where("KOR_NAME", ">=", term),
-        where("KOR_NAME", "<=", term + "\uf8ff"),
+        where("KOR_NAME", ">=", searchTerm),
+        where("KOR_NAME", "<=", searchTerm + "\uf8ff"),
       );
 
       const querySnapshot = await getDocs(q);
@@ -122,21 +122,14 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     }
   };
 
-  const debouncedSearch = useCallback(
-    debounce((term: string) => handleSearch(term), 500),
-    [],
-  );
-
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const term = event.target.value;
-    setSearchTerm(term);
-    debouncedSearch(term);
+    setSearchTerm(event.target.value);
   };
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      handleSearch(searchTerm);
+      handleSearch();
     }
   };
 
@@ -231,10 +224,7 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
                     />
-                    <SearchActionButton
-                      onClick={() => handleSearch(searchTerm)}
-                      type="button"
-                    >
+                    <SearchActionButton onClick={handleSearch}>
                       <FaSearch />
                     </SearchActionButton>
                   </SearchInputContainer>
@@ -293,7 +283,8 @@ const InfoWrapper = styled.div`
 const StarIcon = styled.div<{ isFavorite: boolean }>`
   color: ${({ isFavorite }) => (isFavorite ? "gold" : "#ccc")};
   cursor: pointer;
-  margin-left: 10px;
+  // margin-right: 10px;
+  font-size: 32px;
 `;
 
 const ResultItem = styled.li`
@@ -429,7 +420,7 @@ const SearchInput = styled.input`
 
 const SearchActionButton = styled.button`
   padding: 10px 15px;
-  background-color: var(--primary-color);
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 0 4px 4px 0;
@@ -437,7 +428,7 @@ const SearchActionButton = styled.button`
   transition: background-color 0.2s;
 
   &:hover {
-    background-color: var(--hover-color);
+    background-color: var(--primary-hover);
   }
 `;
 

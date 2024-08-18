@@ -16,11 +16,13 @@ import { setDoc, doc, collection } from "firebase/firestore";
 import { compressImage } from "../utils/imageUtils";
 import { FaUpload, FaTrash } from "react-icons/fa";
 import { db } from "../lib/firebase";
+import DefaultModal from "./modal/DefaultModal";
 import {
   updateUserExperience,
   getExperienceSettings,
 } from "../utils/experience";
 import ExperienceModal from "../components/modal/ExperienceModal";
+import { FaInfoCircle } from "react-icons/fa";
 
 const CreatePostPage: React.FC = () => {
   const [title, setTitle] = useState("");
@@ -45,6 +47,20 @@ const CreatePostPage: React.FC = () => {
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
+  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
+
+  const handleNoticeOpen = () => {
+    setIsNoticeOpen(true);
+  };
+
+  const handleNoticeClose = () => {
+    setIsNoticeOpen(false);
+  };
+
+  const noticeContent = `1. 게시글은 주제와 맞는 카테고리에 작성해 주세요.
+  2. 다른 사람을 존중하고 배려하는 내용을 작성해 주세요.
+  3. 허위 정보, 비방, 욕설 등의 게시물은 작성하지 말아 주세요.
+  4. 저작권에 위반되는 자료를 게시하지 말아 주세요.`;
 
   useEffect(() => {
     if (categoryParam) {
@@ -216,17 +232,15 @@ const CreatePostPage: React.FC = () => {
           <CategoryList />
         </CategorySection>
         <ContentSection>
-          <h1>게시글 작성</h1>
+          <Header>
+            <h1>게시글 작성</h1>
+            <InfoContainer onClick={handleNoticeOpen}>
+              <ResponsiveIcon />
+              <InfoText>작성 원칙</InfoText>
+            </InfoContainer>
+          </Header>
           <Form onSubmit={handleSubmit}>
-            <Label htmlFor="title">제목</Label>
-            <Input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-            <Label htmlFor="category">카테고리</Label>
+            {/* <Label htmlFor="category">카테고리</Label> */}
             <Select
               id="category"
               value={category}
@@ -244,11 +258,21 @@ const CreatePostPage: React.FC = () => {
                 </optgroup>
               ))}
             </Select>
-            <Label htmlFor="content">내용</Label>
+            {/* <Label htmlFor="title">제목</Label> */}
+            <Input
+              type="text"
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="제목을 입력하세요"
+              required
+            />
+            {/* <Label htmlFor="content">내용</Label> */}
             <Textarea
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              placeholder="내용을 입력하세요"
               required
             />
             <Label htmlFor="image">이미지 업로드 (최대 10개)</Label>
@@ -370,6 +394,12 @@ const CreatePostPage: React.FC = () => {
           </Form>
         </ContentSection>
       </Container>
+      <DefaultModal
+        isOpen={isNoticeOpen}
+        onClose={handleNoticeClose}
+        title="작성 원칙"
+        message={noticeContent}
+      />
       <ExperienceModal
         isOpen={showExpModal}
         onClose={handleModalClose}
@@ -405,6 +435,53 @@ const ContentSection = styled.div`
   overflow-y: auto;
 `;
 
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+
+  h1 {
+    @media (max-width: 768px) {
+      font-size: 1.6rem;
+    }
+  }
+`;
+
+const InfoContainer = styled.div`
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #999;
+
+  &:hover {
+    color: #666;
+  }
+`;
+
+const ResponsiveIcon = styled(FaInfoCircle)`
+  font-size: 18px;
+
+  @media (max-width: 768px) {
+    font-size: 14px;
+  }
+
+  @media (max-width: 360px) {
+    font-size: 12px;
+  }
+`;
+
+const InfoText = styled.span`
+  margin-left: 0.4rem;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #999;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
+`;
+
 const Form = styled.form`
   display: flex;
   flex-direction: column;
@@ -418,16 +495,25 @@ const Label = styled.label`
 
 const Select = styled.select`
   padding: 0.75rem;
-  border: 1px solid #ccc;
+  text-align: start;
   border-radius: 4px;
   font-size: 1rem;
 `;
 
-const Textarea = styled.textarea`
-  padding: 0.75rem;
+const Input = styled.input`
+  padding: 0.5rem; // 기존 크기보다 작게 조정
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.8rem; // 폰트 크기 조정
+  flex: 1; // flex를 사용하여 공간을 활용
+  min-height: 30px;
+`;
+
+const Textarea = styled.textarea`
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.8rem;
   min-height: 200px;
 `;
 
@@ -438,26 +524,27 @@ const ButtonContainer = styled.div`
 
 const Button = styled.button`
   padding: 0.75rem 1rem;
-  background-color: #0070f3;
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: bold;
+  max-width: 200px;
 
   &:hover {
-    background-color: #0056b3;
+    background-color: var(--primary-hover);
   }
 `;
 
 const SubmitButton = styled(Button)``;
 
 const BackButton = styled(Button)`
-  background-color: #ccc;
+  background-color: var(--gray-button);
 
   &:hover {
-    background-color: #aaa;
+    background-color: var(--gray-hover);
   }
 `;
 
@@ -491,18 +578,6 @@ const VoteOptionContainer = styled.div`
     flex-direction: column;
     align-items: flex-start;
   } */
-`;
-
-const Input = styled.input`
-  padding: 0.5rem; // 기존 크기보다 작게 조정
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.875rem; // 폰트 크기 조정
-  flex: 1; // flex를 사용하여 공간을 활용
-
-  @media (max-width: 768px) {
-    width: 90%; // 모바일에서는 전체 너비를 사용
-  }
 `;
 
 const VoteInput = styled.input`

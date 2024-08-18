@@ -30,6 +30,8 @@ export const useAuth = () => {
               address2: userData.address2 || "",
               schoolId: userData.schoolId || "",
               schoolName: userData.schoolName || "",
+              grade: userData.grade || "",
+              classNumber: userData.classNumber || "",
               experience: userData.experience || 0,
               totalExperience: userData.totalExperience || 0,
               level: userData.level || 1,

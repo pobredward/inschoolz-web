@@ -124,10 +124,12 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
         post.author.toLowerCase().includes(searchTermLower),
       );
     } else if (searchScope === "comments") {
-      filtered = filtered.filter((post) =>
-        post.comments.some((comment) =>
-          comment.toLowerCase().includes(searchTermLower),
-        ),
+      filtered = filtered.filter(
+        (post) =>
+          Array.isArray(post.comments) &&
+          post.comments.some((comment) =>
+            comment.toLowerCase().includes(searchTermLower),
+          ),
       );
     } else {
       filtered = filtered.filter(
@@ -135,9 +137,10 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
           post.title.toLowerCase().includes(searchTermLower) ||
           post.content.toLowerCase().includes(searchTermLower) ||
           post.author.toLowerCase().includes(searchTermLower) ||
-          post.comments.some((comment) =>
-            comment.toLowerCase().includes(searchTermLower),
-          ),
+          (Array.isArray(post.comments) &&
+            post.comments.some((comment) =>
+              comment.toLowerCase().includes(searchTermLower),
+            )),
       );
     }
 
@@ -185,7 +188,7 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
               <PostHeader>
                 <PostTitle>{post.title}</PostTitle>
               </PostHeader>
-              <PostContent>{post.content.slice(0, 100)}...</PostContent>
+              <PostContent>{getPostContentSnippet(post.content)}</PostContent>
             </PostMainContent>
             <ImagePreviewContainer>
               {post.imageUrls &&
@@ -305,13 +308,13 @@ const SearchButton = styled.button`
   padding: 0.5rem 1rem;
   font-size: 1rem;
   color: white;
-  background-color: #007bff;
+  background-color: var(--primary-button);
   border: none;
   border-radius: 4px;
   cursor: pointer;
 
   &:hover {
-    background-color: #0056b3;
+    background-color: var(--primary-hover);
   }
 
 
@@ -401,6 +404,17 @@ const PostContent = styled.p`
   line-height: 1.2;
   font-size: 0.9rem;
 `;
+
+const getPostContentSnippet = (content) => {
+  if (typeof window !== "undefined") {
+    const isMobile = window.innerWidth <= 768;
+    const sliceLength = isMobile ? 20 : 45;
+    return content.length > sliceLength
+      ? content.slice(0, sliceLength) + "..."
+      : content.slice(0, sliceLength);
+  }
+  return content;
+};
 
 const ImagePreviewContainer = styled.div`
   display: flex;

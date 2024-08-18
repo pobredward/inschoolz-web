@@ -823,7 +823,7 @@ const ActionItem = styled.span`
 const TextButton = styled.button`
   padding: 0.2rem;
   background: none;
-  color: #0070f3;
+  color: #000;
   border: none;
   cursor: pointer;
   font-size: 1rem;
@@ -841,7 +841,7 @@ const TextButton = styled.button`
 const EditButton = styled.button`
   padding: 0.2rem;
   background: none;
-  color: var(--text-color);
+  color: var(--edit-text);
   border: none;
   cursor: pointer;
   font-size: 1rem;
@@ -859,7 +859,7 @@ const EditButton = styled.button`
 const DeleteButton = styled.button`
   padding: 0.2rem;
   background: none;
-  color: #ff0000;
+  color: var(--delete-text);
   border: none;
   cursor: pointer;
   font-size: 1rem;

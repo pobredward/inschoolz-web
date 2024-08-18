@@ -38,13 +38,6 @@ const FlappyBird: React.FC = () => {
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
 
-  useEffect(() => {
-    if (user) {
-      fetchBestScore();
-      updateRemainingPlays();
-    }
-  }, [user]);
-
   const fetchBestScore = async () => {
     if (user) {
       const scoreDoc = await getDoc(doc(db, "flappyBirdScores", user.uid));
@@ -63,6 +56,13 @@ const FlappyBird: React.FC = () => {
       setRemainingPlays(remaining);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      fetchBestScore();
+      updateRemainingPlays();
+    }
+  }, [user, fetchBestScore, updateRemainingPlays]);
 
   const getUserGameInfo = async (userId: string) => {
     const userDoc = await getDoc(doc(db, "users", userId));

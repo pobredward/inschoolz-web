@@ -1,4 +1,5 @@
 import { atom } from "recoil";
+import { Timestamp } from "firebase/firestore";
 
 export interface User {
   uid: string;
@@ -13,9 +14,12 @@ export interface User {
   name: string;
   schoolId?: string;
   schoolName?: string;
+  grade?: string;
+  classNumber?: string;
   phoneNumber?: string;
   userId: string;
   totalExperience: number;
+  profileImageUrl?: string;
 }
 
 export const userState = atom<User | null>({
@@ -121,3 +125,21 @@ export const commentsState = atom({
   key: "commentsState",
   default: [],
 });
+
+export interface AttendanceRecord {
+  userId: string;
+  attendances: {
+    [key: string]: boolean;
+  };
+  streak: number;
+  lastAttendance: Timestamp;
+}
+
+export interface AttendanceState {
+  canCheckToday: boolean;
+  currentStreak: number;
+  lastAttendance: Date | null;
+  monthlyAttendances: {
+    [key: string]: boolean;
+  };
+}

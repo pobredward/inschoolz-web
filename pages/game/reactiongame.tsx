@@ -202,14 +202,16 @@ const ReactionGame: React.FC = () => {
   return (
     <Layout>
       <GameContainer>
-        <h1>반응속도 게임</h1>
+        <GameTitle>반응속도 게임</GameTitle>
         <GameArea onClick={handleClick} gameState={gameState}>
-          {gameState === "waiting" && <p>클릭하여 시작</p>}
-          {gameState === "ready" && <p>준비...</p>}
-          {gameState === "clicking" && <p>클릭하세요!</p>}
+          {gameState === "waiting" && <GameText>클릭하여 시작</GameText>}
+          {gameState === "ready" && <GameText>준비...</GameText>}
+          {gameState === "clicking" && <GameText>클릭하세요!</GameText>}
         </GameArea>
-        {bestScore && <p>최고 기록: {bestScore}ms</p>}
-        <p>남은 플레이 횟수: {remainingPlays}</p>
+        <ScoreBoard>
+          {bestScore && <ScoreText>최고 기록: {bestScore}ms</ScoreText>}
+          <ScoreText>남은 플레이 횟수: {remainingPlays}</ScoreText>
+        </ScoreBoard>
         <BackButton href="/game">메인 메뉴로 돌아가기</BackButton>
       </GameContainer>
       <DefaultModal
@@ -232,12 +234,24 @@ const GameContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem;
+  padding: 1rem;
+  /* background-color: #f0f8ff; */
+  border-radius: 15px;
+  /* box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); */
+  max-width: 500px;
+  margin: 0rem auto;
+`;
+
+const GameTitle = styled.h1`
+  font-size: 1.5rem;
+  color: #2c3e50;
+  text-align: center;
+  text-align: center;
 `;
 
 const GameArea = styled.div<{ gameState: string }>`
-  width: 300px;
-  height: 300px;
+  width: 250px;
+  height: 250px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -250,22 +264,52 @@ const GameArea = styled.div<{ gameState: string }>`
         ? "#FFC107"
         : "#F44336"};
   color: white;
+  border-radius: 50%;
+  margin: 1rem 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    transform: scale(1.05);
+  }
+`;
+
+const GameText = styled.p`
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+`;
+
+const ScoreBoard = styled.div`
+  background-color: #ffffff;
+  padding: 1rem;
   border-radius: 10px;
-  margin: 2rem 0;
+  margin-top: 2rem;
+  width: 100%;
+  max-width: 300px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+const ScoreText = styled.p`
+  font-size: 1rem;
+  color: #34495e;
+  margin: 0.5rem 0;
+  text-align: center;
 `;
 
 const BackButton = styled(Link)`
   margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  font-size: 16px;
-  background-color: #f0f0f0;
-  color: #333;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  background-color: #ecf0f1;
+  color: #34495e;
   text-decoration: none;
   border-radius: 5px;
   transition: background-color 0.3s;
+  font-weight: bold;
 
   &:hover {
-    background-color: #e0e0e0;
+    background-color: #bdc3c7;
   }
 `;
 

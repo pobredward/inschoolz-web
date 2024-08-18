@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import styled from "@emotion/styled";
 import { FaChevronLeft, FaChevronRight, FaTimes } from "react-icons/fa";
+import Image from "next/image";
 
 interface ImageGalleryProps {
   images: string[];
@@ -40,7 +41,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
       <GalleryContainer>
         {images.map((image, index) => (
           <ImagePreview key={index} onClick={() => openModal(index)}>
-            <img src={image} alt={`Preview ${index + 1}`} />
+            <Image
+              src={image}
+              alt={`Preview ${index + 1}`}
+              layout="fill"
+              objectFit="cover"
+            />
           </ImagePreview>
         ))}
       </GalleryContainer>
@@ -78,29 +84,29 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
 };
 
 const GalleryContainer = styled.div`
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(200px, 1fr)
+  ); // 이미지 크기를 150px로 증가
   gap: 10px;
+  margin-top: 10px;
 
   @media (max-width: 768px) {
-    flex-direction: column;
+    grid-template-columns: 1fr; // 모바일에서 1열로 변경
   }
 `;
 
 const ImagePreview = styled.div`
-  width: calc(33% - 5px);
-  height: 250px;
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%; // 1:1 비율 유지
   overflow: hidden;
   cursor: pointer;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  border-radius: 10px;
 
   @media (max-width: 768px) {
-    width: 100%;
+    padding-bottom: 75%; // 모바일에서 4:3 비율로 변경 (선택사항)
   }
 `;
 

@@ -8,6 +8,8 @@ export interface ExperienceSettings {
   reactionGameExperience: number;
   flappyBirdThreshold: number;
   flappyBirdExperience: number;
+  tileGameThreshold: number;
+  tileGameExperience: number;
   friendInvitation: number;
   maxDailyGames: number;
 }
@@ -26,14 +28,16 @@ export async function getExperienceSettings(): Promise<ExperienceSettings> {
   }
   // 기본값 설정
   return {
-    postCreation: 10,
-    commentCreation: 5,
-    reactionGameThreshold: 500,
-    reactionGameExperience: 20,
-    flappyBirdThreshold: 50,
-    flappyBirdExperience: 20,
-    friendInvitation: 15,
-    maxDailyGames: 10,
+    postCreation: 5,
+    commentCreation: 3,
+    reactionGameThreshold: 300,
+    reactionGameExperience: 5,
+    flappyBirdThreshold: 5,
+    flappyBirdExperience: 5,
+    tileGameThreshold: 10,
+    tileGameExperience: 5,
+    friendInvitation: 30,
+    maxDailyGames: 5,
   };
 }
 

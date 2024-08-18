@@ -72,7 +72,8 @@ export const deleteUser = async (
       // 게시글 업데이트
       return updateDoc(doc.ref, {
         author: "탈퇴한 회원",
-        content: "이 게시글은 탈퇴한 회원이 작성한 글입니다.",
+        title: "삭제된 게시글",
+        content: "탈퇴한 회원의 게시글입니다",
         imageUrls: [],
         voteOptions: null,
       });

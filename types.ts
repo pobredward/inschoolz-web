@@ -1,4 +1,5 @@
 // types.ts
+import { Timestamp } from "firebase/firestore";
 
 // 회원가입 데이터 타입
 export interface SignupData {
@@ -11,6 +12,8 @@ export interface SignupData {
   address2: string;
   schoolId: string;
   schoolName: string;
+  grade: string;
+  classNumber: string;
   birthYear: number;
   birthMonth: number;
   birthDay: number;
@@ -26,6 +29,8 @@ export interface User {
   address2?: string;
   schoolId?: string;
   schoolName?: string;
+  grade?: string;
+  classNumber?: string;
   experience: number;
   totalExperience: number;
   level: number;
@@ -33,6 +38,7 @@ export interface User {
   birthMonth: number;
   birthDay: number;
   phoneNumber: string;
+  profileImageUrl?: string;
 }
 
 export interface VoteOption {
@@ -114,4 +120,22 @@ export interface CreatePostData {
   address2?: string;
   schoolId?: string;
   schoolName?: string;
+}
+
+export interface AttendanceRecord {
+  userId: string;
+  attendances: {
+    [key: string]: boolean;
+  };
+  streak: number;
+  lastAttendance: Timestamp;
+}
+
+export interface AttendanceState {
+  canCheckToday: boolean;
+  currentStreak: number;
+  lastAttendance: Date | null;
+  monthlyAttendances: {
+    [key: string]: boolean;
+  };
 }

@@ -35,6 +35,8 @@ const SignupPage: React.FC = () => {
   const [address1, setAddress1] = useState("");
   const [address2, setAddress2] = useState("");
   const [school, setSchool] = useState<any>(null);
+  const [grade, setGrade] = useState("");
+  const [classNumber, setClassNumber] = useState("");
   const [birthYear, setBirthYear] = useState<number>(0);
   const [birthMonth, setBirthMonth] = useState<number>(0);
   const [birthDay, setBirthDay] = useState<number>(0);
@@ -62,6 +64,8 @@ const SignupPage: React.FC = () => {
         address2,
         schoolId,
         schoolName,
+        grade,
+        classNumber,
         schoolAddress,
         birthYear,
         birthMonth,
@@ -88,6 +92,8 @@ const SignupPage: React.FC = () => {
         schoolId,
         schoolName,
         schoolAddress,
+        grade,
+        classNumber,
         birthYear,
         birthMonth,
         birthDay,
@@ -213,6 +219,8 @@ const SignupPage: React.FC = () => {
       !address1 ||
       !address2 ||
       !school ||
+      !grade ||
+      !classNumber ||
       !birthYear ||
       !birthMonth ||
       !birthDay
@@ -269,7 +277,7 @@ const SignupPage: React.FC = () => {
 
     const currentYear = new Date().getFullYear();
     if (birthYear < 1900 || birthYear > currentYear) {
-      setError("올바른 출생 연도를 입력해주세요.");
+      setError("올바른 출생  ��도를 입력해주세요.");
       return;
     }
     if (birthMonth < 1 || birthMonth > 12) {
@@ -298,6 +306,8 @@ const SignupPage: React.FC = () => {
         schoolId: school?.SCHOOL_CODE || "",
         schoolName: school?.KOR_NAME || "",
         schoolAddress: school?.ADDRESS || "",
+        grade,
+        classNumber,
         birthYear,
         birthMonth,
         birthDay,
@@ -406,6 +416,32 @@ const SignupPage: React.FC = () => {
           />
           <Label>학교</Label>
           <SchoolSearch setSchool={setSchool} />
+          <GradeClassWrapper>
+            <FormGroup>
+              <SmallWrapper>
+                <SmallInput
+                  type="text"
+                  id="grade"
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  placeholder="학년"
+                  required
+                />
+                <SmallLabel htmlFor="grade">학년</SmallLabel>
+              </SmallWrapper>
+              <SmallWrapper>
+                <SmallInput
+                  type="text"
+                  id="class"
+                  value={classNumber}
+                  onChange={(e) => setClassNumber(e.target.value)}
+                  placeholder="반"
+                  required
+                />
+                <SmallLabel htmlFor="class">반</SmallLabel>
+              </SmallWrapper>
+            </FormGroup>
+          </GradeClassWrapper>
           <Label>생년월일</Label>
           <DateOfBirthContainer>
             <Select
@@ -533,6 +569,33 @@ const Input = styled.input`
   margin: 0 0 0.5rem 0;
 `;
 
+const FormGroup = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+`;
+
+const SmallWrapper = styled.div`
+  display: flex;
+  gap: 10px;
+`;
+
+const SmallInput = styled.input`
+  width: 40%;
+  padding: 0.75rem;
+  border: 1px solid var(--gray-button);
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  margin: 0 0 0.5rem 0;
+`;
+
+const SmallLabel = styled.label`
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+  margin: auto 0;
+`;
+
 const IdInput = styled(Input)`
   flex: 2 2 0;
   margin: 0;
@@ -556,6 +619,15 @@ const Select = styled.select`
   border-radius: 4px;
   font-size: 1rem;
   box-sizing: border-box;
+`;
+
+const GradeClassWrapper = styled.div`
+  display: flex;
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
 `;
 
 const DateOfBirthContainer = styled.div`

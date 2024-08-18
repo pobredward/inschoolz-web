@@ -14,6 +14,7 @@ import {
 import { db } from "../lib/firebase";
 import Layout from "../components/Layout";
 import { useAuth } from "../hooks/useAuth";
+import { FaUserCircle } from "react-icons/fa";
 
 interface UserRank {
   userId: string;
@@ -22,6 +23,7 @@ interface UserRank {
   address2: string;
   level: number;
   experience: number;
+  profileImageUrl?: string;
   rank?: number;
 }
 
@@ -33,14 +35,10 @@ const RankingPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResult, setSearchResult] = useState<UserRank | null>(null);
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const { user } = useAuth();
   const [lastVisible, setLastVisible] =
     useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-
-  useEffect(() => {
-    fetchRankings();
-  }, [activeTab, currentPage, user]);
 
   const fetchRankings = async () => {
     if (!user && activeTab === "school") {
@@ -109,7 +107,6 @@ const RankingPage: React.FC = () => {
       setRankings(rankingsData);
       setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
 
-      // Get total count for pagination
       const countQuery =
         activeTab === "national"
           ? query(usersRef)
@@ -121,71 +118,33 @@ const RankingPage: React.FC = () => {
     }
   };
 
-  const handleSearch = async () => {
+  useEffect(() => {
+    fetchRankings();
+  }, [activeTab, currentPage, user]);
+
+  const handleSearch = () => {
     if (!searchTerm) return;
 
-    const usersRef = collection(db, "users");
-    let q;
+    const filteredData = rankings.filter((entry) =>
+      entry.userId.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
 
-    if (activeTab === "national") {
-      q = query(
-        usersRef,
-        where("userId", "==", searchTerm),
-        orderBy("level", "desc"),
-        orderBy("experience", "desc"),
-      );
-    } else if (activeTab === "school" && user?.schoolId) {
-      q = query(
-        usersRef,
-        where("schoolId", "==", user.schoolId),
-        where("userId", "==", searchTerm),
-        orderBy("level", "desc"),
-        orderBy("experience", "desc"),
-      );
-    } else {
-      console.error("Invalid activeTab or missing user schoolId");
-      return;
-    }
+    setRankings(filteredData);
+    setIsSearchActive(true);
+  };
 
-    try {
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        const userData = userDoc.data() as UserRank;
-
-        // Get the rank of the user
-        const rankQuery =
-          activeTab === "national"
-            ? query(
-                usersRef,
-                orderBy("level", "desc"),
-                orderBy("experience", "desc"),
-              )
-            : query(
-                usersRef,
-                where("schoolId", "==", user?.schoolId),
-                orderBy("level", "desc"),
-                orderBy("experience", "desc"),
-              );
-
-        const rankSnapshot = await getDocs(rankQuery);
-        const rank =
-          rankSnapshot.docs.findIndex((doc) => doc.id === userDoc.id) + 1;
-
-        setSearchResult({ ...userData, rank });
-      } else {
-        setSearchResult(null);
-      }
-    } catch (error) {
-      console.error("Error searching user:", error);
-    }
+  const handleReset = () => {
+    setSearchTerm("");
+    setIsSearchActive(false);
+    setCurrentPage(1);
+    fetchRankings(); // 랭킹을 원래 상태로 초기화
   };
 
   const handleTabChange = (tab: "national" | "school") => {
     setActiveTab(tab);
     setCurrentPage(1);
     setLastVisible(null);
-    setSearchResult(null);
+    setIsSearchActive(false);
     setSearchTerm("");
   };
 
@@ -196,10 +155,16 @@ const RankingPage: React.FC = () => {
     }
   };
 
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      handleSearch();
+    }
+  };
+
   return (
     <Layout>
       <RankingContainer>
-        <h1>랭킹</h1>
+        {/* <h1>랭킹</h1> */}
         <TabContainer>
           <Tab
             active={activeTab === "national"}
@@ -220,49 +185,48 @@ const RankingPage: React.FC = () => {
             placeholder="사용자 ID 검색"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyPress={handleKeyPress} // 엔터키로 검색 실행
           />
-          <SearchButton onClick={handleSearch}>검색</SearchButton>
+          <ButtonWrapper>
+            <SearchButton onClick={handleSearch}>검색</SearchButton>
+            <ResetButton onClick={handleReset}>초기화</ResetButton>
+          </ButtonWrapper>
         </SearchContainer>
-        {searchResult && (
-          <SearchResult>
-            검색 결과: {searchResult.userId} (랭킹: {searchResult.rank}위)
-          </SearchResult>
-        )}
-        <RankingTable>
-          <thead>
-            <tr>
-              <th>순위</th>
-              <th>유저명</th>
-              <th>학교</th>
-              <th>지역</th>
-              <th>레벨</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rankings.map((user) => (
-              <tr key={user.userId}>
-                <td>{user.rank}</td>
-                <td>{user.userId}</td>
-                <td>{user.schoolName}</td>
-                <td>{`${user.address1} ${user.address2}`}</td>
-                <td>
-                  <LevelText>Lv.{user.level}</LevelText>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </RankingTable>
-        <Pagination>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <PageButton
-              key={page}
-              active={currentPage === page}
-              onClick={() => handlePageChange(page)}
-            >
-              {page}
-            </PageButton>
+        <UserCardContainer>
+          {rankings.map((user) => (
+            <UserCard key={user.userId}>
+              <Rank>{user.rank}</Rank>
+              {user.profileImageUrl ? (
+                <ProfileImage
+                  src={user.profileImageUrl}
+                  alt={`${user.profileImageUrl} 프로필`}
+                />
+              ) : (
+                <DefaultProfileIcon />
+              )}
+              <UserInfo>
+                <UserName>{user.userId}</UserName>
+                <UserDetails>
+                  {user.schoolName} | {user.address1} {user.address2}
+                </UserDetails>
+              </UserInfo>
+              <Level>Lv.{user.level}</Level>
+            </UserCard>
           ))}
-        </Pagination>
+        </UserCardContainer>
+        {!isSearchActive && (
+          <Pagination>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PageButton
+                key={page}
+                active={currentPage === page}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </PageButton>
+            ))}
+          </Pagination>
+        )}
       </RankingContainer>
     </Layout>
   );
@@ -285,7 +249,8 @@ const TabContainer = styled.div`
 
 const Tab = styled.button<{ active: boolean }>`
   padding: 0.5rem 1rem;
-  background-color: ${(props) => (props.active ? "#7ed957" : "#f2f2f2")};
+  background-color: ${(props) =>
+    props.active ? `var(--primary-button)` : "#f2f2f2"};
   color: ${(props) => (props.active ? "white" : "black")};
   border: none;
   cursor: pointer;
@@ -294,6 +259,7 @@ const Tab = styled.button<{ active: boolean }>`
 
 const SearchContainer = styled.div`
   display: flex;
+  justify-content: space-between;
   margin-bottom: 1rem;
 `;
 
@@ -301,45 +267,111 @@ const SearchInput = styled.input`
   flex-grow: 1;
   padding: 0.5rem;
   margin-right: 0.5rem;
+
+  @media (max-width: 768px) {
+    max-width: 120px;
+  }
+`;
+
+const ButtonWrapper = styled.div`
+  display: flex;
+  gap: 2px;
 `;
 
 const SearchButton = styled.button`
   padding: 0.5rem 1rem;
-  background-color: #7ed957;
+  background-color: var(--primary-button);
   color: white;
   border: none;
   cursor: pointer;
+
+  &:hover {
+    background-color: var(--primary-hover);
+  }
 `;
 
-const SearchResult = styled.div`
-  margin-bottom: 1rem;
+const ResetButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin-left: 0.5rem;
+`;
+
+const UserCardContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    gap: 0.3rem;
+  }
+`;
+
+const UserCard = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 0px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 768px) {
+    padding: 0.7rem;
+  }
+`;
+
+const Rank = styled.div`
   font-weight: bold;
+  margin-right: 1rem;
+
+@media (max-width: 768px) {
+  margin-right: 0.5rem;
+}
+
+
 `;
 
-const RankingTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 2rem;
-
-  th,
-  td {
-    border: 1px solid #ddd;
-    padding: 0.5rem;
-    text-align: left;
-  }
-
-  th {
-    background-color: #f2f2f2;
-    font-weight: bold;
-  }
-
-  tr:nth-of-type(even) {
-    background-color: #f8f8f8;
-  }
+const ProfileImage = styled.img`
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin-right: 1rem;
 `;
 
-const LevelText = styled.span`
+const DefaultProfileIcon = styled(FaUserCircle)`
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin-right: 1rem;
+`;
+
+const UserInfo = styled.div`
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+`;
+
+const UserName = styled.div`
   font-weight: bold;
+  margin-bottom: 0.5rem;
+`;
+
+const UserDetails = styled.div`
+  color: #777;
+  font-size: 0.9rem;
+
+  @media (max-width: 768px) {
+    font-size: 0.7rem;
+  }
+`;
+
+const Level = styled.div`
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #333;
 `;
 
 const Pagination = styled.div`
@@ -351,7 +383,8 @@ const Pagination = styled.div`
 const PageButton = styled.button<{ active: boolean }>`
   padding: 0.5rem 1rem;
   margin: 0 0.25rem;
-  background-color: ${(props) => (props.active ? "#7ed957" : "#f2f2f2")};
+  background-color: ${(props) =>
+    props.active ? `var(--primary-button)` : "#f2f2f2"};
   color: ${(props) => (props.active ? "white" : "black")};
   border: none;
   cursor: pointer;

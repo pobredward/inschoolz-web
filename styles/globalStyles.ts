@@ -3,9 +3,9 @@ import { css } from "@emotion/react";
 export const globalStyles = css`
   :root {
     /* Primary Colors */
-    --primary-button: #7ed957;
-    --primary-text: #1c9816;
-    --primary-hover: #66c247;
+    --primary-button: #50ad3d;
+    --primary-text: #2f7b20;
+    --primary-hover: #469e35;
 
     /* Gray Colors */
     --gray-button: #cccccc;
@@ -13,14 +13,14 @@ export const globalStyles = css`
     --gray-hover: #b3b3b3;
 
     /* Edit (Blue) Colors */
-    --edit-button: #4a90e2;
-    --edit-text: #357ab7;
-    --edit-hover: #3b8fd5;
+    --edit-button: #3544a0;
+    --edit-text: #3132ca;
+    --edit-hover: #2c3a94;
 
     /* Delete (Red) Colors */
-    --delete-button: #d9534f;
-    --delete-text: #c9302c;
-    --delete-hover: #d43f3a;
+    --delete-button: #b42e2f;
+    --delete-text: #f24e48;
+    --delete-hover: #a32629;
   }
 
   body {

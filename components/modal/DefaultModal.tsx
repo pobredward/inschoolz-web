@@ -1,5 +1,5 @@
-import React from 'react';
-import styled from '@emotion/styled';
+import React from "react";
+import styled from "@emotion/styled";
 
 interface DefaultModalProps {
   isOpen: boolean;
@@ -8,7 +8,12 @@ interface DefaultModalProps {
   message: string;
 }
 
-const DefaultModal: React.FC<DefaultModalProps> = ({ isOpen, onClose, title, message }) => {
+const DefaultModal: React.FC<DefaultModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  message,
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -19,7 +24,7 @@ const DefaultModal: React.FC<DefaultModalProps> = ({ isOpen, onClose, title, mes
           <CloseButton onClick={onClose}>&times;</CloseButton>
         </ModalHeader>
         <ModalBody>
-          {message.split('\n').map((line, index) => (
+          {message.split("\n").map((line, index) => (
             <p key={index}>{line}</p>
           ))}
         </ModalBody>
@@ -48,6 +53,12 @@ const ModalContent = styled.div`
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   max-width: 90%;
   width: 400px;
+
+  @media (max-width: 768px) {
+    width: 90%;
+    max-width: 250px;
+    padding: 1.5rem;
+  }
 `;
 
 const ModalHeader = styled.div`

@@ -1,4 +1,3 @@
-// components/Layout.tsx
 import React from "react";
 import Head from "next/head";
 import styled from "@emotion/styled";
@@ -40,11 +39,12 @@ const Main = styled.main`
   margin: 20px auto;
   padding: 1rem;
   box-sizing: border-box;
-  padding-top: 60px;
+  padding-top: 60px; // Navbar의 높이 + 여유 공간
 
   @media (max-width: 768px) {
     padding: 0.8rem;
-    padding-top: 60px;
+    padding-top: 50px; // 모바일 Navbar의 높이 + 여유 공간
+    padding-bottom: 80px; // Bottom Navigation의 높이 + 여유 공간
   }
 `;
 
