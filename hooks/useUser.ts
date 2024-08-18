@@ -13,10 +13,17 @@ export const useUser = () => {
     ["user", user?.uid],
     async () => {
       if (!user?.uid) return null;
-      const docRef = doc(db, "users", user.uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const userData = docSnap.data() as User;
+      const userDocRef = doc(db, "users", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data() as User;
+        if (userData.schoolId) {
+          const schoolDocRef = doc(db, "schools", userData.schoolId);
+          const schoolDocSnap = await getDoc(schoolDocRef);
+          if (schoolDocSnap.exists()) {
+            userData.schoolName = schoolDocSnap.data().KOR_NAME;
+          }
+        }
         setUser(userData);
         return userData;
       }

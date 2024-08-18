@@ -6,6 +6,7 @@ interface DefaultModalProps {
   onClose: () => void;
   title: string;
   message: string;
+  height?: string;
 }
 
 const DefaultModal: React.FC<DefaultModalProps> = ({
@@ -13,17 +14,18 @@ const DefaultModal: React.FC<DefaultModalProps> = ({
   onClose,
   title,
   message,
+  height = "auto",
 }) => {
   if (!isOpen) return null;
 
   return (
     <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={(e) => e.stopPropagation()}>
+      <ModalContent height={height} onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
           <ModalTitle>{title}</ModalTitle>
           <CloseButton onClick={onClose}>&times;</CloseButton>
         </ModalHeader>
-        <ModalBody>
+        <ModalBody height={height}>
           {message.split("\n").map((line, index) => (
             <p key={index}>{line}</p>
           ))}
@@ -46,13 +48,15 @@ const ModalOverlay = styled.div`
   z-index: 1000;
 `;
 
-const ModalContent = styled.div`
+const ModalContent = styled.div<{ height: string }>`
   background-color: white;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   max-width: 90%;
   width: 400px;
+  max-height: ${(props) => props.height}; /* 높이를 설정 */
+  height: ${(props) => props.height}; /* 설정된 높이 적용 */
 
   @media (max-width: 768px) {
     width: 90%;
@@ -82,9 +86,13 @@ const CloseButton = styled.button`
   color: #666;
 `;
 
-const ModalBody = styled.div`
+const ModalBody = styled.div<{ height: string }>`
   font-size: 1rem;
   line-height: 1.5;
+  overflow-y: auto;
+  max-height: calc(
+    ${(props) => props.height} - 60px
+  ); /* 전체 높이에서 헤더의 높이(약 60px)만큼을 제외 */
 `;
 
 export default DefaultModal;

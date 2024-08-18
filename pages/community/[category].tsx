@@ -12,6 +12,9 @@ import { useRouter } from "next/router";
 import styled from "@emotion/styled";
 import { FaChevronDown, FaChevronUp, FaPen } from "react-icons/fa";
 import Link from "next/link";
+import { GetServerSideProps } from "next";
+import { fetchPostsByCategory } from "../../services/postService";
+import { Post } from "../../types";
 
 const CategoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
@@ -148,6 +151,29 @@ const CategoryPage: React.FC = () => {
     </Layout>
   );
 };
+
+const convertTimestamps = (post: Post): Post => {
+  return {
+    ...post,
+    createdAt: post.createdAt?.toDate?.().toISOString() || null,
+    updatedAt: post.updatedAt?.toDate?.().toISOString() || null,
+  };
+};
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const { category } = context.params as { category: string };
+  const posts = await fetchPostsByCategory(category);
+
+  // Timestamp를 문자열로 변환
+  const serializedPosts = posts.map(convertTimestamps);
+
+  return {
+    props: {
+      posts: serializedPosts,
+    },
+  };
+};
+
 const Container = styled.div`
   display: flex;
   max-width: 100%;

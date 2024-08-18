@@ -14,7 +14,14 @@ import SchoolSearch from "../../components/SchoolSearch";
 import AddressSelector from "../../components/AddressSelector";
 import { fetchUserScraps } from "../../services/postService";
 import { errorMessages } from "../../utils/errorMessages";
-import { FaFileAlt, FaComments, FaBookmark } from "react-icons/fa";
+import {
+  FaFileAlt,
+  FaComments,
+  FaBookmark,
+  FaUserEdit,
+  FaTrashAlt,
+  FaChevronRight,
+} from "react-icons/fa";
 import ProfileImage from "../../components/ProfileImage";
 import AttendanceCheck from "../../components/AttandanceCheck";
 
@@ -65,6 +72,10 @@ const MyPage: React.FC = () => {
       fetchSchoolData();
     }
   }, [user]);
+
+  const handleEditButtonClick = () => {
+    router.push("/mypage/edit"); // "내 정보 수정" 페이지로 이동
+  };
 
   const fetchUserData = async () => {
     if (auth.currentUser) {
@@ -171,10 +182,6 @@ const MyPage: React.FC = () => {
     }
   };
 
-  const handleEditButtonClick = () => {
-    fetchUserMutation.mutate(); // 서버에서 최신 사용자 데이터를 가져옴
-  };
-
   if (!user) {
     return (
       <Layout>
@@ -186,13 +193,22 @@ const MyPage: React.FC = () => {
   return (
     <Layout>
       <Container>
-        <ProfileImage
-          user={user}
-          profileImageUrl={profileImageUrl}
-          setProfileImageUrl={setProfileImageUrl}
-        />
-
         <Section>
+          <ProfileContainer>
+            <UserInfo>
+              <UserName>{user.name}님, 환영합니다</UserName>
+              <UserId>@{user.userId}</UserId>
+              <SchoolInfo>
+                {user.schoolName} | {user.address1} {user.address2}
+              </SchoolInfo>
+            </UserInfo>
+            <ProfileImage
+              user={user}
+              profileImageUrl={profileImageUrl}
+              setProfileImageUrl={setProfileImageUrl}
+            />
+          </ProfileContainer>
+
           <ExperienceContainer>
             <LevelInfo>LV.{user.level}</LevelInfo>
             <ExperienceBar>
@@ -200,14 +216,13 @@ const MyPage: React.FC = () => {
                 width={(user.experience / (user.level * 10)) * 100}
               />
             </ExperienceBar>
-            <ExperienceInfo>
+            <ExperienceInfo width={(user.experience / (user.level * 10)) * 100}>
               {Math.round((user.experience / user.level) * 10)}%
             </ExperienceInfo>
           </ExperienceContainer>
         </Section>
 
         <Section>
-          {/* <SectionTitle>내 활동</SectionTitle> */}
           <ActivityContainer>
             <ActivityBox onClick={() => router.push("/mypage/posts")}>
               <IconWrapper>
@@ -235,182 +250,24 @@ const MyPage: React.FC = () => {
         </Section>
 
         <Section>
-          {/* <SectionTitle>내 정보</SectionTitle> */}
-          {isEditing ? (
-            <Form onSubmit={handleSave}>
-              <FormGroup>
-                <Label htmlFor="name">이름</Label>
-                <Input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={editedUser?.name || ""}
-                  onChange={handleInputChange}
-                  required
-                />
-              </FormGroup>
-              <FormGroup>
-                <Label htmlFor="userId">아이디</Label>
-                <Input
-                  type="text"
-                  id="userId"
-                  name="userId"
-                  value={editedUser?.userId || ""}
-                  readOnly
-                />
-              </FormGroup>
-              <FormGroup>
-                <Label htmlFor="email">이메일</Label>
-                <Input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={editedUser?.email || ""}
-                  readOnly
-                />
-              </FormGroup>
-              {/* <FormGroup>
-                <Label htmlFor="phoneNumber">휴대폰 번호</Label>
-                <Input
-                  type="tel"
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  value={editedUser?.phoneNumber || ""}
-                  onChange={handleInputChange}
-                  required
-                />
-              </FormGroup> */}
-              <FormGroup>
-                <Label>주소</Label>
-                <AddressSelector
-                  address1={editedUser?.address1 || ""}
-                  address2={editedUser?.address2 || ""}
-                  setAddress1={(value) =>
-                    handleAddressChange("address1", value)
-                  }
-                  setAddress2={(value) =>
-                    handleAddressChange("address2", value)
-                  }
-                />
-              </FormGroup>
-              <FormGroup>
-                <Label>학교</Label>
-                <SchoolSearch
-                  initialSchool={initialSchool}
-                  setSchool={handleSchoolChange}
-                />
-              </FormGroup>
-              <GradeClassWrapper>
-                <SmallFormGroup>
-                  <SmallWrapper>
-                    <SmallInput
-                      type="text"
-                      id="grade"
-                      name="grade"
-                      value={editedUser?.grade || ""}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    <SmallLabel htmlFor="grade">학년</SmallLabel>
-                  </SmallWrapper>
-                  <SmallWrapper>
-                    <SmallInput
-                      type="text"
-                      id="classNumber"
-                      name="classNumber"
-                      value={editedUser?.classNumber || ""}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    <SmallLabel htmlFor="classNumber">반</SmallLabel>
-                  </SmallWrapper>
-                </SmallFormGroup>
-              </GradeClassWrapper>
-              <FormGroup>
-                <Label>생년월일</Label>
-                <BirthDateContainer>
-                  <BirthInput
-                    type="number"
-                    name="birthYear"
-                    value={editedUser?.birthYear || ""}
-                    onChange={handleInputChange}
-                    placeholder="년"
-                    required
-                  />
-                  <BirthInput
-                    type="number"
-                    name="birthMonth"
-                    value={editedUser?.birthMonth || ""}
-                    onChange={handleInputChange}
-                    placeholder="월"
-                    required
-                  />
-                  <BirthInput
-                    type="number"
-                    name="birthDay"
-                    value={editedUser?.birthDay || ""}
-                    onChange={handleInputChange}
-                    placeholder="일"
-                    required
-                  />
-                </BirthDateContainer>
-              </FormGroup>
-              <ButtonContainer>
-                <CancelButton onClick={() => setIsEditing(false)}>
-                  취소
-                </CancelButton>
-                <ConfirmButton
-                  type="submit"
-                  disabled={updateProfileMutation.isLoading}
-                >
-                  {updateProfileMutation.isLoading ? "저장 중..." : "완료"}
-                </ConfirmButton>
-              </ButtonContainer>
-            </Form>
-          ) : (
-            <InfoContainer>
-              <InfoItem>
-                <InfoLabel>이름:</InfoLabel>
-                <InfoValue>{user.name}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>아이디:</InfoLabel>
-                <InfoValue>{user.userId}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>이메일:</InfoLabel>
-                <InfoValue>{user.email}</InfoValue>
-              </InfoItem>
-              {/* <InfoItem>
-                <InfoLabel>휴대폰 번호:</InfoLabel>
-                <InfoValue>{user.phoneNumber}</InfoValue>
-              </InfoItem> */}
-              <InfoItem>
-                <InfoLabel>주소:</InfoLabel>
-                <InfoValue>
-                  {user.address1} {user.address2}
-                </InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>학교:</InfoLabel>
-                <InfoValue>
-                  {user.schoolName} {user.grade}학년 {user.classNumber}반
-                </InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>생년월일:</InfoLabel>
-                <InfoValue>
-                  {user.birthYear}년 {user.birthMonth}월 {user.birthDay}일
-                </InfoValue>
-              </InfoItem>
-              <ButtonContainer>
-                <DeleteButton onClick={handleDeleteButtonClick}>
-                  회원 탈퇴
-                </DeleteButton>
-                <EditButton onClick={handleEditButtonClick}>수정</EditButton>
-              </ButtonContainer>
-            </InfoContainer>
-          )}
+          <Field onClick={handleEditButtonClick}>
+            <LeftContent>
+              <FaUserEdit />
+              <Text>내 정보 수정</Text>
+            </LeftContent>
+            <RightContent>
+              <FaChevronRight />
+            </RightContent>
+          </Field>
+          <Field onClick={handleDeleteButtonClick}>
+            <LeftContent>
+              <FaTrashAlt />
+              <Text>회원 탈퇴</Text>
+            </LeftContent>
+            <RightContent>
+              <FaChevronRight />
+            </RightContent>
+          </Field>
         </Section>
       </Container>
       <PasswordConfirmModal
@@ -438,56 +295,9 @@ const MyPage: React.FC = () => {
   );
 };
 
-const Container = styled.div`
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 1rem;
-
-  @media (max-width: 768px) {
-    padding: 0.5rem;
-  }
-`;
-
-const Section = styled.section`
-  margin-bottom: 1rem;
-`;
-
-const SectionTitle = styled.h2`
-  margin-bottom: 1rem;
-`;
-
-const ActivityContainer = styled.div`
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-`;
-
-const ActivityBox = styled.div`
-  flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  text-align: center;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-
-  &:hover {
-    background-color: #f0f0f0;
-  }
-`;
-
-const ActivityText = styled.p`
-  font-size: 14px;
-  margin: 0;
-`;
-
-const IconWrapper = styled.div`
-  font-size: 1.2rem;
-  margin-bottom: 0.3rem;
-`;
-
 const ExperienceContainer = styled.div`
-  margin-top: 1rem;
+  position: relative;
+  margin-bottom: 20px;
 `;
 
 const LevelInfo = styled.div`
@@ -508,63 +318,106 @@ const ExperienceFill = styled.div<{ width: number }>`
   width: ${(props) => `${Math.max(0, Math.min(100, props.width))}%`};
   height: 100%;
   background-color: var(--primary-button);
+  position: relative;
 `;
 
 const ExperienceInfo = styled.div`
-  margin-top: 0.5rem;
-  text-align: right;
-`;
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const SmallFormGroup = styled.div`
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-`;
-
-const SmallWrapper = styled.div`
-  display: flex;
-  gap: 10px;
-`;
-
-const SmallInput = styled.input`
-  width: 40%;
-  padding: 0.75rem;
-  border: 1px solid var(--gray-button);
+  position: absolute;
+  top: 65px; /* ExperienceFill 바로 아래 */
+  left: ${(props: { width: number }) =>
+    `calc(${props.width}% - 15px)`}; /* ExperienceFill의 끝지점 아래 */
+  background-color: #fff;
+  padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  font-size: 1rem;
-  box-sizing: border-box;
-  margin: 0 0 0.5rem 0;
-`;
-
-const SmallLabel = styled.label`
+  font-size: 0.8rem;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.4);
   font-weight: bold;
-  margin-bottom: 0.25rem;
-  margin: auto 0;
-`;
 
-const GradeClassWrapper = styled.div`
-  display: flex;
-  gap: 1rem;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
+  &::before {
+    content: "";
+    position: absolute;
+    top: -6px; /* ExperienceInfo 박스와 연결되는 화살표 */
+    left: calc(50% - 5px);
+    border-width: 0 5px 6px 5px;
+    border-style: solid;
+    border-color: transparent transparent #fff transparent;
   }
 `;
 
-const Label = styled.label`
-  margin-bottom: 0.5rem;
+const Container = styled.div`
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+  }
+`;
+
+const Section = styled.section`
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+`;
+
+const ProfileContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+`;
+
+const UserInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+`;
+
+const UserName = styled.h1`
+  font-size: 1.2rem;
+  margin: 0;
+`;
+
+const UserId = styled.span`
+  font-size: 0.875rem;
+  color: #555;
+`;
+
+const SchoolInfo = styled.span`
+  font-size: 0.75rem;
+  color: #888;
+`;
+
+const ActivityContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+`;
+
+const ActivityBox = styled.div`
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #f0f0f0;
+  }
+`;
+
+const ActivityText = styled.p`
+  font-size: 14px;
   font-weight: bold;
+  margin: 0;
+`;
+
+const IconWrapper = styled.div`
+  font-size: 1.2rem;
+  margin-bottom: 0.3rem;
 `;
 
 const Input = styled.input`
@@ -573,31 +426,31 @@ const Input = styled.input`
   border-radius: 4px;
 `;
 
-const BirthDateContainer = styled.div`
-  display: flex;
-  gap: 0.5rem;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-  }
-`;
-
-const BirthInput = styled(Input)`
-  flex: 1;
-
-  @media (max-width: 768px) {
-    width: 90%;
-  }
-`;
-
-const ButtonContainer = styled.div`
+const Field = styled.div`
   display: flex;
   justify-content: space-between;
-  margin-top: 1rem;
+  align-items: center;
+  padding: 1rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
 
-  @media (max-width: 768px) {
-    gap: 0.5rem;
+  &:hover {
+    background-color: #f7f7f7;
   }
+`;
+
+const LeftContent = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const Text = styled.span`
+  margin-left: 8px;
+  font-size: 16px;
+`;
+
+const RightContent = styled.div`
+  color: #aaa;
 `;
 
 const Button = styled.button`
@@ -616,63 +469,6 @@ const Button = styled.button`
   @media (max-width: 768px) {
     width: 100%;
   }
-`;
-
-const EditButton = styled(Button)`
-  background-color: var(--edit-button);
-`;
-
-const ConfirmButton = styled(Button)`
-  background-color: var(--primary-button);
-
-  &:hover {
-    background-color: var(--primary-hover);
-  }
-`;
-
-const CancelButton = styled(Button)`
-  background-color: var(--gray-button);
-
-  &:hover {
-    background-color: var(--gray-hover);
-  }
-`;
-
-const DeleteButton = styled(Button)`
-  background-color: var(--delete-button);
-
-  &:hover {
-    background-color: var(--delete-hover);
-  }
-`;
-
-const InfoContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const InfoItem = styled.div`
-  display: flex;
-  flex-direction: column;
-
-  @media (min-width: 768px) {
-    flex-direction: row;
-  }
-`;
-
-const InfoLabel = styled.span`
-  font-weight: bold;
-  width: 120px;
-  margin-bottom: 0.25rem;
-
-  @media (min-width: 768px) {
-    margin-bottom: 0;
-  }
-`;
-
-const InfoValue = styled.span`
-  flex: 1;
 `;
 
 export default MyPage;

@@ -238,7 +238,7 @@ const MenuLink = styled(Link)`
   font-size: 1rem;
 
   &:hover {
-    color: #7ed957;
+    color: var(--primary-text);
   }
 `;
 
@@ -293,7 +293,7 @@ const ExperienceBar = styled.div`
 const ExperienceFill = styled.div<{ width: number }>`
   width: ${(props) => props.width}%;
   height: 100%;
-  background-color: #7ed957;
+  background-color: var(--primary-button);
 `;
 
 const ProfileIconWrapper = styled.div`

@@ -53,6 +53,9 @@ export interface Post {
   imageUrls?: string[];
   voteOptions?: VoteOption[] | null;
   isDeleted?: boolean;
+  isVotePost?: boolean;
+  voterIds?: string[];
+  voteResults?: { [key: number]: number };
 }
 
 export const postsState = atom<Post[]>({

@@ -62,11 +62,15 @@ export interface Post {
   schoolId?: string;
   schoolName?: string;
   likes?: number;
+  scraps?: number;
   title: string;
   views?: number;
   imageUrls?: string[];
   voteOptions?: VoteOption[] | null;
   isDeleted?: boolean;
+  isVotePost?: boolean;
+  voterIds?: string[];
+  voteResults?: { [key: number]: number };
 }
 
 // 카테고리 데이터 타입

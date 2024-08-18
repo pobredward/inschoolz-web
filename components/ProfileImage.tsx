@@ -46,8 +46,8 @@ const ProfileImageContainer = styled.div`
 
 const ProfileImageWrapper = styled.div`
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 80px;
 `;
 
 const ProfileCircle = styled.img`

@@ -94,7 +94,7 @@ const Leaderboard: React.FC = () => {
     setSearchTerm("");
     setIsSearchActive(false);
     setCurrentPage(1);
-    fetchLeaderboard(); // 리더보드를 원래 상태로 초기화
+    fetchLeaderboard();
   };
 
   const handleGameChange = (
@@ -103,6 +103,7 @@ const Leaderboard: React.FC = () => {
     setActiveGame(game);
     setCurrentPage(1);
     setLastVisible(null);
+    setLeaderboard([]);
     setIsSearchActive(false);
     setSearchTerm("");
   };
@@ -150,8 +151,10 @@ const Leaderboard: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyPress={handleKeyPress} // 엔터키로 검색 실행
         />
-        <SearchButton onClick={handleSearch}>검색</SearchButton>
-        <ResetButton onClick={handleReset}>초기화</ResetButton>
+        <SearchWrapper>
+          <SearchButton onClick={handleSearch}>검색</SearchButton>
+          <ResetButton onClick={handleReset}>초기화</ResetButton>
+        </SearchWrapper>
       </SearchContainer>
       <LeaderboardTable>
         <thead>
@@ -159,7 +162,7 @@ const Leaderboard: React.FC = () => {
             <th>순위</th>
             <th>사용자</th>
             <th>학교</th>
-            <th>최고 점수</th>
+            <th>점수</th>
           </tr>
         </thead>
         <tbody>
@@ -208,7 +211,8 @@ const TabContainer = styled.div`
 const Tab = styled.button<{ active: boolean }>`
   padding: 0.5rem 1rem;
   margin: 0 0.5rem;
-  background-color: ${(props) => (props.active ? "#7ed957" : "#f0f0f0")};
+  background-color: ${(props) =>
+    props.active ? `var(--primary-button)` : "#f0f0f0"};
   color: ${(props) => (props.active ? "white" : "#333")};
   border: none;
   border-radius: 5px;
@@ -219,27 +223,36 @@ const Tab = styled.button<{ active: boolean }>`
   transition: all 0.3s ease;
 
   &:hover {
-    background-color: ${(props) => (props.active ? "#7ed957" : "#e0e0e0")};
+    background-color: ${(props) =>
+      props.active ? `var(--primary-hover)` : "#e0e0e0"};
   }
 `;
-
 const SearchContainer = styled.div`
   display: flex;
+  justify-content: space-between;
   margin-bottom: 1rem;
+  align-items: center; /* 수직 정렬을 중앙으로 맞춤 */
+`;
+
+const SearchWrapper = styled.div`
+  display: flex;
+  flex-shrink: 0; /* 너비가 줄어들지 않도록 설정 */
 `;
 
 const SearchInput = styled.input`
   flex-grow: 1;
   padding: 0.5rem;
   margin-right: 0.5rem;
+  min-width: 0; /* flex-grow로 인해 레이아웃 깨짐 방지 */
 `;
 
 const SearchButton = styled.button`
-  padding: 0.5rem 1rem;
+  padding: 0.5rem;
   background-color: var(--primary-button);
   color: white;
   border: none;
   cursor: pointer;
+  width: 70px; /* 버튼의 고정 너비 설정 */
 
   &:hover {
     background-color: var(--primary-hover);
@@ -247,12 +260,13 @@ const SearchButton = styled.button`
 `;
 
 const ResetButton = styled.button`
-  padding: 0.5rem 1rem;
+  padding: 0.5rem;
   background-color: var(--gray-button);
   color: white;
   border: none;
   cursor: pointer;
   margin-left: 0.5rem;
+  width: 70px; /* 버튼의 고정 너비 설정 */
 
   &:hover {
     background-color: var(--gray-hover);
@@ -263,6 +277,7 @@ const LeaderboardTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   margin-top: 2rem;
+  table-layout: fixed; /* 테이블 레이아웃을 고정 */
 
   th,
   td {
@@ -279,6 +294,30 @@ const LeaderboardTable = styled.table`
   tr:nth-of-type(even) {
     background-color: #f8f8f8;
   }
+
+  th:nth-of-type(1),
+  td:nth-of-type(1) {
+    width: 15%; /* 순위 열 너비 */
+  }
+
+  th:nth-of-type(2),
+  td:nth-of-type(2) {
+    width: 30%; /* 사용자 열 너비 */
+  }
+
+  th:nth-of-type(3),
+  td:nth-of-type(3) {
+    width: 40%; /* 학교 열 너비 */
+  }
+
+  th:nth-of-type(4),
+  td:nth-of-type(4) {
+    width: 15%; /* 최고 점수 열 너비 */
+  }
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+  }
 `;
 
 const Pagination = styled.div`
@@ -290,7 +329,8 @@ const Pagination = styled.div`
 const PageButton = styled.button<{ active: boolean }>`
   padding: 0.5rem 1rem;
   margin: 0 0.25rem;
-  background-color: ${(props) => (props.active ? "#7ed957" : "#f2f2f2")};
+  background-color: ${(props) =>
+    props.active ? `var(--primary-button)` : "#f2f2f2"};
   color: ${(props) => (props.active ? "white" : "black")};
   border: none;
   cursor: pointer;

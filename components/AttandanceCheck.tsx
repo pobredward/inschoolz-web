@@ -91,7 +91,7 @@ const Container = styled.div`
   background-color: #ffffff;
   padding: 1.5rem;
   border-radius: 4px;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
 
   @media (max-width: 768px) {
     padding: 1rem;
