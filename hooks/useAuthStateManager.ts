@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { auth, db } from "../lib/firebase";
-import { User } from "../store/atoms";
+import { User } from "../types";
 import { doc, getDoc } from "firebase/firestore";
 import { errorMessages } from "../utils/errorMessages";
 import { signInWithEmailAndPassword } from "firebase/auth";
