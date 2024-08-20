@@ -11,14 +11,6 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <LayoutWrapper>
-      <Head>
-        <title>인스쿨즈</title>
-        <meta
-          name="description"
-          content="대한민국 학생들을 위한 올인원 페이지"
-        />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
       <Navbar />
       <Main>{children}</Main>
       <Footer />
