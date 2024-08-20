@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
-import { useRecoilValue } from "recoil";
+import { useRecoilValue, useSetRecoilState } from "recoil";
 import { useRouter } from "next/router";
 import { createPost, updatePost } from "../services/postService";
 import { uploadImage } from "../services/imageService";
 import CategoryList from "./CategoryList";
 import {
   userState,
-  User,
   selectedCategoryState,
   categoriesState,
+  userExperienceState,
+  userLevelState,
 } from "../store/atoms";
-import { setDoc, doc, collection } from "firebase/firestore";
+import { User } from "../types";
 import { compressImage } from "../utils/imageUtils";
 import { FaUpload, FaTrash } from "react-icons/fa";
-import { db } from "../lib/firebase";
 import DefaultModal from "./modal/DefaultModal";
 import {
   updateUserExperience,
@@ -41,12 +41,13 @@ const CreatePostPage: React.FC = () => {
     { text: "", image: null },
   ]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [modalContent, setModalContent] = useState({ title: "", message: "" });
-  const [showModal, setShowModal] = useState(false);
   const [newPostId, setNewPostId] = useState<string | null>(null);
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
+  const setUserExperience = useSetRecoilState(userExperienceState);
+  const setUserLevel = useSetRecoilState(userLevelState);
+  const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
 
   const handleNoticeOpen = () => {
@@ -216,21 +217,35 @@ const CreatePostPage: React.FC = () => {
         settings.postCreation,
         "게시글을 작성했습니다",
       );
+
+      setUserExperience(result.newExperience);
+      setUserLevel(result.newLevel);
       setExpGained(result.expGained);
-      if (result.levelUp) {
+
+      if (result.levelUp && result.newLevel !== lastLevelUp) {
+        setLastLevelUp(result.newLevel);
         setNewLevel(result.newLevel);
+      } else {
+        setNewLevel(undefined);
       }
-      setShowExpModal(true);
+
+      // 일일 제한에 도달하지 않았을 때만 경험치 모달을 표시
+      if (!result.reachedDailyLimit) {
+        setShowExpModal(true);
+      } else {
+        router.back();
+      }
     } catch (e) {
       console.error("Error adding document: ", e);
       alert(`게시글 작성에 실패했습니다: ${e.message}`);
     }
   };
 
-  const handleModalClose = () => {
+  const handleExpModalClose = () => {
     setShowExpModal(false);
+    setNewLevel(undefined);
     if (newPostId) {
-      router.push(`/posts/${newPostId}`);
+      router.back();
     }
   };
 
@@ -412,7 +427,7 @@ const CreatePostPage: React.FC = () => {
       />
       <ExperienceModal
         isOpen={showExpModal}
-        onClose={handleModalClose}
+        onClose={handleExpModalClose}
         expGained={expGained}
         newLevel={newLevel}
       />

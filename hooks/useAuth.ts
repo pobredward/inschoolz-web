@@ -1,18 +1,24 @@
+// hooks/useAuth.ts
+
 import { useEffect } from "react";
-import { useRecoilState } from "recoil";
+import { useRecoilValue, useSetRecoilState } from "recoil";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
-import { userState, User } from "../store/atoms";
+import { userState, userExperienceState, userLevelState } from "../store/atoms";
+import { User } from "../types";
 import { useSignup } from "./useSignup";
 import { useLogin } from "./useLogin";
 import { useLogout } from "./useLogout";
 
 export const useAuth = () => {
-  const [user, setUser] = useRecoilState(userState);
+  const user = useRecoilValue(userState);
   const signup = useSignup();
   const login = useLogin();
   const logout = useLogout();
+  const setUser = useSetRecoilState(userState);
+  const setUserExperience = useSetRecoilState(userExperienceState);
+  const setUserLevel = useSetRecoilState(userLevelState);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -41,21 +47,29 @@ export const useAuth = () => {
               phoneNumber: userData.phoneNumber || "",
             };
             setUser(user);
+            setUserExperience(user.experience);
+            setUserLevel(user.level);
           } else {
             console.error("User data not found in Firestore");
-            setUser(null);
+            resetUserState();
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
-          setUser(null);
+          resetUserState();
         }
       } else {
-        setUser(null);
+        resetUserState();
       }
     });
 
     return () => unsubscribe();
-  }, [setUser]);
+  }, [setUser, setUserExperience, setUserLevel]);
+
+  const resetUserState = () => {
+    setUser(null);
+    setUserExperience(0);
+    setUserLevel(1);
+  };
 
   return { user, signup, login, logout };
 };

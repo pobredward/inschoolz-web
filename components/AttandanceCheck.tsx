@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
-import { useRecoilValue } from "recoil";
-import { userState } from "../store/atoms";
+import { useRecoilValue, useRecoilState, useSetRecoilState } from "recoil";
+import { userState, userExperienceState, userLevelState } from "../store/atoms";
 import {
   checkAttendance,
   getAttendanceState,
@@ -9,15 +9,18 @@ import {
 import { AttendanceState } from "../types";
 import ExperienceModal from "./modal/ExperienceModal";
 import { FaCheck } from "react-icons/fa";
-
+import { updateUserExperience } from "../utils/experience";
 const DAYS_OF_WEEK = ["월", "화", "수", "목", "금", "토", "일"];
 
 const AttendanceCheck: React.FC = () => {
-  const user = useRecoilValue(userState);
+  const [user, setUser] = useRecoilState(userState);
+  const setUserExperience = useSetRecoilState(userExperienceState);
+  const setUserLevel = useSetRecoilState(userLevelState);
   const [attendanceState, setAttendanceState] =
     useState<AttendanceState | null>(null);
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
+  const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (user) {
@@ -27,10 +30,26 @@ const AttendanceCheck: React.FC = () => {
 
   const handleAttendanceCheck = async () => {
     if (user && attendanceState?.canCheckToday) {
-      const newState = await checkAttendance(user.uid, new Date());
-      setAttendanceState(newState);
-      setExpGained(10); // 기본 경험치, 실제로는 서비스에서 반환된 값을 사용해야 합니다.
-      setShowExpModal(true);
+      try {
+        const newState = await checkAttendance(user.uid, new Date());
+        setAttendanceState(newState);
+
+        const result = await updateUserExperience(user.uid, 10, "출석체크");
+
+        setUserExperience(result.newExperience);
+        setUserLevel(result.newLevel);
+        setUser((prevUser) => ({
+          ...prevUser!,
+          experience: result.newExperience,
+          level: result.newLevel,
+        }));
+
+        setExpGained(result.expGained);
+        setNewLevel(result.levelUp ? result.newLevel : undefined);
+        setShowExpModal(true);
+      } catch (error) {
+        console.error("Error during attendance check:", error);
+      }
     }
   };
 
@@ -82,6 +101,7 @@ const AttendanceCheck: React.FC = () => {
         isOpen={showExpModal}
         onClose={() => setShowExpModal(false)}
         expGained={expGained}
+        newLevel={newLevel}
       />
     </Container>
   );

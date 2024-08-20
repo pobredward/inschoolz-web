@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import styled from "@emotion/styled";
-import { useRecoilState } from "recoil";
+import { useRecoilState, useRecoilValue } from "recoil";
 import { userState } from "../store/atoms";
 import { useAuth } from "../hooks/useAuth";
 import { useUser } from "../hooks/useUser";
@@ -10,6 +10,7 @@ import { useLogout } from "../hooks/useLogout";
 import { FiUser } from "react-icons/fi";
 import { FaHome, FaComments, FaGamepad, FaTrophy } from "react-icons/fa";
 import { useRouter } from "next/router";
+import { userExperienceState, userLevelState } from "../store/atoms";
 
 const Navbar: React.FC = () => {
   const { user } = useAuth();
@@ -19,6 +20,8 @@ const Navbar: React.FC = () => {
   const logout = useLogout();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const userExperience = useRecoilValue(userExperienceState);
+  const userLevel = useRecoilValue(userLevelState);
 
   const { data: fetchedUser } = useUser();
 
@@ -118,12 +121,12 @@ const Navbar: React.FC = () => {
           <UserSection>
             {currentUser && (
               <UserInfo>
-                <LevelText>Lv.{currentUser?.level}</LevelText>
+                <LevelText>Lv.{userLevel}</LevelText>
                 <ExperienceBar>
                   <ExperienceFill
                     width={calculateExperiencePercentage(
-                      currentUser.experience,
-                      currentUser.level,
+                      userExperience,
+                      userLevel,
                     )}
                   />
                 </ExperienceBar>

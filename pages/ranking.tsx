@@ -327,11 +327,9 @@ const Rank = styled.div`
   font-weight: bold;
   margin-right: 1rem;
 
-@media (max-width: 768px) {
-  margin-right: 0.5rem;
-}
-
-
+  @media (max-width: 768px) {
+    margin-right: 0.5rem;
+  }
 `;
 
 const ProfileImage = styled.img`

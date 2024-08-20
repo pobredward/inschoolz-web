@@ -13,11 +13,11 @@ import {
 } from "../../utils/experience";
 import ExperienceModal from "../../components/modal/ExperienceModal";
 
-const GRAVITY = 0.25; // 중력 설정
-const JUMP_STRENGTH = -5.5; // 점프 강도 설정
-const PIPE_SPEED = 2; // 파이프 속도 설정
+const GRAVITY = 0.25;
+const JUMP_STRENGTH = -5.5;
+const PIPE_SPEED = 2;
 const PIPE_WIDTH = 50;
-const PIPE_GAP = 200; // 파이프 간격 설정
+const PIPE_GAP = 200;
 
 const FlappyBird: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,6 +38,24 @@ const FlappyBird: React.FC = () => {
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
 
+  useEffect(() => {
+    if (user) {
+      fetchBestScore();
+      updateRemainingPlays();
+    } else {
+      const localBestScore = localStorage.getItem("flappyBirdBestScore");
+      if (localBestScore) {
+        setBestScore(parseInt(localBestScore));
+      }
+      const localRemainingPlays = localStorage.getItem(
+        "flappyBirdRemainingPlays",
+      );
+      setRemainingPlays(
+        localRemainingPlays ? parseInt(localRemainingPlays) : 5,
+      );
+    }
+  }, [user]);
+
   const fetchBestScore = async () => {
     if (user) {
       const scoreDoc = await getDoc(doc(db, "flappyBirdScores", user.uid));
@@ -56,13 +74,6 @@ const FlappyBird: React.FC = () => {
       setRemainingPlays(remaining);
     }
   };
-
-  useEffect(() => {
-    if (user) {
-      fetchBestScore();
-      updateRemainingPlays();
-    }
-  }, [user, fetchBestScore, updateRemainingPlays]);
 
   const getUserGameInfo = async (userId: string) => {
     const userDoc = await getDoc(doc(db, "users", userId));
@@ -91,10 +102,12 @@ const FlappyBird: React.FC = () => {
   };
 
   const startGame = () => {
-    if (!user || remainingPlays === 0) {
+    if (remainingPlays === 0) {
       setModalContent({
         title: "게임 불가",
-        message: "오늘의 게임 횟수를 모두 사용했습니다.",
+        message: user
+          ? "오늘의 게임 횟수를 모두 사용했습니다."
+          : "게임 횟수를 모두 사용했습니다. 로그인하여 내 점수를 기록하고 친구들과 비교해보세요!",
       });
       setShowModal(true);
       return;
@@ -124,11 +137,9 @@ const FlappyBird: React.FC = () => {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 새의 위치와 속도 업데이트
     birdRef.current.velocity += GRAVITY;
     birdRef.current.y += birdRef.current.velocity;
 
-    // 파이프 이동 및 속도 조정
     const pipeSpeed = isMobile ? PIPE_SPEED * 0.8 : PIPE_SPEED;
     const pipeGap = isMobile ? PIPE_GAP * 1.2 : PIPE_GAP;
 
@@ -136,10 +147,8 @@ const FlappyBird: React.FC = () => {
       pipe.x -= pipeSpeed;
     });
 
-    // 파이프가 화면을 벗어나면 제거
     pipesRef.current = pipesRef.current.filter((pipe) => pipe.x > -PIPE_WIDTH);
 
-    // 새로운 파이프 생성
     if (
       pipesRef.current.length === 0 ||
       pipesRef.current[pipesRef.current.length - 1].x < canvas.width - 200
@@ -163,7 +172,6 @@ const FlappyBird: React.FC = () => {
       }
     });
 
-    // 점수 증가 로직: 파이프가 새의 x 좌표를 넘어서면 점수 증가
     pipesRef.current.forEach((pipe) => {
       if (pipe.x + PIPE_WIDTH < 30 && pipe.x + PIPE_WIDTH >= 28) {
         scoreRef.current++;
@@ -171,7 +179,6 @@ const FlappyBird: React.FC = () => {
       }
     });
 
-    // 새와 파이프 그리기
     ctx.fillStyle = "yellow";
     ctx.fillRect(30, bird.y, 20, 20);
 
@@ -186,12 +193,10 @@ const FlappyBird: React.FC = () => {
       );
     });
 
-    // 점수 표시
     ctx.fillStyle = "black";
     ctx.font = "24px Arial";
     ctx.fillText(`Score: ${scoreRef.current}`, 10, 30);
 
-    // 다음 프레임 호출
     animationFrameId.current = requestAnimationFrame(gameLoop);
   };
 
@@ -204,26 +209,20 @@ const FlappyBird: React.FC = () => {
     let message = `점수: ${scoreRef.current}\n최고 점수: ${bestScore}`;
     let newBestScore = false;
 
-    if (user && scoreRef.current > bestScore) {
-      await setDoc(doc(db, "flappyBirdScores", user.uid), {
-        userId: user.userId,
-        schoolName: user.schoolName,
-        address1: user.address1,
-        address2: user.address2,
-        bestScore: scoreRef.current,
-      });
-      setBestScore(scoreRef.current);
-      newBestScore = true;
-      message += "\n새로운 최고 점수를 달성했습니다!";
-    }
-
-    setModalContent({
-      title: "게임 오버",
-      message: message,
-    });
-    setShowModal(true);
-
     if (user) {
+      if (scoreRef.current > bestScore) {
+        await setDoc(doc(db, "flappyBirdScores", user.uid), {
+          userId: user.userId,
+          schoolName: user.schoolName,
+          address1: user.address1,
+          address2: user.address2,
+          bestScore: scoreRef.current,
+        });
+        setBestScore(scoreRef.current);
+        newBestScore = true;
+        message += "\n새로운 최고 점수를 달성했습니다!";
+      }
+
       try {
         await handleGameScore(user.uid, scoreRef.current);
         await updateDoc(doc(db, "users", user.uid), {
@@ -233,12 +232,35 @@ const FlappyBird: React.FC = () => {
       } catch (error) {
         console.error("Error updating experience:", error);
       }
+    } else {
+      const localBestScore = localStorage.getItem("flappyBirdBestScore");
+      if (!localBestScore || scoreRef.current > parseInt(localBestScore)) {
+        localStorage.setItem(
+          "flappyBirdBestScore",
+          scoreRef.current.toString(),
+        );
+        setBestScore(scoreRef.current);
+        newBestScore = true;
+        message +=
+          "\n새로운 최고 점수를 달성했습니다!\n회원가입하여 기록을 저장하고 랭킹에 등록하세요!";
+      }
+      const newRemainingPlays = (remainingPlays || 5) - 1;
+      setRemainingPlays(newRemainingPlays);
+      localStorage.setItem(
+        "flappyBirdRemainingPlays",
+        newRemainingPlays.toString(),
+      );
     }
+
+    setModalContent({
+      title: "게임 오버",
+      message: message,
+    });
+    setShowModal(true);
   };
 
   const handleGameScore = async (userId: string, score: number) => {
     const settings = await getExperienceSettings();
-    console.log("flappyBirdThreshold:", settings.flappyBirdThreshold); // 추가
     if (score >= settings.flappyBirdThreshold) {
       const result = await updateUserExperience(
         userId,

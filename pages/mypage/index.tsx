@@ -1,19 +1,22 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useRecoilState } from "recoil";
-import { userState, User, Post } from "../../store/atoms";
+import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
+import {
+  userState,
+  userExperienceState,
+  userLevelState,
+} from "../../store/atoms";
+import { User, Post } from "../../types";
 import styled from "@emotion/styled";
 import Layout from "../../components/Layout";
-import { useMutation, useQuery } from "react-query";
+import { useMutation } from "react-query";
 import { auth, db } from "../../lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { updateUserProfile, deleteUser } from "../../services/userService";
 import ConfirmModal from "../../components/modal/ConfirmModal";
+import DefaultModal from "../../components/modal/DefaultModal";
 import PasswordConfirmModal from "../../components/modal/PasswordConfirmModal";
-import SchoolSearch from "../../components/SchoolSearch";
-import AddressSelector from "../../components/AddressSelector";
 import { fetchUserScraps } from "../../services/postService";
-import { errorMessages } from "../../utils/errorMessages";
 import {
   FaFileAlt,
   FaComments,
@@ -21,16 +24,23 @@ import {
   FaUserEdit,
   FaTrashAlt,
   FaChevronRight,
+  FaInfoCircle,
 } from "react-icons/fa";
 import ProfileImage from "../../components/ProfileImage";
 import AttendanceCheck from "../../components/AttandanceCheck";
+import {
+  getExperienceSettings,
+  ExperienceSettings,
+} from "../../utils/experience";
 
 const MyPage: React.FC = () => {
-  const [user, setUser] = useRecoilState(userState);
+  const setUser = useSetRecoilState(userState);
+  const user = useRecoilValue(userState);
+  const userExperience = useRecoilValue(userExperienceState);
+  const userLevel = useRecoilValue(userLevelState);
   const router = useRouter();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [editedUser, setEditedUser] = useState<User | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [scrappedPosts, setScrappedPosts] = useState<Post[]>([]);
   const [initialSchool, setInitialSchool] = useState<
@@ -38,6 +48,10 @@ const MyPage: React.FC = () => {
   >(undefined);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(
     user?.profileImageUrl || null,
+  );
+  const [showExpGuideModal, setShowExpGuideModal] = useState(false);
+  const [expSettings, setExpSettings] = useState<ExperienceSettings | null>(
+    null,
   );
 
   const [password, setPassword] = useState("");
@@ -73,51 +87,32 @@ const MyPage: React.FC = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    const fetchExpSettings = async () => {
+      const settings = await getExperienceSettings();
+      setExpSettings(settings);
+    };
+    fetchExpSettings();
+  }, []);
+
+  const handleExpGuideClick = () => {
+    setShowExpGuideModal(true);
+  };
+
+  const expGuideContent = expSettings
+    ? `
+    게시글 작성: ${expSettings.postCreation}XP (하루 ${expSettings.maxDailyPosts}회 까지)
+    댓글 작성: ${expSettings.commentCreation}XP (하루 ${expSettings.maxDailyComments}회 까지)
+    반응속도 게임: ${expSettings.reactionGameThreshold}ms 이하로 클리어 시 ${expSettings.reactionGameExperience}XP 획득
+    플래피 버드: ${expSettings.flappyBirdThreshold}점 이상 획득 시 ${expSettings.flappyBirdExperience}XP 획득
+    타일 게임: ${expSettings.tileGameThreshold}점 이상 획득 시 ${expSettings.tileGameExperience}XP 획득
+    게임은 하루 ${expSettings.maxDailyGames}회까지 플레이가 가능
+  `
+    : "경험치 정보를 불러오는 중...";
+
   const handleEditButtonClick = () => {
-    router.push("/mypage/edit"); // "내 정보 수정" 페이지로 이동
+    router.push("/mypage/edit");
   };
-
-  const fetchUserData = async () => {
-    if (auth.currentUser) {
-      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-      if (userDoc.exists()) {
-        return userDoc.data() as User;
-      } else {
-        throw new Error(errorMessages.USER_NOT_FOUND);
-      }
-    }
-    return null;
-  };
-
-  const fetchUserMutation = useMutation(fetchUserData, {
-    onSuccess: (data) => {
-      if (data) {
-        setEditedUser(data);
-        setIsEditing(true);
-      }
-    },
-    onError: () => {
-      alert("사용자 정보를 불러오는 중 오류가 발생했습니다.");
-    },
-  });
-
-  const updateProfileMutation = useMutation(
-    (updatedData: Partial<User>) => updateUserProfile(user!.uid, updatedData),
-    {
-      onSuccess: async () => {
-        const updatedUser = await fetchUserData();
-        if (updatedUser) {
-          setUser(updatedUser);
-          setEditedUser(updatedUser);
-          setIsEditing(false);
-          alert("프로필이 성공적으로 업데이트되었습니다.");
-        }
-      },
-      onError: () => {
-        alert(errorMessages.PROFILE_UPDATE_ERROR);
-      },
-    },
-  );
 
   const deleteAccountMutation = useMutation(
     () => deleteUser(user!.uid, password),
@@ -151,37 +146,6 @@ const MyPage: React.FC = () => {
     setIsDeleteModalOpen(false);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setEditedUser((prev) => ({ ...prev!, [name]: value }));
-  };
-
-  const handleSchoolChange = (school: any) => {
-    setEditedUser((prev) => ({
-      ...prev!,
-      schoolId: school.SCHOOL_CODE,
-      schoolName: school.KOR_NAME,
-    }));
-  };
-
-  const handleAddressChange = (
-    field: "address1" | "address2",
-    value: string,
-  ) => {
-    setEditedUser((prevState) => ({
-      ...prevState!,
-      [field]: value,
-    }));
-  };
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault(); // 폼 제출을 방지
-
-    if (editedUser && user) {
-      updateProfileMutation.mutate(editedUser);
-    }
-  };
-
   if (!user) {
     return (
       <Layout>
@@ -210,14 +174,19 @@ const MyPage: React.FC = () => {
           </ProfileContainer>
 
           <ExperienceContainer>
-            <LevelInfo>LV.{user.level}</LevelInfo>
+            <LevelInfoContainer>
+              <LevelInfo>LV.{userLevel}</LevelInfo>
+              <ExpGuideButton onClick={handleExpGuideClick}>
+                <FaInfoCircle size={20} />
+              </ExpGuideButton>
+            </LevelInfoContainer>
             <ExperienceBar>
               <ExperienceFill
-                width={(user.experience / (user.level * 10)) * 100}
+                width={(userExperience / (userLevel * 10)) * 100}
               />
             </ExperienceBar>
-            <ExperienceInfo width={(user.experience / (user.level * 10)) * 100}>
-              {Math.round((user.experience / user.level) * 10)}%
+            <ExperienceInfo width={(userExperience / (userLevel * 10)) * 100}>
+              {Math.round((userExperience / userLevel) * 10)}%
             </ExperienceInfo>
           </ExperienceContainer>
         </Section>
@@ -291,9 +260,34 @@ const MyPage: React.FC = () => {
         title="회원 탈퇴 확인"
         message="정말로 탈퇴하시겠습니까? 게시글, 댓글, 게임 기록 등 모든 데이터가 삭제되고 복구할 수 없습니다."
       />
+      <DefaultModal
+        isOpen={showExpGuideModal}
+        onClose={() => setShowExpGuideModal(false)}
+        title="경험치 획득 가이드"
+        message={expGuideContent}
+      />
     </Layout>
   );
 };
+
+const LevelInfoContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.5rem;
+`;
+
+const ExpGuideButton = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+
+  &:hover {
+    color: #333;
+  }
+`;
 
 const ExperienceContainer = styled.div`
   position: relative;
@@ -325,7 +319,7 @@ const ExperienceInfo = styled.div`
   position: absolute;
   top: 65px; /* ExperienceFill 바로 아래 */
   left: ${(props: { width: number }) =>
-    `calc(${props.width}% - 15px)`}; /* ExperienceFill의 끝지점 아래 */
+    `calc(${props.width}% - 20px)`}; /* ExperienceFill의 끝지점 아래 */
   background-color: #fff;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
@@ -451,24 +445,6 @@ const Text = styled.span`
 
 const RightContent = styled.div`
   color: #aaa;
-`;
-
-const Button = styled.button`
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  background-color: #0070f3;
-  color: white;
-
-  &:hover {
-    background-color: #0056b3;
-  }
-
-  @media (max-width: 768px) {
-    width: 100%;
-  }
 `;
 
 export default MyPage;

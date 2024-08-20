@@ -12,22 +12,48 @@ import {
   query,
   where,
   getDocs,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { deleteCommentImage } from "./imageService";
+import { Comment } from "../types";
 
-export interface Comment {
-  id: string;
-  postId: string;
-  author: string;
-  authorId: string;
-  content: string;
-  createdAt: Date;
-  parentId: string | null;
-  likes: number;
-  likedBy: string[];
-  imageUrl?: string;
-  isDeleted: boolean;
+export const fetchComments = async (postId: string): Promise<Comment[]> => {
+  const commentsRef = collection(db, "comments");
+  const q = query(
+    commentsRef,
+    where("postId", "==", postId),
+    orderBy("createdAt", "desc") // createdAt 필드를 기준으로 내림차순 정렬
+  );
+  const querySnapshot = await getDocs(q);
+  const comments: Comment[] = [];
+  querySnapshot.forEach((doc) => {
+    const commentData = doc.data() as Comment; // Type assertion
+    comments.push({
+      id: doc.id,
+      ...commentData, // Spread the commentData to include all properties
+    });
+  });
+  return comments;
+};
+
+export async function getCommentsForPost(postId: string): Promise<Comment[]> {
+  const commentsRef = collection(db, "comments");
+  const q = query(
+    commentsRef,
+    where("postId", "==", postId),
+    orderBy("createdAt", "asc"),
+  );
+  const querySnapshot = await getDocs(q);
+
+  return querySnapshot.docs.map(
+    (doc) =>
+      ({
+        id: doc.id,
+        ...doc.data(),
+      }) as Comment,
+  );
 }
 
 export async function createComment(commentData: Omit<Comment, "id">) {
@@ -65,13 +91,13 @@ export async function updateComment(
   const commentRef = doc(db, "comments", commentId);
   const updateData: Partial<Comment> = { content };
 
-  if (imageUrl === null) {
-    // 이미지를 삭제하는 경우
-    updateData.imageUrl = null;
-  } else if (imageUrl) {
-    // 새 이미지를 추가하거나 기존 이미지를 업데이트하는 경우
-    updateData.imageUrl = imageUrl;
-  }
+  // if (imageUrl === null) {
+  //   // 이미지를 삭제하는 경우
+  //   updateData.imageUrl = null;
+  // } else if (imageUrl) {
+  //   // 새 이미지를 추가하거나 기존 이미지를 업데이트하는 경우
+  //   updateData.imageUrl = imageUrl;
+  // }
 
   await updateDoc(commentRef, updateData);
 }

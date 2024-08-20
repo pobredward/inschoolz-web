@@ -1,16 +1,49 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Layout from "../../components/Layout";
-import Leaderboard from "../../components/LeaderBoard";
+import Leaderboard from "../../components/Leaderboard";
 import styled from "@emotion/styled";
-
-import { FaBolt, FaFeather, FaTh } from "react-icons/fa";
+import { FaBolt, FaFeather, FaTh, FaInfoCircle } from "react-icons/fa";
+import DefaultModal from "../../components/modal/DefaultModal";
+import {
+  getExperienceSettings,
+  ExperienceSettings,
+} from "../../utils/experience";
 
 const GamePage: React.FC = () => {
+  const [showModal, setShowModal] = useState(false);
+  const [experienceSettings, setExperienceSettings] =
+    useState<ExperienceSettings | null>(null);
+
+  useEffect(() => {
+    const fetchExperienceSettings = async () => {
+      const settings = await getExperienceSettings();
+      setExperienceSettings(settings);
+    };
+    fetchExperienceSettings();
+  }, []);
+
+  const handleInfoClick = () => {
+    setShowModal(true);
+  };
+
+  const modalContent = experienceSettings
+    ? `
+    반응속도 게임: ${experienceSettings.reactionGameThreshold}ms 이하로 클리어 시 ${experienceSettings.reactionGameExperience}XP 획득
+    타일 게임: ${experienceSettings.tileGameThreshold}점 이상 획득 시 ${experienceSettings.tileGameExperience}XP 획득
+    플래피 버드: ${experienceSettings.flappyBirdThreshold}점 이상 획득 시 ${experienceSettings.flappyBirdExperience}XP 획득
+  `
+    : "게임 정보를 불러오는 중...";
+
   return (
     <Layout>
       <GameContainer>
-        {/* <SectionTitle>미니게임</SectionTitle> */}
+        <TitleContainer>
+          <GameTitle>미니게임</GameTitle>
+          <InfoIcon onClick={handleInfoClick}>
+            <FaInfoCircle size={24} />
+          </InfoIcon>
+        </TitleContainer>
         <GameSection>
           <GameCard href="/game/reactiongame">
             <IconWrapper>
@@ -31,11 +64,16 @@ const GamePage: React.FC = () => {
             <GameText>플래피 버드</GameText>
           </GameCard>
         </GameSection>
-        {/*  <SectionTitle>리더보드</SectionTitle> */}
         <LeaderboardSection>
           <Leaderboard />
         </LeaderboardSection>
       </GameContainer>
+      <DefaultModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="경험치 획득 조건"
+        message={modalContent}
+      />
     </Layout>
   );
 };
@@ -50,6 +88,31 @@ const GameContainer = styled.div`
 
   @media (max-width: 768px) {
     padding: 0.5rem;
+  }
+`;
+
+const TitleContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  margin-bottom: 1rem;
+`;
+
+const GameTitle = styled.h2`
+  text-align: center;
+  margin-bottom: 1rem;
+`;
+
+const InfoIcon = styled.div`
+  position: absolute;
+  right: 0;
+  cursor: pointer;
+  color: #666;
+
+  &:hover {
+    color: #333;
   }
 `;
 

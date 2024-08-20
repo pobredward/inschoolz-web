@@ -26,12 +26,23 @@ const ReactionGame: React.FC = () => {
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
-  const timeoutRef = useRef<number | null>(null); // 타임아웃을 추적하기 위한 ref
+  const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchBestScore();
       updateRemainingPlays();
+    } else {
+      const localBestScore = localStorage.getItem("reactionGameBestScore");
+      if (localBestScore) {
+        setBestScore(parseInt(localBestScore));
+      }
+      const localRemainingPlays = localStorage.getItem(
+        "reactionGameRemainingPlays",
+      );
+      setRemainingPlays(
+        localRemainingPlays ? parseInt(localRemainingPlays) : 5,
+      );
     }
   }, [user]);
 
@@ -41,6 +52,16 @@ const ReactionGame: React.FC = () => {
       if (scoreDoc.exists()) {
         setBestScore(scoreDoc.data().bestScore);
       }
+    }
+  };
+
+  const updateRemainingPlays = async () => {
+    if (user) {
+      const gameInfo = await getUserGameInfo(user.uid);
+      const settings = await getExperienceSettings();
+
+      const remaining = settings.maxDailyGames - gameInfo.reactionGamePlays;
+      setRemainingPlays(remaining);
     }
   };
 
@@ -70,21 +91,13 @@ const ReactionGame: React.FC = () => {
     return gameInfo;
   };
 
-  const updateRemainingPlays = async () => {
-    if (user) {
-      const gameInfo = await getUserGameInfo(user.uid);
-      const settings = await getExperienceSettings();
-
-      const remaining = settings.maxDailyGames - gameInfo.reactionGamePlays;
-      setRemainingPlays(remaining);
-    }
-  };
-
   const startGame = () => {
-    if (!user || remainingPlays === 0) {
+    if (remainingPlays === 0) {
       setModalContent({
         title: "게임 불가",
-        message: "오늘의 게임 횟수를 모두 사용했습니다.",
+        message: user
+          ? "오늘의 게임 횟수를 모두 사용했습니다."
+          : "게임 횟수를 모두 사용했습니다. 로그인하여 내 점수를 기록하고 친구들과 비교해보세요!",
       });
       setShowModal(true);
       return;
@@ -106,14 +119,23 @@ const ReactionGame: React.FC = () => {
       setGameState("waiting");
 
       try {
-        await handleGameScore(user!.uid, "reactionGame", reactionTime);
+        if (user) {
+          await handleGameScore(user.uid, "reactionGame", reactionTime);
 
-        const userRef = doc(db, "users", user!.uid);
-        await updateDoc(userRef, {
-          "gameInfo.reactionGamePlays": increment(1),
-        });
+          const userRef = doc(db, "users", user.uid);
+          await updateDoc(userRef, {
+            "gameInfo.reactionGamePlays": increment(1),
+          });
 
-        await updateRemainingPlays();
+          await updateRemainingPlays();
+        } else {
+          const newRemainingPlays = (remainingPlays || 5) - 1;
+          setRemainingPlays(newRemainingPlays);
+          localStorage.setItem(
+            "reactionGameRemainingPlays",
+            newRemainingPlays.toString(),
+          );
+        }
         showResult(reactionTime);
       } catch (error) {
         if (error instanceof Error) {
@@ -126,18 +148,27 @@ const ReactionGame: React.FC = () => {
       }
     } else if (gameState === "ready") {
       if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current); // 기존 타임아웃을 취소
+        clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
 
       setGameState("waiting");
 
-      const userRef = doc(db, "users", user!.uid);
-      await updateDoc(userRef, {
-        "gameInfo.reactionGamePlays": increment(1),
-      });
+      if (user) {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, {
+          "gameInfo.reactionGamePlays": increment(1),
+        });
 
-      await updateRemainingPlays();
+        await updateRemainingPlays();
+      } else {
+        const newRemainingPlays = (remainingPlays || 5) - 1;
+        setRemainingPlays(newRemainingPlays);
+        localStorage.setItem(
+          "reactionGameRemainingPlays",
+          newRemainingPlays.toString(),
+        );
+      }
 
       setModalContent({
         title: "너무 일찍 클릭했습니다!",
@@ -191,10 +222,20 @@ const ReactionGame: React.FC = () => {
         });
       }
     } else {
-      setModalContent({
-        title: "게임 결과",
-        message: `반응 시간: ${reactionTime}ms`,
-      });
+      const localBestScore = localStorage.getItem("reactionGameBestScore");
+      if (!localBestScore || reactionTime < parseInt(localBestScore)) {
+        localStorage.setItem("reactionGameBestScore", reactionTime.toString());
+        setBestScore(reactionTime);
+        setModalContent({
+          title: "새로운 최고 기록!",
+          message: `축하합니다! 새로운 최고 기록: ${reactionTime}ms\n회원가입하여 기록을 저장하고 랭킹에 등록하세요!`,
+        });
+      } else {
+        setModalContent({
+          title: "게임 결과",
+          message: `반응 시간: ${reactionTime}ms\n최고 기록: ${localBestScore}ms`,
+        });
+      }
     }
     setShowModal(true);
   };

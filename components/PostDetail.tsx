@@ -7,8 +7,8 @@ import {
   commentsState,
   selectedCategoryState,
   categoriesState,
-  Category,
 } from "../store/atoms";
+import { Category } from "../types";
 import styled from "@emotion/styled";
 import Layout from "./Layout";
 import CategoryList from "./CategoryList";
@@ -27,12 +27,12 @@ import {
   arrayRemove,
 } from "firebase/firestore";
 import { storage, db } from "../lib/firebase";
-import { ref, deleteObject } from "firebase/storage";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../services/postService";
 import { Post } from "../types";
 import { FaBookmark, FaTrash, FaUpload } from "react-icons/fa";
 import { uploadImage, deleteImage } from "../services/imageService";
+import { getCommentsForPost } from "../services/commentService";
 import {
   scrapPost,
   unscrapPost,
@@ -103,12 +103,7 @@ const PostDetail: React.FC = () => {
 
     const fetchComments = async () => {
       if (id) {
-        const q = query(collection(db, "comments"), where("postId", "==", id));
-        const querySnapshot = await getDocs(q);
-        const commentsData = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const commentsData = await getCommentsForPost(id as string);
         setComments(commentsData);
         setCommentCount(commentsData.length);
       }
@@ -304,7 +299,17 @@ const PostDetail: React.FC = () => {
   };
 
   if (loading) {
-    return <LoadingMessage>로딩 중...</LoadingMessage>;
+    return (
+      <Layout>
+        <Container>
+          <CategorySection>
+            <CategoryList />
+          </CategorySection>
+
+          <LoadingMessage>로딩 중...</LoadingMessage>
+        </Container>
+      </Layout>
+    );
   }
 
   if (!post) {

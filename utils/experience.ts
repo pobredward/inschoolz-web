@@ -1,5 +1,7 @@
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { userExperienceState, userLevelState } from "../store/atoms";
+import { useSetRecoilState } from "recoil";
 
 export interface ExperienceSettings {
   postCreation: number;
@@ -12,6 +14,8 @@ export interface ExperienceSettings {
   tileGameExperience: number;
   friendInvitation: number;
   maxDailyGames: number;
+  maxDailyPosts: number;
+  maxDailyComments: number;
 }
 
 export interface ExperienceUpdateResult {
@@ -19,6 +23,13 @@ export interface ExperienceUpdateResult {
   newLevel: number;
   expGained: number;
   levelUp: boolean;
+  reachedDailyLimit: boolean;
+}
+
+export interface CommunityInfo {
+  lastResetDate: string;
+  postUploads: number;
+  commentUploads: number;
 }
 
 export async function getExperienceSettings(): Promise<ExperienceSettings> {
@@ -38,6 +49,8 @@ export async function getExperienceSettings(): Promise<ExperienceSettings> {
     tileGameExperience: 5,
     friendInvitation: 30,
     maxDailyGames: 5,
+    maxDailyPosts: 3,
+    maxDailyComments: 5,
   };
 }
 
@@ -52,11 +65,41 @@ export async function updateUserExperience(
 
   if (!userData) throw new Error("User data not found");
 
-  let { experience, level, totalExperience } = userData;
+  const settings = await getExperienceSettings();
+  const today = new Date().toISOString().split("T")[0];
+
+  let { experience, level, totalExperience, communityInfo = {} } = userData;
+
+  if (!communityInfo.lastResetDate || communityInfo.lastResetDate !== today) {
+    communityInfo = {
+      lastResetDate: today,
+      postUploads: 0,
+      commentUploads: 0,
+    };
+  }
+
+  let reachedDailyLimit = false;
+  let expGained = 0;
+
+  if (
+    reason === "게시글을 작성했습니다" &&
+    communityInfo.postUploads < settings.maxDailyPosts
+  ) {
+    communityInfo.postUploads++;
+    expGained = amount;
+  } else if (
+    (reason === "댓글을 작성했습니다" || reason === "대댓글을 작성했습니다") &&
+    communityInfo.commentUploads < settings.maxDailyComments
+  ) {
+    communityInfo.commentUploads++;
+    expGained = amount;
+  } else {
+    reachedDailyLimit = true;
+  }
 
   const oldLevel = level;
-  experience += amount;
-  totalExperience += amount;
+  experience += expGained;
+  totalExperience += expGained;
 
   while (experience >= level * 10) {
     experience -= level * 10;
@@ -67,12 +110,14 @@ export async function updateUserExperience(
     experience,
     level,
     totalExperience,
+    communityInfo,
   });
 
   return {
     newExperience: experience,
     newLevel: level,
-    expGained: amount,
+    expGained,
     levelUp: level > oldLevel,
+    reachedDailyLimit,
   };
 }

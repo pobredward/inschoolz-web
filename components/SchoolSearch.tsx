@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import {
   collection,
@@ -13,14 +13,13 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { FaSearch, FaStar } from "react-icons/fa";
-import { debounce } from "lodash";
 import { useRecoilState } from "recoil";
 import { searchResultsState, selectedSchoolState } from "../store/atoms";
 import { useAuth } from "../hooks/useAuth";
 import { School } from "../types";
 
 interface SchoolSearchProps {
-  initialSchool?: { KOR_NAME: string; ADDRESS: string }; // 기존 학교 정보
+  initialSchool?: { KOR_NAME: string; ADDRESS: string };
   setSchool: (school: any) => void;
 }
 
@@ -35,7 +34,8 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
   const [selectedSchool, setSelectedSchool] =
     useRecoilState(selectedSchoolState);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // 기존 로딩 상태
+  const [loadingResults, setLoadingResults] = useState(false); // 결과 로딩 상태
   const [favoriteSchools, setFavoriteSchools] = useState<School[]>([]);
 
   useEffect(() => {
@@ -68,14 +68,12 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     const isFavorite = favoriteSchools.some((fav) => fav.id === school.id);
 
     try {
-      // Firebase에서 학교 ID 추가 또는 제거
       await updateDoc(userRef, {
         favoriteSchools: isFavorite
           ? arrayRemove(school.id)
           : arrayUnion(school.id),
       });
 
-      // 상태 업데이트: School 객체 배열로 유지
       setFavoriteSchools((prev) =>
         isFavorite
           ? prev.filter((fav) => fav.id !== school.id)
@@ -92,24 +90,22 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
       return;
     }
 
-    setLoading(true);
+    setLoadingResults(true);
     setError("");
 
     try {
       const schoolsRef = collection(db, "schools");
-      const q = query(
-        schoolsRef,
-        where("KOR_NAME", ">=", searchTerm),
-        where("KOR_NAME", "<=", searchTerm + "\uf8ff"),
-      );
+      const querySnapshot = await getDocs(schoolsRef);
 
-      const querySnapshot = await getDocs(q);
-      const results: School[] = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        KOR_NAME: doc.data().KOR_NAME,
-        ADDRESS: doc.data().ADDRESS,
-        SCHOOL_CODE: doc.data().SCHOOL_CODE,
-      }));
+      // 클라이언트 측에서 검색어를 포함하는 학교 필터링
+      const results: School[] = querySnapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          KOR_NAME: doc.data().KOR_NAME,
+          ADDRESS: doc.data().ADDRESS,
+          SCHOOL_CODE: doc.data().SCHOOL_CODE,
+        }))
+        .filter((school) => school.KOR_NAME.includes(searchTerm));
 
       setSearchResults(results);
       if (results.length === 0) {
@@ -118,7 +114,7 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     } catch (error) {
       setError("학교 검색 중 오류가 발생했습니다.");
     } finally {
-      setLoading(false);
+      setLoadingResults(false);
     }
   };
 
@@ -149,7 +145,6 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
       }
     }
 
-    // isOpen을 닫는 작업을 안전하게 비동기 처리 후 진행
     setTimeout(() => {
       setIsOpen(false);
     }, 100);
@@ -189,7 +184,6 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
               <ResultsList>
                 {favoriteSchools.length > 0 && (
                   <FavoriteSection>
-                    {/* <SectionTitle>관심 학교</SectionTitle> */}
                     <ResultsList>
                       {favoriteSchools.map((school) => (
                         <ResultItem
@@ -228,31 +222,38 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
                       <FaSearch />
                     </SearchActionButton>
                   </SearchInputContainer>
-                  {error && <NoResultsMessage>{error}</NoResultsMessage>}
-                  <ResultsList>
-                    {searchResults.map((school) => (
-                      <ResultItem
-                        key={school.id}
-                        onClick={() => handleSchoolSelect(school)}
-                      >
-                        <InfoWrapper>
-                          <SchoolName>{school.KOR_NAME}</SchoolName>
-                          <SchoolAddress>{school.ADDRESS}</SchoolAddress>
-                        </InfoWrapper>
-                        <StarIcon
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavoriteSchool(school);
-                          }}
-                          isFavorite={favoriteSchools.some(
-                            (fav) => fav.id === school.id,
-                          )}
+                  {loadingResults ? ( // 검색 결과 로딩 표시
+                    <NoResultsMessage>
+                      학교를 열심히 찾는 중입니다!
+                    </NoResultsMessage>
+                  ) : error ? (
+                    <NoResultsMessage>{error}</NoResultsMessage>
+                  ) : (
+                    <ResultsList>
+                      {searchResults.map((school) => (
+                        <ResultItem
+                          key={school.id}
+                          onClick={() => handleSchoolSelect(school)}
                         >
-                          <FaStar />
-                        </StarIcon>
-                      </ResultItem>
-                    ))}
-                  </ResultsList>
+                          <InfoWrapper>
+                            <SchoolName>{school.KOR_NAME}</SchoolName>
+                            <SchoolAddress>{school.ADDRESS}</SchoolAddress>
+                          </InfoWrapper>
+                          <StarIcon
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteSchool(school);
+                            }}
+                            isFavorite={favoriteSchools.some(
+                              (fav) => fav.id === school.id,
+                            )}
+                          >
+                            <FaStar />
+                          </StarIcon>
+                        </ResultItem>
+                      ))}
+                    </ResultsList>
+                  )}
                 </SearchSection>
               </ResultsList>
             )}

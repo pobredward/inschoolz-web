@@ -1,73 +1,31 @@
 import { atom } from "recoil";
-import { Timestamp } from "firebase/firestore";
-
-export interface User {
-  uid: string;
-  address1?: string;
-  address2?: string;
-  birthDay?: number;
-  birthMonth?: number;
-  birthYear?: number;
-  email: string | null;
-  experience: number;
-  level: number;
-  name: string;
-  schoolId?: string;
-  schoolName?: string;
-  grade?: string;
-  classNumber?: string;
-  phoneNumber?: string;
-  userId: string;
-  totalExperience: number;
-  profileImageUrl?: string;
-}
+import { User, Post, Comment, Category, School } from "../types";
 
 export const userState = atom<User | null>({
   key: "userState",
   default: null,
 });
 
-export interface VoteOption {
-  text: string;
-  imageUrl?: string;
-}
+export const userExperienceState = atom<number>({
+  key: "userExperienceState",
+  default: 0,
+});
 
-export interface Post {
-  id: string;
-  address1?: string;
-  address2?: string;
-  author: string;
-  authorId: string;
-  categoryId: string;
-  comments?: number;
-  content: string;
-  createdAt: any;
-  updatedAt: any;
-  likedBy: string[];
-  schoolId?: string;
-  schoolName?: string;
-  likes?: number;
-  scraps?: number;
-  title: string;
-  views?: number;
-  imageUrls?: string[];
-  voteOptions?: VoteOption[] | null;
-  isDeleted?: boolean;
-  isVotePost?: boolean;
-  voterIds?: string[];
-  voteResults?: { [key: number]: number };
-}
+export const userLevelState = atom<number>({
+  key: "userLevelState",
+  default: 1,
+});
 
 export const postsState = atom<Post[]>({
   key: "postsState",
   default: [],
 });
 
-export interface Category {
-  id: string;
-  name: string;
-  subcategories?: Category[];
-}
+// 댓글 상태 관리 아톰
+export const commentsState = atom<Comment[]>({
+  key: "commentsState",
+  default: [],
+});
 
 export const categoriesState = atom<Category[]>({
   key: "categoriesState",
@@ -106,13 +64,6 @@ export const selectedCategoryState = atom<string>({
   default: "national-all",
 });
 
-export interface School {
-  id: string;
-  KOR_NAME: string;
-  ADDRESS: string;
-  SCHOOL_CODE: string;
-}
-
 export const searchResultsState = atom<School[]>({
   key: "searchResultsState",
   default: [],
@@ -122,27 +73,3 @@ export const selectedSchoolState = atom<School | null>({
   key: "selectedSchoolState",
   default: null,
 });
-
-// 댓글 상태 관리 아톰
-export const commentsState = atom({
-  key: "commentsState",
-  default: [],
-});
-
-export interface AttendanceRecord {
-  userId: string;
-  attendances: {
-    [key: string]: boolean;
-  };
-  streak: number;
-  lastAttendance: Timestamp;
-}
-
-export interface AttendanceState {
-  canCheckToday: boolean;
-  currentStreak: number;
-  lastAttendance: Date | null;
-  monthlyAttendances: {
-    [key: string]: boolean;
-  };
-}

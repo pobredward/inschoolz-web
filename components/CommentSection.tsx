@@ -8,7 +8,9 @@ import {
   FaEdit,
 } from "react-icons/fa";
 import { useRecoilValue } from "recoil";
-import { userState } from "../store/atoms";
+import { userState, commentsState } from "../store/atoms";
+import { useSetRecoilState } from "recoil";
+import { userExperienceState, userLevelState } from "../store/atoms";
 import {
   addDoc,
   collection,
@@ -21,31 +23,17 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { formatDate } from "../utils/dateUtils";
-import { createComment, deleteComment } from "../services/commentService";
+import {
+  createComment,
+  fetchComments,
+  deleteComment,
+} from "../services/commentService";
 import {
   updateUserExperience,
   getExperienceSettings,
 } from "../utils/experience";
 import ExperienceModal from "../components/modal/ExperienceModal";
-
-interface Comment {
-  id: string;
-  author: string;
-  authorId: string;
-  content: string;
-  createdAt: any;
-  parentId: string | null;
-  likes: number;
-  likedBy: string[];
-  isDeleted: boolean;
-}
-
-interface CommentSectionProps {
-  postId: string;
-  comments: Comment[];
-  setComments: React.Dispatch<React.SetStateAction<Comment[]>>;
-  onCommentUpdate: (newCommentCount: number) => void;
-}
+import { Comment, CommentSectionProps } from "../types";
 
 const CommentSection: React.FC<CommentSectionProps> = ({
   postId,
@@ -54,15 +42,18 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   onCommentUpdate,
 }) => {
   const user = useRecoilValue(userState);
-  const [newComment, setNewComment] = useState("");
+  const [newComment, setNewComment] = useState<string>("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyContent, setReplyContent] = useState("");
+  const [replyContent, setReplyContent] = useState<string>("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
+  const [editContent, setEditContent] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
+  const setUserExperience = useSetRecoilState(userExperienceState);
+  const setUserLevel = useSetRecoilState(userLevelState);
+  const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -103,28 +94,47 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
     try {
       const newCommentWithId = await createComment(commentData);
-      setComments((prevComments) =>
-        sortComments([...prevComments, newCommentWithId]),
-      );
+
+      // 1. 클라이언트에서 즉시 새로운 댓글 추가
+      setComments((prevComments) => [...prevComments, newCommentWithId]);
       setNewComment("");
       onCommentUpdate(comments.length + 1);
 
+      // 2. 경험치 업데이트
       const settings = await getExperienceSettings();
       const result = await updateUserExperience(
         user.uid,
         settings.commentCreation,
         "댓글을 작성했습니다",
       );
-      setExpGained(result.expGained);
-      if (result.levelUp) {
-        setNewLevel(result.newLevel);
-      }
-      setShowExpModal(true);
 
-      // ... 나머지 로직
+      setUserExperience(result.newExperience);
+      setUserLevel(result.newLevel);
+      setExpGained(result.expGained);
+
+      if (result.levelUp && result.newLevel !== lastLevelUp) {
+        setLastLevelUp(result.newLevel);
+        setNewLevel(result.newLevel);
+      } else {
+        setNewLevel(undefined);
+      }
+
+      // 일일 제한에 도달하지 않았을 때만 경험치 모달을 표시
+      if (!result.reachedDailyLimit) {
+        setShowExpModal(true);
+      }
+
+      // 3. 서버에서 정렬된 전체 댓글 목록 다시 가져오기
+      const updatedComments = await fetchComments(postId);
+      setComments(updatedComments); // 상태 업데이트
     } catch (e) {
       console.error("Error adding comment: ", e);
     }
+  };
+
+  const handleExpModalClose = () => {
+    setShowExpModal(false);
+    setNewLevel(undefined);
   };
 
   const toggleReply = (commentId: string) => {
@@ -166,13 +176,26 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         settings.commentCreation,
         "대댓글을 작성했습니다",
       );
-      setExpGained(result.expGained);
-      if (result.levelUp) {
-        setNewLevel(result.newLevel);
-      }
-      setShowExpModal(true);
 
-      // ... 나머지 로직
+      setUserExperience(result.newExperience);
+      setUserLevel(result.newLevel);
+      setExpGained(result.expGained);
+
+      if (result.levelUp && result.newLevel !== lastLevelUp) {
+        setLastLevelUp(result.newLevel);
+        setNewLevel(result.newLevel);
+      } else {
+        setNewLevel(undefined);
+      }
+
+      // 일일 제한에 도달하지 않았을 때만 경험치 모달을 표시
+      if (!result.reachedDailyLimit) {
+        setShowExpModal(true);
+      }
+
+      // 3. 서버에서 정렬된 전체 댓글 목록 다시 가져오기
+      const updatedComments = await fetchComments(postId);
+      setComments(updatedComments); // 상태 업데이트
     } catch (e) {
       console.error("Error adding reply: ", e);
     }
@@ -277,87 +300,91 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   };
 
   const renderComments = (parentId: string | null = null, depth = 0) => {
-    return sortComments(
-      comments.filter((comment) => comment.parentId === parentId),
-    ).map((comment, index) => (
-      <CommentItem
-        key={comment.id}
-        depth={depth}
-        isLast={index === comments.length - 1}
-      >
-        <CommentHeader>
-          <ProfileIcon />
-          <CommentAuthor>{comment.author}</CommentAuthor>
-          <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
-        </CommentHeader>
-        {comment.isDeleted ? (
-          <DeletedCommentContent>삭제된 메시지입니다</DeletedCommentContent>
-        ) : editingCommentId === comment.id ? (
-          <EditForm
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSaveEdit(comment.id);
-            }}
-          >
-            <EditTextarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-            />
-            <SaveButton type="submit">저장</SaveButton>
-            <CancelButton onClick={() => setEditingCommentId(null)}>
-              취소
-            </CancelButton>
-          </EditForm>
-        ) : (
-          <>
-            <CommentContent>{comment.content}</CommentContent>
-            <CommentActions>
-              <LikeButton onClick={() => handleLike(comment.id)}>
-                <FaHeart
-                  color={
-                    user && comment.likedBy.includes(user.uid) ? "red" : "gray"
-                  }
-                />
-                <LikeCount>{comment.likes}</LikeCount>
-              </LikeButton>
-              {depth === 0 && (
-                <ReplyButton onClick={() => toggleReply(comment.id)}>
-                  답글
-                </ReplyButton>
-              )}
-              {user && user.uid === comment.authorId && !comment.isDeleted && (
-                <>
-                  <EditButton
-                    onClick={() => handleEdit(comment.id, comment.content)}
-                  >
-                    수정
-                  </EditButton>
-                  <DeleteButton onClick={() => handleDelete(comment.id)}>
-                    삭제
-                  </DeleteButton>
-                </>
-              )}
-            </CommentActions>
-          </>
-        )}
-        {replyingTo === comment.id && (
-          <ReplyForm
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleReplySubmit(comment.id);
-            }}
-          >
-            <ReplyTextarea
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder="답글을 입력하세요..."
-            />
-            <ReplySubmitButton type="submit">작성</ReplySubmitButton>
-          </ReplyForm>
-        )}
-        {renderComments(comment.id, depth + 1)}
-      </CommentItem>
-    ));
+    return comments
+      .filter((comment) => comment.parentId === parentId)
+      .map((comment, index) => (
+        <CommentItem
+          key={comment.id}
+          depth={depth}
+          isLast={index === comments.length - 1}
+        >
+          <CommentHeader>
+            <ProfileIcon />
+            <CommentAuthor>{comment.author}</CommentAuthor>
+            <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
+          </CommentHeader>
+          {comment.isDeleted ? (
+            <DeletedCommentContent>삭제된 메시지입니다</DeletedCommentContent>
+          ) : editingCommentId === comment.id ? (
+            <EditForm
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveEdit(comment.id);
+              }}
+            >
+              <EditTextarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+              />
+              <SaveButton type="submit">저장</SaveButton>
+              <CancelButton onClick={() => setEditingCommentId(null)}>
+                취소
+              </CancelButton>
+            </EditForm>
+          ) : (
+            <>
+              <CommentContent>{comment.content}</CommentContent>
+              <CommentActions>
+                <LikeButton onClick={() => handleLike(comment.id)}>
+                  <FaHeart
+                    color={
+                      user && comment.likedBy.includes(user.uid)
+                        ? "red"
+                        : "gray"
+                    }
+                  />
+                  <LikeCount>{comment.likes}</LikeCount>
+                </LikeButton>
+                {depth === 0 && (
+                  <ReplyButton onClick={() => toggleReply(comment.id)}>
+                    답글
+                  </ReplyButton>
+                )}
+                {user &&
+                  user.uid === comment.authorId &&
+                  !comment.isDeleted && (
+                    <>
+                      <EditButton
+                        onClick={() => handleEdit(comment.id, comment.content)}
+                      >
+                        수정
+                      </EditButton>
+                      <DeleteButton onClick={() => handleDelete(comment.id)}>
+                        삭제
+                      </DeleteButton>
+                    </>
+                  )}
+              </CommentActions>
+            </>
+          )}
+          {replyingTo === comment.id && (
+            <ReplyForm
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleReplySubmit(comment.id);
+              }}
+            >
+              <ReplyTextarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="답글을 입력하세요..."
+              />
+              <ReplySubmitButton type="submit">작성</ReplySubmitButton>
+            </ReplyForm>
+          )}
+          {renderComments(comment.id, depth + 1)}
+        </CommentItem>
+      ));
   };
 
   return (
@@ -373,7 +400,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                 placeholder="댓글을 입력하세요..."
                 required
               />
-              <SubmitButton type="button" onClick={handleCommentSubmit}>
+              <SubmitButton type="submit">
                 <FaPaperPlane />
               </SubmitButton>
             </CommentInputWrapper>
@@ -383,7 +410,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       </CommentSectionContainer>
       <ExperienceModal
         isOpen={showExpModal}
-        onClose={() => setShowExpModal(false)}
+        onClose={handleExpModalClose}
         expGained={expGained}
         newLevel={newLevel}
       />
@@ -436,7 +463,7 @@ const SubmitButton = styled.button`
   transition: background-color 0.3s ease;
 
   &:hover {
-    background-color: var(--hover-color);
+    background-color: var(--primary-hover);
   }
 `;
 

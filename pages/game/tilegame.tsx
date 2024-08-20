@@ -22,25 +22,36 @@ const TileGame: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState({ title: "", message: "" });
   const [remainingPlays, setRemainingPlays] = useState<number | null>(null);
-  const [timer, setTimer] = useState(0.8); // 타이머 상태 추가
+  const [timer, setTimer] = useState(0.8);
   const { user } = useAuth();
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
-  const timeoutRef = useRef<number | null>(null); // 클릭 타이머를 추적하기 위한 ref
-  const intervalRef = useRef<number | null>(null); // 타이머 감소를 위한 ref
+  const timeoutRef = useRef<number | null>(null);
+  const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (user) {
       fetchBestScore();
       updateRemainingPlays();
+    } else {
+      const localBestScore = localStorage.getItem("tileGameBestScore");
+      if (localBestScore) {
+        setBestScore(parseInt(localBestScore));
+      }
+      const localRemainingPlays = localStorage.getItem(
+        "tileGameRemainingPlays",
+      );
+      setRemainingPlays(
+        localRemainingPlays ? parseInt(localRemainingPlays) : 5,
+      );
     }
   }, [user]);
 
   useEffect(() => {
     if (gameState === "playing") {
       intervalRef.current = window.setInterval(() => {
-        setTimer((prev) => Math.max(prev - 0.01, 0)); // 타이머를 0.01초씩 감소
+        setTimer((prev) => Math.max(prev - 0.01, 0));
       }, 10);
     } else {
       if (intervalRef.current) {
@@ -99,10 +110,12 @@ const TileGame: React.FC = () => {
   };
 
   const startGame = () => {
-    if (!user || remainingPlays === 0) {
+    if (remainingPlays === 0) {
       setModalContent({
         title: "게임 불가",
-        message: "오늘의 게임 횟수를 모두 사용했습니다.",
+        message: user
+          ? "오늘의 게임 횟수를 모두 사용했습니다."
+          : "게임 횟수를 모두 사용했습니다. 로그인하여 내 점수를 기록하고 친구들과 비교해보세요!",
       });
       setShowModal(true);
       return;
@@ -115,34 +128,31 @@ const TileGame: React.FC = () => {
   };
 
   const generateTiles = () => {
-    // 기존 타이머가 있으면 제거
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
-    const newTiles = [0, 0, 0, 0];
-    const blackTileIndex = Math.floor(Math.random() * 4);
-    newTiles[blackTileIndex] = 1; // 검은 타일 하나만 배치
+    const newTiles = Array(8).fill(0);
+    const blackTileIndex = Math.floor(Math.random() * 8);
+    newTiles[blackTileIndex] = 1;
     setTiles(newTiles);
 
-    // 일정 시간 내에 클릭이 없으면 게임 종료
     timeoutRef.current = window.setTimeout(() => {
       endGame();
-    }, 800); // 0.8초 내에 클릭이 없으면 종료
+    }, 800);
   };
 
   const handleTileClick = async (index: number) => {
     if (gameState !== "playing") return;
 
     if (tiles[index] === 1) {
-      // 타이머 제거
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
       }
 
       setScore((prev) => prev + 1);
-      setTimer(0.8); // 타이머 초기화
+      setTimer(0.8);
       generateTiles();
     } else {
       endGame();
@@ -181,6 +191,12 @@ const TileGame: React.FC = () => {
         }
       }
     } else {
+      const newRemainingPlays = (remainingPlays || 5) - 1;
+      setRemainingPlays(newRemainingPlays);
+      localStorage.setItem(
+        "tileGameRemainingPlays",
+        newRemainingPlays.toString(),
+      );
       showResult(score);
     }
   };
@@ -227,10 +243,20 @@ const TileGame: React.FC = () => {
         });
       }
     } else {
-      setModalContent({
-        title: "게임 종료",
-        message: `점수: ${gameScore}`,
-      });
+      const localBestScore = localStorage.getItem("tileGameBestScore");
+      if (!localBestScore || gameScore > parseInt(localBestScore)) {
+        localStorage.setItem("tileGameBestScore", gameScore.toString());
+        setBestScore(gameScore);
+        setModalContent({
+          title: "새로운 최고 기록!",
+          message: `축하합니다! 새로운 최고 점수: ${gameScore}\n회원가입하여 기록을 저장하고 랭킹에 등록하세요!`,
+        });
+      } else {
+        setModalContent({
+          title: "게임 종료",
+          message: `점수: ${gameScore}\n최고 점수: ${localBestScore}`,
+        });
+      }
     }
     setShowModal(true);
   };

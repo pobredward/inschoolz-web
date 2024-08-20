@@ -21,24 +21,24 @@ export interface SignupData {
 
 // 사용자 데이터 타입
 export interface User {
-  uid: string;
-  email: string | null;
-  name: string;
   userId: string;
+  uid: string;
   address1?: string;
   address2?: string;
+  birthDay?: number;
+  birthMonth?: number;
+  birthYear?: number;
+  classNumber?: string;
+  email: string | null;
+  experience: number;
+  grade?: string;
+  level: number;
+  name: string;
+  phoneNumber?: string;
+  profileImageUrl?: string;
   schoolId?: string;
   schoolName?: string;
-  grade?: string;
-  classNumber?: string;
-  experience: number;
   totalExperience: number;
-  level: number;
-  birthYear: number;
-  birthMonth: number;
-  birthDay: number;
-  phoneNumber: string;
-  profileImageUrl?: string;
 }
 
 export interface VoteOption {
@@ -57,20 +57,20 @@ export interface Post {
   comments?: number;
   content: string;
   createdAt: any;
-  updatedAt: any;
-  likedBy: string[];
-  schoolId?: string;
-  schoolName?: string;
-  likes?: number;
-  scraps?: number;
-  title: string;
-  views?: number;
   imageUrls?: string[];
-  voteOptions?: VoteOption[] | null;
   isDeleted?: boolean;
   isVotePost?: boolean;
-  voterIds?: string[];
+  likedBy: string[];
+  likes?: number;
+  schoolId?: string;
+  schoolName?: string;
+  scraps?: number;
+  title: string;
+  updatedAt: any;
+  views?: number;
+  voteOptions?: VoteOption[] | null;
   voteResults?: { [key: number]: number };
+  voterIds?: string[];
 }
 
 // 카테고리 데이터 타입
@@ -91,11 +91,22 @@ export interface School {
 // 댓글 데이터 타입
 export interface Comment {
   id: string;
-  postId: string;
   author: string;
+  authorId: string;
   content: string;
-  date: Date;
+  createdAt: any;
   parentId: string | null;
+  likes: number;
+  likedBy: string[];
+  isDeleted: boolean;
+  postId: string | null;
+}
+
+export interface CommentSectionProps {
+  postId: string;
+  comments: Comment[];
+  setComments: React.Dispatch<React.SetStateAction<Comment[]>>;
+  onCommentUpdate: (newCommentCount: number) => void;
 }
 
 // 게임 점수 데이터 타입
