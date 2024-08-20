@@ -1,4 +1,4 @@
-import { Post, User } from "../store/atoms";
+import { Post, User } from "../types";
 import { db } from "../lib/firebase";
 import {
   collection,
