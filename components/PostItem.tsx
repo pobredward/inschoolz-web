@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import styled from "@emotion/styled";
-import { Post } from "../store/atoms";
+import { Post } from "../types";
 
 const PostItemContainer = styled.div`
   border: 1px solid #e0e0e0;
