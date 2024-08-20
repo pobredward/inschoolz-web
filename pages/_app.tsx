@@ -5,6 +5,7 @@ import { Hydrate } from "react-query/hydration";
 import { Global, ThemeProvider } from "@emotion/react";
 import { globalStyles, theme } from "../styles/globalStyles";
 import { useAuthStateManager } from "../hooks/useAuthStateManager";
+import Head from "next/head";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,44 @@ function MyApp({ Component, pageProps }: AppProps) {
       <RecoilRoot>
         <ThemeProvider theme={theme}>
           <Global styles={globalStyles} />
+          <Head>
+            <meta
+              name="viewport"
+              content="width=device-width, initial-scale=1"
+            />
+            <link rel="icon" href="/favicon.png" />
+            <link
+              rel="apple-touch-icon"
+              sizes="180x180"
+              href="/apple-touch-icon.png"
+            />
+            <link
+              rel="icon"
+              type="image/png"
+              sizes="40x40"
+              href="/favicon-40x40.png"
+            />
+            <link rel="manifest" href="/site.webmanifest" />
+            <link rel="mask-icon" href="/favicon-40x40.svg" color="#5bbad5" />
+            <meta name="msapplication-TileColor" content="#da532c" />
+            <meta name="theme-color" content="#ffffff" />
+            <meta property="og:type" content="website" />
+            <meta property="og:site_name" content="인스쿨즈" />
+            <meta
+              property="og:title"
+              content="인스쿨즈 - 대한민국 학생들을 위한 올인원 커뮤니티"
+            />
+            <meta
+              property="og:description"
+              content="인스쿨즈에서 학교생활, 학업, 진로에 대한 정보를 공유하고 소통하세요."
+            />
+            <meta
+              property="og:image"
+              content="https://www.inschoolz.com/logo_320x320.png"
+            />
+            <meta property="og:url" content="https://www.inschoolz.com" />
+            <meta name="twitter:card" content="summary_large_image" />
+          </Head>
           <Hydrate state={pageProps.dehydratedState}>
             <Component {...pageProps} />
           </Hydrate>
