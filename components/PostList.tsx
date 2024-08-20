@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import { useRecoilState } from "recoil";
-import { postsState, categoriesState, Post } from "../store/atoms";
+import { postsState, categoriesState } from "../store/atoms";
 import {
   collection,
   query,
@@ -9,6 +9,7 @@ import {
   getDocs,
   Timestamp,
 } from "firebase/firestore";
+import { Post } from "../types";
 import { db } from "../lib/firebase";
 import { useRouter } from "next/router";
 import { formatDate } from "../utils/dateUtils";
