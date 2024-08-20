@@ -1,7 +1,7 @@
 import { useQuery } from "react-query";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { User } from "../store/atoms";
+import { User } from "../types";
 import { useRecoilValue, useSetRecoilState } from "recoil";
 import { userState } from "../store/atoms";
 
