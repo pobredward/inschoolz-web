@@ -264,7 +264,7 @@ const TileGame: React.FC = () => {
   return (
     <Layout>
       <GameContainer>
-        <GameTitle>Don't Tap The White Tile</GameTitle>
+        <GameTitle>타일 게임</GameTitle>
         <GameArea>
           {tiles.map((tile, index) => (
             <Tile
