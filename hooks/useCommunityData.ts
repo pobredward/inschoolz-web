@@ -1,12 +1,18 @@
-import { useEffect } from 'react';
-import { useSetRecoilState, useRecoilState } from 'recoil';
-import { postsState, selectedCategoryState, Post } from '../store/atoms';
-import { fetchFilteredPosts } from '../services/postService';
-import { useAuth } from './useAuth';
+import { useEffect } from "react";
+import { useSetRecoilState, useRecoilState } from "recoil";
+import { postsState, selectedCategoryState } from "../store/atoms";
+import { Post } from "../types";
+import { fetchFilteredPosts } from "../services/postService";
+import { useAuth } from "./useAuth";
 
-export const useCommunityData = (initialPosts: Post[], initialCategory: string) => {
+export const useCommunityData = (
+  initialPosts: Post[],
+  initialCategory: string,
+) => {
   const [posts, setPosts] = useRecoilState(postsState);
-  const [selectedCategory, setSelectedCategory] = useRecoilState(selectedCategoryState);
+  const [selectedCategory, setSelectedCategory] = useRecoilState(
+    selectedCategoryState,
+  );
   const { user } = useAuth();
 
   useEffect(() => {
@@ -18,10 +24,13 @@ export const useCommunityData = (initialPosts: Post[], initialCategory: string) 
     const fetchPosts = async () => {
       if (user && selectedCategory) {
         try {
-          const filteredPosts = await fetchFilteredPosts(selectedCategory, user);
+          const filteredPosts = await fetchFilteredPosts(
+            selectedCategory,
+            user,
+          );
           setPosts(filteredPosts);
         } catch (error) {
-          console.error('Error fetching posts:', error);
+          console.error("Error fetching posts:", error);
         }
       }
     };
