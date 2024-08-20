@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useRecoilValue, useRecoilState } from "recoil";
-import { userState, Post, categoriesState } from "../../store/atoms";
+import { userState, categoriesState } from "../../store/atoms";
+import { Post } from "../../types";
 import Layout from "../../components/Layout";
 import styled from "@emotion/styled";
 import {
