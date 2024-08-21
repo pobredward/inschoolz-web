@@ -8,7 +8,7 @@ import {
   selectedCategoryState,
   categoriesState,
 } from "../store/atoms";
-import { Category } from "../types";
+import { Category, Report } from "../types";
 import styled from "@emotion/styled";
 import Layout from "./Layout";
 import CategoryList from "./CategoryList";
@@ -30,7 +30,7 @@ import { storage, db } from "../lib/firebase";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../services/postService";
 import { Post } from "../types";
-import { FaBookmark, FaTrash, FaUpload } from "react-icons/fa";
+import { FaBookmark, FaTrash, FaUpload, FaFlag, FaStar } from "react-icons/fa";
 import { uploadImage, deleteImage } from "../services/imageService";
 import { getCommentsForPost } from "../services/commentService";
 import {
@@ -41,6 +41,7 @@ import {
 } from "../services/postService";
 import { ImageGallery, Modal } from "./ImageGallery";
 import DefaultModal from "./modal/DefaultModal";
+import ReportModal from "./modal/ReportModal";
 import { compressImage } from "../utils/imageUtils";
 
 const PostDetail: React.FC = () => {
@@ -69,6 +70,12 @@ const PostDetail: React.FC = () => {
   const [modalContent, setModalContent] = useState({ title: "", message: "" });
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const categories = useRecoilValue(categoriesState);
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState<"post" | "comment" | null>(null);
+  const [reportedItemId, setReportedItemId] = useState<string | null>(null);
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
+  const [customReason, setCustomReason] = useState("");
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -150,6 +157,62 @@ const PostDetail: React.FC = () => {
       incrementViewCount();
     }
   }, [id]);
+
+  const reportReasons = [
+    "부적절한 내용",
+    "스팸",
+    "혐오 발언",
+    "폭력적인 내용",
+    "개인정보 노출",
+    "저작권 침해",
+  ];
+
+  const handleReportClick = (type: "post" | "comment", id: string) => {
+    setReportType(type);
+    setReportedItemId(id);
+    setShowReportModal(true);
+  };
+
+  const handleReasonChange = (reason: string) => {
+    setSelectedReasons((prev) =>
+      prev.includes(reason)
+        ? prev.filter((r) => r !== reason)
+        : [...prev, reason],
+    );
+  };
+
+  const handleReportSubmit = async () => {
+    if (!user || !reportType || !reportedItemId) return;
+
+    const report: Report = {
+      userId: user.uid,
+      reason: selectedReasons,
+      customReason: customReason.trim() || undefined,
+      createdAt: new Date(),
+    };
+
+    try {
+      if (reportType === "post") {
+        await updateDoc(doc(db, "posts", reportedItemId), {
+          reportCount: increment(1),
+          reports: arrayUnion(report),
+        });
+      } else {
+        await updateDoc(doc(db, "comments", reportedItemId), {
+          reportCount: increment(1),
+          reports: arrayUnion(report),
+        });
+      }
+
+      alert("신고가 접수되었습니다.");
+      setShowReportModal(false);
+      setSelectedReasons([]);
+      setCustomReason("");
+    } catch (error) {
+      console.error("Error submitting report:", error);
+      alert("신고 접수 중 오류가 발생했습니다.");
+    }
+  };
 
   const handleCommentUpdate = (newCommentCount: number) => {
     setCommentCount(newCommentCount);
@@ -552,7 +615,7 @@ const PostDetail: React.FC = () => {
                         onClick={handleScrap}
                         style={{ color: isScrapped ? "green" : "inherit" }}
                       >
-                        🔖 {post.scraps || 0}
+                        {isScrapped ? "★ " : "☆ "} {post.scraps || 0}
                       </ActionItem>
                     </PostActions>
                     <ButtonContainer>
@@ -565,6 +628,11 @@ const PostDetail: React.FC = () => {
                           </DeleteButton>
                         </>
                       )}
+                      <ReportButton
+                        onClick={() => handleReportClick("post", post.id)}
+                      >
+                        신고
+                      </ReportButton>
                     </ButtonContainer>
                   </ActionsAndButtonsContainer>
                 </>
@@ -584,6 +652,17 @@ const PostDetail: React.FC = () => {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         message={modalContent.message}
+      />
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="신고하기"
+        reportReasons={reportReasons}
+        selectedReasons={selectedReasons}
+        onReasonChange={handleReasonChange}
+        customReason={customReason}
+        onCustomReasonChange={(value) => setCustomReason(value)}
+        onSubmit={handleReportSubmit}
       />
     </Layout>
   );
@@ -691,6 +770,7 @@ const PostTitle = styled.h2`
 
 const PostContent = styled.div`
   margin-bottom: 5rem;
+  white-space: pre-line; // 줄바꿈을 적용하는 속성 추가
 `;
 
 const PostActions = styled.div`
@@ -804,8 +884,6 @@ const RemoveButton = styled.button`
   }
 `;
 
-/////////////////////////
-
 const EditButtonContainer = styled.div`
   display: flex;
   margin-left: auto;
@@ -815,6 +893,10 @@ const EditButtonContainer = styled.div`
 const ButtonContainer = styled.div`
   display: flex;
   gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    gap: 0.3rem;
+  }
 `;
 
 const ActionItem = styled.span`
@@ -976,6 +1058,46 @@ const VoteResult = styled.span`
   font-size: 0.9rem;
   color: #6c757d;
   margin-left: 10px;
+`;
+
+const ReportButton = styled(TextButton)`
+  color: #ff4d4d;
+  &:hover {
+    color: #ff0000;
+  }
+`;
+
+const ReportForm = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  textarea {
+    width: 100%;
+    height: 100px;
+    padding: 5px;
+    margin-top: 10px;
+  }
+
+  button {
+    align-self: flex-end;
+    padding: 5px 10px;
+    background-color: #ff4d4d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+      background-color: #ff0000;
+    }
+  }
 `;
 
 export default PostDetail;

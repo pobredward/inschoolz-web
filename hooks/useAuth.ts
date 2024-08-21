@@ -45,6 +45,9 @@ export const useAuth = () => {
               birthMonth: userData.birthMonth || "",
               birthDay: userData.birthDay || "",
               phoneNumber: userData.phoneNumber || "",
+              profileImageUrl: userData.phoneNumber || "",
+              warnings: userData.warnings || [],
+              isAdmin: userData.isAdmin || false,
             };
             setUser(user);
             setUserExperience(user.experience);

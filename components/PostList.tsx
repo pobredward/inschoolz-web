@@ -407,14 +407,17 @@ const PostContent = styled.p`
 `;
 
 const getPostContentSnippet = (content) => {
+  // 첫 줄만 가져오기
+  const firstLine = content.split("\n")[0];
+
   if (typeof window !== "undefined") {
     const isMobile = window.innerWidth <= 768;
     const sliceLength = isMobile ? 20 : 45;
-    return content.length > sliceLength
-      ? content.slice(0, sliceLength) + "..."
-      : content.slice(0, sliceLength);
+    return firstLine.length > sliceLength
+      ? firstLine.slice(0, sliceLength) + "..."
+      : firstLine.slice(0, sliceLength);
   }
-  return content;
+  return firstLine;
 };
 
 const ImagePreviewContainer = styled.div`

@@ -6,6 +6,10 @@ import {
   FaPaperPlane,
   FaTrash,
   FaEdit,
+  FaPen,
+  FaComment,
+  FaFlag,
+  FaThumbsUp,
 } from "react-icons/fa";
 import { useRecoilValue } from "recoil";
 import { userState, commentsState } from "../store/atoms";
@@ -20,6 +24,7 @@ import {
   arrayRemove,
   doc,
   Timestamp,
+  increment,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { formatDate } from "../utils/dateUtils";
@@ -33,7 +38,8 @@ import {
   getExperienceSettings,
 } from "../utils/experience";
 import ExperienceModal from "../components/modal/ExperienceModal";
-import { Comment, CommentSectionProps } from "../types";
+import ReportModal from "./modal/ReportModal";
+import { Comment, CommentSectionProps, Report } from "../types";
 
 const CommentSection: React.FC<CommentSectionProps> = ({
   postId,
@@ -54,6 +60,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({
   const setUserExperience = useSetRecoilState(userExperienceState);
   const setUserLevel = useSetRecoilState(userLevelState);
   const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState<"post" | "comment" | null>(null);
+  const [reportedItemId, setReportedItemId] = useState<string | null>(null);
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
+  const [customReason, setCustomReason] = useState("");
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -76,6 +88,72 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     };
   }, [newComment]);
 
+  const reportReasons = [
+    "부적절한 내용",
+    "스팸",
+    "혐오 발언",
+    "폭력적인 내용",
+    "개인정보 노출",
+    "저작권 침해",
+  ];
+
+  const handleReportClick = (type: "post" | "comment", id: string) => {
+    setReportType(type);
+    setReportedItemId(id);
+    setShowReportModal(true);
+  };
+
+  const handleReasonChange = (reason: string) => {
+    setSelectedReasons((prev) =>
+      prev.includes(reason)
+        ? prev.filter((r) => r !== reason)
+        : [...prev, reason],
+    );
+  };
+
+  const handleReportSubmit = async () => {
+    if (!user || !reportType || !reportedItemId) return;
+
+    const report: Report = {
+      userId: user.uid,
+      reason: selectedReasons,
+      customReason: customReason.trim() || undefined,
+      createdAt: new Date(),
+    };
+
+    try {
+      if (reportType === "post") {
+        await updateDoc(doc(db, "posts", reportedItemId), {
+          reportCount: increment(1),
+          reports: arrayUnion(report),
+        });
+      } else {
+        await updateDoc(doc(db, "comments", reportedItemId), {
+          reportCount: increment(1),
+          reports: arrayUnion(report),
+        });
+      }
+
+      alert("신고가 접수되었습니다.");
+      setShowReportModal(false);
+      setSelectedReasons([]);
+      setCustomReason("");
+    } catch (error) {
+      console.error("Error submitting report:", error);
+      alert("신고 접수 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleExpModalClose = () => {
+    setShowExpModal(false);
+    setNewLevel(undefined);
+  };
+
+  const toggleReply = (commentId: string) => {
+    setReplyingTo((prevState) => (prevState === commentId ? null : commentId));
+    setReplyContent("");
+  };
+
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newComment.trim()) return;
@@ -90,6 +168,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       likes: 0,
       likedBy: [],
       isDeleted: false,
+      reportCount: 0,
+      reports: [],
     };
 
     try {
@@ -132,16 +212,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   };
 
-  const handleExpModalClose = () => {
-    setShowExpModal(false);
-    setNewLevel(undefined);
-  };
-
-  const toggleReply = (commentId: string) => {
-    setReplyingTo((prevState) => (prevState === commentId ? null : commentId));
-    setReplyContent("");
-  };
-
   const handleReplySubmit = async (parentId: string) => {
     if (!user || !replyContent.trim()) return;
 
@@ -155,6 +225,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({
       likes: 0,
       likedBy: [],
       isDeleted: false,
+      reportCount: 0,
+      reports: [],
     };
 
     try {
@@ -285,20 +357,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     }
   };
 
-  const sortComments = (comments: Comment[]) => {
-    return comments.sort((a, b) => {
-      const dateA =
-        a.createdAt instanceof Date
-          ? a.createdAt
-          : new Date(a.createdAt.seconds * 1000);
-      const dateB =
-        b.createdAt instanceof Date
-          ? b.createdAt
-          : new Date(b.createdAt.seconds * 1000);
-      return dateA.getTime() - dateB.getTime();
-    });
-  };
-
   const renderComments = (parentId: string | null = null, depth = 0) => {
     return comments
       .filter((comment) => comment.parentId === parentId)
@@ -309,9 +367,34 @@ const CommentSection: React.FC<CommentSectionProps> = ({
           isLast={index === comments.length - 1}
         >
           <CommentHeader>
-            <ProfileIcon />
-            <CommentAuthor>{comment.author}</CommentAuthor>
-            <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
+            <ProfileWrapper>
+              <ProfileIcon />
+              <CommentAuthor>{comment.author}</CommentAuthor>
+            </ProfileWrapper>
+            <ActionsRight>
+              {depth === 0 && (
+                <ReplyButton onClick={() => toggleReply(comment.id)}>
+                  <FaComment />
+                </ReplyButton>
+              )}
+              {user && user.uid === comment.authorId && !comment.isDeleted && (
+                <>
+                  <EditButton
+                    onClick={() => handleEdit(comment.id, comment.content)}
+                  >
+                    <FaPen />
+                  </EditButton>
+                  <DeleteButton onClick={() => handleDelete(comment.id)}>
+                    <FaTrash />
+                  </DeleteButton>
+                  <ReportButton
+                    onClick={() => handleReportClick("comment", comment.id)}
+                  >
+                    <FaFlag />
+                  </ReportButton>
+                </>
+              )}
+            </ActionsRight>
           </CommentHeader>
           {comment.isDeleted ? (
             <DeletedCommentContent>삭제된 메시지입니다</DeletedCommentContent>
@@ -335,35 +418,19 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             <>
               <CommentContent>{comment.content}</CommentContent>
               <CommentActions>
-                <LikeButton onClick={() => handleLike(comment.id)}>
-                  <FaHeart
-                    color={
-                      user && comment.likedBy.includes(user.uid)
-                        ? "red"
-                        : "gray"
-                    }
-                  />
-                  <LikeCount>{comment.likes}</LikeCount>
-                </LikeButton>
-                {depth === 0 && (
-                  <ReplyButton onClick={() => toggleReply(comment.id)}>
-                    답글
-                  </ReplyButton>
-                )}
-                {user &&
-                  user.uid === comment.authorId &&
-                  !comment.isDeleted && (
-                    <>
-                      <EditButton
-                        onClick={() => handleEdit(comment.id, comment.content)}
-                      >
-                        수정
-                      </EditButton>
-                      <DeleteButton onClick={() => handleDelete(comment.id)}>
-                        삭제
-                      </DeleteButton>
-                    </>
-                  )}
+                <ActionsLeft>
+                  <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
+                  <LikeButton onClick={() => handleLike(comment.id)}>
+                    <FaThumbsUp
+                      color={
+                        user && comment.likedBy.includes(user.uid)
+                          ? "red"
+                          : "gray"
+                      }
+                    />
+                    <LikeCount>{comment.likes}</LikeCount>
+                  </LikeButton>
+                </ActionsLeft>
               </CommentActions>
             </>
           )}
@@ -413,6 +480,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         onClose={handleExpModalClose}
         expGained={expGained}
         newLevel={newLevel}
+      />
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="신고하기"
+        reportReasons={reportReasons}
+        selectedReasons={selectedReasons}
+        onReasonChange={handleReasonChange}
+        customReason={customReason}
+        onCustomReasonChange={(value) => setCustomReason(value)}
+        onSubmit={handleReportSubmit}
       />
     </>
   );
@@ -489,8 +567,13 @@ const CommentItem = styled.div<{ depth: number; isLast: boolean }>`
   `}
 `;
 
+const ProfileWrapper = styled.div`
+  display: flex;
+`;
+
 const CommentHeader = styled.div`
   display: flex;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
 `;
@@ -508,7 +591,7 @@ const CommentAuthor = styled.span`
 
 const CommentDate = styled.span`
   color: #6c757d;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 `;
 
 const CommentContent = styled.p`
@@ -519,6 +602,7 @@ const CommentContent = styled.p`
 
 const CommentActions = styled.div`
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
   margin-top: 0.5rem;
@@ -532,25 +616,41 @@ const ActionButton = styled.button`
   align-items: center;
   color: #6c757d;
   font-size: 0.9rem;
+  padding: 0.3rem;
+  border-left: 1px solid #eee;
+
+  &:first-of-type {
+    border-left: none;
+  }
 
   &:hover {
     color: #0056b3;
   }
 `;
 
-const LikeButton = styled(ActionButton)``;
+const ActionsLeft = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`;
+
+const ActionsRight = styled.div`
+  display: flex;
+  gap: 1rem;
+  border: 1px solid #eee; /* 외부 테두리 */
+  border-radius: 3px; /* 둥근 테두리 */
+  padding: 0.4rem; /* 내부 패딩 */
+`;
+
+const LikeButton = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+`;
 
 const LikeCount = styled.span`
   margin-left: 0.25rem;
-`;
-
-const ReplyButton = styled.button`
-  background: none;
-  border: none;
-  color: #888;
-  cursor: pointer;
-  font-size: 0.8rem;
-  padding: 0;
 `;
 
 const ReplyForm = styled.form`
@@ -598,7 +698,28 @@ const EditTextarea = styled.textarea`
   height: 50px;
 `;
 
-const EditButton = styled.button`
+const ReplyButton = styled(ActionButton)`
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0;
+`;
+
+const EditButton = styled(ActionButton)`
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0;
+  &:hover {
+    color: var(--text-color);
+  }
+`;
+
+const ReportButton = styled(ActionButton)`
   background: none;
   border: none;
   color: #888;

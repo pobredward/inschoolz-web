@@ -19,6 +19,24 @@ export interface SignupData {
   birthDay: number;
 }
 
+export interface Warning {
+  id: string;
+  reason: string;
+  date: any;
+  contentId: string;
+  contentType: "post" | "comment";
+}
+
+export interface ReportedContent {
+  id: string;
+  type: "post" | "comment";
+  content: string;
+  author: string;
+  authorId: string;
+  reportCount: number;
+  reports: Report[];
+}
+
 // 사용자 데이터 타입
 export interface User {
   userId: string;
@@ -39,6 +57,8 @@ export interface User {
   schoolId?: string;
   schoolName?: string;
   totalExperience: number;
+  isAdmin?: boolean;
+  warnings?: Warning[];
 }
 
 export interface VoteOption {
@@ -71,6 +91,15 @@ export interface Post {
   voteOptions?: VoteOption[] | null;
   voteResults?: { [key: number]: number };
   voterIds?: string[];
+  reportCount: number;
+  reports: Report[];
+}
+
+export interface Report {
+  userId: string;
+  reason: string[];
+  customReason?: string;
+  createdAt: any;
 }
 
 // 카테고리 데이터 타입
@@ -100,6 +129,8 @@ export interface Comment {
   likedBy: string[];
   isDeleted: boolean;
   postId: string | null;
+  reportCount: number;
+  reports: Report[];
 }
 
 export interface CommentSectionProps {
