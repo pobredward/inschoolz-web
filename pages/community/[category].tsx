@@ -12,9 +12,6 @@ import { useRouter } from "next/router";
 import styled from "@emotion/styled";
 import { FaChevronDown, FaChevronUp, FaPen } from "react-icons/fa";
 import Link from "next/link";
-import { GetServerSideProps } from "next";
-import { fetchPostsByCategory } from "../../services/postService";
-import { Post } from "../../types";
 
 const CategoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
@@ -151,29 +148,6 @@ const CategoryPage: React.FC = () => {
     </Layout>
   );
 };
-
-const convertTimestamps = (post: Post): Post => {
-  return {
-    ...post,
-    createdAt: post.createdAt?.toDate?.().toISOString() || null,
-    updatedAt: post.updatedAt?.toDate?.().toISOString() || null,
-  };
-};
-
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { category } = context.params as { category: string };
-  const posts = await fetchPostsByCategory(category);
-
-  // Timestamp를 문자열로 변환
-  const serializedPosts = posts.map(convertTimestamps);
-
-  return {
-    props: {
-      posts: serializedPosts,
-    },
-  };
-};
-
 const Container = styled.div`
   display: flex;
   max-width: 100%;
@@ -293,7 +267,7 @@ const CategoryHeader = styled.div`
 
 const CreatePostButton = styled.button`
   padding: 0.5rem 1rem;
-  background-color: var(--primary-button);
+  background-color: #0070f3;
   color: white;
   border: none;
   border-radius: 4px;
@@ -303,7 +277,7 @@ const CreatePostButton = styled.button`
   transition: background-color 0.3s ease;
 
   &:hover {
-    background-color: var(--primary-hover);
+    background-color: #0056b3;
   }
 
   @media (max-width: 768px) {
@@ -312,16 +286,16 @@ const CreatePostButton = styled.button`
     align-items: center;
     width: 50px;
     height: 50px;
-    background-color: var(--primary-button);
+    background-color: #0070f3;
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 8px; /* 원형 버튼 */
     cursor: pointer;
     font-size: 1rem;
     transition: background-color 0.3s ease;
 
     &:hover {
-      background-color: var(--primary-hover);
+      background-color: #0056b3;
     }
   }
 `;
