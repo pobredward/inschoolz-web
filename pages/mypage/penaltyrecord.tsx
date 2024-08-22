@@ -15,21 +15,22 @@ const PenaltyRecordPage: React.FC = () => {
   const [warnings, setWarnings] = useState<Warning[]>([]);
 
   useEffect(() => {
-    const fetchWarnings = async () => {
-      if (user) {
+    if (!user) {
+      router.push("/login");
+    } else {
+      const fetchWarnings = async () => {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
           setWarnings(userDoc.data().warnings || []);
         }
-      }
-    };
-    fetchWarnings();
-  }, [user]);
+      };
+      fetchWarnings();
+    }
+  }, [user, router]);
 
-  // if (!user) {
-  //   router.push("/login");
-  //   return null;
-  // }
+  if (!user) {
+    return null;
+  }
 
   return (
     <Layout>
