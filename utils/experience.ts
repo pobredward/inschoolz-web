@@ -84,7 +84,7 @@ export async function updateUserExperience(
   let expGained = 0;
 
   if (reason === "출석체크") {
-    expGained = amount; // 출석체크는 일일 제한에 영향을 받지 않음
+    expGained = amount;
   } else if (
     reason === "게시글을 작성했습니다" &&
     communityInfo.postUploads < settings.maxDailyPosts
@@ -96,6 +96,9 @@ export async function updateUserExperience(
     communityInfo.commentUploads < settings.maxDailyComments
   ) {
     communityInfo.commentUploads++;
+    expGained = amount;
+  } else if (reason.includes("게임 성공")) {
+    // 미니게임에 대한 처리 추가
     expGained = amount;
   } else {
     reachedDailyLimit = true;

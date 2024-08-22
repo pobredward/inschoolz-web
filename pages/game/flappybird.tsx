@@ -12,6 +12,8 @@ import {
   getExperienceSettings,
 } from "../../utils/experience";
 import ExperienceModal from "../../components/modal/ExperienceModal";
+import { useSetRecoilState, useRecoilState } from "recoil";
+import { userExperienceState, userLevelState } from "../../store/atoms";
 
 const GRAVITY = 0.25;
 const JUMP_STRENGTH = -5.5;
@@ -37,6 +39,9 @@ const FlappyBird: React.FC = () => {
   const [showExpModal, setShowExpModal] = useState(false);
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
+  const setUserExperience = useSetRecoilState(userExperienceState);
+  const [userLevel, setUserLevel] = useRecoilState(userLevelState);
+  const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -268,9 +273,16 @@ const FlappyBird: React.FC = () => {
         "Flappy Bird 게임 성공",
       );
       setExpGained(result.expGained);
-      if (result.levelUp) {
+      setUserExperience(result.newExperience);
+      setUserLevel(result.newLevel);
+
+      if (result.levelUp && result.newLevel !== lastLevelUp) {
+        setLastLevelUp(result.newLevel);
         setNewLevel(result.newLevel);
+      } else {
+        setNewLevel(undefined);
       }
+
       setShowExpModal(true);
     }
   };

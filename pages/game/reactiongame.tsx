@@ -11,6 +11,8 @@ import {
   updateUserExperience,
   getExperienceSettings,
 } from "../../utils/experience";
+import { useSetRecoilState, useRecoilState } from "recoil";
+import { userExperienceState, userLevelState } from "../../store/atoms";
 
 const ReactionGame: React.FC = () => {
   const [gameState, setGameState] = useState<"waiting" | "ready" | "clicking">(
@@ -27,6 +29,9 @@ const ReactionGame: React.FC = () => {
   const [expGained, setExpGained] = useState(0);
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
   const timeoutRef = useRef<number | null>(null);
+  const setUserExperience = useSetRecoilState(userExperienceState);
+  const [userLevel, setUserLevel] = useRecoilState(userLevelState);
+  const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -120,7 +125,7 @@ const ReactionGame: React.FC = () => {
 
       try {
         if (user) {
-          await handleGameScore(user.uid, "reactionGame", reactionTime);
+          await handleGameScore(user.uid, reactionTime);
 
           const userRef = doc(db, "users", user.uid);
           await updateDoc(userRef, {
@@ -180,22 +185,25 @@ const ReactionGame: React.FC = () => {
     }
   };
 
-  const handleGameScore = async (
-    userId: string,
-    game: "reactionGame",
-    score: number,
-  ) => {
+  const handleGameScore = async (userId: string, reactionTime: number) => {
     const settings = await getExperienceSettings();
-    if (score <= settings.reactionGameThreshold) {
+    if (reactionTime <= settings.reactionGameThreshold) {
       const result = await updateUserExperience(
         userId,
         settings.reactionGameExperience,
         "반응 게임 성공",
       );
       setExpGained(result.expGained);
-      if (result.levelUp) {
+      setUserExperience(result.newExperience);
+      setUserLevel(result.newLevel);
+
+      if (result.levelUp && result.newLevel !== lastLevelUp) {
+        setLastLevelUp(result.newLevel);
         setNewLevel(result.newLevel);
+      } else {
+        setNewLevel(undefined);
       }
+
       setShowExpModal(true);
     }
   };

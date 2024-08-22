@@ -11,6 +11,8 @@ import {
   updateUserExperience,
   getExperienceSettings,
 } from "../../utils/experience";
+import { useSetRecoilState, useRecoilState } from "recoil";
+import { userExperienceState, userLevelState } from "../../store/atoms";
 
 const TileGame: React.FC = () => {
   const [tiles, setTiles] = useState<number[]>([]);
@@ -29,6 +31,9 @@ const TileGame: React.FC = () => {
   const [newLevel, setNewLevel] = useState<number | undefined>(undefined);
   const timeoutRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
+  const setUserExperience = useSetRecoilState(userExperienceState);
+  const [userLevel, setUserLevel] = useRecoilState(userLevelState);
+  const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -172,7 +177,7 @@ const TileGame: React.FC = () => {
 
     if (user) {
       try {
-        await handleGameScore(user.uid, "tileGame", score);
+        await handleGameScore(user.uid, score);
 
         const userRef = doc(db, "users", user.uid);
         await updateDoc(userRef, {
@@ -201,11 +206,7 @@ const TileGame: React.FC = () => {
     }
   };
 
-  const handleGameScore = async (
-    userId: string,
-    game: "tileGame",
-    score: number,
-  ) => {
+  const handleGameScore = async (userId: string, score: number) => {
     const settings = await getExperienceSettings();
     if (score >= settings.tileGameThreshold) {
       const result = await updateUserExperience(
@@ -214,9 +215,16 @@ const TileGame: React.FC = () => {
         "타일 게임 성공",
       );
       setExpGained(result.expGained);
-      if (result.levelUp) {
+      setUserExperience(result.newExperience);
+      setUserLevel(result.newLevel);
+
+      if (result.levelUp && result.newLevel !== lastLevelUp) {
+        setLastLevelUp(result.newLevel);
         setNewLevel(result.newLevel);
+      } else {
+        setNewLevel(undefined);
       }
+
       setShowExpModal(true);
     }
   };
