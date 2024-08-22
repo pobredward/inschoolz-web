@@ -26,10 +26,10 @@ const PenaltyRecordPage: React.FC = () => {
     fetchWarnings();
   }, [user]);
 
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  // if (!user) {
+  //   router.push("/login");
+  //   return null;
+  // }
 
   return (
     <Layout>
