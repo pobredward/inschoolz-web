@@ -336,14 +336,14 @@ const ProfileImage = styled.img`
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  margin-right: 1rem;
+  margin-right: 0.5rem;
 `;
 
 const DefaultProfileIcon = styled(FaUserCircle)`
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  margin-right: 1rem;
+  margin-right: 0.5rem;
 `;
 
 const UserInfo = styled.div`
@@ -368,7 +368,7 @@ const UserDetails = styled.div`
 
 const Level = styled.div`
   font-weight: bold;
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #333;
 `;
 
