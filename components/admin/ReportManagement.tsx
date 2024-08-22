@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import { useRouter } from "next/router";
-import dynamic from "next/dynamic";
 import {
   getReportedContents,
   warnUser,
@@ -13,11 +12,6 @@ import {
 import { ReportedContent, Report, CompletedReport } from "../../types";
 import DefaultModal from "../modal/DefaultModal";
 import WarnModal from "../modal/WarnModal";
-
-// Client-side only import of useRouter
-const ClientSideComponent = dynamic(() => import("./ClientSideComponent"), {
-  ssr: false,
-});
 
 const ReportManagement: React.FC = () => {
   const [reportedContents, setReportedContents] = useState<ReportedContent[]>(
@@ -37,6 +31,7 @@ const ReportManagement: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [customReason, setCustomReason] = useState("");
+  const router = useRouter();
 
   const reportReasons = [
     "부적절한 내용",
@@ -163,6 +158,14 @@ const ReportManagement: React.FC = () => {
     return new Date(date).toLocaleString();
   };
 
+  const handleContentTypeClick = (content: ReportedContent) => {
+    const path =
+      content.type === "post"
+        ? `/posts/${content.id}`
+        : `/posts/${content.postId}#comment-${content.id}`;
+    router.push(path);
+  };
+
   const handleReasonChange = (reason: string) => {
     setSelectedReasons((prev) =>
       prev.includes(reason)
@@ -193,6 +196,7 @@ const ReportManagement: React.FC = () => {
       }
     }
   };
+
   return (
     <div>
       <TabContainer>
@@ -216,19 +220,78 @@ const ReportManagement: React.FC = () => {
         </Tab>
       </TabContainer>
 
-      {/* Render client-side only component */}
-      <ClientSideComponent
-        activeTab={activeTab}
-        reportedContents={reportedContents}
-        completedReports={completedReports}
-        handleShowReports={handleShowReports}
-        handleWarn={handleWarn}
-        handleDelete={handleDelete}
-        handleComplete={handleComplete}
-        handleReactivate={handleReactivate}
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-      />
+      {activeTab === "pending" && (
+        <>
+          <h2>신고된 컨텐츠</h2>
+          {reportedContents.length === 0 ? (
+            <p>신고된 컨텐츠가 없습니다.</p>
+          ) : (
+            reportedContents.map((content) => (
+              <ContentItem key={content.id}>
+                <ContentType onClick={() => handleContentTypeClick(content)}>
+                  {content.type === "post" ? "게시글" : "댓글"}:{" "}
+                  {content.title || "제목 없음"}
+                </ContentType>
+                <ContentText>{content.content}</ContentText>
+                <ContentAuthor>작성자: {content.author}</ContentAuthor>
+                <ReportCount>신고 수: {content.reportCount}</ReportCount>
+                <ButtonContainer>
+                  <ReportReasonButton
+                    onClick={() => handleShowReports(content.reports)}
+                  >
+                    사유
+                  </ReportReasonButton>
+                  <WarnButton
+                    onClick={() => handleWarn(content)}
+                    disabled={content.isWarned || content.isFired}
+                  >
+                    경고
+                  </WarnButton>
+                  <DeleteButton
+                    onClick={() => handleDelete(content)}
+                    disabled={content.isFired}
+                  >
+                    삭제
+                  </DeleteButton>
+                  <CompleteButton onClick={() => handleComplete(content)}>
+                    보관
+                  </CompleteButton>
+                </ButtonContainer>
+              </ContentItem>
+            ))
+          )}
+        </>
+      )}
+
+      {activeTab === "completed" && (
+        <>
+          <h2>처리 완료된 신고</h2>
+          {completedReports.length === 0 ? (
+            <p>처리 완료된 신고가 없습니다.</p>
+          ) : (
+            completedReports.map((report) => (
+              <CompletedItem key={report.id}>
+                <ContentType onClick={() => handleContentTypeClick(report)}>
+                  {report.type === "post" ? "게시글" : "댓글"}
+                </ContentType>
+                <ContentText>{report.content}</ContentText>
+                <ContentAuthor>작성자: {report.author}</ContentAuthor>
+                <CompletedDate>
+                  처리 일시: {formatDate(report.completedAt)}
+                </CompletedDate>
+                <ReactivateButton onClick={() => handleReactivate(report)}>
+                  재검토
+                </ReactivateButton>
+              </CompletedItem>
+            ))
+          )}
+          {completedReports.length >= 20 * currentPage && (
+            <LoadMoreButton onClick={() => setCurrentPage((prev) => prev + 1)}>
+              더 보기
+            </LoadMoreButton>
+          )}
+        </>
+      )}
 
       <DefaultModal
         isOpen={showReportModal}
