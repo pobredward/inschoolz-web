@@ -1,5 +1,6 @@
 import React from "react";
 import styled from "@emotion/styled";
+import { User } from "../../types";
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -11,6 +12,9 @@ interface ReportModalProps {
   onReasonChange: (reason: string) => void;
   customReason: string;
   onCustomReasonChange: (value: string) => void;
+  reportType: "post" | "comment" | null;
+  reportedItemId: string | null;
+  user: User | null;
 }
 
 const ReportModal: React.FC<ReportModalProps> = ({
@@ -23,6 +27,9 @@ const ReportModal: React.FC<ReportModalProps> = ({
   onReasonChange,
   customReason,
   onCustomReasonChange,
+  reportType,
+  reportedItemId,
+  user,
 }) => {
   if (!isOpen) return null;
 
