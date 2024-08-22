@@ -27,7 +27,7 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 import ProfileImage from "../../components/ProfileImage";
-import AttendanceCheck from "../../components/AttandanceCheck";
+import AttendanceCheck from "../../components/AttendanceCheck";
 import {
   getExperienceSettings,
   ExperienceSettings,
@@ -107,6 +107,8 @@ const MyPage: React.FC = () => {
     플래피 버드: ${expSettings.flappyBirdThreshold}점 이상 획득 시 ${expSettings.flappyBirdExperience}XP 획득
     타일 게임: ${expSettings.tileGameThreshold}점 이상 획득 시 ${expSettings.tileGameExperience}XP 획득
     게임은 하루 ${expSettings.maxDailyGames}회까지 플레이가 가능
+
+    친구 초대: ${expSettings.friendInvitation}XP
   `
     : "경험치 정보를 불러오는 중...";
 
