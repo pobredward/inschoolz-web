@@ -183,39 +183,47 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
   return (
     <div>
       <PostContainer>
-        {currentPosts.map((post) => (
-          <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
-            <PostMainContent>
-              <PostHeader>
-                <PostTitle>{post.title}</PostTitle>
-              </PostHeader>
-              <PostContent>{getPostContentSnippet(post.content)}</PostContent>
-            </PostMainContent>
-            <ImagePreviewContainer>
-              {post.imageUrls &&
-                post.imageUrls
-                  .slice(0, 2)
-                  .map((imageUrl, index) => (
-                    <ImagePreview
-                      key={index}
-                      src={imageUrl}
-                      alt={`Preview ${index + 1}`}
-                    />
-                  ))}
-            </ImagePreviewContainer>
-            <PostFooter>
-              <PostDateAuthor>
-                {formatDate(post.createdAt)} | {post.author}
-              </PostDateAuthor>
-              <PostActions>
-                <ActionItem>👍 {post.likes || 0}</ActionItem>
-                <ActionItem>💬 {post.comments || 0}</ActionItem>
-                <ActionItem>👁️ {post.views || 0}</ActionItem>
-                <ActionItem>🔖 {post.scraps || 0}</ActionItem>
-              </PostActions>
-            </PostFooter>
-          </PostItem>
-        ))}
+        {currentPosts.map((post) =>
+          post.isFired ? (
+            <DeletedPostItem key={post.id}>
+              <DeletedPostContent>
+                관리자에 의해 삭제된 게시글입니다
+              </DeletedPostContent>
+            </DeletedPostItem>
+          ) : (
+            <PostItem key={post.id} onClick={() => handlePostClick(post.id)}>
+              <PostMainContent>
+                <PostHeader>
+                  <PostTitle>{post.title}</PostTitle>
+                </PostHeader>
+                <PostContent>{getPostContentSnippet(post.content)}</PostContent>
+              </PostMainContent>
+              <ImagePreviewContainer>
+                {post.imageUrls &&
+                  post.imageUrls
+                    .slice(0, 2)
+                    .map((imageUrl, index) => (
+                      <ImagePreview
+                        key={index}
+                        src={imageUrl}
+                        alt={`Preview ${index + 1}`}
+                      />
+                    ))}
+              </ImagePreviewContainer>
+              <PostFooter>
+                <PostDateAuthor>
+                  {formatDate(post.createdAt)} | {post.author}
+                </PostDateAuthor>
+                <PostActions>
+                  <ActionItem>👍 {post.likes || 0}</ActionItem>
+                  <ActionItem>💬 {post.comments || 0}</ActionItem>
+                  <ActionItem>👁️ {post.views || 0}</ActionItem>
+                  <ActionItem>🔖 {post.scraps || 0}</ActionItem>
+                </PostActions>
+              </PostFooter>
+            </PostItem>
+          ),
+        )}
       </PostContainer>
       <Pagination>
         {currentPageGroup > 1 && (
@@ -281,6 +289,18 @@ const ControlBar = styled.div`
   align-items: center;
   margin: 1rem 0;
   gap: 0.5rem;
+`;
+
+const DeletedPostItem = styled.div`
+  padding: 1rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.5rem;
+`;
+
+const DeletedPostContent = styled.p`
+  color: #888;
 `;
 
 const SearchBar = styled.div`

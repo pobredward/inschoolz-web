@@ -1,7 +1,7 @@
 // hooks/useAuth.ts
 
-import { useEffect } from "react";
-import { useRecoilValue, useSetRecoilState } from "recoil";
+import { useEffect, useState } from "react";
+import { useRecoilValue, useSetRecoilState, useRecoilState } from "recoil";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
@@ -12,11 +12,11 @@ import { useLogin } from "./useLogin";
 import { useLogout } from "./useLogout";
 
 export const useAuth = () => {
-  const user = useRecoilValue(userState);
+  const [user, setUser] = useRecoilState(userState);
+  const [loading, setLoading] = useState(true);
   const signup = useSignup();
   const login = useLogin();
   const logout = useLogout();
-  const setUser = useSetRecoilState(userState);
   const setUserExperience = useSetRecoilState(userExperienceState);
   const setUserLevel = useSetRecoilState(userLevelState);
 
@@ -25,36 +25,42 @@ export const useAuth = () => {
       if (firebaseUser) {
         try {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-          const userData = userDoc.data();
-          if (userData) {
-            const user: User = {
-              uid: firebaseUser.uid,
-              userId: userData.userId || "",
-              email: firebaseUser.email,
-              name: userData.name || firebaseUser.displayName,
-              address1: userData.address1 || "",
-              address2: userData.address2 || "",
-              schoolId: userData.schoolId || "",
-              schoolName: userData.schoolName || "",
-              grade: userData.grade || "",
-              classNumber: userData.classNumber || "",
-              experience: userData.experience || 0,
-              totalExperience: userData.totalExperience || 0,
-              level: userData.level || 1,
-              birthYear: userData.birthYear || "",
-              birthMonth: userData.birthMonth || "",
-              birthDay: userData.birthDay || "",
-              phoneNumber: userData.phoneNumber || "",
-              profileImageUrl: userData.phoneNumber || "",
-              warnings: userData.warnings || [],
-              isAdmin: userData.isAdmin || false,
-            };
-            setUser(user);
-            setUserExperience(user.experience);
-            setUserLevel(user.level);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData) {
+              const user: User = {
+                uid: firebaseUser.uid,
+                userId: userData.userId || "",
+                email: firebaseUser.email,
+                name: userData.name || firebaseUser.displayName,
+                address1: userData.address1 || "",
+                address2: userData.address2 || "",
+                schoolId: userData.schoolId || "",
+                schoolName: userData.schoolName || "",
+                grade: userData.grade || "",
+                classNumber: userData.classNumber || "",
+                experience: userData.experience || 0,
+                totalExperience: userData.totalExperience || 0,
+                level: userData.level || 1,
+                birthYear: userData.birthYear || "",
+                birthMonth: userData.birthMonth || "",
+                birthDay: userData.birthDay || "",
+                phoneNumber: userData.phoneNumber || "",
+                profileImageUrl: userData.phoneNumber || "",
+                warnings: userData.warnings || [],
+                isAdmin: userData.isAdmin || false,
+              };
+              setUser(user);
+              setUserExperience(user.experience);
+              setUserLevel(user.level);
+            } else {
+              console.error("User data not found in Firestore");
+              resetUserState();
+            }
           } else {
-            console.error("User data not found in Firestore");
-            resetUserState();
+            console.error("User document does not exist");
+            setUser(null);
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -63,6 +69,7 @@ export const useAuth = () => {
       } else {
         resetUserState();
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -74,5 +81,5 @@ export const useAuth = () => {
     setUserLevel(1);
   };
 
-  return { user, signup, login, logout };
+  return { user, loading, signup, login, logout };
 };

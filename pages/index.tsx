@@ -2,8 +2,18 @@ import { NextPage } from "next";
 import Head from "next/head";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
+import { useRecoilValue } from "recoil";
+import { userState } from "../store/atoms";
+import { useRouter } from "next/router";
 
 const HomePage: NextPage = () => {
+  const user = useRecoilValue(userState);
+  const router = useRouter();
+
+  const handleAdminClick = () => {
+    router.push("/admin");
+  };
+
   return (
     <Layout>
       <Head>
@@ -49,6 +59,9 @@ const HomePage: NextPage = () => {
       <Main>
         <h1>인스쿨즈</h1>
         <p>대한민국 학생을 위한 웹사이트</p>
+        {user && user.isAdmin && (
+          <AdminButton onClick={handleAdminClick}>관리자 페이지</AdminButton>
+        )}
       </Main>
     </Layout>
   );
@@ -57,6 +70,22 @@ const HomePage: NextPage = () => {
 const Main = styled.main`
   padding: 4rem;
   text-align: center;
+`;
+
+const AdminButton = styled.button`
+  margin-top: 2rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--primary-button);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+
+  &:hover {
+    background-color: var(--primary-hover);
+  }
 `;
 
 export default HomePage;

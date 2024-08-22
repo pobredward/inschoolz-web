@@ -24,7 +24,7 @@ export const fetchComments = async (postId: string): Promise<Comment[]> => {
   const q = query(
     commentsRef,
     where("postId", "==", postId),
-    orderBy("createdAt", "desc") // createdAt 필드를 기준으로 내림차순 정렬
+    orderBy("createdAt", "desc"), // createdAt 필드를 기준으로 내림차순 정렬
   );
   const querySnapshot = await getDocs(q);
   const comments: Comment[] = [];
@@ -58,7 +58,16 @@ export async function getCommentsForPost(postId: string): Promise<Comment[]> {
 
 export async function createComment(commentData: Omit<Comment, "id">) {
   const commentsRef = collection(db, "comments");
-  const docRef = await addDoc(commentsRef, commentData);
+  const newComment = {
+    ...commentData,
+    likes: 0,
+    likedBy: [],
+    isDeleted: false,
+    isReportPending: true, // 새로 추가
+    reportCount: 0, // 새로 추가
+    reports: [], // 새로 추가
+  };
+  const docRef = await addDoc(commentsRef, newComment);
 
   // Update post's comment count
   const postRef = doc(db, "posts", commentData.postId);

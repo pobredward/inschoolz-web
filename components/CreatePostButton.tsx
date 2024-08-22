@@ -21,7 +21,7 @@ const CreatePostButton: React.FC = () => {
 
 const Button = styled.button`
   padding: 0.75rem 1.5rem;
-  background-color: var(--primary-color);
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 4px;
@@ -31,7 +31,7 @@ const Button = styled.button`
   margin: 1rem 0;
 
   &:hover {
-    background-color: var(--hover-color);
+    background-color: var(--primary-hover);
   }
 `;
 

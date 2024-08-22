@@ -21,20 +21,34 @@ export interface SignupData {
 
 export interface Warning {
   id: string;
-  reason: string;
-  date: any;
+  reason: string[];
+  date: Timestamp;
   contentId: string;
   contentType: "post" | "comment";
+  customReason: string;
+  postId: string;
+  contentTitle?: string; // 게시글 제목 또는 댓글 내용
+  contentCreatedAt: Timestamp; // 게시글/댓글 작성일
 }
 
 export interface ReportedContent {
   id: string;
+  postId: string;
   type: "post" | "comment";
+  title: string;
   content: string;
   author: string;
   authorId: string;
   reportCount: number;
   reports: Report[];
+  isWarned?: boolean;
+  isFired?: boolean;
+  lastReportedAt?: any;
+  isReportPending: boolean;
+}
+
+export interface CompletedReport extends ReportedContent {
+  completedAt: any;
 }
 
 // 사용자 데이터 타입
@@ -91,8 +105,12 @@ export interface Post {
   voteOptions?: VoteOption[] | null;
   voteResults?: { [key: number]: number };
   voterIds?: string[];
-  reportCount: number;
-  reports: Report[];
+  reportCount?: number;
+  reportStatus?: string;
+  reports?: Report[];
+  isWarned?: boolean;
+  isFired?: boolean;
+  lastReportedAt?: any;
 }
 
 export interface Report {
@@ -100,6 +118,7 @@ export interface Report {
   reason: string[];
   customReason?: string;
   createdAt: any;
+  lastReportedAt?: any;
 }
 
 // 카테고리 데이터 타입
@@ -129,8 +148,12 @@ export interface Comment {
   likedBy: string[];
   isDeleted: boolean;
   postId: string | null;
-  reportCount: number;
-  reports: Report[];
+  reportCount?: number;
+  reportStatus?: string;
+  reports?: Report[];
+  isWarned?: boolean;
+  isFired?: boolean;
+  lastReportedAt?: any;
 }
 
 export interface CommentSectionProps {

@@ -25,6 +25,7 @@ import {
   increment,
   arrayUnion,
   arrayRemove,
+  Timestamp,
 } from "firebase/firestore";
 import { storage, db } from "../lib/firebase";
 import { FaUserCircle } from "react-icons/fa";
@@ -185,9 +186,9 @@ const PostDetail: React.FC = () => {
     if (!user || !reportType || !reportedItemId) return;
 
     const report: Report = {
-      userId: user.uid,
+      userId: user.userId,
       reason: selectedReasons,
-      customReason: customReason.trim() || undefined,
+      customReason: customReason.trim() || "",
       createdAt: new Date(),
     };
 
@@ -196,6 +197,7 @@ const PostDetail: React.FC = () => {
         await updateDoc(doc(db, "posts", reportedItemId), {
           reportCount: increment(1),
           reports: arrayUnion(report),
+          lastReportedAt: Timestamp.now(),
         });
       } else {
         await updateDoc(doc(db, "comments", reportedItemId), {
@@ -262,29 +264,24 @@ const PostDetail: React.FC = () => {
     if (!post || !user) return;
 
     try {
-      // Step 1: 새로 추가된 이미지를 먼저 업로드
       const uploadedImageUrls = await Promise.all(
         editedImages.map((image) =>
           uploadImage(image, user.uid, "post", post.id),
         ),
       );
 
-      // Step 2: 기존 이미지와 새로 업로드된 이미지 URL을 통합
       const updatedImageUrls = [...existingImages, ...uploadedImageUrls];
 
-      // Step 3: 게시글 업데이트 - 이미지 URL이 준비된 후에만 업데이트 수행
       const updatedPost = {
         title: editedTitle,
         content: editedContent,
         categoryId: post.categoryId,
-        imageUrls: updatedImageUrls, // 통합된 이미지 URL 배열
+        imageUrls: updatedImageUrls,
         updatedAt: new Date(),
       };
 
-      // Update the post in the database
       await updatePost(post.id, updatedPost);
 
-      // Step 4: 상태 업데이트 및 수정 모드 종료
       setPost({
         ...post,
         ...updatedPost,
@@ -663,6 +660,9 @@ const PostDetail: React.FC = () => {
         customReason={customReason}
         onCustomReasonChange={(value) => setCustomReason(value)}
         onSubmit={handleReportSubmit}
+        reportType={reportType}
+        reportedItemId={reportedItemId}
+        user={user}
       />
     </Layout>
   );
@@ -784,8 +784,6 @@ const PostActions = styled.div`
     font-size: 0.8rem;
   }
 `;
-
-///////////////
 
 const EditForm = styled.form`
   display: flex;

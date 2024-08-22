@@ -4,6 +4,7 @@ import { userExperienceState, userLevelState } from "../store/atoms";
 import { useSetRecoilState } from "recoil";
 
 export interface ExperienceSettings {
+  attendanceCheck: number;
   postCreation: number;
   commentCreation: number;
   reactionGameThreshold: number;
@@ -39,6 +40,7 @@ export async function getExperienceSettings(): Promise<ExperienceSettings> {
   }
   // 기본값 설정
   return {
+    attendanceCheck: 10,
     postCreation: 5,
     commentCreation: 3,
     reactionGameThreshold: 300,
@@ -81,7 +83,9 @@ export async function updateUserExperience(
   let reachedDailyLimit = false;
   let expGained = 0;
 
-  if (
+  if (reason === "출석체크") {
+    expGained = amount; // 출석체크는 일일 제한에 영향을 받지 않음
+  } else if (
     reason === "게시글을 작성했습니다" &&
     communityInfo.postUploads < settings.maxDailyPosts
   ) {
@@ -111,6 +115,14 @@ export async function updateUserExperience(
     level,
     totalExperience,
     communityInfo,
+  });
+
+  console.log("User experience updated:", {
+    experience,
+    level,
+    totalExperience,
+    expGained,
+    reason,
   });
 
   return {

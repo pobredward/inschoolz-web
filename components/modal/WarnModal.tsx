@@ -1,35 +1,60 @@
 import React from "react";
 import styled from "@emotion/styled";
+import { updateDoc, doc, arrayUnion, Timestamp } from "firebase/firestore";
+import { db } from "../../lib/firebase";
+import { Warning } from "../../types";
+import { warnUser } from "../../services/adminService";
 
-interface ReportModalProps {
+interface WarnModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (selectedReasons: string[], customReason: string) => Promise<void>;
+  onSubmitSuccess: (contentId: string) => void;
   title: string;
-  reportReasons: string[];
+  warnReasons: string[];
   selectedReasons: string[];
   onReasonChange: (reason: string) => void;
   customReason: string;
-  onCustomReasonChange: (value: string) => void;
+  onCustomReasonChange: (reason: string) => void;
+  contentType: "post" | "comment";
+  contentId: string;
+  authorId: string;
 }
 
-const ReportModal: React.FC<ReportModalProps> = ({
+const WarnModal: React.FC<WarnModalProps> = ({
   isOpen,
   onClose,
-  onSubmit,
+  onSubmitSuccess,
   title,
-  reportReasons,
+  warnReasons,
   selectedReasons,
   onReasonChange,
   customReason,
   onCustomReasonChange,
+  contentType,
+  contentId,
+  authorId,
 }) => {
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onSubmit(selectedReasons, customReason);
-    onClose();
+  const handleSubmit = async () => {
+    if (!contentId || !authorId) return;
+
+    try {
+      await warnUser(
+        authorId,
+        contentId,
+        contentType,
+        selectedReasons,
+        customReason,
+      );
+
+      alert("경고가 부여되었습니다.");
+      onSubmitSuccess(contentId);
+      onClose();
+    } catch (error) {
+      console.error("Error submitting warning:", error);
+      alert("경고 부여 중 오류가 발생했습니다.");
+    }
   };
 
   return (
@@ -40,9 +65,9 @@ const ReportModal: React.FC<ReportModalProps> = ({
           <CloseButton onClick={onClose}>&times;</CloseButton>
         </ModalHeader>
         <ModalBody>
-          <ReportForm onSubmit={handleSubmit}>
-            <p>신고 사유를 선택해주세요 (복수 선택 가능):</p>
-            {reportReasons.map((reason) => (
+          <WarnForm>
+            <p>경고 사유를 선택해주세요 (복수 선택 가능):</p>
+            {warnReasons.map((reason) => (
               <label key={reason}>
                 <input
                   type="checkbox"
@@ -57,8 +82,8 @@ const ReportModal: React.FC<ReportModalProps> = ({
               value={customReason}
               onChange={(e) => onCustomReasonChange(e.target.value)}
             />
-            <SubmitButton type="submit">신고하기</SubmitButton>
-          </ReportForm>
+            <SubmitButton onClick={handleSubmit}>경고 부여</SubmitButton>
+          </WarnForm>
         </ModalBody>
       </ModalContent>
     </ModalOverlay>
@@ -106,7 +131,7 @@ const CloseButton = styled.button`
 
 const ModalBody = styled.div``;
 
-const ReportForm = styled.form`
+const WarnForm = styled.div`
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -139,4 +164,4 @@ const SubmitButton = styled.button`
   }
 `;
 
-export default ReportModal;
+export default WarnModal;

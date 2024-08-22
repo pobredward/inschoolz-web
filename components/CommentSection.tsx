@@ -115,9 +115,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     if (!user || !reportType || !reportedItemId) return;
 
     const report: Report = {
-      userId: user.uid,
+      userId: user.userId,
       reason: selectedReasons,
-      customReason: customReason.trim() || undefined,
+      customReason: customReason.trim() || "",
       createdAt: new Date(),
     };
 
@@ -396,7 +396,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
               )}
             </ActionsRight>
           </CommentHeader>
-          {comment.isDeleted ? (
+          {comment.isFired ? (
+            <DeletedCommentContent>
+              관리자에 의해 삭제된 댓글입니다
+            </DeletedCommentContent>
+          ) : comment.isDeleted ? (
             <DeletedCommentContent>삭제된 메시지입니다</DeletedCommentContent>
           ) : editingCommentId === comment.id ? (
             <EditForm
@@ -491,6 +495,9 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         customReason={customReason}
         onCustomReasonChange={(value) => setCustomReason(value)}
         onSubmit={handleReportSubmit}
+        reportType={reportType}
+        reportedItemId={reportedItemId}
+        user={user}
       />
     </>
   );
@@ -498,7 +505,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 
 const DeletedCommentContent = styled.p`
   color: #888;
-  /* font-style: italic; */
+  margin: 0.5rem 0;
+`;
+
+const FiredCommentContent = styled.p`
+  color: #888;
   margin: 0.5rem 0;
 `;
 

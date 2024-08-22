@@ -25,6 +25,7 @@ import {
   FaTrashAlt,
   FaChevronRight,
   FaInfoCircle,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 import ProfileImage from "../../components/ProfileImage";
 import AttendanceCheck from "../../components/AttendanceCheck";
@@ -111,10 +112,6 @@ const MyPage: React.FC = () => {
     친구 초대: ${expSettings.friendInvitation}XP
   `
     : "경험치 정보를 불러오는 중...";
-
-  const handleEditButtonClick = () => {
-    router.push("/mypage/edit");
-  };
 
   const deleteAccountMutation = useMutation(
     () => deleteUser(user!.uid, password),
@@ -221,10 +218,19 @@ const MyPage: React.FC = () => {
         </Section>
 
         <Section>
-          <Field onClick={handleEditButtonClick}>
+          <Field onClick={() => router.push("/mypage/edit")}>
             <LeftContent>
               <FaUserEdit />
               <Text>내 정보 수정</Text>
+            </LeftContent>
+            <RightContent>
+              <FaChevronRight />
+            </RightContent>
+          </Field>
+          <Field onClick={() => router.push("/mypage/penaltyrecord")}>
+            <LeftContent>
+              <FaExclamationTriangle />
+              <Text>제재 기록</Text>
             </LeftContent>
             <RightContent>
               <FaChevronRight />

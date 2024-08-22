@@ -95,6 +95,9 @@ export async function createPost(postData: CreatePostData) {
           )
         : null,
     voterIds: [],
+    isReportPending: true,
+    reportCount: 0,
+    reports: [],
   };
 
   try {

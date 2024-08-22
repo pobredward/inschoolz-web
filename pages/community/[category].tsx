@@ -267,7 +267,7 @@ const CategoryHeader = styled.div`
 
 const CreatePostButton = styled.button`
   padding: 0.5rem 1rem;
-  background-color: #0070f3;
+  background-color: var(--primary-button);
   color: white;
   border: none;
   border-radius: 4px;
@@ -277,7 +277,7 @@ const CreatePostButton = styled.button`
   transition: background-color 0.3s ease;
 
   &:hover {
-    background-color: #0056b3;
+    background-color: var(--primary-hover);
   }
 
   @media (max-width: 768px) {
