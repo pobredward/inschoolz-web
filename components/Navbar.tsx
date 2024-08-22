@@ -8,7 +8,13 @@ import { useAuth } from "../hooks/useAuth";
 import { useUser } from "../hooks/useUser";
 import { useLogout } from "../hooks/useLogout";
 import { FiUser } from "react-icons/fi";
-import { FaHome, FaComments, FaGamepad, FaTrophy } from "react-icons/fa";
+import {
+  FaHome,
+  FaComments,
+  FaGamepad,
+  FaTrophy,
+  FaUser,
+} from "react-icons/fa";
 import { useRouter } from "next/router";
 import { userExperienceState, userLevelState } from "../store/atoms";
 
@@ -115,6 +121,7 @@ const Navbar: React.FC = () => {
               <MenuLink href="/community/national-free">커뮤니티</MenuLink>
               <MenuLink href="/game">미니게임</MenuLink>
               <MenuLink href="/ranking">랭킹</MenuLink>
+              <MenuLink href="/mypage">내정보</MenuLink>
             </DesktopMenu>
           </LeftSection>
           <PageTitle>{getPageTitle()}</PageTitle>
@@ -156,21 +163,37 @@ const Navbar: React.FC = () => {
         </Container>
       </Nav>
       <BottomNav>
-        <BottomNavLink href="/">
+        <BottomNavLink href="/" active={router.pathname === "/"}>
           <FaHome />
           <span>홈</span>
         </BottomNavLink>
-        <BottomNavLink href="/community/national-free">
+        <BottomNavLink
+          href="/community/national-free"
+          active={router.pathname.startsWith("/community")}
+        >
           <FaComments />
           <span>커뮤니티</span>
         </BottomNavLink>
-        <BottomNavLink href="/game">
+        <BottomNavLink
+          href="/game"
+          active={router.pathname.startsWith("/game")}
+        >
           <FaGamepad />
           <span>미니게임</span>
         </BottomNavLink>
-        <BottomNavLink href="/ranking">
+        <BottomNavLink
+          href="/ranking"
+          active={router.pathname.startsWith("/ranking")}
+        >
           <FaTrophy />
           <span>랭킹</span>
+        </BottomNavLink>
+        <BottomNavLink
+          href="/mypage"
+          active={router.pathname.startsWith("/mypage")}
+        >
+          <FaUser />
+          <span>내 정보</span>
         </BottomNavLink>
       </BottomNav>
     </>
@@ -381,17 +404,19 @@ const BottomNav = styled.nav`
   }
 `;
 
-const BottomNavLink = styled(Link)`
+const BottomNavLink = styled(Link)<{ active: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: center;
   text-decoration: none;
-  color: #333;
+  color: ${(props) => (props.active ? "green" : "#333")}; /* 텍스트 색상 변경 */
   font-size: 0.7rem;
 
   svg {
-    font-size: 1.5rem;
+    font-size: 1.2rem; /* 아이콘 크기 조정 */
     margin-bottom: 2px;
+    color: ${(props) =>
+      props.active ? "green" : "#333"}; /* 아이콘 색상 변경 */
   }
 `;
 
