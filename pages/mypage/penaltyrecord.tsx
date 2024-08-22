@@ -67,7 +67,7 @@ const PenaltyRecordPage: React.FC = () => {
             ))}
           </WarningList>
         )}
-        <BackButton onClick={() => router.push("/mypage")}>
+        <BackButton onClick={() => router.back()}>
           마이페이지로 돌아가기
         </BackButton>
       </Container>
