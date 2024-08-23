@@ -27,6 +27,7 @@ export const useAuthStateManager = () => {
               experience: userData.experience,
               totalExperience: userData.totalExperience,
               level: userData.level,
+              profileImageUrl: userData.profileImageUrl,
             };
             localStorage.setItem(
               `user_${firebaseUser.uid}`,

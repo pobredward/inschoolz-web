@@ -47,7 +47,7 @@ export const useAuth = () => {
                 birthMonth: userData.birthMonth || "",
                 birthDay: userData.birthDay || "",
                 phoneNumber: userData.phoneNumber || "",
-                profileImageUrl: userData.phoneNumber || "",
+                profileImageUrl: userData.profileImageUrl || "",
                 warnings: userData.warnings || [],
                 isAdmin: userData.isAdmin || false,
               };
