@@ -286,7 +286,7 @@ const CreatePostButton = styled.button`
     align-items: center;
     width: 50px;
     height: 50px;
-    background-color: #0070f3;
+    background-color: var(--primary-button);
     color: white;
     border: none;
     border-radius: 8px; /* 원형 버튼 */
@@ -295,7 +295,7 @@ const CreatePostButton = styled.button`
     transition: background-color 0.3s ease;
 
     &:hover {
-      background-color: #0056b3;
+      background-color: var(--primary-hover);
     }
   }
 `;
