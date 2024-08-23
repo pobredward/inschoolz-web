@@ -1,12 +1,14 @@
 import imageCompression from "browser-image-compression";
 import ReactCrop, { Crop } from "react-image-crop";
 
-export async function compressImage(
-  file: File,
-  maxSizeMB: number = 1,
-): Promise<File> {
+export async function compressImage(file: File): Promise<File> {
   const options = {
-    maxSizeMB: maxSizeMB,
+    maxSizeMB:
+      file.size > 4 * 1024 * 1024
+        ? file.size / (4 * 1024 * 1024)
+        : file.size > 2 * 1024 * 1024
+          ? file.size / (2 * 1024 * 1024)
+          : 1,
     maxWidthOrHeight: 1920,
     useWebWorker: true,
   };

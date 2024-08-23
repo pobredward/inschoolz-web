@@ -82,6 +82,11 @@ const PostDetail: React.FC = () => {
   const [customReason, setCustomReason] = useState("");
   const [editedContent, setEditedContent] = useState("");
 
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const createLinkifiedContent = (htmlContent: string) => {
     // URL 패턴 정규식
     const urlPattern =
@@ -96,6 +101,14 @@ const PostDetail: React.FC = () => {
   const sanitizeHTML = (html: string) => {
     return DOMPurify.sanitize(html);
   };
+
+  useEffect(() => {
+    if (post) {
+      setExistingImages(post.imageUrls || []);
+      setEditedTitle(post.title);
+      setEditedContent(post.content);
+    }
+  }, [post]);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -245,37 +258,30 @@ const PostDetail: React.FC = () => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newImages = Array.from(e.target.files);
-      if (editedImages.length + newImages.length > 10) {
-        alert("최대 10개의 이미지만 첨부할 수 있습니다.");
-        return;
-      }
-      const compressedImages = await Promise.all(newImages.map(compressImage));
-      setEditedImages([...editedImages, ...compressedImages]);
-      setPreviewImages([
-        ...previewImages,
-        ...compressedImages.map(URL.createObjectURL),
-      ]);
+      const filesArray = Array.from(e.target.files);
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      const compressedImages = await Promise.all(
+        filesArray.map(async (file) => {
+          // 이미지 압축 로직 (필요한 경우)
+          return file;
+        }),
+      );
+
+      setNewImages((prevImages) => [...prevImages, ...compressedImages]);
+      setIsUploading(false);
+      setUploadProgress(100);
     }
   };
 
-  const handleImageRemove = async (index: number) => {
-    if (index < existingImages.length) {
-      // 기존 이미지 삭제
+  const handleImageRemove = (index: number, isExisting: boolean) => {
+    if (isExisting) {
       const imageUrl = existingImages[index];
-      try {
-        await deleteImage(imageUrl);
-        setExistingImages(existingImages.filter((_, i) => i !== index));
-        setPreviewImages(previewImages.filter((_, i) => i !== index));
-      } catch (error) {
-        console.error("Error deleting image:", error);
-        alert("이미지 삭제 중 오류가 발생했습니다.");
-      }
+      setExistingImages((prev) => prev.filter((_, i) => i !== index));
+      setRemovedImages((prev) => [...prev, imageUrl]);
     } else {
-      // 새로 추가된 이미지 삭제
-      const adjustedIndex = index - existingImages.length;
-      setEditedImages(editedImages.filter((_, i) => i !== adjustedIndex));
-      setPreviewImages(previewImages.filter((_, i) => i !== index));
+      setNewImages((prev) => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -283,12 +289,22 @@ const PostDetail: React.FC = () => {
     if (!post || !user) return;
 
     try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      // 새 이미지 업로드
       const uploadedImageUrls = await Promise.all(
-        editedImages.map((image) =>
-          uploadImage(image, user.uid, "post", post.id),
-        ),
+        newImages.map(async (image, index) => {
+          const url = await uploadImage(image, user.uid, "post", post.id);
+          setUploadProgress(((index + 1) / newImages.length) * 100);
+          return url;
+        }),
       );
 
+      // 삭제된 이미지 처리
+      await Promise.all(removedImages.map((url) => deleteImage(url)));
+
+      // 최종 이미지 URL 배열
       const updatedImageUrls = [...existingImages, ...uploadedImageUrls];
 
       const updatedPost = {
@@ -311,9 +327,17 @@ const PostDetail: React.FC = () => {
         message: "게시글 수정이 완료되었습니다.",
       });
       setShowModal(true);
+
+      // 상태 초기화
+      setNewImages([]);
+      setRemovedImages([]);
+      setExistingImages(updatedImageUrls);
     } catch (error) {
       console.error("Error updating post:", error);
       alert("게시글 수정 중 오류가 발생했습니다.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -563,16 +587,33 @@ const PostDetail: React.FC = () => {
                     multiple
                     onChange={handleImageUpload}
                   />
+                  {isUploading && <ProgressBar progress={uploadProgress} />}
                   <ImagePreviewContainer>
-                    {previewImages.map((image, index) => (
-                      <ImagePreviewWrapper key={index}>
+                    {existingImages.map((image, index) => (
+                      <ImagePreviewWrapper key={`existing-${index}`}>
                         <ImagePreview
                           src={image}
                           alt={`Image preview ${index + 1}`}
                         />
                         <RemoveButton
                           type="button"
-                          onClick={() => handleImageRemove(index)}
+                          onClick={() => handleImageRemove(index, true)}
+                          disabled={isUploading}
+                        >
+                          <FaTrash />
+                        </RemoveButton>
+                      </ImagePreviewWrapper>
+                    ))}
+                    {newImages.map((image, index) => (
+                      <ImagePreviewWrapper key={`new-${index}`}>
+                        <ImagePreview
+                          src={URL.createObjectURL(image)}
+                          alt={`New image preview ${index + 1}`}
+                        />
+                        <RemoveButton
+                          type="button"
+                          onClick={() => handleImageRemove(index, false)}
+                          disabled={isUploading}
                         >
                           <FaTrash />
                         </RemoveButton>
@@ -580,7 +621,9 @@ const PostDetail: React.FC = () => {
                     ))}
                   </ImagePreviewContainer>
                   <ButtonContainer>
-                    <SaveButton onClick={handleSaveEdit}>저장</SaveButton>
+                    <SaveButton onClick={handleSaveEdit} disabled={isUploading}>
+                      {isUploading ? "업로드 중..." : "저장"}
+                    </SaveButton>
                     <CancelButton onClick={() => setIsEditing(false)}>
                       취소
                     </CancelButton>
@@ -1136,6 +1179,22 @@ const ReportForm = styled.div`
     &:hover {
       background-color: #ff0000;
     }
+  }
+`;
+
+const ProgressBar = styled.div<{ progress: number }>`
+  width: 100%;
+  height: 5px;
+  background-color: #e0e0e0;
+  margin-top: 10px;
+
+  &::after {
+    content: "";
+    display: block;
+    width: ${(props) => props.progress}%;
+    height: 100%;
+    background-color: var(--primary-button);
+    transition: width 0.3s ease;
   }
 `;
 

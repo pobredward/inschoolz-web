@@ -102,8 +102,7 @@ const CreatePostPage: React.FC = () => {
         alert("최대 10개의 이미지만 첨부할 수 있습니다.");
         return;
       }
-      const compressedImages = await Promise.all(newImages.map(compressImage));
-      setImages([...images, ...compressedImages]);
+      setImages([...images, ...newImages]);
     }
   };
 
@@ -289,7 +288,6 @@ const CreatePostPage: React.FC = () => {
                 </optgroup>
               ))}
             </Select>
-            {/* <Label htmlFor="title">제목</Label> */}
             <Input
               type="text"
               id="title"
@@ -310,15 +308,6 @@ const CreatePostPage: React.FC = () => {
               }}
               placeholder="내용을 입력하세요"
             />
-            {/* <Label htmlFor="content">내용</Label> */}
-            {/* <Textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="내용을 입력하세요"
-              required
-            /> */}
-            <Label htmlFor="image">이미지 업로드 (최대 10개)</Label>
             <ImageUploadButton
               type="button"
               onClick={(e) => {
@@ -326,7 +315,7 @@ const CreatePostPage: React.FC = () => {
                 fileInputRef.current?.click();
               }}
             >
-              <FaUpload /> 이미지 선택
+              <FaUpload /> 이미지 (최대 10개)
             </ImageUploadButton>
             <HiddenInput
               ref={fileInputRef}
