@@ -10,6 +10,7 @@ import { AttendanceState } from "../types";
 import ExperienceModal from "./modal/ExperienceModal";
 import { FaCheck } from "react-icons/fa";
 import { updateUserExperience } from "../utils/experience";
+
 const DAYS_OF_WEEK = ["월", "화", "수", "목", "금", "토", "일"];
 
 const AttendanceCheck: React.FC = () => {
@@ -24,14 +25,16 @@ const AttendanceCheck: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      getAttendanceState(user.uid, new Date()).then(setAttendanceState);
+      const today = new Date();
+      getAttendanceState(user.uid, today).then(setAttendanceState);
     }
   }, [user]);
 
   const handleAttendanceCheck = async () => {
     if (user && attendanceState?.canCheckToday) {
       try {
-        const newState = await checkAttendance(user.uid, new Date());
+        const today = new Date();
+        const newState = await checkAttendance(user.uid, today);
         setAttendanceState(newState);
 
         const result = await updateUserExperience(user.uid, 10, "출석체크");
@@ -61,6 +64,12 @@ const AttendanceCheck: React.FC = () => {
     today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1),
   );
 
+  const getLocalDateString = (date: Date): string => {
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split("T")[0];
+  };
+
   return (
     <Container>
       <AttendanceInfo>
@@ -68,7 +77,7 @@ const AttendanceCheck: React.FC = () => {
         <LastAttendance>
           마지막 출석:{" "}
           {attendanceState.lastAttendance
-            ? attendanceState.lastAttendance.toLocaleDateString()
+            ? getLocalDateString(attendanceState.lastAttendance)
             : "없음"}
         </LastAttendance>
       </AttendanceInfo>
@@ -76,9 +85,10 @@ const AttendanceCheck: React.FC = () => {
         {DAYS_OF_WEEK.map((day, index) => {
           const date = new Date(mondayOfWeek);
           date.setDate(mondayOfWeek.getDate() + index);
-          const dateString = date.toISOString().split("T")[0];
+          const dateString = getLocalDateString(date);
           const isAttended = attendanceState.monthlyAttendances[dateString];
-          const isToday = date.toDateString() === today.toDateString();
+          const isToday =
+            getLocalDateString(date) === getLocalDateString(today);
 
           return (
             <DayCell key={day} isToday={isToday} isAttended={isAttended}>
