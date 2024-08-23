@@ -305,7 +305,7 @@ const CreatePostPage: React.FC = () => {
               modules={{
                 toolbar: [
                   [{ header: [1, 2, 3, false] }],
-                  ["bold", "italic", "underline", "strike", "link", "clean"],
+                  ["bold", "italic", "underline", "strike", "clean"],
                 ],
               }}
               placeholder="내용을 입력하세요"
