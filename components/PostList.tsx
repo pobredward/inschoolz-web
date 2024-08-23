@@ -20,6 +20,7 @@ import {
   FaBookmark,
   FaSearch,
 } from "react-icons/fa";
+import DOMPurify from "dompurify";
 
 const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
   const [posts, setPosts] = useRecoilState(postsState);
@@ -32,6 +33,9 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
   const [filteredPosts, setFilteredPosts] = useState([]);
   const [dateFilter, setDateFilter] = useState("all");
   const [searchScope, setSearchScope] = useState("all");
+  const sanitizeHTML = (html: string) => {
+    return DOMPurify.sanitize(html);
+  };
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -303,6 +307,14 @@ const DeletedPostContent = styled.p`
   color: #888;
 `;
 
+const PostContent = styled.p`
+  margin: 0.5rem 0;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
 const SearchBar = styled.div`
   display: flex;
   align-items: center;
@@ -419,25 +431,26 @@ const PostMainContent = styled.div`
   margin-right: 1rem;
 `;
 
-const PostContent = styled.p`
-  margin: 0.5rem 0;
-  color: #8e9091;
-  line-height: 1.2;
-  font-size: 0.9rem;
-`;
+const getPostContentSnippet = (content: string) => {
+  // <p> 태그를 기준으로 내용 분리
+  const paragraphs = content
+    .split(/<\/?p[^>]*>/g)
+    .filter((paragraph) => paragraph.trim() !== "");
 
-const getPostContentSnippet = (content) => {
-  // 첫 줄만 가져오기
-  const firstLine = content.split("\n")[0];
+  // 첫 번째 <p> 문단 가져오기
+  const firstParagraph = paragraphs[0] || "";
 
-  if (typeof window !== "undefined") {
-    const isMobile = window.innerWidth <= 768;
-    const sliceLength = isMobile ? 20 : 45;
-    return firstLine.length > sliceLength
-      ? firstLine.slice(0, sliceLength) + "..."
-      : firstLine.slice(0, sliceLength);
-  }
-  return firstLine;
+  // HTML 태그 제거
+  const plainText = firstParagraph.replace(/<[^>]+>/g, "");
+
+  // 모바일 여부에 따라 길이 제한
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+  const sliceLength = isMobile ? 20 : 45;
+
+  // 글자 수 제한 적용
+  return plainText.length > sliceLength
+    ? plainText.slice(0, sliceLength) + "..."
+    : plainText;
 };
 
 const ImagePreviewContainer = styled.div`

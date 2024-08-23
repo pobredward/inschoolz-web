@@ -88,6 +88,23 @@ const CommentSection: React.FC<CommentSectionProps> = ({
     };
   }, [newComment]);
 
+  const linkify = (text: string) => {
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
+
+    const parts = text.split(urlPattern);
+
+    return parts.map((part, index) =>
+      urlPattern.test(part) ? (
+        <a key={index} href={part} target="_blank" rel="noopener noreferrer">
+          {part}
+        </a>
+      ) : (
+        part
+      )
+    );
+  };
+
+
   const reportReasons = [
     "부적절한 내용",
     "스팸",
@@ -420,7 +437,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({
             </EditForm>
           ) : (
             <>
-              <CommentContent>{comment.content}</CommentContent>
+              <CommentContent>{linkify(comment.content)}</CommentContent>
               <CommentActions>
                 <ActionsLeft>
                   <CommentDate>{formatDate(comment.createdAt)}</CommentDate>

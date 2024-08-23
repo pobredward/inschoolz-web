@@ -23,6 +23,9 @@ import {
 } from "../utils/experience";
 import ExperienceModal from "../components/modal/ExperienceModal";
 import { FaInfoCircle } from "react-icons/fa";
+import dynamic from "next/dynamic";
+import "react-quill/dist/quill.snow.css"; // Quill 스타일시트
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 
 const CreatePostPage: React.FC = () => {
   const [title, setTitle] = useState("");
@@ -49,6 +52,10 @@ const CreatePostPage: React.FC = () => {
   const setUserLevel = useSetRecoilState(userLevelState);
   const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+  };
 
   const handleNoticeOpen = () => {
     setIsNoticeOpen(true);
@@ -291,14 +298,26 @@ const CreatePostPage: React.FC = () => {
               placeholder="제목을 입력하세요"
               required
             />
+            <Label htmlFor="content"></Label>
+            <ReactQuill
+              value={content}
+              onChange={handleContentChange}
+              modules={{
+                toolbar: [
+                  [{ header: [1, 2, 3, false] }],
+                  ["bold", "italic", "underline", "strike", "link", "clean"],
+                ],
+              }}
+              placeholder="내용을 입력하세요"
+            />
             {/* <Label htmlFor="content">내용</Label> */}
-            <Textarea
+            {/* <Textarea
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="내용을 입력하세요"
               required
-            />
+            /> */}
             <Label htmlFor="image">이미지 업로드 (최대 10개)</Label>
             <ImageUploadButton
               type="button"

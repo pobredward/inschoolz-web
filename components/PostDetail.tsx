@@ -44,6 +44,10 @@ import { ImageGallery, Modal } from "./ImageGallery";
 import DefaultModal from "./modal/DefaultModal";
 import ReportModal from "./modal/ReportModal";
 import { compressImage } from "../utils/imageUtils";
+import dynamic from "next/dynamic";
+import "react-quill/dist/quill.snow.css";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import DOMPurify from "dompurify";
 
 const PostDetail: React.FC = () => {
   const router = useRouter();
@@ -56,7 +60,6 @@ const PostDetail: React.FC = () => {
   const [liked, setLiked] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
-  const [editedContent, setEditedContent] = useState("");
   const [commentCount, setCommentCount] = useState(0);
   const [selectedVoteOption, setSelectedVoteOption] = useState<number | null>(
     null,
@@ -77,6 +80,22 @@ const PostDetail: React.FC = () => {
   const [reportedItemId, setReportedItemId] = useState<string | null>(null);
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [customReason, setCustomReason] = useState("");
+  const [editedContent, setEditedContent] = useState("");
+
+  const createLinkifiedContent = (htmlContent: string) => {
+    // URL 패턴 정규식
+    const urlPattern =
+      /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
+
+    // URL을 <a> 태그로 변환
+    return htmlContent.replace(urlPattern, (url) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+    });
+  };
+
+  const sanitizeHTML = (html: string) => {
+    return DOMPurify.sanitize(html);
+  };
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -512,11 +531,22 @@ const PostDetail: React.FC = () => {
                     ))}
                   </Select>
                   <Label htmlFor="content">내용</Label>
-                  <Textarea
-                    id="content"
+                  <ReactQuill
                     value={editedContent}
-                    onChange={(e) => setEditedContent(e.target.value)}
-                    required
+                    onChange={setEditedContent}
+                    modules={{
+                      toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        [
+                          "bold",
+                          "italic",
+                          "underline",
+                          "strike",
+                          "link",
+                          "clean",
+                        ],
+                      ],
+                    }}
                   />
                   <Label htmlFor="image">이미지 업로드 (최대 10개)</Label>
                   <ImageUploadButton
@@ -559,7 +589,13 @@ const PostDetail: React.FC = () => {
               ) : (
                 <>
                   <PostTitle>{post.title}</PostTitle>
-                  <PostContent>{post.content}</PostContent>
+                  <PostContent
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeHTML(
+                        createLinkifiedContent(post.content),
+                      ),
+                    }}
+                  />
                   {post.imageUrls && post.imageUrls.length > 0 && (
                     <ImageGallery images={post.imageUrls} />
                   )}
@@ -769,8 +805,13 @@ const PostTitle = styled.h2`
 `;
 
 const PostContent = styled.div`
-  margin-bottom: 5rem;
-  white-space: pre-line; // 줄바꿈을 적용하는 속성 추가
+  margin-bottom: 2rem;
+  line-height: 1.6;
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
 `;
 
 const PostActions = styled.div`
