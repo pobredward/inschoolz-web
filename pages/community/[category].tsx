@@ -9,10 +9,11 @@ import {
 } from "../../store/atoms";
 import { useRouter } from "next/router";
 import styled from "@emotion/styled";
-import { FaPen, FaBars, FaStar } from "react-icons/fa";
+import { FaPen, FaBars, FaStar, FaSearch, FaUndo } from "react-icons/fa";
 import Link from "next/link";
 import MinorGallerySearch from "../../components/MinorGallerySearch";
 import { toggleFavoriteMinorGallery } from "../../services/userService";
+import { Category } from "../../types";
 
 const CategoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
@@ -26,6 +27,37 @@ const CategoryPage: React.FC = () => {
   const [activeMajorCategory, setActiveMajorCategory] = useState("national");
   const pageRef = useRef(null);
   const [isMinorGalleryOpen, setIsMinorGalleryOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredGalleries, setFilteredGalleries] = useState<Category[]>([]);
+  const [allMinorGalleries, setAllMinorGalleries] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const minorGalleries =
+      categories
+        .find((cat) => cat.id === "national")
+        ?.subcategories?.find((subcat) => subcat.id === "national-minor")
+        ?.subcategories || [];
+    setAllMinorGalleries(minorGalleries);
+    setFilteredGalleries(minorGalleries);
+  }, [categories]);
+
+  const handleSearch = () => {
+    const filtered = allMinorGalleries.filter((gallery) =>
+      gallery.name.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+    setFilteredGalleries(filtered);
+  };
+
+  const handleReset = () => {
+    setSearchTerm("");
+    setFilteredGalleries(allMinorGalleries);
+  };
+
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      handleSearch();
+    }
+  };
 
   const toggleMinorGallery = () => {
     setIsMinorGalleryOpen(!isMinorGalleryOpen);
@@ -129,11 +161,53 @@ const CategoryPage: React.FC = () => {
                       </MinorGalleryToggle>
                       {isMinorGalleryOpen && (
                         <>
-                          <MinorGallerySearch
-                            onSelect={handleMinorGallerySelect}
-                          />
+                          <FavoriteGalleriesSection>
+                            {user?.favoriteGalleries?.map((galleryId) => {
+                              const gallery = allMinorGalleries.find(
+                                (g) => g.id === galleryId,
+                              );
+                              return (
+                                gallery && (
+                                  <SubcategoryItem
+                                    key={gallery.id}
+                                    onClick={() =>
+                                      handleCategorySelect(gallery.id)
+                                    }
+                                    isActive={selectedCategory === gallery.id}
+                                  >
+                                    <span>{gallery.name}</span>
+                                    <StarIcon
+                                      isFavorite={true}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleFavorite(gallery.id);
+                                      }}
+                                    >
+                                      <FaStar />
+                                    </StarIcon>
+                                  </SubcategoryItem>
+                                )
+                              );
+                            })}
+                          </FavoriteGalleriesSection>
+                          <SearchContainer>
+                            <SearchInput
+                              type="text"
+                              placeholder="갤러리 검색"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                              onKeyPress={handleKeyPress}
+                            />
+                            <SearchButton onClick={handleSearch}>
+                              <FaSearch />
+                            </SearchButton>
+                            <ResetButton onClick={handleReset}>
+                              <FaUndo />
+                            </ResetButton>
+                          </SearchContainer>
+
                           <MinorGalleryList>
-                            {subcat.subcategories?.map((minorGallery) => (
+                            {filteredGalleries.map((minorGallery) => (
                               <SubcategoryItem
                                 key={minorGallery.id}
                                 onClick={() =>
@@ -208,6 +282,38 @@ const CategoryPage: React.FC = () => {
     </Layout>
   );
 };
+
+const FavoriteGalleriesSection = styled.div`
+  margin-bottom: 1rem;
+  margin-left: 1rem;
+`;
+
+const SearchContainer = styled.div`
+  display: flex;
+  margin-bottom: 1rem;
+  margin-left: 1rem;
+`;
+
+const SearchInput = styled.input`
+  flex-grow: 1;
+  max-width: 100px;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px 0 0 4px;
+`;
+
+const SearchButton = styled.button`
+  padding: 0.5rem;
+  background-color: var(--primary-button);
+  color: white;
+  border: none;
+  cursor: pointer;
+`;
+
+const ResetButton = styled(SearchButton)`
+  border-radius: 0 4px 4px 0;
+  background-color: #6c757d;
+`;
 
 const StarIcon = styled.span<{ isFavorite: boolean }>`
   color: ${({ isFavorite }) => (isFavorite ? "gold" : "#ccc")};
