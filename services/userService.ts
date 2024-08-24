@@ -7,14 +7,49 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   deleteDoc,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 import { deleteUser as deleteFirebaseUser } from "firebase/auth";
 import { db, auth, storage } from "../lib/firebase";
 import { ref, listAll, deleteObject } from "firebase/storage";
 import { reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
-
 import { User } from "../types";
+
+export const toggleFavoriteMinorGallery = async (
+  userId: string,
+  galleryId: string,
+): Promise<User> => {
+  const userRef = doc(db, "users", userId);
+  try {
+    const userDoc = await getDoc(userRef);
+    const userData = userDoc.data() as User;
+    const favoriteGalleries = userData.favoriteGalleries || [];
+
+    let updatedFavoriteGalleries: string[];
+    if (favoriteGalleries.includes(galleryId)) {
+      updatedFavoriteGalleries = favoriteGalleries.filter(
+        (id) => id !== galleryId,
+      );
+    } else {
+      updatedFavoriteGalleries = [...favoriteGalleries, galleryId];
+    }
+
+    await updateDoc(userRef, {
+      favoriteGalleries: updatedFavoriteGalleries,
+    });
+
+    return {
+      ...userData,
+      favoriteGalleries: updatedFavoriteGalleries,
+    };
+  } catch (error) {
+    console.error("Error toggling favorite minor gallery:", error);
+    throw error;
+  }
+};
 
 export const deleteUser = async (
   userId: string,

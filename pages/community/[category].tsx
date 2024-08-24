@@ -9,8 +9,10 @@ import {
 } from "../../store/atoms";
 import { useRouter } from "next/router";
 import styled from "@emotion/styled";
-import { FaPen, FaBars } from "react-icons/fa";
+import { FaPen, FaBars, FaStar } from "react-icons/fa";
 import Link from "next/link";
+import MinorGallerySearch from "../../components/MinorGallerySearch";
+import { toggleFavoriteMinorGallery } from "../../services/userService";
 
 const CategoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
@@ -18,7 +20,7 @@ const CategoryPage: React.FC = () => {
   );
   const router = useRouter();
   const { category } = router.query;
-  const user = useRecoilValue(userState);
+  const [user, setUser] = useRecoilState(userState);
   const categories = useRecoilValue(categoriesState);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeMajorCategory, setActiveMajorCategory] = useState("national");
@@ -27,6 +29,18 @@ const CategoryPage: React.FC = () => {
 
   const toggleMinorGallery = () => {
     setIsMinorGalleryOpen(!isMinorGalleryOpen);
+  };
+
+  const handleMinorGallerySelect = (galleryId: string) => {
+    handleCategorySelect(galleryId);
+    setIsMinorGalleryOpen(false);
+  };
+
+  const handleToggleFavorite = async (galleryId: string) => {
+    if (user) {
+      const updatedUser = await toggleFavoriteMinorGallery(user.uid, galleryId);
+      setUser(updatedUser); // 업데이트된 사용자 정보로 상태 갱신
+    }
   };
 
   useEffect(() => {
@@ -42,6 +56,13 @@ const CategoryPage: React.FC = () => {
         for (let subcat of cat.subcategories) {
           if (subcat.id === categoryId) {
             return `${cat.name} > ${subcat.name}`;
+          }
+          if (subcat.subcategories) {
+            for (let minorGallery of subcat.subcategories) {
+              if (minorGallery.id === categoryId) {
+                return `${cat.name} > ${minorGallery.name} 게시판`;
+              }
+            }
           }
         }
       }
@@ -107,19 +128,35 @@ const CategoryPage: React.FC = () => {
                         {isMinorGalleryOpen ? " ▲" : " ▼"}
                       </MinorGalleryToggle>
                       {isMinorGalleryOpen && (
-                        <MinorGalleryList>
-                          {subcat.subcategories?.map((minorGallery) => (
-                            <SubcategoryItem
-                              key={minorGallery.id}
-                              onClick={() =>
-                                handleCategorySelect(minorGallery.id)
-                              }
-                              isActive={selectedCategory === minorGallery.id}
-                            >
-                              {minorGallery.name}
-                            </SubcategoryItem>
-                          ))}
-                        </MinorGalleryList>
+                        <>
+                          <MinorGallerySearch
+                            onSelect={handleMinorGallerySelect}
+                          />
+                          <MinorGalleryList>
+                            {subcat.subcategories?.map((minorGallery) => (
+                              <SubcategoryItem
+                                key={minorGallery.id}
+                                onClick={() =>
+                                  handleCategorySelect(minorGallery.id)
+                                }
+                                isActive={selectedCategory === minorGallery.id}
+                              >
+                                <span>{minorGallery.name}</span>
+                                <StarIcon
+                                  isFavorite={user?.favoriteGalleries?.includes(
+                                    minorGallery.id,
+                                  )}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleFavorite(minorGallery.id);
+                                  }}
+                                >
+                                  <FaStar />
+                                </StarIcon>
+                              </SubcategoryItem>
+                            ))}
+                          </MinorGalleryList>
+                        </>
                       )}
                     </MinorGalleryContainer>
                   ) : (
@@ -172,6 +209,12 @@ const CategoryPage: React.FC = () => {
   );
 };
 
+const StarIcon = styled.span<{ isFavorite: boolean }>`
+  color: ${({ isFavorite }) => (isFavorite ? "gold" : "#ccc")};
+  cursor: pointer;
+  font-size: 0.9rem;
+`;
+
 const MinorGalleryContainer = styled.div`
   margin-bottom: 10px;
 `;
@@ -196,17 +239,16 @@ const PageContainer = styled.div`
 const ContentWrapper = styled.div`
   display: flex;
 `;
-
 const CategoryPanel = styled.div<{ isOpen: boolean }>`
   display: flex;
-  width: 280px;
-  height: calc(100vh - 60px); // 모바일 헤더 높이를 고려
+  width: 320px; // 너비를 280px에서 320px로 증가
+  height: calc(100vh - 60px);
   background-color: white;
   transition: transform 0.3s ease-in-out;
 
   @media (max-width: 768px) {
     position: fixed;
-    top: 60px; // 모바일 헤더 아래에 위치
+    top: 60px;
     left: 0;
     transform: ${({ isOpen }) =>
       isOpen ? "translateX(0)" : "translateX(-100%)"};
@@ -220,23 +262,27 @@ const MajorCategoryList = styled.div`
   overflow-y: auto;
 `;
 
-const MajorCategoryItem = styled.div<{ isActive: boolean }>`
-  padding: 1rem;
-  cursor: pointer;
-  background-color: ${({ isActive }) => (isActive ? "#f0f0f0" : "transparent")};
-  &:hover {
-    background-color: #f0f0f0;
-  }
-`;
-
 const SubcategoryList = styled.div`
   flex: 1;
-  padding: 1rem;
+  padding: 0.5rem;
   overflow-y: auto;
 `;
 
 const SubcategoryItem = styled.div<{ isActive: boolean }>`
   padding: 0.5rem;
+  cursor: pointer;
+  background-color: ${({ isActive }) => (isActive ? "#f0f0f0" : "transparent")};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  &:hover {
+    background-color: #f0f0f0;
+  }
+`;
+
+const MajorCategoryItem = styled.div<{ isActive: boolean }>`
+  padding: 1rem;
   cursor: pointer;
   background-color: ${({ isActive }) => (isActive ? "#f0f0f0" : "transparent")};
   &:hover {

@@ -73,6 +73,7 @@ export interface User {
   totalExperience: number;
   isAdmin?: boolean;
   warnings?: Warning[];
+  favoriteGalleries?: string[];
 }
 
 export interface VoteOption {
