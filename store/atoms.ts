@@ -35,7 +35,6 @@ export const categoriesState = atom<Category[]>({
       name: "전국",
       subcategories: [
         { id: "national-free", name: "자유 게시판" },
-        { id: "national-study", name: "공부/진로" },
         { id: "national-hot", name: "HOT 게시글" },
       ],
     },
@@ -52,7 +51,7 @@ export const categoriesState = atom<Category[]>({
       id: "school",
       name: "학교",
       subcategories: [
-        { id: "school-free", name: "자유 게시판" },
+        { id: "school-student", name: "재학생 게시판" },
         { id: "school-graduate", name: "졸업생 게시판" },
       ],
     },

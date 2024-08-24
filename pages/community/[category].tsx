@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import Layout from "../../components/Layout";
-import CategoryList from "../../components/CategoryList";
 import PostList from "../../components/PostList";
 import { useRecoilState, useRecoilValue } from "recoil";
 import {
@@ -10,7 +9,7 @@ import {
 } from "../../store/atoms";
 import { useRouter } from "next/router";
 import styled from "@emotion/styled";
-import { FaChevronDown, FaChevronUp, FaPen } from "react-icons/fa";
+import { FaPen, FaBars } from "react-icons/fa";
 import Link from "next/link";
 
 const CategoryPage: React.FC = () => {
@@ -21,65 +20,43 @@ const CategoryPage: React.FC = () => {
   const { category } = router.query;
   const user = useRecoilValue(userState);
   const categories = useRecoilValue(categoriesState);
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-  const wrapperRef = useRef(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeMajorCategory, setActiveMajorCategory] = useState("national");
+  const pageRef = useRef(null);
 
   useEffect(() => {
     if (category) {
       setSelectedCategory(category as string);
+      setActiveMajorCategory(category.toString().split("-")[0]);
     }
   }, [category, setSelectedCategory]);
 
-  const getDesktopCategoryPath = () => {
-    let categoryPath = "전국";
-    categories.forEach((cat) => {
-      cat.subcategories?.forEach((subcat) => {
-        if (subcat.id === category) {
-          categoryPath = `${cat.name} > ${subcat.name}`;
-          if (cat.id === "regional") {
-            categoryPath = `${user?.address1} ${user?.address2} > ${subcat.name}`;
-          } else if (cat.id === "school") {
-            categoryPath = `${user?.schoolName} > ${subcat.name}`;
+  const getCategoryName = (categoryId: string) => {
+    for (let cat of categories) {
+      if (cat.subcategories) {
+        for (let subcat of cat.subcategories) {
+          if (subcat.id === categoryId) {
+            return `${cat.name} > ${subcat.name}`;
           }
         }
-      });
-    });
-    return categoryPath;
+      }
+    }
+    return "";
   };
 
-  const getMobileCategoryPath = () => {
-    let categoryPath = "전국";
-    categories.forEach((cat) => {
-      cat.subcategories?.forEach((subcat) => {
-        if (subcat.id === category) {
-          if (cat.id === "regional") {
-            // 지역 카테고리의 경우
-            categoryPath = `지역 > ${subcat.name}`;
-          } else if (cat.id === "school") {
-            // 학교 카테고리의 경우
-            categoryPath = `학교 > ${subcat.name}`;
-          } else {
-            categoryPath = `${cat.name} > ${subcat.name}`;
-          }
-        }
-      });
-    });
-    return categoryPath;
-  };
-
-  const toggleCategory = () => {
-    setIsCategoryOpen(!isCategoryOpen);
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
-    setIsCategoryOpen(false);
+    setIsMobileMenuOpen(false);
     router.push(`/community/${categoryId}`);
   };
 
   const handleClickOutside = (event: MouseEvent) => {
-    if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-      setIsCategoryOpen(false);
+    if (pageRef.current && !pageRef.current.contains(event.target as Node)) {
+      setIsMobileMenuOpen(false);
     }
   };
 
@@ -94,164 +71,172 @@ const CategoryPage: React.FC = () => {
 
   return (
     <Layout>
-      <Container>
-        <DesktopCategoryPanel>
-          <CategoryList onSelectCategory={handleCategorySelect} />
-        </DesktopCategoryPanel>
-        <MobileCategoryWrapper ref={wrapperRef}>
-          <CategoryToggle onClick={toggleCategory} isOpen={isCategoryOpen}>
-            <span>{getMobileCategoryPath()}</span>
-            {isCategoryOpen ? <FaChevronUp /> : <FaChevronDown />}
-          </CategoryToggle>
-          <CategoryDropdown isOpen={isCategoryOpen}>
-            <CategoryList onSelectCategory={handleCategorySelect} />
-          </CategoryDropdown>
-          {user && selectedCategory !== "national-hot" && (
-            <CreatePostButton
-              onClick={() =>
-                router.push(`/community/${selectedCategory}/create-post`)
-              }
-            >
-              <FaPen />
-            </CreatePostButton>
-          )}
-        </MobileCategoryWrapper>
-        <ContentSection>
-          {user || isNationalCategory ? (
-            <>
-              <CategoryHeader>
-                <CategoryTitle>{getDesktopCategoryPath()}</CategoryTitle>
-                {user && selectedCategory !== "national-hot" && (
-                  <CreatePostButton
-                    onClick={() =>
-                      router.push(`/community/${selectedCategory}/create-post`)
-                    }
+      <PageContainer ref={pageRef}>
+        <MobileHeader>
+          <HamburgerIcon onClick={toggleMobileMenu}>
+            <FaBars />
+          </HamburgerIcon>
+          <MobileTitle>{getCategoryName(selectedCategory)}</MobileTitle>
+        </MobileHeader>
+        <ContentWrapper>
+          <CategoryPanel isOpen={isMobileMenuOpen}>
+            <MajorCategoryList>
+              {categories.map((cat) => (
+                <MajorCategoryItem
+                  key={cat.id}
+                  onClick={() => setActiveMajorCategory(cat.id)}
+                  isActive={activeMajorCategory === cat.id}
+                >
+                  {cat.name}
+                </MajorCategoryItem>
+              ))}
+            </MajorCategoryList>
+            <SubcategoryList>
+              {categories
+                .find((cat) => cat.id === activeMajorCategory)
+                ?.subcategories?.map((subcat) => (
+                  <SubcategoryItem
+                    key={subcat.id}
+                    onClick={() => handleCategorySelect(subcat.id)}
+                    isActive={selectedCategory === subcat.id}
                   >
-                    <FaPen />
-                  </CreatePostButton>
-                )}
-              </CategoryHeader>
-              <PostList
-                selectedCategory={selectedCategory}
-                isLoggedIn={!!user}
-                isNationalCategory={isNationalCategory}
-              />
-            </>
-          ) : (
-            <LoginPromptContainer>
-              <LoginPromptText>로그인이 필요합니다</LoginPromptText>
-              <LoginButton href="/login">로그인</LoginButton>
-            </LoginPromptContainer>
-          )}
-        </ContentSection>
-      </Container>
+                    {subcat.name}
+                  </SubcategoryItem>
+                ))}
+            </SubcategoryList>
+          </CategoryPanel>
+          <MainContent isMobileMenuOpen={isMobileMenuOpen}>
+            {user || isNationalCategory ? (
+              <>
+                <CategoryHeader>
+                  <CategoryTitle>
+                    {getCategoryName(selectedCategory)}
+                  </CategoryTitle>
+                  {user && selectedCategory !== "national-hot" && (
+                    <CreatePostButton
+                      onClick={() =>
+                        router.push(
+                          `/community/${selectedCategory}/create-post`,
+                        )
+                      }
+                    >
+                      <FaPen />
+                    </CreatePostButton>
+                  )}
+                </CategoryHeader>
+                <PostList
+                  selectedCategory={selectedCategory}
+                  isLoggedIn={!!user}
+                  isNationalCategory={isNationalCategory}
+                />
+              </>
+            ) : (
+              <LoginPromptContainer>
+                <LoginPromptText>로그인이 필요합니다</LoginPromptText>
+                <LoginButton href="/login">로그인</LoginButton>
+              </LoginPromptContainer>
+            )}
+          </MainContent>
+        </ContentWrapper>
+      </PageContainer>
     </Layout>
   );
 };
-const Container = styled.div`
-  display: flex;
-  max-width: 100%;
 
-  @media (max-width: 768px) {
-    flex-direction: column;
-  }
-`;
-
-const DesktopCategoryPanel = styled.div`
-  width: 250px;
-  padding: 1rem;
-  border-right: 1px solid #e0e0e0;
-  background-color: #f8f9fa;
-  overflow-y: auto;
+const PageContainer = styled.div`
   position: relative;
-  min-height: calc(80vh - 60px);
-
-  @media (max-width: 768px) {
-    display: none;
-  }
+  overflow-x: hidden;
 `;
 
-const CategoryTitle = styled.div`
-  font-size: 1.2rem;
-  font-weight: bold;
-  padding: 0.2rem 0.5rem;
-`;
-
-const MobileCategoryWrapper = styled.div`
+const ContentWrapper = styled.div`
   display: flex;
-  justify-content: space-between;
-  position: relative;
-  z-index: 10;
-  margin-bottom: 1rem;
-  gap: 8px;
-
-  @media (min-width: 769px) {
-    display: none;
-  }
 `;
 
-const CategoryToggle = styled.button<{ isOpen: boolean }>`
+const CategoryPanel = styled.div<{ isOpen: boolean }>`
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  width: 240px;
-  padding: 0.75rem 1rem;
+  width: 280px;
+  height: calc(100vh - 60px); // 모바일 헤더 높이를 고려
   background-color: white;
-  border: 1px solid #e0e0e0;
-  border-radius: ${({ isOpen }) => (isOpen ? "8px 8px 0 0" : "8px")};
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease-in-out;
 
-  .text-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  span.arrow,
-  span.subcat {
-    display: block;
-    margin-top: 4px;
-  }
-
-  &:hover {
-    background-color: #f8f8f8;
-  }
-
-  svg {
-    margin-left: 8px;
-    transition: transform 0.3s ease;
-    transform: ${({ isOpen }) => (isOpen ? "rotate(180deg)" : "rotate(0)")};
+  @media (max-width: 768px) {
+    position: fixed;
+    top: 60px; // 모바일 헤더 아래에 위치
+    left: 0;
+    transform: ${({ isOpen }) =>
+      isOpen ? "translateX(0)" : "translateX(-100%)"};
+    z-index: 1000;
   }
 `;
 
-const CategoryDropdown = styled.div<{ isOpen: boolean }>`
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  width: 235px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  max-height: ${({ isOpen }) => (isOpen ? "300px" : "0")};
+const MajorCategoryList = styled.div`
+  width: 100px;
+  border-right: 1px solid #e0e0e0;
   overflow-y: auto;
-  transition: max-height 0.3s ease;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 `;
 
-const ContentSection = styled.div`
+const MajorCategoryItem = styled.div<{ isActive: boolean }>`
+  padding: 1rem;
+  cursor: pointer;
+  background-color: ${({ isActive }) => (isActive ? "#f0f0f0" : "transparent")};
+  &:hover {
+    background-color: #f0f0f0;
+  }
+`;
+
+const SubcategoryList = styled.div`
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
+`;
 
-  @media (max-width: 769px) {
-    padding: 0rem;
+const SubcategoryItem = styled.div<{ isActive: boolean }>`
+  padding: 0.5rem;
+  cursor: pointer;
+  background-color: ${({ isActive }) => (isActive ? "#f0f0f0" : "transparent")};
+  &:hover {
+    background-color: #f0f0f0;
   }
+`;
+
+const MainContent = styled.div<{ isMobileMenuOpen: boolean }>`
+  flex: 1;
+  padding: 1rem;
+  min-width: 0;
+  transition: transform 0.3s ease-in-out;
+
+  @media (max-width: 768px) {
+    transform: ${({ isMobileMenuOpen }) =>
+      isMobileMenuOpen ? "translateX(280px)" : "translateX(0)"};
+  }
+`;
+
+const MobileHeader = styled.div`
+  display: none;
+  @media (max-width: 768px) {
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    background-color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1001; // CategoryPanel보다 위에 오도록 z-index 증가
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); // 선택적: 그림자 효과 추가
+  }
+`;
+
+const HamburgerIcon = styled.div`
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 1rem;
+`;
+
+const MobileTitle = styled.h2`
+  margin: 0;
+  font-size: 1.2rem;
 `;
 
 const CategoryHeader = styled.div`
@@ -259,7 +244,10 @@ const CategoryHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+`;
 
+const CategoryTitle = styled.h2`
+  margin: 0;
   @media (max-width: 768px) {
     display: none;
   }
@@ -272,31 +260,13 @@ const CreatePostButton = styled.button`
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: bold;
-  transition: background-color 0.3s ease;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 
   &:hover {
     background-color: var(--primary-hover);
-  }
-
-  @media (max-width: 768px) {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 50px;
-    height: 50px;
-    background-color: var(--primary-button);
-    color: white;
-    border: none;
-    border-radius: 8px; /* 원형 버튼 */
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.3s ease;
-
-    &:hover {
-      background-color: var(--primary-hover);
-    }
   }
 `;
 
