@@ -1,3 +1,5 @@
+import TerserPlugin from "terser-webpack-plugin";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -6,19 +8,6 @@ const nextConfig = {
   },
   images: {
     domains: ["firebasestorage.googleapis.com"],
-  },
-  async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
-    ];
   },
   webpack: (config, { dev, isServer }) => {
     if (!dev && !isServer) {
@@ -37,6 +26,19 @@ const nextConfig = {
       ];
     }
     return config;
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
   },
 };
 
