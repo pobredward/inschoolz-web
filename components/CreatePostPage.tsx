@@ -296,7 +296,6 @@ const CreatePostPage: React.FC = () => {
               placeholder="제목을 입력하세요"
               required
             />
-            <Label htmlFor="content"></Label>
             <ReactQuill
               value={content}
               onChange={handleContentChange}
