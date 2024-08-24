@@ -11,7 +11,6 @@ import { useRouter } from "next/router";
 import styled from "@emotion/styled";
 import { FaPen, FaBars, FaStar, FaSearch, FaUndo } from "react-icons/fa";
 import Link from "next/link";
-import MinorGallerySearch from "../../components/MinorGallerySearch";
 import { toggleFavoriteMinorGallery } from "../../services/userService";
 import { Category } from "../../types";
 
