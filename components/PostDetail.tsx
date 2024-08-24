@@ -52,7 +52,7 @@ import { GetServerSideProps } from "next";
 import Head from "next/head";
 
 interface PostDetailProps {
-  post: Post;
+  initialPost: Post;
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -140,16 +140,28 @@ const PostDetail: React.FC<PostDetailProps> = ({ initialPost }) => {
           name: post.author,
         },
         description: post.content.substring(0, 160),
+        mainEntityOfPage: {
+          "@type": "WebPage",
+          "@id": `https://inschoolz.com/posts/${post.id}`,
+        },
+        publisher: {
+          "@type": "Organization",
+          name: "인스쿨즈",
+          logo: {
+            "@type": "ImageObject",
+            url: "/favicon.ico", // 로고 URL을 실제로 변경하세요.
+          },
+        },
+        image: post.imageUrls ? post.imageUrls[0] : undefined,
+        articleSection: categories.find((cat) => cat.id === post.categoryId)
+          ?.name,
+        keywords: post.title
+          .split(" ")
+          .concat(post.content.split(" "))
+          .slice(0, 10)
+          .join(", "),
       }
     : null;
-
-  useEffect(() => {
-    if (post) {
-      setExistingImages(post.imageUrls || []);
-      setEditedTitle(post.title);
-      setEditedContent(post.content);
-    }
-  }, [post]);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -236,7 +248,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ initialPost }) => {
     "부적절한 내용",
     "스팸",
     "혐오 발언",
-    "폭력적인 내용",
+    "폭력적 r� 내용",
     "개인정보 노출",
     "저작권 침해",
   ];
@@ -549,8 +561,16 @@ const PostDetail: React.FC<PostDetailProps> = ({ initialPost }) => {
   return (
     <Layout>
       <Head>
-        <title>{post.title} | Your Community Site</title>
+        <title>{post.title} | 인스쿨즈</title>
         <meta name="description" content={post.content.substring(0, 160)} />
+        <meta
+          name="keywords"
+          content={post.title
+            .split(" ")
+            .concat(post.content.split(" "))
+            .slice(0, 10)
+            .join(", ")}
+        />
         <meta property="og:title" content={post.title} />
         <meta
           property="og:description"
