@@ -8,7 +8,6 @@ import { uploadImage } from "../services/imageService";
 import CategoryList from "./CategoryList";
 import {
   userState,
-  selectedCategoryState,
   categoriesState,
   userExperienceState,
   userLevelState,
@@ -539,14 +538,6 @@ const Input = styled.input`
   font-size: 0.8rem; // 폰트 크기 조정
   flex: 1; // flex를 사용하여 공간을 활용
   min-height: 30px;
-`;
-
-const Textarea = styled.textarea`
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  min-height: 200px;
 `;
 
 const ButtonContainer = styled.div`

@@ -2,29 +2,15 @@ import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import { useRecoilState } from "recoil";
 import { postsState, categoriesState } from "../store/atoms";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  Timestamp,
-} from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { Post } from "../types";
 import { db } from "../lib/firebase";
 import { useRouter } from "next/router";
 import { formatDate } from "../utils/dateUtils";
-import {
-  FaThumbsUp,
-  FaComment,
-  FaEye,
-  FaBookmark,
-  FaSearch,
-} from "react-icons/fa";
-import DOMPurify from "dompurify";
+import { FaSearch } from "react-icons/fa";
 
 const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
   const [posts, setPosts] = useRecoilState(postsState);
-  const [categories] = useRecoilState(categoriesState);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,9 +19,6 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
   const [filteredPosts, setFilteredPosts] = useState([]);
   const [dateFilter, setDateFilter] = useState("all");
   const [searchScope, setSearchScope] = useState("all");
-  const sanitizeHTML = (html: string) => {
-    return DOMPurify.sanitize(html);
-  };
 
   useEffect(() => {
     const fetchPosts = async () => {

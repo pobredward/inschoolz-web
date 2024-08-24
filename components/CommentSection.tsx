@@ -2,28 +2,24 @@ import React, { useState, useRef, useEffect } from "react";
 import styled from "@emotion/styled";
 import {
   FaUserCircle,
-  FaHeart,
   FaPaperPlane,
   FaTrash,
-  FaEdit,
   FaPen,
   FaComment,
   FaFlag,
   FaThumbsUp,
 } from "react-icons/fa";
 import { useRecoilValue } from "recoil";
-import { userState, commentsState } from "../store/atoms";
+import { userState } from "../store/atoms";
 import { useSetRecoilState } from "recoil";
 import { userExperienceState, userLevelState } from "../store/atoms";
 import {
   addDoc,
   collection,
   updateDoc,
-  deleteDoc,
   arrayUnion,
   arrayRemove,
   doc,
-  Timestamp,
   increment,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -520,11 +516,6 @@ const CommentSection: React.FC<CommentSectionProps> = ({
 };
 
 const DeletedCommentContent = styled.p`
-  color: #888;
-  margin: 0.5rem 0;
-`;
-
-const FiredCommentContent = styled.p`
   color: #888;
   margin: 0.5rem 0;
 `;

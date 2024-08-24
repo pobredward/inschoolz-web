@@ -4,7 +4,6 @@ import Image from "next/image";
 import styled from "@emotion/styled";
 import { useRecoilState, useRecoilValue } from "recoil";
 import { userState } from "../store/atoms";
-import { useAuth } from "../hooks/useAuth";
 import { useUser } from "../hooks/useUser";
 import { useLogout } from "../hooks/useLogout";
 import { FiUser } from "react-icons/fi";
@@ -19,7 +18,6 @@ import { useRouter } from "next/router";
 import { userExperienceState, userLevelState } from "../store/atoms";
 
 const Navbar: React.FC = () => {
-  const { user } = useAuth();
   const [currentUser, setCurrentUser] = useRecoilState(userState);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [logoSrc, setLogoSrc] = useState("/logo_1170x730.png");

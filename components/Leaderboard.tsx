@@ -7,13 +7,11 @@ import {
   limit,
   getDocs,
   startAfter,
-  where,
   QueryDocumentSnapshot,
   DocumentData,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { FaBolt, FaFeather, FaTh } from "react-icons/fa";
-import { useAuth } from "../hooks/useAuth";
 
 interface LeaderboardEntry {
   userId: string;
@@ -33,7 +31,6 @@ const Leaderboard: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const { user } = useAuth();
   const [lastVisible, setLastVisible] =
     useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
