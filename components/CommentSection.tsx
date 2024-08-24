@@ -100,18 +100,17 @@ const CommentSection: React.FC<CommentSectionProps> = ({
         </a>
       ) : (
         part
-      )
+      ),
     );
   };
 
-
   const reportReasons = [
     "부적절한 내용",
-    "스팸",
     "혐오 발언",
     "폭력적인 내용",
     "개인정보 노출",
     "저작권 침해",
+    "도배성 문구",
   ];
 
   const handleReportClick = (type: "post" | "comment", id: string) => {
