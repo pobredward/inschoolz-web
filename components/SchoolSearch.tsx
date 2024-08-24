@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
 import {
   collection,
+  query,
+  where,
   getDocs,
   getDoc,
   updateDoc,
@@ -22,6 +24,7 @@ interface SchoolSearchProps {
 }
 
 const SchoolSearch: React.FC<SchoolSearchProps> = ({
+  initialSchool,
   setSchool,
 }) => {
   const { user } = useAuth();
@@ -263,6 +266,10 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     </Container>
   );
 };
+
+const SectionTitle = styled.h3`
+  margin-bottom: 10px;
+`;
 
 const SearchSection = styled.div``;
 
