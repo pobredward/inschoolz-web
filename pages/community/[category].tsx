@@ -23,6 +23,11 @@ const CategoryPage: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeMajorCategory, setActiveMajorCategory] = useState("national");
   const pageRef = useRef(null);
+  const [isMinorGalleryOpen, setIsMinorGalleryOpen] = useState(false);
+
+  const toggleMinorGallery = () => {
+    setIsMinorGalleryOpen(!isMinorGalleryOpen);
+  };
 
   useEffect(() => {
     if (category) {
@@ -94,15 +99,39 @@ const CategoryPage: React.FC = () => {
             <SubcategoryList>
               {categories
                 .find((cat) => cat.id === activeMajorCategory)
-                ?.subcategories?.map((subcat) => (
-                  <SubcategoryItem
-                    key={subcat.id}
-                    onClick={() => handleCategorySelect(subcat.id)}
-                    isActive={selectedCategory === subcat.id}
-                  >
-                    {subcat.name}
-                  </SubcategoryItem>
-                ))}
+                ?.subcategories?.map((subcat) =>
+                  subcat.id === "national-minor" ? (
+                    <MinorGalleryContainer key={subcat.id}>
+                      <MinorGalleryToggle onClick={toggleMinorGallery}>
+                        {subcat.name}
+                        {isMinorGalleryOpen ? " ▲" : " ▼"}
+                      </MinorGalleryToggle>
+                      {isMinorGalleryOpen && (
+                        <MinorGalleryList>
+                          {subcat.subcategories?.map((minorGallery) => (
+                            <SubcategoryItem
+                              key={minorGallery.id}
+                              onClick={() =>
+                                handleCategorySelect(minorGallery.id)
+                              }
+                              isActive={selectedCategory === minorGallery.id}
+                            >
+                              {minorGallery.name}
+                            </SubcategoryItem>
+                          ))}
+                        </MinorGalleryList>
+                      )}
+                    </MinorGalleryContainer>
+                  ) : (
+                    <SubcategoryItem
+                      key={subcat.id}
+                      onClick={() => handleCategorySelect(subcat.id)}
+                      isActive={selectedCategory === subcat.id}
+                    >
+                      {subcat.name}
+                    </SubcategoryItem>
+                  ),
+                )}
             </SubcategoryList>
           </CategoryPanel>
           <MainContent isMobileMenuOpen={isMobileMenuOpen}>
@@ -142,6 +171,22 @@ const CategoryPage: React.FC = () => {
     </Layout>
   );
 };
+
+const MinorGalleryContainer = styled.div`
+  margin-bottom: 10px;
+`;
+
+const MinorGalleryToggle = styled.div`
+  padding: 0.5rem;
+  cursor: pointer;
+  &:hover {
+    background-color: #f0f0f0;
+  }
+`;
+
+const MinorGalleryList = styled.div`
+  margin-left: 1rem;
+`;
 
 const PageContainer = styled.div`
   position: relative;

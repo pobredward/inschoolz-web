@@ -36,6 +36,15 @@ export const categoriesState = atom<Category[]>({
       subcategories: [
         { id: "national-free", name: "자유 게시판" },
         { id: "national-hot", name: "HOT 게시글" },
+        {
+          id: "national-minor",
+          name: "마이너 갤러리",
+          subcategories: [
+            { id: "national-minor-soccer", name: "축구" },
+            { id: "national-minor-baseball", name: "야구" },
+            { id: "national-minor-study", name: "공부" },
+          ],
+        },
       ],
     },
     {
