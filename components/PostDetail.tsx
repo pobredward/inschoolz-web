@@ -48,11 +48,37 @@ import dynamic from "next/dynamic";
 import "react-quill/dist/quill.snow.css";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import DOMPurify from "dompurify";
+import { GetServerSideProps } from "next";
+import Head from "next/head";
 
-const PostDetail: React.FC = () => {
+interface PostDetailProps {
+  post: Post;
+}
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const { id } = context.params as { id: string };
+  const docRef = doc(db, "posts", id);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    return { notFound: true };
+  }
+
+  const postData = docSnap.data();
+  const initialPost: Post = {
+    id: docSnap.id,
+    ...postData,
+    createdAt: postData.createdAt.toDate().toISOString(),
+    updatedAt: postData.updatedAt.toDate().toISOString(),
+  } as Post;
+
+  return { props: { initialPost } };
+};
+
+const PostDetail: React.FC<PostDetailProps> = ({ initialPost }) => {
   const router = useRouter();
   const { id } = router.query;
-  const [post, setPost] = useState<any>(null);
+  const [post, setPost] = useState<Post>(initialPost);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useRecoilState(commentsState);
   const user = useRecoilValue(userState);
@@ -101,6 +127,21 @@ const PostDetail: React.FC = () => {
   const sanitizeHTML = (html: string) => {
     return DOMPurify.sanitize(html);
   };
+
+  const structuredData = post
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: post.title,
+        datePublished: post.createdAt,
+        dateModified: post.updatedAt,
+        author: {
+          "@type": "Person",
+          name: post.author,
+        },
+        description: post.content.substring(0, 160),
+      }
+    : null;
 
   useEffect(() => {
     if (post) {
@@ -445,10 +486,6 @@ const PostDetail: React.FC = () => {
     setExistingImages(post?.imageUrls || []);
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-  };
-
   const handleBackToList = () => {
     router.back();
   };
@@ -511,6 +548,26 @@ const PostDetail: React.FC = () => {
 
   return (
     <Layout>
+      <Head>
+        <title>{post.title} | Your Community Site</title>
+        <meta name="description" content={post.content.substring(0, 160)} />
+        <meta property="og:title" content={post.title} />
+        <meta
+          property="og:description"
+          content={post.content.substring(0, 160)}
+        />
+        <meta property="og:type" content="article" />
+        <meta
+          property="og:url"
+          content={`https://inschoolz.com/posts/${post.id}`}
+        />
+        {post.imageUrls && post.imageUrls[0] && (
+          <meta property="og:image" content={post.imageUrls[0]} />
+        )}
+        <script type="application/ld+json">
+          {JSON.stringify(structuredData)}
+        </script>
+      </Head>
       <Container>
         <CategorySection>
           <CategoryList />
@@ -894,14 +951,6 @@ const Select = styled.select`
   font-size: 1rem;
 `;
 
-const Textarea = styled.textarea`
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-  min-height: 200px;
-`;
-
 const ImageUploadButton = styled.button`
   display: inline-flex;
   align-items: center;
@@ -964,12 +1013,6 @@ const RemoveButton = styled.button`
   svg {
     font-size: 0.8rem;
   }
-`;
-
-const EditButtonContainer = styled.div`
-  display: flex;
-  margin-left: auto;
-  gap: 0.5rem;
 `;
 
 const ButtonContainer = styled.div`
@@ -1043,17 +1086,6 @@ const DeleteButton = styled.button`
   }
 `;
 
-const EditInput = styled.input`
-  padding: 0.5rem;
-  font-size: 1.2rem;
-`;
-
-const EditTextarea = styled.textarea`
-  padding: 0.5rem;
-  font-size: 1rem;
-  min-height: 200px;
-`;
-
 const Button = styled.button`
   padding: 0.5rem 1rem;
   border: none;
@@ -1092,13 +1124,6 @@ const ActionsAndButtonsContainer = styled.div`
     align-items: flex-start;
     gap: 1rem; */
   }
-`;
-
-const PostImage = styled.img`
-  max-width: 100%;
-  height: auto;
-  margin: 1rem 0;
-  border-radius: 4px;
 `;
 
 const VoteSection = styled.div`
@@ -1146,39 +1171,6 @@ const ReportButton = styled(TextButton)`
   color: #ff4d4d;
   &:hover {
     color: #ff0000;
-  }
-`;
-
-const ReportForm = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  textarea {
-    width: 100%;
-    height: 100px;
-    padding: 5px;
-    margin-top: 10px;
-  }
-
-  button {
-    align-self: flex-end;
-    padding: 5px 10px;
-    background-color: #ff4d4d;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-
-    &:hover {
-      background-color: #ff0000;
-    }
   }
 `;
 
