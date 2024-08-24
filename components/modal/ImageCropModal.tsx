@@ -5,6 +5,7 @@ import "react-image-crop/dist/ReactCrop.css";
 import { getCroppedImg } from "../../utils/imageUtils";
 import { uploadImage, deleteImage } from "../../services/imageService";
 import { updateUserProfile } from "../../services/userService";
+import { FaImage, FaTrashAlt, FaRedo } from "react-icons/fa";
 
 const ImageCropModal = ({ user, setProfileImageUrl, onClose }) => {
   const [crop, setCrop] = useState<PixelCrop>({
@@ -50,38 +51,21 @@ const ImageCropModal = ({ user, setProfileImageUrl, onClose }) => {
   };
 
   const handleResetToDefault = async () => {
-    // Firebase Storage에서 이미지 삭제
     if (user?.profileImageUrl) {
       await deleteImage(user.profileImageUrl);
     }
-    // Firestore에서 프로필 이미지 URL 제거
     await updateUserProfile(user!.uid, { profileImageUrl: null });
-    setProfileImageUrl(null); // 기본 이미지로 설정
-    onClose(); // 모달 닫기
+    setProfileImageUrl(null);
+    onClose();
   };
 
   return (
-    <ModalOverlay>
-      <ModalContent>
-        <Title>프로필 사진</Title>
-        <FileInputWrapper>
-          <FileInputLabel htmlFor="fileInput">사진 선택</FileInputLabel>
-          <FileInput
-            id="fileInput"
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-          />
-        </FileInputWrapper>
-
-        {!selectedImage && (
-          <ResetButton onClick={handleResetToDefault}>
-            기본 이미지로 변경
-          </ResetButton>
-        )}
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
+        {/* <Title>프로필 사진</Title> */}
 
         {selectedImage && (
-          <>
+          <CropContainer>
             <ReactCrop
               crop={crop}
               onChange={(newCrop) => setCrop(newCrop)}
@@ -93,23 +77,41 @@ const ImageCropModal = ({ user, setProfileImageUrl, onClose }) => {
                 alt="Crop me"
               />
             </ReactCrop>
-          </>
+          </CropContainer>
         )}
 
+        <ButtonGroup>
+          <TextButton
+            onClick={() => document.getElementById("fileInput")?.click()}
+          >
+            <FaImage />
+            {selectedImage ? "다시 선택하기" : "사진 선택"}
+          </TextButton>
+          <FileInput
+            id="fileInput"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+          />
+
+          {!selectedImage && (
+            <TextButton onClick={handleResetToDefault} red>
+              <FaTrashAlt />
+              기본 이미지로 변경
+            </TextButton>
+          )}
+        </ButtonGroup>
+
         <ButtonWrapper>
-          <Button onClick={onClose}>닫기</Button>
+          <CloseButton onClick={onClose}>닫기</CloseButton>
           {selectedImage && (
-            <Button primary onClick={handleApplyCrop}>
-              완료
-            </Button>
+            <ApplyButton onClick={handleApplyCrop}>완료</ApplyButton>
           )}
         </ButtonWrapper>
       </ModalContent>
     </ModalOverlay>
   );
 };
-
-export default ImageCropModal;
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -128,61 +130,104 @@ const ModalContent = styled.div`
   background-color: white;
   padding: 2rem;
   border-radius: 10px;
-  text-align: center;
-  max-width: 500px;
-  width: 100%;
+  text-align: left;
+  max-width: 90%;
+  width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  @media (max-width: 768px) {
+    width: 80%;
+    padding: 1.5rem;
+  }
 `;
 
 const Title = styled.h2`
   margin-bottom: 1rem;
+  text-align: center;
 `;
 
-const FileInputWrapper = styled.div`
+const ButtonGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
   margin-bottom: 1rem;
-`;
-
-const FileInputLabel = styled.label`
-  padding: 0.5rem 1rem;
-  background-color: #0070f3;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
 `;
 
 const FileInput = styled.input`
   display: none;
 `;
 
-const ResetButton = styled.button`
-  background-color: #f44336;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+const TextButton = styled.span<{ red?: boolean }>`
+  color: ${(props) => (props.red ? `var(--delete-text)` : "#000")};
   cursor: pointer;
-  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.1rem;
+  padding: 1rem;
 
   &:hover {
-    background-color: #d32f2f;
+    text-decoration: underline;
+  }
+
+  svg {
+    font-size: 1.2rem;
+  }
+`;
+
+const CropContainer = styled.div`
+  max-width: 100%;
+  max-height: 50vh;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  & > div {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  img {
+    max-width: 100%;
+    max-height: 50vh;
+    object-fit: contain;
   }
 `;
 
 const ButtonWrapper = styled.div`
-  margin-top: 1rem;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
 `;
 
-const Button = styled.button<{ primary?: boolean }>`
+const Button = styled.button`
   padding: 0.5rem 1rem;
-  background-color: ${(props) => (props.primary ? "#0070f3" : "#f0f0f0")};
-  color: ${(props) => (props.primary ? "white" : "black")};
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 1rem;
+`;
+
+const CloseButton = styled(Button)`
+  background-color: #f0f0f0;
+  color: #333;
 
   &:hover {
-    background-color: ${(props) => (props.primary ? "#005bb5" : "#e0e0e0")};
+    background-color: #e0e0e0;
   }
 `;
+
+const ApplyButton = styled(Button)`
+  background-color: #0070f3;
+  color: white;
+
+  &:hover {
+    background-color: #0056b3;
+  }
+`;
+
+export default ImageCropModal;
