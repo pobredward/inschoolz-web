@@ -762,7 +762,8 @@ const PostDetail: React.FC<PostDetailProps> = ({ initialPost }) => {
                       <ActionItem onClick={handleLike}>
                         {liked ? "❤️ " : "🤍 "} {post.likes}
                       </ActionItem>
-                      <ActionItem>💬 {post.comments}</ActionItem>
+                      <ActionItem>
+��� {post.comments}</ActionItem>
                       <ActionItem>👁️ {post.views}</ActionItem>
                       <ActionItem
                         onClick={handleScrap}
