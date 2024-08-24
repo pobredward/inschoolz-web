@@ -6,6 +6,15 @@
         "preset-react": {
           "runtime": "automatic",
           "importSource": "@emotion/react"
+        },
+        "preset-env": {
+          "targets": {
+            "browsers": [
+              "last 2 versions",
+              "not ie <= 11",
+              "not op_mini all"
+            ]
+          }
         }
       }
     ]
