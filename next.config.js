@@ -1,4 +1,4 @@
-import TerserPlugin from "terser-webpack-plugin";
+const TerserPlugin = require("terser-webpack-plugin");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
