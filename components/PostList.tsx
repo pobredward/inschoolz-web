@@ -66,8 +66,8 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
     fetchPosts();
   }, [selectedCategory, isLoggedIn, isNationalCategory, setPosts]);
 
-  const handlePostClick = (postId) => {
-    router.push(`/posts/${postId}`);
+  const handlePostClick = (postId: string) => {
+    router.push(`/community/${selectedCategory}/${postId}`);
   };
 
   const handleSearchChange = (e) => {

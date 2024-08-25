@@ -7,12 +7,12 @@ import {
   commentsState,
   selectedCategoryState,
   categoriesState,
-} from "../../store/atoms";
-import { Category, Report } from "../../types";
+} from "../../../store/atoms";
+import { Category, Report } from "../../../types";
 import styled from "@emotion/styled";
-import Layout from "../../components/Layout";
-import CategoryList from "../../components/CategoryList";
-import CommentSection from "../../components/CommentSection";
+import Layout from "../../../components/Layout";
+import CategoryList from "../../../components/CategoryList";
+import CommentSection from "../../../components/CommentSection";
 import {
   collection,
   doc,
@@ -27,10 +27,10 @@ import {
   arrayRemove,
   Timestamp,
 } from "firebase/firestore";
-import { storage, db } from "../../lib/firebase";
+import { storage, db } from "../../../lib/firebase";
 import { FaUserCircle } from "react-icons/fa";
-import { updatePost } from "../../services/postService";
-import { Post } from "../../types";
+import { updatePost } from "../../../services/postService";
+import { Post } from "../../../types";
 import {
   FaBookmark,
   FaTrash,
@@ -39,32 +39,34 @@ import {
   FaStar,
   FaBars,
 } from "react-icons/fa";
-import { uploadImage, deleteImage } from "../../services/imageService";
-import { getCommentsForPost } from "../../services/commentService";
+import { uploadImage, deleteImage } from "../../../services/imageService";
+import { getCommentsForPost } from "../../../services/commentService";
 import {
   scrapPost,
   unscrapPost,
   isPostScrapped,
   deletePost,
-} from "../../services/postService";
-import { ImageGallery, Modal } from "../../components/ImageGallery";
-import DefaultModal from "../../components/modal/DefaultModal";
-import ReportModal from "../../components/modal/ReportModal";
-import { compressImage } from "../../utils/imageUtils";
+} from "../../../services/postService";
+import { ImageGallery, Modal } from "../../../components/ImageGallery";
+import DefaultModal from "../../../components/modal/DefaultModal";
+import ReportModal from "../../../components/modal/ReportModal";
+import { compressImage } from "../../../utils/imageUtils";
 import dynamic from "next/dynamic";
 import "react-quill/dist/quill.snow.css";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import DOMPurify from "dompurify";
 import { GetServerSideProps } from "next";
 import Head from "next/head";
-import CategoryPanel from "../../components/CategoryPanel";
+import CategoryPanel from "../../../components/CategoryPanel";
 
 interface PostPageProps {
   initialPost: Post;
+  category: string;
+  seoData: any;
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { id } = context.params as { id: string };
+  const { id, category } = context.params as { id: string; category: string };
   const docRef = doc(db, "posts", id);
   const docSnap = await getDoc(docRef);
 
@@ -80,17 +82,30 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     updatedAt: postData.updatedAt.toDate().toISOString(),
   } as Post;
 
-  return { props: { initialPost } };
+  const seoData = {
+    title: `${initialPost.title} | 인스쿨즈`,
+    description: initialPost.content.substring(0, 160),
+    url: `https://inschoolz.com/community/${category}/${initialPost.id}`,
+    imageUrl:
+      initialPost.imageUrls && initialPost.imageUrls[0]
+        ? initialPost.imageUrls[0]
+        : null,
+  };
+
+  return { props: { initialPost, category, seoData } };
 };
 
-const PostPage: React.FC<PostPageProps> = ({ initialPost }) => {
+const PostPage: React.FC<PostPageProps> = ({
+  initialPost,
+  category,
+  seoData,
+}) => {
   const router = useRouter();
   const { id } = router.query;
   const [post, setPost] = useState<Post>(initialPost);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useRecoilState(commentsState);
   const user = useRecoilValue(userState);
-  const selectedCategory = useRecoilValue(selectedCategoryState);
   const [liked, setLiked] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
@@ -127,6 +142,41 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredGalleries, setFilteredGalleries] = useState<Category[]>([]);
   const [allMinorGalleries, setAllMinorGalleries] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useRecoilState(
+    selectedCategoryState,
+  );
+
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setIsMobileMenuOpen(false);
+    router.push(`/community/${categoryId}`);
+  };
+
+  const getCategoryName = (categoryId: string) => {
+    for (let cat of categories) {
+      if (cat.subcategories) {
+        for (let subcat of cat.subcategories) {
+          if (subcat.id === categoryId) {
+            if (cat.id === "school") {
+              return `${user?.schoolName} > ${subcat.name}`;
+            } else if (cat.id === "regional") {
+              return `${user?.address1} ${user?.address2} > ${subcat.name}`;
+            } else {
+              return `${cat.name} > ${subcat.name}`;
+            }
+          }
+          if (subcat.subcategories) {
+            for (let minorGallery of subcat.subcategories) {
+              if (minorGallery.id === categoryId) {
+                return `${cat.name} > ${minorGallery.name} 게시판`;
+              }
+            }
+          }
+        }
+      }
+    }
+    return "";
+  };
 
   // 모바일 메뉴 토글 함수
   const toggleMobileMenu = () => {
@@ -594,39 +644,23 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost }) => {
   return (
     <Layout>
       <Head>
-        <title>{post.title} | 인스쿨즈</title>
-        <meta name="description" content={post.content.substring(0, 160)} />
-        <meta
-          name="keywords"
-          content={post.title
-            .split(" ")
-            .concat(post.content.split(" "))
-            .slice(0, 10)
-            .join(", ")}
-        />
-        <meta property="og:title" content={post.title} />
-        <meta
-          property="og:description"
-          content={post.content.substring(0, 160)}
-        />
+        <title>{seoData.title}</title>
+        <meta name="description" content={seoData.description} />
+        <meta property="og:title" content={seoData.title} />
+        <meta property="og:description" content={seoData.description} />
         <meta property="og:type" content="article" />
-        <meta
-          property="og:url"
-          content={`https://inschoolz.com/posts/${post.id}`}
-        />
-        {post.imageUrls && post.imageUrls[0] && (
-          <meta property="og:image" content={post.imageUrls[0]} />
+        <meta property="og:url" content={seoData.url} />
+        {seoData.imageUrl && (
+          <meta property="og:image" content={seoData.imageUrl} />
         )}
-        <script type="application/ld+json">
-          {JSON.stringify(structuredData)}
-        </script>
+        <link rel="canonical" href={seoData.url} />
       </Head>
       <Container>
         <MobileHeader>
-          <HamburgerIcon onClick={toggleMobileMenu}>
+          <HamburgerIcon onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
             <FaBars />
           </HamburgerIcon>
-          <MobileTitle>게시글</MobileTitle>
+          <MobileTitle>{getCategoryName(post.categoryId)}</MobileTitle>
         </MobileHeader>
         <ContentWrapper>
           <CategoryPanel isOpen={isMobileMenuOpen} />

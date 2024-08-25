@@ -179,13 +179,15 @@ const CommentsPage: React.FC = () => {
           {posts.map((post) => (
             <PostItem
               key={post.id}
-              onClick={() => router.push(`/posts/${post.id}`)}
+              onClick={() =>
+                router.push(`/community/${post.categoryId}/${post.id}`)
+              }
             >
               <PostHeader>
                 <PostTitle>{post.title}</PostTitle>
                 <PostCategory>{getCategoryName(post.categoryId)}</PostCategory>
               </PostHeader>
-              <PostContent>{post.content.substring(0, 100)}...</PostContent>
+              <PostContent>{getPostContentSnippet(post.content)}</PostContent>
               <CommentSection>
                 <CommentHeader>
                   내 댓글 ({post.userComments.length}):
@@ -219,6 +221,28 @@ const CommentsPage: React.FC = () => {
       </Container>
     </Layout>
   );
+};
+
+const getPostContentSnippet = (content: string) => {
+  // <p> 태그를 기준으로 내용 분리
+  const paragraphs = content
+    .split(/<\/?p[^>]*>/g)
+    .filter((paragraph) => paragraph.trim() !== "");
+
+  // 첫 번째 <p> 문단 가져오기
+  const firstParagraph = paragraphs[0] || "";
+
+  // HTML 태그 제거
+  const plainText = firstParagraph.replace(/<[^>]+>/g, "");
+
+  // 모바일 여부에 따라 길이 제한
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+  const sliceLength = isMobile ? 20 : 45;
+
+  // 글자 수 제한 적용
+  return plainText.length > sliceLength
+    ? plainText.slice(0, sliceLength) + "..."
+    : plainText;
 };
 
 const Container = styled.div`

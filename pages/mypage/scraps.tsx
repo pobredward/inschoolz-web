@@ -103,7 +103,9 @@ const ScrapsPage: React.FC = () => {
           {scrappedPosts.map((post) => (
             <PostItem
               key={post.id}
-              onClick={() => router.push(`/posts/${post.id}`)}
+              onClick={() =>
+                router.push(`/community/${post.categoryId}/${post.id}`)
+              }
             >
               <PostHeader>
                 <PostTitle>{post.title}</PostTitle>

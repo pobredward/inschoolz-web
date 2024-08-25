@@ -7,16 +7,21 @@ const Sitemap = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  const baseUrl = "https://www.inschoolz.com";
+  const baseUrl = "https://inschoolz.com";
 
   const postsSnapshot = await getDocs(collection(db, "posts"));
-  const posts = postsSnapshot.docs.map((doc) => doc.id);
+  const posts = postsSnapshot.docs.map((doc) => ({
+    id: doc.id,
+    categoryId: doc.data().categoryId,
+  }));
 
-  const staticPages = ["", "about", "contact", "community"].map(
+  const staticPages = ["", "game", "ranking", "community"].map(
     (staticPagePath) => `${baseUrl}/${staticPagePath}`,
   );
 
-  const dynamicPages = posts.map((postId) => `${baseUrl}/posts/${postId}`);
+  const dynamicPages = posts.map(
+    (post) => `${baseUrl}/community/${post.categoryId}/${post.id}`,
+  );
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
     <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
