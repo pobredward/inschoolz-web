@@ -31,7 +31,14 @@ import { storage, db } from "../../lib/firebase";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../../services/postService";
 import { Post } from "../../types";
-import { FaBookmark, FaTrash, FaUpload, FaFlag, FaStar } from "react-icons/fa";
+import {
+  FaBookmark,
+  FaTrash,
+  FaUpload,
+  FaFlag,
+  FaStar,
+  FaBars,
+} from "react-icons/fa";
 import { uploadImage, deleteImage } from "../../services/imageService";
 import { getCommentsForPost } from "../../services/commentService";
 import {
@@ -50,6 +57,7 @@ const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import DOMPurify from "dompurify";
 import { GetServerSideProps } from "next";
 import Head from "next/head";
+import CategoryPanel from "../../components/CategoryPanel";
 
 interface PostPageProps {
   initialPost: Post;
@@ -112,6 +120,31 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost }) => {
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeMajorCategory, setActiveMajorCategory] = useState("national");
+  const pageRef = useRef(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredGalleries, setFilteredGalleries] = useState<Category[]>([]);
+  const [allMinorGalleries, setAllMinorGalleries] = useState<Category[]>([]);
+
+  // 모바일 메뉴 토글 함수
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (pageRef.current && !pageRef.current.contains(event.target as Node)) {
+      setIsMobileMenuOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const createLinkifiedContent = (htmlContent: string) => {
     // URL 패턴 정규식
@@ -589,11 +622,16 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost }) => {
         </script>
       </Head>
       <Container>
-        <CategorySection>
-          <CategoryList />
-        </CategorySection>
+        <MobileHeader>
+          <HamburgerIcon onClick={toggleMobileMenu}>
+            <FaBars />
+          </HamburgerIcon>
+          <MobileTitle>게시글</MobileTitle>
+        </MobileHeader>
         <ContentWrapper>
-          <ContentSection>
+          <CategoryPanel isOpen={isMobileMenuOpen} />
+
+          <MainContent isMobileMenuOpen={isMobileMenuOpen}>
             <PostContainer>
               <PostHeader>
                 <ProfileImage />
@@ -797,7 +835,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost }) => {
               setComments={setComments}
               onCommentUpdate={handleCommentUpdate}
             />
-          </ContentSection>
+          </MainContent>
         </ContentWrapper>
       </Container>
       <DefaultModal
@@ -825,13 +863,53 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost }) => {
 };
 
 const Container = styled.div`
+  position: relative;
+  overflow-x: hidden;
+`;
+
+const ContentWrapper = styled.div`
   display: flex;
-  max-width: 100%;
-  min-height: calc(100vh - 60px);
+`;
+
+const MainContent = styled.div<{ isMobileMenuOpen: boolean }>`
+  flex: 1;
+  padding: 1rem;
+  min-width: 0;
+  transition: transform 0.3s ease-in-out;
 
   @media (max-width: 768px) {
-    flex-direction: column;
+    padding: 0.5rem;
+    transform: ${({ isMobileMenuOpen }) =>
+      isMobileMenuOpen ? "translateX(320px)" : "translateX(0)"};
   }
+`;
+
+const MobileHeader = styled.div`
+  display: none;
+  @media (max-width: 768px) {
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    background-color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1001;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const HamburgerIcon = styled.div`
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 1rem;
+`;
+
+const MobileTitle = styled.h2`
+  margin: 0;
+  font-size: 1.1rem;
 `;
 
 const CategorySection = styled.div`
@@ -843,22 +921,6 @@ const CategorySection = styled.div`
 
   @media (max-width: 768px) {
     display: none;
-  }
-`;
-
-const ContentWrapper = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-`;
-
-const ContentSection = styled.div`
-  flex: 1;
-  padding: 1rem;
-  overflow-y: auto;
-
-  @media (max-width: 768px) {
-    padding: 0rem;
   }
 `;
 
