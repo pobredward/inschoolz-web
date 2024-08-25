@@ -7,7 +7,7 @@ const Sitemap = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
-  const baseUrl = "https://your-domain.com";
+  const baseUrl = "https://www.inschoolz.com";
 
   const postsSnapshot = await getDocs(collection(db, "posts"));
   const posts = postsSnapshot.docs.map((doc) => doc.id);
