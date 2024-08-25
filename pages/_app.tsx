@@ -23,6 +23,10 @@ function MyApp({ Component, pageProps }: AppProps) {
               content="JHJ-RXl4MxuuU2-5nQiRFv-V72VbSiR3ppghw9V9b50"
             />
             <meta
+              name="naver-site-verification"
+              content="b6dff09f5573caf99de69d373afb755f571e43ed"
+            />
+            <meta
               name="viewport"
               content="width=device-width, initial-scale=1"
             />
