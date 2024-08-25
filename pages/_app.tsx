@@ -19,6 +19,10 @@ function MyApp({ Component, pageProps }: AppProps) {
           <Global styles={globalStyles} />
           <Head>
             <meta
+              name="google-site-verification"
+              content="JHJ-RXl4MxuuU2-5nQiRFv-V72VbSiR3ppghw9V9b50"
+            />
+            <meta
               name="viewport"
               content="width=device-width, initial-scale=1"
             />
