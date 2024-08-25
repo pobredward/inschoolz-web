@@ -323,7 +323,7 @@ const ResetButton = styled(SearchButton)`
 const StarIcon = styled.span<{ isFavorite: boolean }>`
   color: ${({ isFavorite }) => (isFavorite ? "gold" : "#ccc")};
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
 `;
 
 const MinorGalleryContainer = styled.div`
