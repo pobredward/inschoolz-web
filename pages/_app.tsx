@@ -62,11 +62,11 @@ function MyApp({ Component, pageProps }: AppProps) {
             <meta property="og:site_name" content="인스쿨즈" />
             <meta
               property="og:title"
-              content="인스쿨즈 - 대한민국 학생들을 위한 올인원 커뮤니티"
+              content="인스쿨즈 - 초중고 재학생 및 졸업생을 위한 올인원 커뮤니티"
             />
             <meta
               property="og:description"
-              content="인스쿨즈에서 학교생활, 학업, 진로에 대한 정보를 공유하고 소통하세요."
+              content="인스쿨즈에서 모든 정보를 공유하고 소통하세요."
             />
             <meta
               property="og:image"
