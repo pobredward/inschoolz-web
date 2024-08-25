@@ -58,6 +58,11 @@ function MyApp({ Component, pageProps }: AppProps) {
             <meta name="msapplication-TileColor" content="#da532c" />
             <meta name="theme-color" content="#ffffff" />
 
+            <meta
+              name="keywords"
+              content="인스쿨즈, inschoolz, 학생 커뮤니티, 학교 커뮤니티"
+            />
+
             <meta property="og:type" content="website" />
             <meta property="og:site_name" content="인스쿨즈" />
             <meta
@@ -70,9 +75,10 @@ function MyApp({ Component, pageProps }: AppProps) {
             />
             <meta
               property="og:image"
-              content="https://www.inschoolz.com/logo_320x320.png"
+              content="https://www.inschoolz.com/logo_240x240.png"
             />
             <meta property="og:url" content="https://www.inschoolz.com" />
+
             <meta name="twitter:card" content="summary_large_image" />
           </Head>
           <Hydrate state={pageProps.dehydratedState}>
