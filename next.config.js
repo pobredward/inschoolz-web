@@ -40,6 +40,15 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/posts/:id",
+        destination: "/community/:category/:id",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
