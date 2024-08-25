@@ -90,8 +90,9 @@ const CreatePostPage: React.FC = () => {
   const filteredCategories = categories.map((cat) => ({
     ...cat,
     subcategories: cat.subcategories.filter(
-      (subcat) => subcat.id !== "national-hot",
-    ), // "HOT 게시글" 필터링
+      (subcat) =>
+        subcat.id !== "national-hot" && subcat.id !== "national-minor",
+    ),
   }));
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

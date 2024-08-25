@@ -86,7 +86,13 @@ const CategoryPage: React.FC = () => {
       if (cat.subcategories) {
         for (let subcat of cat.subcategories) {
           if (subcat.id === categoryId) {
-            return `${cat.name} > ${subcat.name}`;
+            if (cat.id === "school") {
+              return `${user?.schoolName} > ${subcat.name}`;
+            } else if (cat.id === "regional") {
+              return `${user?.address1} ${user?.address2} > ${subcat.name}`;
+            } else {
+              return `${cat.name} > ${subcat.name}`;
+            }
           }
           if (subcat.subcategories) {
             for (let minorGallery of subcat.subcategories) {
@@ -334,6 +340,8 @@ const MinorGalleryToggle = styled.div`
 
 const MinorGalleryList = styled.div`
   margin-left: 1rem;
+  transition: max-height 0.3s ease-in-out;
+  overflow: scroll;
 `;
 
 const PageContainer = styled.div`
@@ -432,7 +440,7 @@ const HamburgerIcon = styled.div`
 
 const MobileTitle = styled.h2`
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 `;
 
 const CategoryHeader = styled.div`
