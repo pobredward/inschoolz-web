@@ -62,6 +62,29 @@ const HomePage: NextPage = () => {
         {user && user.isAdmin && (
           <AdminButton onClick={handleAdminClick}>관리자 페이지</AdminButton>
         )}
+
+        <TestNotice>
+          <h2>테스터 여러분께 드리는 안내</h2>
+          <ol>
+            <li>
+              테스트 기간 동안 다양한 학교 게시판과 마이너 갤러리에 게시글을
+              작성해 주세요.
+            </li>
+            <li>
+              전화번호 인증 과정이 없어 계정도 여러 개 만들 수 있습니다.
+              활성화된 커뮤니티처럼 보이는 것이 목표입니다.
+            </li>
+            <li>
+              작성하신 게시글은 구글 검색 결과 상단에 노출될 수 있으니, 도배성
+              게시글보다는 양질의 내용을 작성해 주시기 바랍니다.
+            </li>
+            <li>현재는 디자인 작업 없이 기능 구현에 중점을 두었습니다.</li>
+            <li>
+              기타 버그사항 및 개선점 발견 시 "제안사항" 마이너 갤러리에 작성
+              부탁드립니다.
+            </li>
+          </ol>
+        </TestNotice>
       </Main>
     </Layout>
   );
@@ -70,6 +93,10 @@ const HomePage: NextPage = () => {
 const Main = styled.main`
   padding: 4rem;
   text-align: center;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `;
 
 const AdminButton = styled.button`
@@ -85,6 +112,27 @@ const AdminButton = styled.button`
 
   &:hover {
     background-color: var(--primary-hover);
+  }
+`;
+
+const TestNotice = styled.div`
+  margin-top: 3rem;
+  padding: 1rem;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+  text-align: left;
+
+  h2 {
+    color: var(--primary-text);
+    margin-bottom: 1rem;
+  }
+
+  ol {
+    padding-left: 1.5rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
   }
 `;
 

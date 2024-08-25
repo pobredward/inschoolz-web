@@ -40,6 +40,8 @@ export const categoriesState = atom<Category[]>({
           id: "national-minor",
           name: "마이너 갤러리",
           subcategories: [
+            { id: "national-minor-develop", name: "제안사항" },
+
             { id: "national-minor-humor", name: "유머/밈" },
             { id: "national-minor-esports", name: "모바일/PC게임" },
             { id: "national-minor-boardgame", name: "보드게임" },
