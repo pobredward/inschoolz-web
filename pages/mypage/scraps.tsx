@@ -113,9 +113,8 @@ const ScrapsPage: React.FC = () => {
               </PostHeader>
               <PostContent>
                 {post.content
-                  ? post.content.substring(0, 100)
+                  ? getPostContentSnippet(post.content)
                   : "내용이 없습니다."}
-                ...
               </PostContent>
               <PostFooter>
                 <PostDateAuthor>{formatDate(post.createdAt)}</PostDateAuthor>
@@ -137,6 +136,28 @@ const ScrapsPage: React.FC = () => {
       </Container>
     </Layout>
   );
+};
+
+const getPostContentSnippet = (content: string) => {
+  // <p> 태그를 기준으로 내용 분리
+  const paragraphs = content
+    .split(/<\/?p[^>]*>/g)
+    .filter((paragraph) => paragraph.trim() !== "");
+
+  // 첫 번째 <p> 문단 가져오기
+  const firstParagraph = paragraphs[0] || "";
+
+  // HTML 태그 제거
+  const plainText = firstParagraph.replace(/<[^>]+>/g, "");
+
+  // 모바일 여부에 따라 길이 제한
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
+  const sliceLength = isMobile ? 20 : 45;
+
+  // 글자 수 제한 적용
+  return plainText.length > sliceLength
+    ? plainText.slice(0, sliceLength) + "..."
+    : plainText;
 };
 
 const Container = styled.div`

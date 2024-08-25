@@ -112,7 +112,7 @@ const CommentsPage: React.FC = () => {
       orderBy("createdAt", "desc"),
       startAfter(lastVisible),
       limit(20),
-    ); // Increased limit
+    );
     const querySnapshot = await getDocs(q);
 
     const lastVisibleDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
@@ -135,7 +135,8 @@ const CommentsPage: React.FC = () => {
             id: commentDoc.id,
             content: commentData.content,
             createdAt: commentData.createdAt,
-            isReply: commentData.isReply,
+            isReply: !!commentData.parentId,
+            parentId: commentData.parentId,
           });
         } else {
           newPostsMap.set(postData.id, {
@@ -146,7 +147,8 @@ const CommentsPage: React.FC = () => {
                 id: commentDoc.id,
                 content: commentData.content,
                 createdAt: commentData.createdAt,
-                isReply: commentData.isReply,
+                isReply: !!commentData.parentId,
+                parentId: commentData.parentId,
               },
             ],
           });
@@ -171,6 +173,10 @@ const CommentsPage: React.FC = () => {
     return "";
   };
 
+  const countReplies = (comments: Comment[]) => {
+    return comments.filter((comment) => comment.parentId).length;
+  };
+
   return (
     <Layout>
       <Container>
@@ -190,15 +196,8 @@ const CommentsPage: React.FC = () => {
               <PostContent>{getPostContentSnippet(post.content)}</PostContent>
               <CommentSection>
                 <CommentHeader>
-                  내 댓글 ({post.userComments.length}):
+                  내 댓글: {post.userComments.length}개
                 </CommentHeader>
-                {post.userComments.map((comment) => (
-                  <CommentContent key={comment.id} isReply={comment.isReply}>
-                    {comment.isReply && <ReplyIndicator>↳ </ReplyIndicator>}
-                    {comment.content}
-                    <CommentDate>{formatDate(comment.createdAt)}</CommentDate>
-                  </CommentContent>
-                ))}
               </CommentSection>
               <PostFooter>
                 <PostDateAuthor>
@@ -224,22 +223,13 @@ const CommentsPage: React.FC = () => {
 };
 
 const getPostContentSnippet = (content: string) => {
-  // <p> 태그를 기준으로 내용 분리
   const paragraphs = content
     .split(/<\/?p[^>]*>/g)
     .filter((paragraph) => paragraph.trim() !== "");
-
-  // 첫 번째 <p> 문단 가져오기
   const firstParagraph = paragraphs[0] || "";
-
-  // HTML 태그 제거
   const plainText = firstParagraph.replace(/<[^>]+>/g, "");
-
-  // 모바일 여부에 따라 길이 제한
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
   const sliceLength = isMobile ? 20 : 45;
-
-  // 글자 수 제한 적용
   return plainText.length > sliceLength
     ? plainText.slice(0, sliceLength) + "..."
     : plainText;
@@ -307,11 +297,6 @@ const CommentHeader = styled.h5`
   color: #333;
 `;
 
-const CommentDate = styled.span`
-  font-size: 0.8rem;
-  color: #666;
-`;
-
 const PostFooter = styled.div`
   display: flex;
   justify-content: space-between;
@@ -348,22 +333,6 @@ const LoadMoreButton = styled.button`
   &:disabled {
     background-color: #ccc;
   }
-`;
-
-const CommentContent = styled.div<{ isReply: boolean }>`
-  margin: 0.25rem 0;
-  color: #444;
-  font-size: 0.9rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-left: ${(props) => (props.isReply ? "1rem" : "0")};
-  background-color: ${(props) => (props.isReply ? "#e8e8e8" : "transparent")};
-`;
-
-const ReplyIndicator = styled.span`
-  color: #888;
-  margin-right: 0.5rem;
 `;
 
 export default CommentsPage;

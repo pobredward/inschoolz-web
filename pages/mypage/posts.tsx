@@ -120,9 +120,9 @@ const PostsPage: React.FC = () => {
                 <PostCategory>{getCategoryName(post.categoryId)}</PostCategory>
               </PostHeader>
               <PostContent>
-                {post.content
+               {post.content
                   ? getPostContentSnippet(post.content)
-                  : "내용이 없습니다."}
+                  : "내용이 없습니다."} 
               </PostContent>
               <PostFooter>
                 <PostDateAuthor>{formatDate(post.createdAt)}</PostDateAuthor>
