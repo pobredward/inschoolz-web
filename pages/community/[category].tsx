@@ -355,7 +355,7 @@ const ContentWrapper = styled.div`
 const CategoryPanel = styled.div<{ isOpen: boolean }>`
   display: flex;
   width: 320px; // 너비를 280px에서 320px로 증가
-  height: calc(100vh - 120px);
+  height: calc(100vh - 150px);
   background-color: white;
   transition: transform 0.3s ease-in-out;
 
