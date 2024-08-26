@@ -22,7 +22,7 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
     selectedCategoryState,
   );
   const categories = useRecoilValue(categoriesState);
-  const user = useRecoilValue(userState);
+  const [user, setUser] = useRecoilState(userState);
   const router = useRouter();
 
   const [activeMajorCategory, setActiveMajorCategory] = useState("national");
@@ -57,6 +57,17 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
 
   const handleToggleFavorite = async (galleryId: string) => {
     if (user) {
+      const isFavorite = user.favoriteGalleries?.includes(galleryId);
+      const updatedFavorites = isFavorite
+        ? user.favoriteGalleries.filter((id) => id !== galleryId)
+        : [...user.favoriteGalleries, galleryId];
+
+      setUser({
+        ...user,
+        favoriteGalleries: updatedFavorites,
+      });
+
+      // Firestore 업데이트
       await toggleFavoriteMinorGallery(user.uid, galleryId);
     }
   };
@@ -98,6 +109,33 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
                 </MinorGalleryToggle>
                 {isMinorGalleryOpen && (
                   <>
+                    <FavoriteGalleriesSection>
+                      {user?.favoriteGalleries?.map((galleryId) => {
+                        const gallery = allMinorGalleries.find(
+                          (g) => g.id === galleryId,
+                        );
+                        return (
+                          gallery && (
+                            <SubcategoryItem
+                              key={gallery.id}
+                              onClick={() => handleCategorySelect(gallery.id)}
+                              isActive={selectedCategory === gallery.id}
+                            >
+                              <span>{gallery.name}</span>
+                              <StarIcon
+                                isFavorite={true}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleFavorite(gallery.id);
+                                }}
+                              >
+                                <FaStar />
+                              </StarIcon>
+                            </SubcategoryItem>
+                          )
+                        );
+                      })}
+                    </FavoriteGalleriesSection>
                     <SearchContainer>
                       <SearchInput
                         type="text"
@@ -155,6 +193,11 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
   );
 };
 
+const FavoriteGalleriesSection = styled.div`
+  margin-bottom: 1rem;
+  margin-left: 1rem;
+`;
+
 const SearchContainer = styled.div`
   display: flex;
   margin-bottom: 1rem;
@@ -203,7 +246,6 @@ const MinorGalleryToggle = styled.div`
 const MinorGalleryList = styled.div`
   margin-left: 1rem;
   transition: max-height 0.3s ease-in-out;
-  overflow: scroll;
 `;
 
 const CategorySection = styled.div<{ isOpen: boolean }>`

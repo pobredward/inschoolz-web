@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "@emotion/styled";
 import Layout from "../components/Layout";
-import { useRecoilValue, useSetRecoilState } from "recoil";
+import { useRecoilValue, useSetRecoilState, useRecoilState } from "recoil";
 import { useRouter } from "next/router";
 import { createPost, updatePost } from "../services/postService";
 import { uploadImage } from "../services/imageService";
-import CategoryList from "./CategoryList";
 import {
   userState,
-  categoriesState,
   userExperienceState,
   userLevelState,
+  categoriesState,
+  selectedCategoryState,
 } from "../store/atoms";
 import { User } from "../types";
 import { compressImage } from "../utils/imageUtils";
-import { FaUpload, FaTrash } from "react-icons/fa";
+import { FaUpload, FaTrash, FaBars } from "react-icons/fa";
 import DefaultModal from "./modal/DefaultModal";
 import {
   updateUserExperience,
@@ -23,15 +23,15 @@ import {
 import ExperienceModal from "../components/modal/ExperienceModal";
 import { FaInfoCircle } from "react-icons/fa";
 import dynamic from "next/dynamic";
-import "react-quill/dist/quill.snow.css"; // Quill 스타일시트
+import "react-quill/dist/quill.snow.css";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import CategoryPanel from "./CategoryPanel";
 
 const CreatePostPage: React.FC = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("");
   const user = useRecoilValue<User | null>(userState);
-  const categories = useRecoilValue(categoriesState);
   const router = useRouter();
   const { category: categoryParam } = router.query;
   const [images, setImages] = useState<File[]>([]);
@@ -51,6 +51,36 @@ const CreatePostPage: React.FC = () => {
   const setUserLevel = useSetRecoilState(userLevelState);
   const [lastLevelUp, setLastLevelUp] = useState<number | null>(null);
   const [isNoticeOpen, setIsNoticeOpen] = useState(false);
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const categories = useRecoilValue(categoriesState);
+  const [selectedCategory] = useRecoilState(selectedCategoryState);
+
+  const getCategoryName = (categoryId: string) => {
+    for (let cat of categories) {
+      if (cat.subcategories) {
+        for (let subcat of cat.subcategories) {
+          if (subcat.id === categoryId) {
+            if (cat.id === "school") {
+              return `${user?.schoolName} > ${subcat.name}`;
+            } else if (cat.id === "regional") {
+              return `${user?.address1} ${user?.address2} > ${subcat.name}`;
+            } else {
+              return `${cat.name} > ${subcat.name}`;
+            }
+          }
+          if (subcat.subcategories) {
+            for (let minorGallery of subcat.subcategories) {
+              if (minorGallery.id === categoryId) {
+                return `${cat.name} > ${minorGallery.name} 게시판`;
+              }
+            }
+          }
+        }
+      }
+    }
+    return "";
+  };
 
   const handleContentChange = (value: string) => {
     setContent(value);
@@ -86,14 +116,6 @@ const CreatePostPage: React.FC = () => {
       router.push("/login");
     }
   }, [categoryParam, user, router]);
-
-  const filteredCategories = categories.map((cat) => ({
-    ...cat,
-    subcategories: cat.subcategories.filter(
-      (subcat) =>
-        subcat.id !== "national-hot" && subcat.id !== "national-minor",
-    ),
-  }));
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -255,179 +277,335 @@ const CreatePostPage: React.FC = () => {
     }
   };
 
+  //   return (
+  //     <Layout>
+  //       <Container>
+  //         <ContentSection>
+  //           <Header>
+  //             <h1>게시글 작성</h1>
+  //             <InfoContainer onClick={handleNoticeOpen}>
+  //               <ResponsiveIcon />
+  //               <InfoText>작성 원칙</InfoText>
+  //             </InfoContainer>
+  //           </Header>
+  //           <Form onSubmit={handleSubmit}>
+  //             <Input
+  //               type="text"
+  //               id="title"
+  //               value={title}
+  //               onChange={(e) => setTitle(e.target.value)}
+  //               placeholder="제목을 입력하세요"
+  //               required
+  //             />
+  //             <ReactQuill
+  //               value={content}
+  //               onChange={handleContentChange}
+  //               modules={{
+  //                 toolbar: [
+  //                   [{ header: [1, 2, 3, false] }],
+  //                   ["bold", "italic", "underline", "strike", "clean"],
+  //                 ],
+  //               }}
+  //               placeholder="내용을 입력하세요"
+  //             />
+  //             <ImageUploadButton
+  //               type="button"
+  //               onClick={(e) => {
+  //                 e.preventDefault();
+  //                 fileInputRef.current?.click();
+  //               }}
+  //             >
+  //               <FaUpload /> 이미지 (최대 10개)
+  //             </ImageUploadButton>
+  //             <HiddenInput
+  //               ref={fileInputRef}
+  //               type="file"
+  //               id="image"
+  //               accept="image/*"
+  //               multiple
+  //               onChange={handleImageChange}
+  //             />
+  //             <ImagePreviewContainer>
+  //               {images.map((image, index) => (
+  //                 <ImagePreviewWrapper key={index}>
+  //                   <ImagePreview
+  //                     src={URL.createObjectURL(image)}
+  //                     alt={`Image preview ${index + 1}`}
+  //                   />
+  //                   <RemoveButton
+  //                     type="button"
+  //                     onClick={() => handleImageRemove(index)}
+  //                   >
+  //                     <FaTrash />
+  //                   </RemoveButton>
+  //                 </ImagePreviewWrapper>
+  //               ))}
+  //             </ImagePreviewContainer>
+  //             <Label>
+  //               <input
+  //                 type="checkbox"
+  //                 checked={isVotePost}
+  //                 onChange={(e) => setIsVotePost(e.target.checked)}
+  //               />
+  //               투표 게시글로 작성
+  //             </Label>
+  //             {isVotePost && (
+  //               <VoteOptionsContainer>
+  //                 {voteOptions.map((option, index) => (
+  //                   <VoteOptionContainer key={index}>
+  //                     <VoteInput
+  //                       type="text"
+  //                       value={option.text}
+  //                       onChange={(e) =>
+  //                         handleVoteOptionChange(index, e.target.value)
+  //                       }
+  //                       placeholder={`옵션 ${index + 1}`}
+  //                     />
+  //                     <VoteImageUploadButton
+  //                       type="button"
+  //                       onClick={(e) => {
+  //                         e.preventDefault();
+  //                         document.getElementById(`vote-image-${index}`)?.click();
+  //                       }}
+  //                     >
+  //                       <FaUpload />
+  //                     </VoteImageUploadButton>
+  //                     <HiddenInput
+  //                       id={`vote-image-${index}`}
+  //                       type="file"
+  //                       accept="image/*"
+  //                       onChange={(e) => handleVoteImageChange(index, e)}
+  //                     />
+  //                     {option.image && (
+  //                       <ImagePreviewWrapper>
+  //                         <ImagePreview
+  //                           src={URL.createObjectURL(option.image)}
+  //                           alt={`Vote option ${index + 1}`}
+  //                         />
+  //                         <RemoveButton
+  //                           type="button"
+  //                           onClick={(e) => {
+  //                             e.preventDefault();
+  //                             handleVoteImageRemove(index);
+  //                           }}
+  //                         >
+  //                           <FaTrash />
+  //                         </RemoveButton>
+  //                       </ImagePreviewWrapper>
+  //                     )}
+  //                     <RemoveButton
+  //                       type="button"
+  //                       onClick={(e) => {
+  //                         e.preventDefault();
+  //                         handleRemoveVoteOption(index);
+  //                       }}
+  //                     >
+  //                       <FaTrash />
+  //                     </RemoveButton>
+  //                   </VoteOptionContainer>
+  //                 ))}
+  //                 {voteOptions.length < 8 && (
+  //                   <Button
+  //                     type="button"
+  //                     onClick={(e) => {
+  //                       e.preventDefault();
+  //                       handleAddVoteOption();
+  //                     }}
+  //                   >
+  //                     투표 옵션 추가
+  //                   </Button>
+  //                 )}
+  //               </VoteOptionsContainer>
+  //             )}
+  //             <ButtonContainer>
+  //               <SubmitButton type="submit">게시</SubmitButton>
+  //               <BackButton type="button" onClick={() => router.back()}>
+  //                 목록
+  //               </BackButton>
+  //             </ButtonContainer>
+  //           </Form>
+  //         </ContentSection>
+  //       </Container>
+  //       <DefaultModal
+  //         isOpen={isNoticeOpen}
+  //         onClose={handleNoticeClose}
+  //         title="작성 원칙"
+  //         message={noticeContent}
+  //         height="500px"
+  //       />
+  //       <ExperienceModal
+  //         isOpen={showExpModal}
+  //         onClose={handleExpModalClose}
+  //         expGained={expGained}
+  //         newLevel={newLevel}
+  //       />
+  //     </Layout>
+  //   );
+  // };
+
   return (
     <Layout>
-      <Container>
-        <CategorySection>
-          <CategoryList />
-        </CategorySection>
-        <ContentSection>
-          <Header>
-            <h1>게시글 작성</h1>
-            <InfoContainer onClick={handleNoticeOpen}>
-              <ResponsiveIcon />
-              <InfoText>작성 원칙</InfoText>
-            </InfoContainer>
-          </Header>
-          <Form onSubmit={handleSubmit}>
-            {/* <Label htmlFor="category">카테고리</Label> */}
-            <Select
-              id="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              required
-            >
-              <option value="">카테고리 선택</option>
-              {filteredCategories.map((cat) => (
-                <optgroup key={cat.id} label={cat.name}>
-                  {cat.subcategories?.map((subcat) => (
-                    <option key={subcat.id} value={subcat.id}>
-                      {subcat.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </Select>
-            <Input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="제목을 입력하세요"
-              required
-            />
-            <ReactQuill
-              value={content}
-              onChange={handleContentChange}
-              modules={{
-                toolbar: [
-                  [{ header: [1, 2, 3, false] }],
-                  ["bold", "italic", "underline", "strike", "clean"],
-                ],
-              }}
-              placeholder="내용을 입력하세요"
-            />
-            <ImageUploadButton
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }}
-            >
-              <FaUpload /> 이미지 (최대 10개)
-            </ImageUploadButton>
-            <HiddenInput
-              ref={fileInputRef}
-              type="file"
-              id="image"
-              accept="image/*"
-              multiple
-              onChange={handleImageChange}
-            />
-            <ImagePreviewContainer>
-              {images.map((image, index) => (
-                <ImagePreviewWrapper key={index}>
-                  <ImagePreview
-                    src={URL.createObjectURL(image)}
-                    alt={`Image preview ${index + 1}`}
-                  />
-                  <RemoveButton
-                    type="button"
-                    onClick={() => handleImageRemove(index)}
-                  >
-                    <FaTrash />
-                  </RemoveButton>
-                </ImagePreviewWrapper>
-              ))}
-            </ImagePreviewContainer>
-            <Label>
-              <input
-                type="checkbox"
-                checked={isVotePost}
-                onChange={(e) => setIsVotePost(e.target.checked)}
+      <PageContainer>
+        <MobileHeader>
+          <HamburgerIcon onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            <FaBars />
+          </HamburgerIcon>
+          <MobileTitle>{getCategoryName(selectedCategory)}</MobileTitle>
+        </MobileHeader>
+        <ContentWrapper>
+          <CategoryPanel isOpen={isMobileMenuOpen} />
+          <MainContent isMobileMenuOpen={isMobileMenuOpen}>
+            <Header>
+              <h1>게시글 작성</h1>
+              <InfoContainer onClick={() => setIsNoticeOpen(true)}>
+                <ResponsiveIcon />
+                <InfoText>작성 원칙</InfoText>
+              </InfoContainer>
+            </Header>
+            <Form onSubmit={handleSubmit}>
+              <Input
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="제목을 입력하세요"
+                required
               />
-              투표 게시글로 작성
-            </Label>
-            {isVotePost && (
-              <VoteOptionsContainer>
-                {voteOptions.map((option, index) => (
-                  <VoteOptionContainer key={index}>
-                    <VoteInput
-                      type="text"
-                      value={option.text}
-                      onChange={(e) =>
-                        handleVoteOptionChange(index, e.target.value)
-                      }
-                      placeholder={`옵션 ${index + 1}`}
+              <ReactQuill
+                value={content}
+                onChange={handleContentChange}
+                modules={{
+                  toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ["bold", "italic", "underline", "strike", "clean"],
+                  ],
+                }}
+                placeholder="내용을 입력하세요"
+              />
+              <ImageUploadButton
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }}
+              >
+                <FaUpload /> 이미지 (최대 10개)
+              </ImageUploadButton>
+              <HiddenInput
+                ref={fileInputRef}
+                type="file"
+                id="image"
+                accept="image/*"
+                multiple
+                onChange={handleImageChange}
+              />
+              <ImagePreviewContainer>
+                {images.map((image, index) => (
+                  <ImagePreviewWrapper key={index}>
+                    <ImagePreview
+                      src={URL.createObjectURL(image)}
+                      alt={`Image preview ${index + 1}`}
                     />
-                    <VoteImageUploadButton
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        document.getElementById(`vote-image-${index}`)?.click();
-                      }}
-                    >
-                      <FaUpload />
-                    </VoteImageUploadButton>
-                    <HiddenInput
-                      id={`vote-image-${index}`}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleVoteImageChange(index, e)}
-                    />
-                    {option.image && (
-                      <ImagePreviewWrapper>
-                        <ImagePreview
-                          src={URL.createObjectURL(option.image)}
-                          alt={`Vote option ${index + 1}`}
-                        />
-                        <RemoveButton
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleVoteImageRemove(index);
-                          }}
-                        >
-                          <FaTrash />
-                        </RemoveButton>
-                      </ImagePreviewWrapper>
-                    )}
                     <RemoveButton
                       type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleRemoveVoteOption(index);
-                      }}
+                      onClick={() => handleImageRemove(index)}
                     >
                       <FaTrash />
                     </RemoveButton>
-                  </VoteOptionContainer>
+                  </ImagePreviewWrapper>
                 ))}
-                {voteOptions.length < 8 && (
-                  <Button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleAddVoteOption();
-                    }}
-                  >
-                    투표 옵션 추가
-                  </Button>
-                )}
-              </VoteOptionsContainer>
-            )}
-            <ButtonContainer>
-              <SubmitButton type="submit">게시</SubmitButton>
-              <BackButton type="button" onClick={() => router.back()}>
-                목록
-              </BackButton>
-            </ButtonContainer>
-          </Form>
-        </ContentSection>
-      </Container>
+              </ImagePreviewContainer>
+              <Label>
+                <input
+                  type="checkbox"
+                  checked={isVotePost}
+                  onChange={(e) => setIsVotePost(e.target.checked)}
+                />
+                투표 게시글로 작성
+              </Label>
+              {isVotePost && (
+                <VoteOptionsContainer>
+                  {voteOptions.map((option, index) => (
+                    <VoteOptionContainer key={index}>
+                      <VoteInput
+                        type="text"
+                        value={option.text}
+                        onChange={(e) =>
+                          handleVoteOptionChange(index, e.target.value)
+                        }
+                        placeholder={`옵션 ${index + 1}`}
+                      />
+                      <VoteImageUploadButton
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document
+                            .getElementById(`vote-image-${index}`)
+                            ?.click();
+                        }}
+                      >
+                        <FaUpload />
+                      </VoteImageUploadButton>
+                      <HiddenInput
+                        id={`vote-image-${index}`}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleVoteImageChange(index, e)}
+                      />
+                      {option.image && (
+                        <ImagePreviewWrapper>
+                          <ImagePreview
+                            src={URL.createObjectURL(option.image)}
+                            alt={`Vote option ${index + 1}`}
+                          />
+                          <RemoveButton
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleVoteImageRemove(index);
+                            }}
+                          >
+                            <FaTrash />
+                          </RemoveButton>
+                        </ImagePreviewWrapper>
+                      )}
+                      <RemoveButton
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleRemoveVoteOption(index);
+                        }}
+                      >
+                        <FaTrash />
+                      </RemoveButton>
+                    </VoteOptionContainer>
+                  ))}
+                  {voteOptions.length < 8 && (
+                    <Button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddVoteOption();
+                      }}
+                    >
+                      투표 옵션 추가
+                    </Button>
+                  )}
+                </VoteOptionsContainer>
+              )}
+              <ButtonContainer>
+                <SubmitButton type="submit">게시</SubmitButton>
+                <BackButton type="button" onClick={() => router.back()}>
+                  목록
+                </BackButton>
+              </ButtonContainer>
+            </Form>
+          </MainContent>
+        </ContentWrapper>
+      </PageContainer>
       <DefaultModal
         isOpen={isNoticeOpen}
-        onClose={handleNoticeClose}
+        onClose={() => setIsNoticeOpen(false)}
         title="작성 원칙"
         message={noticeContent}
         height="500px"
@@ -441,6 +619,56 @@ const CreatePostPage: React.FC = () => {
     </Layout>
   );
 };
+
+const PageContainer = styled.div`
+  position: relative;
+  overflow-x: hidden;
+`;
+
+const ContentWrapper = styled.div`
+  display: flex;
+`;
+
+const MainContent = styled.div<{ isMobileMenuOpen: boolean }>`
+  flex: 1;
+  padding: 1rem;
+  min-width: 0;
+  transition: transform 0.3s ease-in-out;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    transform: ${({ isMobileMenuOpen }) =>
+      isMobileMenuOpen ? "translateX(280px)" : "translateX(0)"};
+  }
+`;
+
+const MobileHeader = styled.div`
+  display: none;
+  @media (max-width: 768px) {
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    background-color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1001;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const HamburgerIcon = styled.div`
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 1rem;
+`;
+
+const MobileTitle = styled.h2`
+  margin: 0;
+  font-size: 1.1rem;
+`;
 
 const Container = styled.div`
   display: flex;
