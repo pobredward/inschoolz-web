@@ -15,11 +15,21 @@ import ExperienceModal from "../../components/modal/ExperienceModal";
 import { useSetRecoilState, useRecoilState } from "recoil";
 import { userExperienceState, userLevelState } from "../../store/atoms";
 
-const GRAVITY = 0.25;
-const JUMP_STRENGTH = -5.5;
-const PIPE_SPEED = 2;
-const PIPE_WIDTH = 50;
-const PIPE_GAP = 200;
+// config 객체로 상수 관리
+const config = {
+  GRAVITY: 0.3,
+  JUMP_STRENGTH: -6.0,
+  PIPE_SPEED: 3.5,
+  PIPE_WIDTH: 50,
+  PIPE_GAP: 180,
+  BIRD_START_Y: 250,
+  BIRD_START_VELOCITY: 0,
+  BIRD_SIZE: { width: 20, height: 20 },
+  CANVAS: {
+    MOBILE: { width: 300, height: 450 },
+    DESKTOP: { width: 400, height: 600 },
+  },
+};
 
 const FlappyBird: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -31,7 +41,10 @@ const FlappyBird: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState({ title: "", message: "" });
   const isMobile = useMediaQuery({ query: "(max-width: 768px)" });
-  const birdRef = useRef({ y: 250, velocity: 0 });
+  const birdRef = useRef({
+    y: config.BIRD_START_Y,
+    velocity: config.BIRD_START_VELOCITY,
+  });
   const pipesRef = useRef<{ x: number; topHeight: number }[]>([]);
   const scoreRef = useRef(0);
   const gameOverRef = useRef(true);
@@ -122,7 +135,10 @@ const FlappyBird: React.FC = () => {
     gameOverRef.current = false;
     setScore(0);
     scoreRef.current = 0;
-    birdRef.current = { y: 250, velocity: 0 };
+    birdRef.current = {
+      y: config.BIRD_START_Y,
+      velocity: config.BIRD_START_VELOCITY,
+    };
     pipesRef.current = [];
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext("2d");
@@ -142,17 +158,20 @@ const FlappyBird: React.FC = () => {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    birdRef.current.velocity += GRAVITY;
+    birdRef.current.velocity += config.GRAVITY;
     birdRef.current.y += birdRef.current.velocity;
 
-    const pipeSpeed = isMobile ? PIPE_SPEED * 0.8 : PIPE_SPEED;
-    const pipeGap = isMobile ? PIPE_GAP * 1.2 : PIPE_GAP;
+    const pipeSpeed = isMobile ? config.PIPE_SPEED * 0.8 : config.PIPE_SPEED;
+    const pipeGap = isMobile ? config.PIPE_GAP * 1.2 : config.PIPE_GAP;
 
     pipesRef.current.forEach((pipe) => {
       pipe.x -= pipeSpeed;
     });
 
-    pipesRef.current = pipesRef.current.filter((pipe) => pipe.x > -PIPE_WIDTH);
+    // 파이프 생성
+    pipesRef.current = pipesRef.current.filter(
+      (pipe) => pipe.x > -config.PIPE_WIDTH,
+    );
 
     if (
       pipesRef.current.length === 0 ||
@@ -163,37 +182,43 @@ const FlappyBird: React.FC = () => {
     }
 
     const bird = birdRef.current;
+
+    // 충돌 감지 로직
+    let collisionDetected = false;
     pipesRef.current.forEach((pipe) => {
       if (
-        bird.y < pipe.topHeight ||
-        bird.y > pipe.topHeight + pipeGap ||
-        bird.y > canvas.height - 20 ||
-        bird.y < 0
+        (bird.y < pipe.topHeight || bird.y > pipe.topHeight + pipeGap) &&
+        pipe.x < 50 &&
+        pipe.x + config.PIPE_WIDTH > 30
       ) {
-        if (pipe.x < 50 && pipe.x + PIPE_WIDTH > 30) {
-          endGame();
-          return;
-        }
+        collisionDetected = true;
       }
     });
 
+    if (collisionDetected || bird.y > canvas.height - 20 || bird.y < 0) {
+      endGame();
+      return;
+    }
+
+    // 점수 계산 로직
     pipesRef.current.forEach((pipe) => {
-      if (pipe.x + PIPE_WIDTH < 30 && pipe.x + PIPE_WIDTH >= 28) {
+      if (pipe.x + config.PIPE_WIDTH < 30 && !pipe.passed) {
+        pipe.passed = true; // 한 번만 점수를 올리도록 처리
         scoreRef.current++;
         setScore(scoreRef.current);
       }
     });
 
     ctx.fillStyle = "yellow";
-    ctx.fillRect(30, bird.y, 20, 20);
+    ctx.fillRect(30, bird.y, config.BIRD_SIZE.width, config.BIRD_SIZE.height);
 
     ctx.fillStyle = "green";
     pipesRef.current.forEach((pipe) => {
-      ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+      ctx.fillRect(pipe.x, 0, config.PIPE_WIDTH, pipe.topHeight);
       ctx.fillRect(
         pipe.x,
         pipe.topHeight + pipeGap,
-        PIPE_WIDTH,
+        config.PIPE_WIDTH,
         canvas.height - pipe.topHeight - pipeGap,
       );
     });
@@ -297,7 +322,7 @@ const FlappyBird: React.FC = () => {
 
   const handleJump = () => {
     if (!gameOverRef.current) {
-      birdRef.current.velocity = JUMP_STRENGTH;
+      birdRef.current.velocity = config.JUMP_STRENGTH;
     }
   };
 
@@ -307,8 +332,14 @@ const FlappyBird: React.FC = () => {
         <h1>Flappy Bird</h1>
         <Canvas
           ref={canvasRef}
-          width={isMobile ? 300 : 400}
-          height={isMobile ? 450 : 600}
+          width={
+            isMobile ? config.CANVAS.MOBILE.width : config.CANVAS.DESKTOP.width
+          }
+          height={
+            isMobile
+              ? config.CANVAS.MOBILE.height
+              : config.CANVAS.DESKTOP.height
+          }
           onClick={handleJump}
         />
         {gameOver && <StartButton onClick={startGame}>게임 시작</StartButton>}
@@ -318,7 +349,7 @@ const FlappyBird: React.FC = () => {
       </GameContainer>
       <DefaultModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={handleDefaultModalClose}
         title={modalContent.title}
         message={modalContent.message}
       />
