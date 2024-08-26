@@ -243,4 +243,35 @@ export const updateUserProfile = async (
     const updatedCachedUser = { ...JSON.parse(cachedUser), ...updatedData };
     localStorage.setItem(`user_${userId}`, JSON.stringify(updatedCachedUser));
   }
+
+  // schoolName 또는 address가 변경된 경우, 게임 점수 테이블 업데이트
+  if (updatedData.schoolName || updatedData.address1 || updatedData.address2) {
+    await updateGameScores(userId, updatedData);
+  }
 };
+
+async function updateGameScores(
+  userId: string,
+  updatedData: Partial<User>,
+): Promise<void> {
+  const gameScoreTables = [
+    "flappyBirdScores",
+    "reactionGameScores",
+    "tileGameScores",
+  ];
+
+  for (const table of gameScoreTables) {
+    const scoreRef = doc(db, table, userId);
+    const scoreDoc = await getDoc(scoreRef);
+
+    if (scoreDoc.exists()) {
+      const updateData: Partial<User> = {};
+      if (updatedData.schoolName)
+        updateData.schoolName = updatedData.schoolName;
+      if (updatedData.address1) updateData.address1 = updatedData.address1;
+      if (updatedData.address2) updateData.address2 = updatedData.address2;
+
+      await updateDoc(scoreRef, updateData);
+    }
+  }
+}
