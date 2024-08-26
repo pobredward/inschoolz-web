@@ -74,6 +74,7 @@ export interface User {
   isAdmin?: boolean;
   warnings?: Warning[];
   favoriteGalleries?: string[];
+  favoriteSchools?: string[];
 }
 
 export interface VoteOption {

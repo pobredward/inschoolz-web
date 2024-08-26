@@ -50,6 +50,7 @@ export const useAuth = () => {
                 profileImageUrl: userData.profileImageUrl || "",
                 warnings: userData.warnings || [],
                 isAdmin: userData.isAdmin || false,
+                favoriteSchools: userData.favoriteSchools || [],
               };
               setUser(user);
               setUserExperience(user.experience);
