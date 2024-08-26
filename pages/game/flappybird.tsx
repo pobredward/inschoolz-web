@@ -45,7 +45,9 @@ const FlappyBird: React.FC = () => {
     y: config.BIRD_START_Y,
     velocity: config.BIRD_START_VELOCITY,
   });
-  const pipesRef = useRef<{ x: number; topHeight: number }[]>([]);
+  const pipesRef = useRef<{ x: number; topHeight: number; passed: boolean }[]>(
+    [],
+  );
   const scoreRef = useRef(0);
   const gameOverRef = useRef(true);
   const animationFrameId = useRef<number | null>(null);
@@ -168,7 +170,7 @@ const FlappyBird: React.FC = () => {
       pipe.x -= pipeSpeed;
     });
 
-    // 파이프 생성
+    // 파이프 생성 및 passed 초기화
     pipesRef.current = pipesRef.current.filter(
       (pipe) => pipe.x > -config.PIPE_WIDTH,
     );
@@ -178,7 +180,7 @@ const FlappyBird: React.FC = () => {
       pipesRef.current[pipesRef.current.length - 1].x < canvas.width - 200
     ) {
       const topHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
-      pipesRef.current.push({ x: canvas.width, topHeight });
+      pipesRef.current.push({ x: canvas.width, topHeight, passed: false });
     }
 
     const bird = birdRef.current;
