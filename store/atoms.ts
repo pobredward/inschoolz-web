@@ -44,8 +44,8 @@ export const categoriesState = atom<Category[]>({
 
             { id: "national-minor-humor", name: "유머/밈" },
             { id: "national-minor-esports", name: "모바일/PC게임" },
-            { id: "national-minor-boardgame", name: "보드게임" },
             { id: "national-minor-webtoon", name: "웹툰/만화" },
+            { id: "national-minor-webtoon", name: "애니" },
             { id: "national-minor-movie", name: "영화/드라마" },
             { id: "national-minor-kpop", name: "아이돌/KPOP" },
 
@@ -53,7 +53,6 @@ export const categoriesState = atom<Category[]>({
             { id: "national-minor-sports", name: "운동" },
             { id: "national-minor-trip", name: "여행" },
             { id: "national-minor-food", name: "맛집/요리" },
-            { id: "national-minor-fashion", name: "패션/스타일" },
             { id: "national-minor-animal", name: "반려동물/동물" },
 
             { id: "national-minor-study", name: "공부/입시" },
