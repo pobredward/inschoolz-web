@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { useRecoilValue, useRecoilState } from "recoil";
 import {
-  postsState,
   userState,
   commentsState,
   selectedCategoryState,
@@ -14,31 +13,19 @@ import Layout from "../../../components/Layout";
 import CategoryList from "../../../components/CategoryList";
 import CommentSection from "../../../components/CommentSection";
 import {
-  collection,
   doc,
   getDoc,
-  deleteDoc,
-  query,
-  where,
-  getDocs,
   updateDoc,
   increment,
   arrayUnion,
   arrayRemove,
   Timestamp,
 } from "firebase/firestore";
-import { storage, db } from "../../../lib/firebase";
+import { db } from "../../../lib/firebase";
 import { FaUserCircle } from "react-icons/fa";
 import { updatePost } from "../../../services/postService";
 import { Post } from "../../../types";
-import {
-  FaBookmark,
-  FaTrash,
-  FaUpload,
-  FaFlag,
-  FaStar,
-  FaBars,
-} from "react-icons/fa";
+import { FaTrash, FaUpload, FaBars } from "react-icons/fa";
 import { uploadImage, deleteImage } from "../../../services/imageService";
 import { getCommentsForPost } from "../../../services/commentService";
 import {
@@ -95,11 +82,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   return { props: { initialPost, category, seoData } };
 };
 
-const PostPage: React.FC<PostPageProps> = ({
-  initialPost,
-  category,
-  seoData,
-}) => {
+const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
   const router = useRouter();
   const { id } = router.query;
   const [post, setPost] = useState<Post>(initialPost);
@@ -137,20 +120,10 @@ const PostPage: React.FC<PostPageProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeMajorCategory, setActiveMajorCategory] = useState("national");
   const pageRef = useRef(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filteredGalleries, setFilteredGalleries] = useState<Category[]>([]);
-  const [allMinorGalleries, setAllMinorGalleries] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useRecoilState(
     selectedCategoryState,
   );
-
-  const handleCategorySelect = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    setIsMobileMenuOpen(false);
-    router.push(`/community/${categoryId}`);
-  };
 
   const getCategoryName = (categoryId: string) => {
     for (let cat of categories) {
@@ -176,11 +149,6 @@ const PostPage: React.FC<PostPageProps> = ({
       }
     }
     return "";
-  };
-
-  // 모바일 메뉴 토글 함수
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
   const handleClickOutside = (event: MouseEvent) => {
@@ -816,12 +784,12 @@ const PostPage: React.FC<PostPageProps> = ({
                           <VoteOptionText>{option.text}</VoteOptionText>
                           {post.voteResults && (
                             <VoteResult>
-                              {post.voteResults[index] || 0} 표 (
+                              {post.voteResults[index] || 0}표(
                               {(
                                 ((post.voteResults[index] || 0) /
                                   (post.voterIds?.length || 1)) *
                                 100
-                              ).toFixed(1)}
+                              ).toFixed(0)}
                               %)
                             </VoteResult>
                           )}
@@ -912,7 +880,7 @@ const MainContent = styled.div<{ isMobileMenuOpen: boolean }>`
   transition: transform 0.3s ease-in-out;
 
   @media (max-width: 768px) {
-    padding: 0.5rem;
+    padding: 0rem;
     transform: ${({ isMobileMenuOpen }) =>
       isMobileMenuOpen ? "translateX(320px)" : "translateX(0)"};
   }
@@ -1247,13 +1215,17 @@ const VoteSection = styled.div`
   padding: 1rem;
   background-color: #f8f9fa;
   border-radius: 4px;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+  }
 `;
 
 const VoteOptionImage = styled.img`
-  width: 50px;
-  height: 50px;
+  width: 120px;
+  height: 120px;
   object-fit: cover;
-  margin-right: 10px;
+  margin-right: 5px;
 `;
 
 const VoteOptionText = styled.span`

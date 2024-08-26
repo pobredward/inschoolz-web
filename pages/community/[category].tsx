@@ -163,7 +163,7 @@ const MainContent = styled.div<{ isMobileMenuOpen: boolean }>`
   transition: transform 0.3s ease-in-out;
 
   @media (max-width: 768px) {
-    padding: 0.5rem;
+    padding: 0rem;
     transform: ${({ isMobileMenuOpen }) =>
       isMobileMenuOpen ? "translateX(280px)" : "translateX(0)"};
   }
