@@ -55,7 +55,7 @@ const EditMyInfo: React.FC = () => {
     field: "address1" | "address2",
     value: string,
   ) => {
-    setEditedUser({ ...editedUser, [field]: value });
+    setEditedUser((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleBack = () => {
