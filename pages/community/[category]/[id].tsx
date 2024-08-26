@@ -1222,10 +1222,16 @@ const VoteSection = styled.div`
 `;
 
 const VoteOptionImage = styled.img`
-  width: 120px;
-  height: 120px;
+  width: 180px;
+  height: 180px;
   object-fit: cover;
-  margin-right: 5px;
+  margin-right: 10px;
+
+  @media (max-width: 768px) {
+    width: 120px;
+    height: 120px;
+    margin-right: 5px;
+  }
 `;
 
 const VoteOptionText = styled.span`
