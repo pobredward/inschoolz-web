@@ -58,13 +58,13 @@ const HomePage: NextPage = () => {
 
       <Main>
         <h1>인스쿨즈</h1>
-        <p>대한민국 학생을 위한 웹사이트</p>
+        <p>초중등 재학생 및 졸업생을 위한 올인원 커뮤니티</p>
         {user && user.isAdmin && (
           <AdminButton onClick={handleAdminClick}>관리자 페이지</AdminButton>
         )}
 
         <TestNotice>
-          <h2>To. 테스트 유저</h2>
+          <h1>To. 테스트 유저</h1>
           <ul>
             <li>활성화된 커뮤니티처럼 보이는 것이 목표입니다.</li>
             <li>
@@ -116,12 +116,12 @@ const AdminButton = styled.button`
 const TestNotice = styled.div`
   margin-top: 3rem;
   padding: 1rem;
-  background-color: #f0f0f0;
-  border-radius: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
   text-align: left;
 
   h2 {
-    color: var(--primary-text);
+    color: var(--primary-button);
     margin-bottom: 1rem;
     margin-left: 1rem;
   }
