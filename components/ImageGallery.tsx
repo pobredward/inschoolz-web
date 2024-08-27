@@ -32,7 +32,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
 
   const prevImage = () => {
     setCurrentImageIndex(
-      (prevIndex) => (prevIndex - 1 + images.length) % images.length,
+      (prevIndex) => (prevIndex - 1 + images.length) % images.length
     );
   };
 
@@ -41,12 +41,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
       <GalleryContainer>
         {images.map((image, index) => (
           <ImagePreview key={index} onClick={() => openModal(index)}>
-            <Image
-              src={image}
-              alt={`Preview ${index + 1}`}
-              layout="fill"
-              objectFit="cover"
-            />
+            <img src={image} alt={`Preview ${index + 1}`} />
           </ImagePreview>
         ))}
       </GalleryContainer>
@@ -84,29 +79,22 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children }) => {
 };
 
 const GalleryContainer = styled.div`
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(200px, 1fr)
-  ); // 이미지 크기를 150px로 증가
+  display: flex;
+  flex-direction: column;
+  width: 80%;
   gap: 10px;
-  margin-top: 10px;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr; // 모바일에서 1열로 변경
-  }
 `;
 
 const ImagePreview = styled.div`
-  position: relative;
   width: 100%;
-  padding-bottom: 100%; // 1:1 비율 유지
-  overflow: hidden;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 5px;
+  overflow: hidden;
 
-  @media (max-width: 768px) {
-    padding-bottom: 75%; // 모바일에서 4:3 비율로 변경 (선택사항)
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
   }
 `;
 
