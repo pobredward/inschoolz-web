@@ -40,9 +40,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
     <>
       <GalleryContainer>
         {images.map((image, index) => (
-          <ImagePreview 
-          key={index} 
-          // onClick={() => openModal(index)}
+          <ImagePreview
+            key={index}
+            // onClick={() => openModal(index)}
           >
             <img src={image} alt={`Preview ${index + 1}`} />
           </ImagePreview>
@@ -86,6 +86,11 @@ const GalleryContainer = styled.div`
   flex-direction: column;
   width: 80%;
   gap: 10px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    gap: 5px;
+  }
 `;
 
 const ImagePreview = styled.div`
