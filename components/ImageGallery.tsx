@@ -40,7 +40,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
     <>
       <GalleryContainer>
         {images.map((image, index) => (
-          <ImagePreview key={index} onClick={() => openModal(index)}>
+          <ImagePreview 
+          key={index} 
+          // onClick={() => openModal(index)}
+          >
             <img src={image} alt={`Preview ${index + 1}`} />
           </ImagePreview>
         ))}
