@@ -275,18 +275,3 @@ async function updateGameScores(
     }
   }
 }
-
-export async function getUserProfileImage(
-  userId: string
-): Promise<string | null> {
-  try {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    if (userDoc.exists()) {
-      return userDoc.data().profileImageUrl || null;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error fetching user profile image:", error);
-    return null;
-  }
-}
