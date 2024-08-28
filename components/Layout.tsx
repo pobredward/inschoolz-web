@@ -4,7 +4,7 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { loadingState } from "../store/atoms";
 import { useRecoilValue } from "recoil";
-import BarLoader from "react-spinners/PacmanLoader";
+import ClimbingBoxLoader from "react-spinners/PacmanLoader";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,7 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Main>
         {isLoading && (
           <LoadingOverlay>
-            <BarLoader color="#36D7B7" size={30} />
+            <ClimbingBoxLoader color="#36D7B7" size={30} />
           </LoadingOverlay>
         )}
         {children}
