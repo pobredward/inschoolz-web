@@ -139,7 +139,7 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
                     <SearchContainer>
                       <SearchInput
                         type="text"
-                        placeholder="갤러리 검색"
+                        placeholder="게시판 검색"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onKeyPress={(e) => e.key === "Enter" && handleSearch()}

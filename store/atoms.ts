@@ -38,7 +38,7 @@ export const categoriesState = atom<Category[]>({
         { id: "national-hot", name: "HOT 게시글" },
         {
           id: "national-minor",
-          name: "마이너 갤러리",
+          name: "서브 게시판",
           subcategories: [
             { id: "national-minor-develop", name: "제안사항" },
 
