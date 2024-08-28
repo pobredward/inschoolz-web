@@ -32,12 +32,12 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
               collection(db, "posts"),
               where("categoryId", "==", "national-free"),
               where("likes", ">=", 3),
-              where("createdAt", ">=", oneWeekAgo),
+              where("createdAt", ">=", oneWeekAgo)
             );
           } else {
             q = query(
               collection(db, "posts"),
-              where("categoryId", "==", selectedCategory),
+              where("categoryId", "==", selectedCategory)
             );
           }
           const querySnapshot = await getDocs(q);
@@ -98,26 +98,26 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
         dateThreshold = new Date(now.setMonth(now.getMonth() - 1));
       }
       filtered = filtered.filter(
-        (post) => post.createdAt.toDate() >= dateThreshold,
+        (post) => post.createdAt.toDate() >= dateThreshold
       );
     }
 
     // 검색 범위 필터 적용
     if (searchScope === "title") {
       filtered = filtered.filter((post) =>
-        post.title.toLowerCase().includes(searchTermLower),
+        post.title.toLowerCase().includes(searchTermLower)
       );
     } else if (searchScope === "author") {
       filtered = filtered.filter((post) =>
-        post.author.toLowerCase().includes(searchTermLower),
+        post.author.toLowerCase().includes(searchTermLower)
       );
     } else if (searchScope === "comments") {
       filtered = filtered.filter(
         (post) =>
           Array.isArray(post.comments) &&
           post.comments.some((comment) =>
-            comment.toLowerCase().includes(searchTermLower),
-          ),
+            comment.toLowerCase().includes(searchTermLower)
+          )
       );
     } else {
       filtered = filtered.filter(
@@ -127,8 +127,8 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
           post.author.toLowerCase().includes(searchTermLower) ||
           (Array.isArray(post.comments) &&
             post.comments.some((comment) =>
-              comment.toLowerCase().includes(searchTermLower),
-            )),
+              comment.toLowerCase().includes(searchTermLower)
+            ))
       );
     }
 
@@ -209,7 +209,7 @@ const PostList = ({ selectedCategory, isLoggedIn, isNationalCategory }) => {
                 </PostActions>
               </PostFooter>
             </PostItem>
-          ),
+          )
         )}
       </PostContainer>
       <Pagination>
@@ -288,14 +288,6 @@ const DeletedPostItem = styled.div`
 
 const DeletedPostContent = styled.p`
   color: #888;
-`;
-
-const PostContent = styled.p`
-  margin: 0.5rem 0;
-  color: #666;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 `;
 
 const SearchBar = styled.div`
@@ -391,6 +383,24 @@ const PostHeader = styled.div`
 const PostTitle = styled.h4`
   margin: 0;
   flex-grow: 1;
+  font-size: 1rem;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
+`;
+
+const PostContent = styled.p`
+  margin: 0.5rem 0;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+  }
 `;
 
 const PostItem = styled.div`
