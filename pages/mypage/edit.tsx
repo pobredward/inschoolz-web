@@ -6,7 +6,7 @@ import styled from "@emotion/styled";
 import { updateUserProfile } from "../../services/userService";
 import { useRouter } from "next/router";
 import { useMutation } from "react-query";
-import SchoolSearch from "../../components/SchoolSearch";
+import SchoolSearchEdit from "../../components/SchoolSearchEdit";
 import AddressSelector from "../../components/AddressSelector";
 import { errorMessages } from "../../utils/errorMessages";
 
@@ -30,7 +30,7 @@ const EditMyInfo: React.FC = () => {
       onError: () => {
         alert(errorMessages.PROFILE_UPDATE_ERROR);
       },
-    },
+    }
   );
 
   const handleSave = (e: React.FormEvent) => {
@@ -53,7 +53,7 @@ const EditMyInfo: React.FC = () => {
 
   const handleAddressChange = (
     field: "address1" | "address2",
-    value: string,
+    value: string
   ) => {
     setEditedUser((prev) => ({ ...prev, [field]: value }));
   };
@@ -109,7 +109,7 @@ const EditMyInfo: React.FC = () => {
           </FormGroup>
           <FormGroup>
             <Label>학교</Label>
-            <SchoolSearch
+            <SchoolSearchEdit
               initialSchool={initialSchool}
               setSchool={handleSchoolChange}
             />

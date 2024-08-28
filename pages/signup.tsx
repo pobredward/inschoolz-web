@@ -5,7 +5,7 @@ import Layout from "../components/Layout";
 import styled from "@emotion/styled";
 import { useAuthStateManager } from "../hooks/useAuthStateManager";
 import AddressSelector from "../components/AddressSelector";
-import SchoolSearch from "../components/SchoolSearch";
+import SchoolSearchSignup from "../components/SchoolSearchSignup";
 import { sendEmailVerification } from "firebase/auth";
 import {
   collection,
@@ -76,7 +76,7 @@ const SignupPage: React.FC = () => {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
-        password,
+        password
       );
       const user = userCredential.user;
 
@@ -110,7 +110,7 @@ const SignupPage: React.FC = () => {
       if (inviterUserId) {
         const inviterUserQuery = query(
           collection(db, "users"),
-          where("userId", "==", inviterUserId),
+          where("userId", "==", inviterUserId)
         );
         const inviterSnapshot = await getDocs(inviterUserQuery);
 
@@ -125,14 +125,14 @@ const SignupPage: React.FC = () => {
           await updateUserExperience(
             inviterId,
             invitationExp,
-            "친구 초대 완료",
+            "친구 초대 완료"
           );
 
           // 초대받은 사용자(새 사용자)의 경험치 업데이트
           const newUserResult = await updateUserExperience(
             user.uid,
             invitationExp,
-            "친구 초대로 가입",
+            "친구 초대로 가입"
           );
 
           setExpGained(newUserResult.expGained);
@@ -155,7 +155,7 @@ const SignupPage: React.FC = () => {
       onError: (error: Error) => {
         setError(error.message || errorMessages.UNKNOWN_ERROR);
       },
-    },
+    }
   );
 
   const validateUserId = (userId: string): boolean => {
@@ -181,7 +181,7 @@ const SignupPage: React.FC = () => {
 
   const checkDuplicateUserId = async (userId: string) => {
     if (!validateUserId(userId)) {
-      setUserIdMessage(errorMessages.INVALID_PASSWORD);
+      setUserIdMessage("ID는 6자 이상 20자 이하이어야 합니다.");
       return true;
     }
 
@@ -200,7 +200,7 @@ const SignupPage: React.FC = () => {
   const checkDuplicatePhoneNumber = async (phoneNumber: string) => {
     const q = query(
       collection(db, "users"),
-      where("phoneNumber", "==", phoneNumber),
+      where("phoneNumber", "==", phoneNumber)
     );
     const querySnapshot = await getDocs(q);
     return !querySnapshot.empty;
@@ -241,7 +241,7 @@ const SignupPage: React.FC = () => {
 
     if (!validatePassword(password)) {
       setError(
-        "비밀번호는 8자리 이상이며, 숫자, 영문, 특수문자(@$!%*#?&)를 각각 하나 이상 포함해야 합니다.",
+        "비밀번호는 8자리 이상이며, 숫자, 영문, 특수문자(@$!%*#?&)를 각각 하나 이상 포함해야 합니다."
       );
       return;
     }
@@ -415,7 +415,7 @@ const SignupPage: React.FC = () => {
             setAddress2={setAddress2}
           />
           <Label>학교</Label>
-          <SchoolSearch setSchool={setSchool} />
+          <SchoolSearchSignup setSchool={setSchool} />
           <GradeClassWrapper>
             <FormGroup>
               <SmallWrapper>

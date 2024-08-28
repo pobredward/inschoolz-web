@@ -17,13 +17,14 @@ import { useRecoilState } from "recoil";
 import { searchResultsState, selectedSchoolState } from "../store/atoms";
 import { useAuth } from "../hooks/useAuth";
 import { School } from "../types";
+import DefaultModal from "../components/modal/DefaultModal";
 
-interface SchoolSearchProps {
+interface SchoolSearchSignupProps {
   initialSchool?: { KOR_NAME: string; ADDRESS: string };
   setSchool: (school: any) => void;
 }
 
-const SchoolSearch: React.FC<SchoolSearchProps> = ({
+const SchoolSearchSignup: React.FC<SchoolSearchSignupProps> = ({
   initialSchool,
   setSchool,
 }) => {
@@ -37,6 +38,10 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
   const [loading, setLoading] = useState(false); // 기존 로딩 상태
   const [loadingResults, setLoadingResults] = useState(false); // 결과 로딩 상태
   const [favoriteSchools, setFavoriteSchools] = useState<School[]>([]);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [cachedResults, setCachedResults] = useState<{
+    [key: string]: School[];
+  }>({});
 
   useEffect(() => {
     if (user) {
@@ -47,13 +52,13 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
           const favoriteSchoolIds = userDoc.data().favoriteSchools || [];
           const favoriteSchoolDocs = await Promise.all(
             favoriteSchoolIds.map((id: string) =>
-              getDoc(doc(db, "schools", id)),
-            ),
+              getDoc(doc(db, "schools", id))
+            )
           );
           setFavoriteSchools(
             favoriteSchoolDocs.map(
-              (doc) => ({ id: doc.id, ...doc.data() }) as School,
-            ),
+              (doc) => ({ id: doc.id, ...doc.data() } as School)
+            )
           );
         }
       };
@@ -61,58 +66,47 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     }
   }, [user]);
 
-  const toggleFavoriteSchool = async (school: School) => {
-    if (!user || !school.id) return;
-
-    const userRef = doc(db, "users", user.uid);
-    const isFavorite = favoriteSchools.some((fav) => fav.id === school.id);
-
-    try {
-      await updateDoc(userRef, {
-        favoriteSchools: isFavorite
-          ? arrayRemove(school.id)
-          : arrayUnion(school.id),
-      });
-
-      setFavoriteSchools((prev) =>
-        isFavorite
-          ? prev.filter((fav) => fav.id !== school.id)
-          : [...prev, school],
-      );
-    } catch (error) {
-      console.error("Error updating favorite schools: ", error);
-    }
-  };
-
   const handleSearch = async () => {
     if (searchTerm.length < 2) {
       setError("검색어는 2글자 이상이어야 합니다.");
       return;
     }
 
+    setError(""); // 이전 에러 메시지 초기화
     setLoadingResults(true);
-    setError("");
 
     try {
+      // 캐시된 결과가 있는지 확인
+      if (cachedResults[searchTerm]) {
+        setSearchResults(cachedResults[searchTerm]);
+        setLoadingResults(false);
+        return;
+      }
+
       const schoolsRef = collection(db, "schools");
-      const querySnapshot = await getDocs(schoolsRef);
+      const q = query(
+        schoolsRef,
+        where("KOR_NAME", ">=", searchTerm),
+        where("KOR_NAME", "<=", searchTerm + "\uf8ff")
+      );
+      const querySnapshot = await getDocs(q);
+      const filteredSchools = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as School[];
 
-      // 클라이언트 측에서 검색어를 포함하는 학교 필터링
-      const results: School[] = querySnapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          KOR_NAME: doc.data().KOR_NAME,
-          ADDRESS: doc.data().ADDRESS,
-          SCHOOL_CODE: doc.data().SCHOOL_CODE,
-        }))
-        .filter((school) => school.KOR_NAME.includes(searchTerm));
-
-      setSearchResults(results);
-      if (results.length === 0) {
-        setError("검색된 학교가 없습니다.");
+      if (filteredSchools.length === 0) {
+        setError("검색 결과가 없습니다.");
+      } else {
+        // 결과를 캐시에 저장
+        setCachedResults((prev) => ({
+          ...prev,
+          [searchTerm]: filteredSchools,
+        }));
+        setSearchResults(filteredSchools);
       }
     } catch (error) {
-      setError("학교 검색 중 오류가 발생했습니다.");
+      setError("검색 중 오류가 발생했습니다. 다시 시도해 주세요.");
     } finally {
       setLoadingResults(false);
     }
@@ -155,6 +149,13 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
     setIsOpen(true);
   };
 
+  const handleInfoButtonClick = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    event.preventDefault(); // 폼 제출 방지
+    setShowInfoModal(true);
+  };
+
   return (
     <Container>
       {selectedSchool ? (
@@ -194,22 +195,18 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
                             <SchoolName>{school.KOR_NAME}</SchoolName>
                             <SchoolAddress>{school.ADDRESS}</SchoolAddress>
                           </InfoWrapper>
-                          <StarIcon
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavoriteSchool(school);
-                            }}
-                            isFavorite={true}
-                          >
-                            <FaStar />
-                          </StarIcon>
                         </ResultItem>
                       ))}
                     </ResultsList>
                   </FavoriteSection>
                 )}
                 <SearchSection>
-                  <h2>학교 검색</h2>
+                  <SearchHeader>
+                    <h3>학교 검색</h3>
+                    <InfoButton onClick={handleInfoButtonClick}>
+                      내 학교가 보이지 않아요
+                    </InfoButton>
+                  </SearchHeader>
                   <SearchInputContainer>
                     <SearchInput
                       type="text"
@@ -239,17 +236,6 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
                             <SchoolName>{school.KOR_NAME}</SchoolName>
                             <SchoolAddress>{school.ADDRESS}</SchoolAddress>
                           </InfoWrapper>
-                          <StarIcon
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavoriteSchool(school);
-                            }}
-                            isFavorite={favoriteSchools.some(
-                              (fav) => fav.id === school.id,
-                            )}
-                          >
-                            <FaStar />
-                          </StarIcon>
                         </ResultItem>
                       ))}
                     </ResultsList>
@@ -263,12 +249,39 @@ const SchoolSearch: React.FC<SchoolSearchProps> = ({
           </PopupContent>
         </Overlay>
       )}
+      <DefaultModal
+        isOpen={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        title="학교 검색 안내"
+        message={`학교의 시작 키워드를 입력해야 합니다.\n
+                  ex) 서울대모초등학교 검색 시 서울대모(O) 대모(X)`}
+      />
     </Container>
   );
 };
 
 const SectionTitle = styled.h3`
   margin-bottom: 10px;
+`;
+
+const SearchHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+`;
+
+const InfoButton = styled.button`
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+
+  &:hover {
+    color: #333;
+  }
 `;
 
 const SearchSection = styled.div``;
@@ -454,4 +467,4 @@ const NoResultsMessage = styled.div`
   color: #6c757d;
 `;
 
-export default SchoolSearch;
+export default SchoolSearchSignup;
