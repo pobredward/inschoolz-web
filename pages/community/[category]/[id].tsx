@@ -187,19 +187,21 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
   const renderContent = (content: string) => {
     const urlPattern = /(https?:\/\/[^\s]+)/g; // URL 패턴 (유튜브, MP4 등 모든 URL)
     const links = content.match(urlPattern);
-
+  
     return (
       <>
         {links?.map((url, index) => (
           <div key={index}>
-            {ReactPlayer.canPlay(url) && (
+            {ReactPlayer.canPlay(url) ? (
               <ReactPlayer url={url} controls width="100%" />
-            )}
+            ) : null}
           </div>
         ))}
+        <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(createLinkifiedContent(content)) }} />
       </>
     );
   };
+  
 
   const sanitizeHTML = (html: string) => {
     return DOMPurify.sanitize(html);
