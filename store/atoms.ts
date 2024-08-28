@@ -35,7 +35,7 @@ export const categoriesState = atom<Category[]>({
       name: "전국",
       subcategories: [
         { id: "national-free", name: "자유 게시판" },
-        { id: "national-hot", name: "HOT 게시글" },
+        { id: "national-hot", name: "HOT 게시판" },
         {
           id: "national-minor",
           name: "서브 게시판",
