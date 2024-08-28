@@ -48,11 +48,11 @@ const MyPage: React.FC = () => {
     { id: string; KOR_NAME: string; ADDRESS: string } | undefined
   >(undefined);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(
-    user?.profileImageUrl || null,
+    user?.profileImageUrl || null
   );
   const [showExpGuideModal, setShowExpGuideModal] = useState(false);
   const [expSettings, setExpSettings] = useState<ExperienceSettings | null>(
-    null,
+    null
   );
 
   const [password, setPassword] = useState("");
@@ -124,7 +124,7 @@ const MyPage: React.FC = () => {
         console.error("Error deleting account:", error);
         alert("계정 삭제 중 오류가 발생했습니다. 다시 로그인 후 시도해주세요.");
       },
-    },
+    }
   );
 
   const handleDeleteButtonClick = () => {
@@ -148,7 +148,12 @@ const MyPage: React.FC = () => {
   if (!user) {
     return (
       <Layout>
-        <div>사용자 정보를 불러올 수 없습니다.</div>
+        <LoginContainer>
+          <LoginMessage>로그인하여 내 정보를 확인하세요!</LoginMessage>
+          <LoginButton onClick={() => router.push("/login")}>
+            로그인
+          </LoginButton>
+        </LoginContainer>
       </Layout>
     );
   }
@@ -277,6 +282,33 @@ const MyPage: React.FC = () => {
     </Layout>
   );
 };
+
+const LoginContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  text-align: center;
+`;
+
+const LoginMessage = styled.h4`
+  margin-bottom: 20px;
+`;
+
+const LoginButton = styled.button`
+  padding: 10px 20px;
+  font-size: 16px;
+  color: #fff;
+  background-color: var(--primary-button);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--primary-button-hover);
+  }
+`;
 
 const LevelInfoContainer = styled.div`
   display: flex;
