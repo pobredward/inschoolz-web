@@ -9,6 +9,7 @@ const Sitemap = () => {
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   const baseUrl = "https://inschoolz.com";
 
+  // Firebase에서 포스트 데이터를 가져옴
   const postsSnapshot = await getDocs(
     query(
       collection(db, "posts"),
@@ -73,7 +74,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     url: `${baseUrl}/community/${post.categoryId}/${post.id}`,
     lastmod: post.createdAt,
     title: `${post.title} - ${getCategoryName(post.categoryId)}`,
-    content: post.content.substring(0, 200),
+    content: post.content.substring(0, 200), // content의 일부를 sitemap에 포함
   }));
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -108,6 +109,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
                 </news:publication>
                 <news:publication_date>${lastmod}</news:publication_date>
                 <news:title>${title}</news:title>
+                <news:keywords>${title}</news:keywords>
+                <news:description>${content}</news:description>
               </news:news>
               <xhtml:link rel="alternate" hreflang="ko" href="${url}"/>
               <xhtml:link rel="alternate" hreflang="x-default" href="${url}"/>
