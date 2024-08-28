@@ -169,7 +169,7 @@ const MainContent = styled.div<{ isMobileMenuOpen: boolean }>`
   @media (max-width: 768px) {
     padding: 0rem;
     transform: ${({ isMobileMenuOpen }) =>
-      isMobileMenuOpen ? "translateX(280px)" : "translateX(0)"};
+      isMobileMenuOpen ? "translateX(250px)" : "translateX(0)"};
   }
 `;
 

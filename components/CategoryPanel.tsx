@@ -19,7 +19,7 @@ interface CategoryPanelProps {
 
 const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
-    selectedCategoryState,
+    selectedCategoryState
   );
   const categories = useRecoilValue(categoriesState);
   const [user, setUser] = useRecoilState(userState);
@@ -74,7 +74,7 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
 
   const handleSearch = () => {
     const filtered = allMinorGalleries.filter((gallery) =>
-      gallery.name.toLowerCase().includes(searchTerm.toLowerCase()),
+      gallery.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredGalleries(filtered);
   };
@@ -112,7 +112,7 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
                     <FavoriteGalleriesSection>
                       {user?.favoriteGalleries?.map((galleryId) => {
                         const gallery = allMinorGalleries.find(
-                          (g) => g.id === galleryId,
+                          (g) => g.id === galleryId
                         );
                         return (
                           gallery && (
@@ -163,7 +163,7 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
                           <span>{minorGallery.name}</span>
                           <StarIcon
                             isFavorite={user?.favoriteGalleries?.includes(
-                              minorGallery.id,
+                              minorGallery.id
                             )}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -186,7 +186,7 @@ const CategoryPanel: React.FC<CategoryPanelProps> = ({ isOpen }) => {
               >
                 {subcat.name}
               </SubcategoryItem>
-            ),
+            )
           )}
       </SubcategoryList>
     </CategorySection>
@@ -206,7 +206,7 @@ const SearchContainer = styled.div`
 
 const SearchInput = styled.input`
   flex-grow: 1;
-  max-width: 100px;
+  max-width: 80px;
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px 0 0 4px;
@@ -250,7 +250,7 @@ const MinorGalleryList = styled.div`
 
 const CategorySection = styled.div<{ isOpen: boolean }>`
   display: flex;
-  width: 320px; // 너비를 280px에서 320px로 증가
+  width: 250px;
   height: calc(100vh - 150px);
   background-color: white;
   transition: transform 0.3s ease-in-out;
@@ -266,7 +266,7 @@ const CategorySection = styled.div<{ isOpen: boolean }>`
 `;
 
 const MajorCategoryList = styled.div`
-  width: 100px;
+  width: 50px;
   border-right: 1px solid #e0e0e0;
   overflow-y: auto;
 `;
