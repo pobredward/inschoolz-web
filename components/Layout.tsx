@@ -4,7 +4,7 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { loadingState } from "../store/atoms";
 import { useRecoilValue } from "recoil";
-import ClimbingBoxLoader from "react-spinners/PacmanLoader";
+import ClimbingBoxLoader from "react-spinners/ClimbingBoxLoader";
 
 interface LayoutProps {
   children: React.ReactNode;
