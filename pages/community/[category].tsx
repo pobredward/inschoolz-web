@@ -16,7 +16,7 @@ import CategoryPanel from "../../components/CategoryPanel";
 
 const CategoryPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useRecoilState(
-    selectedCategoryState,
+    selectedCategoryState
   );
   const router = useRouter();
   const { category } = router.query;
@@ -41,7 +41,7 @@ const CategoryPage: React.FC = () => {
 
   const handleSearch = () => {
     const filtered = allMinorGalleries.filter((gallery) =>
-      gallery.name.toLowerCase().includes(searchTerm.toLowerCase()),
+      gallery.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredGalleries(filtered);
   };
@@ -59,9 +59,13 @@ const CategoryPage: React.FC = () => {
         for (let subcat of cat.subcategories) {
           if (subcat.id === categoryId) {
             if (cat.id === "school") {
-              return `${user?.schoolName} > ${subcat.name}`;
+              return user
+                ? `${user.schoolName} > ${subcat.name}`
+                : `학교 > ${subcat.name}`;
             } else if (cat.id === "regional") {
-              return `${user?.address1} ${user?.address2} > ${subcat.name}`;
+              return user
+                ? `${user.address1} ${user.address2} > ${subcat.name}`
+                : `지역 > ${subcat.name}`;
             } else {
               return `${cat.name} > ${subcat.name}`;
             }
@@ -120,7 +124,7 @@ const CategoryPage: React.FC = () => {
                     <CreatePostButton
                       onClick={() =>
                         router.push(
-                          `/community/${selectedCategory}/create-post`,
+                          `/community/${selectedCategory}/create-post`
                         )
                       }
                     >
