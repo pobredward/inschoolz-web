@@ -1,6 +1,11 @@
 import { atom } from "recoil";
 import { User, Post, Comment, Category, School } from "../types";
 
+export const loadingState = atom({
+  key: "loadingState",
+  default: false,
+});
+
 export const userState = atom<User | null>({
   key: "userState",
   default: null,

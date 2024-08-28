@@ -7,6 +7,11 @@ import { globalStyles, theme } from "../styles/globalStyles";
 import { useAuthStateManager } from "../hooks/useAuthStateManager";
 import Head from "next/head";
 
+import { useRouter } from "next/router";
+import { useEffect } from "react";
+import { useSetRecoilState } from "recoil";
+import { loadingState } from "../store/atoms";
+
 const queryClient = new QueryClient();
 
 function MyApp({ Component, pageProps }: AppProps) {
@@ -83,6 +88,7 @@ function MyApp({ Component, pageProps }: AppProps) {
             <meta name="twitter:card" content="summary_large_image" />
           </Head>
           <Hydrate state={pageProps.dehydratedState}>
+            <LoadingIndicator />
             <Component {...pageProps} />
           </Hydrate>
         </ThemeProvider>
@@ -90,5 +96,43 @@ function MyApp({ Component, pageProps }: AppProps) {
     </QueryClientProvider>
   );
 }
+
+const LoadingIndicator = () => {
+  const setLoading = useSetRecoilState(loadingState);
+  const router = useRouter();
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    const handleStart = (url: string) => {
+      const currentPath = router.asPath;
+      const currentCategory = currentPath.split("/")[2]; // Assumes the structure /community/[category]
+      const targetCategory = url.split("/")[2];
+      const isTargetPost = url.split("/").length === 4; // Assumes the structure /community/[category]/[id]
+
+      if (currentCategory === targetCategory && isTargetPost) {
+        timer = setTimeout(() => setLoading(true), 200);
+      }
+    };
+
+    const handleComplete = () => {
+      clearTimeout(timer);
+      setLoading(false);
+    };
+
+    router.events.on("routeChangeStart", handleStart);
+    router.events.on("routeChangeComplete", handleComplete);
+    router.events.on("routeChangeError", handleComplete);
+
+    return () => {
+      clearTimeout(timer);
+      router.events.off("routeChangeStart", handleStart);
+      router.events.off("routeChangeComplete", handleComplete);
+      router.events.off("routeChangeError", handleComplete);
+    };
+  }, [router, setLoading]);
+
+  return null;
+};
 
 export default MyApp;
