@@ -20,7 +20,7 @@ import { User } from "../types";
 
 export const toggleFavoriteMinorGallery = async (
   userId: string,
-  galleryId: string,
+  galleryId: string
 ): Promise<User> => {
   const userRef = doc(db, "users", userId);
   try {
@@ -31,7 +31,7 @@ export const toggleFavoriteMinorGallery = async (
     let updatedFavoriteGalleries: string[];
     if (favoriteGalleries.includes(galleryId)) {
       updatedFavoriteGalleries = favoriteGalleries.filter(
-        (id) => id !== galleryId,
+        (id) => id !== galleryId
       );
     } else {
       updatedFavoriteGalleries = [...favoriteGalleries, galleryId];
@@ -53,7 +53,7 @@ export const toggleFavoriteMinorGallery = async (
 
 export const deleteUser = async (
   userId: string,
-  password: string,
+  password: string
 ): Promise<void> => {
   try {
     const user = auth.currentUser;
@@ -68,7 +68,7 @@ export const deleteUser = async (
     // 1. 게시글 처리
     const postsQuery = query(
       collection(db, "posts"),
-      where("authorId", "==", userId),
+      where("authorId", "==", userId)
     );
     const postsSnapshot = await getDocs(postsQuery);
     const updatePostPromises = postsSnapshot.docs.map(async (doc) => {
@@ -83,7 +83,7 @@ export const deleteUser = async (
             } catch (error) {
               console.error(`Error deleting image ${url}:`, error);
             }
-          }),
+          })
         );
       }
       if (postData.voteOptions) {
@@ -97,10 +97,10 @@ export const deleteUser = async (
               } catch (error) {
                 console.error(
                   `Error deleting vote image ${option.imageUrl}:`,
-                  error,
+                  error
                 );
               }
-            }),
+            })
         );
       }
 
@@ -118,7 +118,7 @@ export const deleteUser = async (
     // 2. 댓글 처리
     const commentsQuery = query(
       collection(db, "comments"),
-      where("authorId", "==", userId),
+      where("authorId", "==", userId)
     );
     const commentsSnapshot = await getDocs(commentsQuery);
     const updateCommentPromises = commentsSnapshot.docs.map(async (doc) => {
@@ -133,7 +133,7 @@ export const deleteUser = async (
         // 댓글인 경우 대댓글 여부 확인
         const repliesQuery = query(
           collection(db, "comments"),
-          where("parentId", "==", doc.id),
+          where("parentId", "==", doc.id)
         );
         const repliesSnapshot = await getDocs(repliesQuery);
         if (repliesSnapshot.empty) {
@@ -153,11 +153,11 @@ export const deleteUser = async (
     // 3. 미니게임 점수 삭제
     const gameScoresQuery = query(
       collection(db, "gameScores"),
-      where("userId", "==", userId),
+      where("userId", "==", userId)
     );
     const gameScoresSnapshot = await getDocs(gameScoresQuery);
     const deleteGameScorePromises = gameScoresSnapshot.docs.map((doc) =>
-      deleteDoc(doc.ref),
+      deleteDoc(doc.ref)
     );
     await Promise.all(deleteGameScorePromises);
 
@@ -222,7 +222,7 @@ const deleteUserImages = async (userId: string): Promise<void> => {
           } catch (error) {
             console.error(`Error deleting file ${fileRef.fullPath}:`, error);
           }
-        }),
+        })
       );
     } catch (error) {
       console.error(`Error listing files in ${folder}:`, error);
@@ -232,7 +232,7 @@ const deleteUserImages = async (userId: string): Promise<void> => {
 
 export const updateUserProfile = async (
   userId: string,
-  updatedData: Partial<User>,
+  updatedData: Partial<User>
 ): Promise<void> => {
   const userRef = doc(db, "users", userId);
   await updateDoc(userRef, updatedData);
@@ -252,7 +252,7 @@ export const updateUserProfile = async (
 
 async function updateGameScores(
   userId: string,
-  updatedData: Partial<User>,
+  updatedData: Partial<User>
 ): Promise<void> {
   const gameScoreTables = [
     "flappyBirdScores",
@@ -273,5 +273,20 @@ async function updateGameScores(
 
       await updateDoc(scoreRef, updateData);
     }
+  }
+}
+
+export async function getUserProfileImage(
+  userId: string
+): Promise<string | null> {
+  try {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    if (userDoc.exists()) {
+      return userDoc.data().profileImageUrl || null;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching user profile image:", error);
+    return null;
   }
 }

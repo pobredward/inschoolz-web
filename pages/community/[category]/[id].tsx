@@ -94,7 +94,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
   const [editedTitle, setEditedTitle] = useState("");
   const [commentCount, setCommentCount] = useState(0);
   const [selectedVoteOption, setSelectedVoteOption] = useState<number | null>(
-    null,
+    null
   );
   const [editedImages, setEditedImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -122,8 +122,16 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pageRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useRecoilState(
-    selectedCategoryState,
+    selectedCategoryState
   );
+
+  const ProfileImage = ({ src, alt }) => {
+    return src ? (
+      <ProfileImageStyled src={src} alt={alt} />
+    ) : (
+      <DefaultProfileIcon />
+    );
+  };
 
   const getCategoryName = (categoryId: string) => {
     for (let cat of categories) {
@@ -221,9 +229,14 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const postData = docSnap.data();
+          const authorRef = doc(db, "users", postData.authorId);
+          const authorSnap = await getDoc(authorRef);
+          const authorData = authorSnap.data();
+
           const formattedPost: Post = {
             id: docSnap.id,
             ...postData,
+            authorProfileImage: authorData?.profileImageUrl || null,
             createdAt: postData.createdAt
               ? new Date(postData.createdAt.seconds * 1000)
               : new Date(),
@@ -248,8 +261,19 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
     const fetchComments = async () => {
       if (id) {
         const commentsData = await getCommentsForPost(id as string);
-        setComments(commentsData);
-        setCommentCount(commentsData.length);
+        const commentsWithProfileImages = await Promise.all(
+          commentsData.map(async (comment) => {
+            const authorRef = doc(db, "users", comment.authorId);
+            const authorSnap = await getDoc(authorRef);
+            const authorData = authorSnap.data();
+            return {
+              ...comment,
+              authorProfileImage: authorData?.profileImageUrl || null,
+            };
+          })
+        );
+        setComments(commentsWithProfileImages);
+        setCommentCount(commentsWithProfileImages.length);
       }
     };
 
@@ -314,7 +338,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
     setSelectedReasons((prev) =>
       prev.includes(reason)
         ? prev.filter((r) => r !== reason)
-        : [...prev, reason],
+        : [...prev, reason]
     );
   };
 
@@ -370,7 +394,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
         filesArray.map(async (file) => {
           // 이미지 압축 로직 (필요한 경우)
           return file;
-        }),
+        })
       );
 
       setNewImages((prevImages) => [...prevImages, ...compressedImages]);
@@ -402,7 +426,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
           const url = await uploadImage(image, user.uid, "post", post.id);
           setUploadProgress(((index + 1) / newImages.length) * 100);
           return url;
-        }),
+        })
       );
 
       // 삭제된 이미지 처리
@@ -576,7 +600,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
       if (liked) {
         updatedPost.likes -= 1;
         updatedPost.likedBy = updatedPost.likedBy.filter(
-          (uid: string) => uid !== user.uid,
+          (uid: string) => uid !== user.uid
         );
       } else {
         updatedPost.likes += 1;
@@ -636,7 +660,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
           <MainContent isMobileMenuOpen={isMobileMenuOpen}>
             <PostContainer>
               <PostHeader>
-                <ProfileImage />
+                <ProfileImage src={post.authorProfileImage} alt={post.author} />
                 <PostInfo>
                   <PostAuthor>{post.author}</PostAuthor>
                   <UploadTime>{formatDate(post.createdAt)}</UploadTime>
@@ -752,7 +776,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
                   <PostContent
                     dangerouslySetInnerHTML={{
                       __html: sanitizeHTML(
-                        createLinkifiedContent(post.content),
+                        createLinkifiedContent(post.content)
                       ),
                     }}
                   />
@@ -961,10 +985,18 @@ const PostHeader = styled.div`
   margin-bottom: 1rem;
 `;
 
-const ProfileImage = styled(FaUserCircle)`
+const ProfileImageStyled = styled.img`
   width: 40px;
   height: 40px;
-  margin-right: 1rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+`;
+
+const DefaultProfileIcon = styled(FaUserCircle)`
+  width: 40px;
+  height: 40px;
+  margin-right: 0.5rem;
   color: #ccc;
 `;
 

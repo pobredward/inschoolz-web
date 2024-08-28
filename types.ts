@@ -113,6 +113,7 @@ export interface Post {
   isWarned?: boolean;
   isFired?: boolean;
   lastReportedAt?: any;
+  authorProfileImage?: string;
 }
 
 export interface Report {
