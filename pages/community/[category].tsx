@@ -50,6 +50,8 @@ const CategoryPage: React.FC = () => {
     if (category) {
       setSelectedCategory(category as string);
       setActiveMajorCategory(category.toString().split("-")[0]);
+      // 모바일에서 카테고리 선택 시 메뉴 닫기
+      setIsMobileMenuOpen(false);
     }
   }, [category, setSelectedCategory]);
 
