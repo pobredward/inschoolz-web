@@ -557,7 +557,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
             <CategoryList />
           </CategorySection>
 
-          <LoadingMessage>로딩 중...</LoadingMessage>
+          {/* <LoadingMessage>로딩 중...</LoadingMessage> */}
         </Container>
       </Layout>
     );
