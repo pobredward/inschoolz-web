@@ -45,6 +45,7 @@ import DOMPurify from "dompurify";
 import { GetServerSideProps } from "next";
 import Head from "next/head";
 import CategoryPanel from "../../../components/CategoryPanel";
+import ReactPlayer from "react-player";
 
 interface PostPageProps {
   initialPost: Post;
@@ -181,6 +182,23 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
     return htmlContent.replace(urlPattern, (url) => {
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
     });
+  };
+
+  const renderContent = (content: string) => {
+    const urlPattern = /(https?:\/\/[^\s]+)/g; // URL 패턴 (유튜브, MP4 등 모든 URL)
+    const links = content.match(urlPattern);
+
+    return (
+      <>
+        {links?.map((url, index) => (
+          <div key={index}>
+            {ReactPlayer.canPlay(url) && (
+              <ReactPlayer url={url} controls width="100%" />
+            )}
+          </div>
+        ))}
+      </>
+    );
   };
 
   const sanitizeHTML = (html: string) => {
@@ -773,13 +791,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
               ) : (
                 <>
                   <PostTitle>{post.title}</PostTitle>
-                  <PostContent
-                    dangerouslySetInnerHTML={{
-                      __html: sanitizeHTML(
-                        createLinkifiedContent(post.content)
-                      ),
-                    }}
-                  />
+                  <PostContent>{renderContent(post.content)}</PostContent>
                   {post.imageUrls && post.imageUrls.length > 0 && (
                     <ImageGallery images={post.imageUrls} />
                   )}
