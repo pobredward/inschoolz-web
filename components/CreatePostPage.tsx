@@ -124,7 +124,20 @@ const CreatePostPage: React.FC = () => {
         alert("최대 10개의 이미지만 첨부할 수 있습니다.");
         return;
       }
-      setImages([...images, ...newImages]);
+      
+      // Compress each new image
+      const compressedImages = await Promise.all(
+        newImages.map(async (image) => {
+          try {
+            return await compressImage(image);
+          } catch (error) {
+            console.error("Error compressing image:", error);
+            return image; // If compression fails, use the original image
+          }
+        })
+      );
+
+      setImages([...images, ...compressedImages]);
     }
   };
 
@@ -681,14 +694,14 @@ const VoteInput = styled.input`
 `;
 
 const ImagePreview = styled.img`
-  width: 80px;
-  height: 80px;
+  width: 120px;
+  height: 120px;
   object-fit: cover;
   border-radius: 4px;
 
   @media (max-width: 768px) {
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    height: 80px;
   }
 `;
 
