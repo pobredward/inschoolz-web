@@ -19,7 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Main>
         {isLoading && (
           <LoadingOverlay>
-            <ClimbingBoxLoader color="#36D7B7" size={30} />
+            <ClimbingBoxLoader color="#50ad3d" size={30} />
           </LoadingOverlay>
         )}
         {children}
