@@ -16,7 +16,7 @@ import { userExperienceState, userLevelState } from "../../store/atoms";
 
 const ReactionGame: React.FC = () => {
   const [gameState, setGameState] = useState<"waiting" | "ready" | "clicking">(
-    "waiting",
+    "waiting"
   );
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
@@ -43,10 +43,10 @@ const ReactionGame: React.FC = () => {
         setBestScore(parseInt(localBestScore));
       }
       const localRemainingPlays = localStorage.getItem(
-        "reactionGameRemainingPlays",
+        "reactionGameRemainingPlays"
       );
       setRemainingPlays(
-        localRemainingPlays ? parseInt(localRemainingPlays) : 5,
+        localRemainingPlays ? parseInt(localRemainingPlays) : 5
       );
     }
   }, [user]);
@@ -77,18 +77,15 @@ const ReactionGame: React.FC = () => {
     }
     const gameInfo = userDoc.data().gameInfo || {
       reactionGamePlays: 0,
-      flappyBirdPlays: 0,
     };
 
     const today = new Date().toISOString().split("T")[0];
     if (gameInfo.lastResetDate !== today) {
       gameInfo.reactionGamePlays = 0;
-      gameInfo.flappyBirdPlays = 0;
       gameInfo.lastResetDate = today;
 
       await updateDoc(doc(db, "users", userId), {
         "gameInfo.reactionGamePlays": 0,
-        "gameInfo.flappyBirdPlays": 0,
         "gameInfo.lastResetDate": today,
       });
     }
@@ -138,7 +135,7 @@ const ReactionGame: React.FC = () => {
           setRemainingPlays(newRemainingPlays);
           localStorage.setItem(
             "reactionGameRemainingPlays",
-            newRemainingPlays.toString(),
+            newRemainingPlays.toString()
           );
         }
         showResult(reactionTime);
@@ -171,7 +168,7 @@ const ReactionGame: React.FC = () => {
         setRemainingPlays(newRemainingPlays);
         localStorage.setItem(
           "reactionGameRemainingPlays",
-          newRemainingPlays.toString(),
+          newRemainingPlays.toString()
         );
       }
 
@@ -191,7 +188,7 @@ const ReactionGame: React.FC = () => {
       const result = await updateUserExperience(
         userId,
         settings.reactionGameExperience,
-        "반응 게임 성공",
+        "반응 게임 성공"
       );
       setExpGained(result.expGained);
       setUserExperience(result.newExperience);
@@ -310,8 +307,8 @@ const GameArea = styled.div<{ gameState: string }>`
     props.gameState === "waiting"
       ? "#4CAF50"
       : props.gameState === "ready"
-        ? "#FFC107"
-        : "#F44336"};
+      ? "#FFC107"
+      : "#F44336"};
   color: white;
   border-radius: 50%;
   margin: 1rem 0;

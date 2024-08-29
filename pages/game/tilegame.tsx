@@ -45,10 +45,10 @@ const TileGame: React.FC = () => {
         setBestScore(parseInt(localBestScore));
       }
       const localRemainingPlays = localStorage.getItem(
-        "tileGameRemainingPlays",
+        "tileGameRemainingPlays"
       );
       setRemainingPlays(
-        localRemainingPlays ? parseInt(localRemainingPlays) : 5,
+        localRemainingPlays ? parseInt(localRemainingPlays) : 5
       );
     }
   }, [user]);
@@ -200,7 +200,7 @@ const TileGame: React.FC = () => {
       setRemainingPlays(newRemainingPlays);
       localStorage.setItem(
         "tileGameRemainingPlays",
-        newRemainingPlays.toString(),
+        newRemainingPlays.toString()
       );
       showResult(score);
     }
@@ -212,7 +212,7 @@ const TileGame: React.FC = () => {
       const result = await updateUserExperience(
         userId,
         settings.tileGameExperience,
-        "타일 게임 성공",
+        "타일 게임 성공"
       );
       setExpGained(result.expGained);
       setUserExperience(result.newExperience);

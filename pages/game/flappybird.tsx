@@ -101,18 +101,15 @@ const FlappyBird: React.FC = () => {
       throw new Error("User data not found");
     }
     const gameInfo = userDoc.data().gameInfo || {
-      reactionGamePlays: 0,
       flappyBirdPlays: 0,
     };
 
     const today = new Date().toISOString().split("T")[0];
     if (gameInfo.lastResetDate !== today) {
-      gameInfo.reactionGamePlays = 0;
       gameInfo.flappyBirdPlays = 0;
       gameInfo.lastResetDate = today;
 
       await updateDoc(doc(db, "users", userId), {
-        "gameInfo.reactionGamePlays": 0,
         "gameInfo.flappyBirdPlays": 0,
         "gameInfo.lastResetDate": today,
       });
