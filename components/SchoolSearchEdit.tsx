@@ -19,12 +19,12 @@ import { useAuth } from "../hooks/useAuth";
 import { School } from "../types";
 import DefaultModal from "../components/modal/DefaultModal";
 
-interface SchoolSearchProps {
+interface SchoolSearchEditProps {
   initialSchool?: { KOR_NAME: string; ADDRESS: string };
   setSchool: (school: any) => void;
 }
 
-const SchoolSearch: React.FC<SchoolSearchProps> = ({
+const SchoolSearchEdit: React.FC<SchoolSearchEditProps> = ({
   initialSchool,
   setSchool,
 }) => {
@@ -510,4 +510,4 @@ const NoResultsMessage = styled.div`
   color: #6c757d;
 `;
 
-export default SchoolSearch;
+export default SchoolSearchEdit;
