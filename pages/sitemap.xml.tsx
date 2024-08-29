@@ -35,35 +35,6 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     )
   );
 
-  const posts = postsSnapshot.docs.map((doc) => {
-    const postData = doc.data();
-
-    // 문장 단위로 분할하여 중요 문장을 포함하는 방식
-    const plainTextContent = postData.content.replace(/<[^>]+>/g, "");
-    const sentences = plainTextContent.split(/(?<=[.!?])\s+/); // 문장 단위로 분할
-    let contentSnippet = "";
-
-    for (let sentence of sentences) {
-      if ((contentSnippet + sentence).length <= 200) {
-        contentSnippet += sentence + " ";
-      } else {
-        break;
-      }
-    }
-
-    return {
-      id: doc.id,
-      categoryId: postData.categoryId,
-      title: postData.title,
-      content: contentSnippet.trim(), // 문장 단위로 자르고 최대 200자까지 포함
-      createdAt: postData.createdAt.toDate().toISOString(),
-    };
-  });
-
-  const staticPages = ["", "game", "ranking", "community"].map(
-    (staticPagePath) => `${baseUrl}/${staticPagePath}`
-  );
-
   const getCategoryName = (categoryId) => {
     const categoryMap = {
       "national-free": "자유 게시판",
@@ -87,12 +58,66 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     return categoryMap[categoryId] || "기타 게시판";
   };
 
-  const dynamicPages = posts.map((post) => ({
-    url: `${baseUrl}/community/${post.categoryId}/${post.id}`,
-    lastmod: post.createdAt,
-    title: `${post.title} - ${getCategoryName(post.categoryId)}`,
-    content: post.content, // 문장 단위로 잘라낸 내용
-  }));
+  const posts = postsSnapshot.docs.map((doc) => {
+    const postData = doc.data();
+
+    const plainTextContent = postData.content.replace(/<[^>]+>/g, "");
+    const sentences = plainTextContent.split(/(?<=[.!?])\s+/);
+    let contentSnippet = "";
+
+    for (let sentence of sentences) {
+      if ((contentSnippet + sentence).length <= 200) {
+        contentSnippet += sentence + " ";
+      } else {
+        break;
+      }
+    }
+
+    const categoryName = getCategoryName(postData.categoryId);
+    const keywords = postData.title.split(" ").slice(0, 5).join(", ");
+
+    return {
+      url: `${baseUrl}/community/${postData.categoryId}/${doc.id}`,
+      lastmod: postData.createdAt.toDate().toISOString(),
+      title: `${postData.title} - ${categoryName}`,
+      content: contentSnippet.trim(),
+      keywords,
+    };
+  });
+
+  const createUrlElement = ({ url, lastmod, title, content, keywords }) => `
+    <url>
+      <loc>${url}</loc>
+      <lastmod>${lastmod}</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.9</priority>
+      <news:news>
+        <news:publication>
+          <news:name>인스쿨즈</news:name>
+          <news:language>ko</news:language>
+        </news:publication>
+        <news:publication_date>${lastmod}</news:publication_date>
+        <news:title>${title}</news:title>
+        <news:keywords>${keywords}</news:keywords>
+        <news:description>${content}</news:description>
+      </news:news>
+      <xhtml:link rel="alternate" hreflang="ko" href="${url}"/>
+      <xhtml:link rel="alternate" hreflang="x-default" href="${url}"/>
+    </url>`;
+
+  const staticPages = ["", "game", "ranking", "community"]
+    .map((staticPagePath) =>
+      createUrlElement({
+        url: `${baseUrl}/${staticPagePath}`,
+        lastmod: new Date().toISOString(),
+        title: staticPagePath.charAt(0).toUpperCase() + staticPagePath.slice(1),
+        content: "",
+        keywords: "",
+      })
+    )
+    .join("");
+
+  const dynamicPages = posts.map(createUrlElement).join("");
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
     <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -100,41 +125,8 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
             xmlns:xhtml="http://www.w3.org/1999/xhtml"
             xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
             xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
-      ${staticPages
-        .map((url) => {
-          return `
-            <url>
-              <loc>${url}</loc>
-              <changefreq>daily</changefreq>
-              <priority>0.7</priority>
-            </url>
-          `;
-        })
-        .join("")}
-      ${dynamicPages
-        .map(({ url, lastmod, title, content }) => {
-          return `
-            <url>
-              <loc>${url}</loc>
-              <lastmod>${lastmod}</lastmod>
-              <changefreq>weekly</changefreq>
-              <priority>0.9</priority>
-              <news:news>
-                <news:publication>
-                  <news:name>인스쿨즈</news:name>
-                  <news:language>ko</news:language>
-                </news:publication>
-                <news:publication_date>${lastmod}</news:publication_date>
-                <news:title>${title}</news:title>
-                <news:keywords>${title}</news:keywords>
-                <news:description>${content}</news:description>
-              </news:news>
-              <xhtml:link rel="alternate" hreflang="ko" href="${url}"/>
-              <xhtml:link rel="alternate" hreflang="x-default" href="${url}"/>
-            </url>
-          `;
-        })
-        .join("")}
+      ${staticPages}
+      ${dynamicPages}
     </urlset>`;
 
   res.setHeader("Content-Type", "text/xml");
