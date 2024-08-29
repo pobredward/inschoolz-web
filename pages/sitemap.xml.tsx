@@ -9,6 +9,24 @@ const Sitemap = () => {
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   const baseUrl = "https://inschoolz.com";
 
+  const escapeXml = (unsafe: string) => {
+    return unsafe.replace(/[<>&'"]/g, (c) => {
+      switch (c) {
+        case "<":
+          return "&lt;";
+        case ">":
+          return "&gt;";
+        case "&":
+          return "&amp;";
+        case "'":
+          return "&apos;";
+        case '"':
+          return "&quot;";
+      }
+      return c;
+    });
+  };
+
   // Firebase에서 포스트 데이터를 가져옴
   const postsSnapshot = await getDocs(
     query(
@@ -74,7 +92,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     url: `${baseUrl}/community/${post.categoryId}/${post.id}`,
     lastmod: post.createdAt,
     title: `${post.title} - ${getCategoryName(post.categoryId)}`,
-    content: post.content.substring(0, 200), // content의 일부를 sitemap에 포함
+    content: escapeXml(post.content.substring(0, 200).replace(/\s+$/, "")),
   }));
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
