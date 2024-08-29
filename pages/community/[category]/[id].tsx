@@ -70,9 +70,21 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     updatedAt: postData.updatedAt.toDate().toISOString(),
   } as Post;
 
+  const plainTextContent = postData.content.replace(/<[^>]+>/g, "");
+  const sentences = plainTextContent.split(/(?<=[.!?])\s+/); // 문장 단위로 분할
+  let description = "";
+
+  for (let sentence of sentences) {
+    if ((description + sentence).length <= 200) {
+      description += sentence + " ";
+    } else {
+      break;
+    }
+  }
+
   const seoData = {
     title: `${initialPost.title} | 인스쿨즈`,
-    description: initialPost.content.replace(/<[^>]+>/g, "").substring(0, 160),
+    description: description.trim(),
     url: `https://inschoolz.com/community/${category}/${initialPost.id}`,
     imageUrl:
       initialPost.imageUrls && initialPost.imageUrls[0]
@@ -187,7 +199,7 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
   const renderContent = (content: string) => {
     const urlPattern = /(https?:\/\/[^\s]+)/g; // URL 패턴 (유튜브, MP4 등 모든 URL)
     const links = content.match(urlPattern);
-  
+
     return (
       <>
         {links?.map((url, index) => (
@@ -197,11 +209,14 @@ const PostPage: React.FC<PostPageProps> = ({ initialPost, seoData }) => {
             ) : null}
           </div>
         ))}
-        <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(createLinkifiedContent(content)) }} />
+        <div
+          dangerouslySetInnerHTML={{
+            __html: sanitizeHTML(createLinkifiedContent(content)),
+          }}
+        />
       </>
     );
   };
-  
 
   const sanitizeHTML = (html: string) => {
     return DOMPurify.sanitize(html);

@@ -35,13 +35,30 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     )
   );
 
-  const posts = postsSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    categoryId: doc.data().categoryId,
-    title: doc.data().title,
-    content: doc.data().content,
-    createdAt: doc.data().createdAt.toDate().toISOString(),
-  }));
+  const posts = postsSnapshot.docs.map((doc) => {
+    const postData = doc.data();
+
+    // 문장 단위로 분할하여 중요 문장을 포함하는 방식
+    const plainTextContent = postData.content.replace(/<[^>]+>/g, "");
+    const sentences = plainTextContent.split(/(?<=[.!?])\s+/); // 문장 단위로 분할
+    let contentSnippet = "";
+
+    for (let sentence of sentences) {
+      if ((contentSnippet + sentence).length <= 200) {
+        contentSnippet += sentence + " ";
+      } else {
+        break;
+      }
+    }
+
+    return {
+      id: doc.id,
+      categoryId: postData.categoryId,
+      title: postData.title,
+      content: contentSnippet.trim(), // 문장 단위로 자르고 최대 200자까지 포함
+      createdAt: postData.createdAt.toDate().toISOString(),
+    };
+  });
 
   const staticPages = ["", "game", "ranking", "community"].map(
     (staticPagePath) => `${baseUrl}/${staticPagePath}`
@@ -74,7 +91,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     url: `${baseUrl}/community/${post.categoryId}/${post.id}`,
     lastmod: post.createdAt,
     title: `${post.title} - ${getCategoryName(post.categoryId)}`,
-    content: post.content.replace(/<[^>]+>/g, "").substring(0, 200), // 태그 제거
+    content: post.content, // 문장 단위로 잘라낸 내용
   }));
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
