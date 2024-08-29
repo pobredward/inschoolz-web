@@ -72,7 +72,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   const seoData = {
     title: `${initialPost.title} | 인스쿨즈`,
-    description: initialPost.content.substring(0, 160),
+    description: initialPost.content.replace(/<[^>]+>/g, "").substring(0, 160),
     url: `https://inschoolz.com/community/${category}/${initialPost.id}`,
     imageUrl:
       initialPost.imageUrls && initialPost.imageUrls[0]
