@@ -31,6 +31,7 @@ interface AuthContextProps {
   signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   resetError: () => void;
+  refreshUser: () => Promise<void>;
   isAdmin: boolean;
 }
 
@@ -377,6 +378,63 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setError(null);
   };
 
+  // 사용자 정보 새로고침
+  const refreshUser = async () => {
+    if (!auth.currentUser) return;
+    
+    const firebaseUser = auth.currentUser;
+    const { uid, email, displayName, photoURL, emailVerified } = firebaseUser;
+    
+    try {
+      setIsLoading(true);
+      
+      // Firestore에서 최신 사용자 데이터 가져오기
+      const userDocRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        const firestoreUserData = userDoc.data();
+        
+        setUser({
+          uid,
+          email: email || '',
+          profile: firestoreUserData.profile || {
+            userName: displayName || '',
+            email: email || '',
+            realName: '',
+            birthYear: 0,
+            birthMonth: 0,
+            birthDay: 0,
+            phoneNumber: '',
+            profileImageUrl: photoURL || '',
+            createdAt: Date.now(),
+            isAdmin: false
+          },
+          stats: firestoreUserData.stats || {
+            level: 1,
+            experience: 0,
+            currentExp: 0,
+            streak: 0,
+            postCount: 0,
+            commentCount: 0,
+            likeCount: 0
+          },
+          school: firestoreUserData.school,
+          regions: firestoreUserData.regions,
+          emailVerified
+        });
+        
+        // 관리자 권한 확인
+        const isUserAdmin = firestoreUserData.role === 'admin';
+        setIsAdmin(isUserAdmin);
+      }
+    } catch (error) {
+      console.error('사용자 정보 새로고침 오류:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 하이드레이션이 완료될 때까지 로딩 상태 표시
   if (!isMounted) {
     return null;
@@ -394,6 +452,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         signInWithGoogle,
         resetPassword,
         resetError,
+        refreshUser,
         isAdmin
       }}
     >

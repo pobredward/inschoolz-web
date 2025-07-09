@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
 import { getBoardsByType, getPostsByBoardType, getAllPostsByType } from '@/lib/api/board';
 import BoardSelector from '@/components/board/BoardSelector';
+import SchoolSelector from '@/components/board/SchoolSelector';
 import { formatSmartTime, generatePreviewContent } from '@/lib/utils';
 
 interface CommunityPost extends Post {
@@ -30,6 +31,7 @@ const SORT_OPTIONS = [
 
 export default function CommunityPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedTab, setSelectedTab] = useState<BoardType>('national');
   const [boards, setBoards] = useState<Board[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -37,6 +39,42 @@ export default function CommunityPage() {
   const [sortBy, setSortBy] = useState<SortOption>('latest');
   const [isLoading, setIsLoading] = useState(false);
   const [showBoardSelector, setShowBoardSelector] = useState(false);
+
+  // 페이지 로드 시 URL 파라미터와 세션에서 탭 상태 복원
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    const savedTab = sessionStorage.getItem('community-selected-tab');
+    
+    let initialTab: BoardType = 'national';
+    
+    // URL 파라미터가 우선, 없으면 세션 스토리지에서 복원
+    if (tabFromUrl && ['school', 'regional', 'national'].includes(tabFromUrl)) {
+      initialTab = tabFromUrl as BoardType;
+    } else if (savedTab && ['school', 'regional', 'national'].includes(savedTab)) {
+      initialTab = savedTab as BoardType;
+    }
+    
+    setSelectedTab(initialTab);
+    
+    // URL 파라미터 업데이트 (히스토리에 추가하지 않음)
+    if (!tabFromUrl || tabFromUrl !== initialTab) {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('tab', initialTab);
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }, [searchParams]);
+
+  // 탭 변경 핸들러
+  const handleTabChange = (newTab: BoardType) => {
+    setSelectedTab(newTab);
+    
+    // 세션 스토리지와 URL 파라미터 모두 업데이트
+    sessionStorage.setItem('community-selected-tab', newTab);
+    
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('tab', newTab);
+    window.history.replaceState({}, '', newUrl.toString());
+  };
 
   useEffect(() => {
     loadBoards();
@@ -139,7 +177,7 @@ export default function CommunityPage() {
       {/* 탭 */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-4">
-          <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as BoardType)}>
+          <Tabs value={selectedTab} onValueChange={(value) => handleTabChange(value as BoardType)}>
             <TabsList className="grid w-full grid-cols-3 bg-transparent h-12">
               <TabsTrigger 
                 value="school" 
@@ -163,6 +201,22 @@ export default function CommunityPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* 학교 선택 (학교 탭일 때만 표시) */}
+      {selectedTab === 'school' && (
+        <div className="bg-white border-b">
+          <div className="container mx-auto px-4 py-3">
+            <SchoolSelector 
+              onSchoolChange={async () => {
+                // 학교 변경 시 게시판과 게시글 목록 새로고침
+                await loadBoards();
+                await loadPosts();
+              }}
+              className="max-w-sm"
+            />
+          </div>
+        </div>
+      )}
 
       {/* 카테고리 필터 */}
       <div className="bg-white border-b">
