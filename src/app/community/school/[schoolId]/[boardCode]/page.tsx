@@ -8,10 +8,10 @@ import Link from "next/link";
 import SchoolAccessWrapper from "./SchoolAccessWrapper";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     schoolId: string;
     boardCode: string;
-  };
+  }>;
 }
 
 // 샘플 학교 정보

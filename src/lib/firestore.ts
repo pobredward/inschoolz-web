@@ -249,9 +249,13 @@ export const performBatchOperation = async (
       const { type, ref, data, options } = operation;
       
       if (type === 'set' && data) {
-        batch.set(ref, data, options);
+        if (options) {
+          batch.set(ref, data, options);
+        } else {
+          batch.set(ref, data);
+        }
       } else if (type === 'update' && data) {
-        batch.update(ref, data);
+        batch.update(ref, data as any);
       } else if (type === 'delete') {
         batch.delete(ref);
       }

@@ -5,12 +5,10 @@ import {
   getDocs, 
   addDoc, 
   updateDoc, 
-  deleteDoc, 
   query, 
   where, 
   orderBy, 
   limit, 
-  startAfter,
   increment,
   serverTimestamp,
   writeBatch,
@@ -23,10 +21,7 @@ import {
 import { db } from '@/lib/firebase';
 import { 
   Post, 
-  Comment, 
-  Board, 
-  User, 
-  Like
+  Board
 } from '@/types';
 import { 
   BoardType,
@@ -61,11 +56,11 @@ export const getBoardsByType = async (type: BoardType) => {
 export const getFavoriteBoards = async (userId: string, type: BoardType) => {
   try {
     const userDoc = await getDocument('users', userId);
-    if (!userDoc || !userDoc.favorites || !userDoc.favorites.boards) {
+    if (!userDoc || !(userDoc as any).favorites || !(userDoc as any).favorites.boards) {
       return [];
     }
     
-    const boardCodes = userDoc.favorites.boards[type] || [];
+    const boardCodes = (userDoc as any).favorites.boards[type] || [];
     
     if (boardCodes.length === 0) {
       return [];
@@ -137,7 +132,7 @@ export const getPostsByBoard = async (
     
     // 시간 필터링
     if (filterOptions?.timeFilter && filterOptions.timeFilter !== 'all') {
-      let timestamp;
+      let timestamp: Date;
       const now = new Date();
       
       if (filterOptions.timeFilter === 'today') {
@@ -148,6 +143,8 @@ export const getPostsByBoard = async (
         timestamp.setHours(0, 0, 0, 0);
       } else if (filterOptions.timeFilter === 'month') {
         timestamp = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else {
+        timestamp = new Date();
       }
       
       constraints.push(where('createdAt', '>=', Timestamp.fromDate(timestamp)));
@@ -165,12 +162,13 @@ export const getPostsByBoard = async (
       sortField = 'stats.viewCount';
     }
     
-    constraints.push(orderBy(sortField, sortDirection as 'asc' | 'desc'));
+    // orderBy 조건들을 별도로 추가
+    const orderConstraints = [
+      orderBy('status.isPinned', 'desc'),
+      orderBy(sortField, sortDirection as 'asc' | 'desc')
+    ];
     
-    // 상단 고정 게시글 추가 정렬
-    constraints.push(orderBy('status.isPinned', 'desc'));
-    
-    return await getPaginatedDocuments<Post>('posts', constraints, pageSize, lastDoc);
+    return await getPaginatedDocuments<Post>('posts', [...constraints, ...orderConstraints], pageSize, lastDoc);
   } catch (error) {
     console.error('게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -224,7 +222,7 @@ export const getCommentsByPost = async (postId: string) => {
     
     for (const commentDoc of querySnapshot.docs) {
       const commentData = commentDoc.data();
-      const comment = { id: commentDoc.id, ...commentData };
+      const comment = { id: commentDoc.id, ...commentData } as any;
       
       // 사용자 정보 가져오기
       let authorInfo = {
@@ -266,7 +264,7 @@ export const getCommentsByPost = async (postId: string) => {
       
       for (const replyDocSnap of repliesSnapshot.docs) {
         const replyData = replyDocSnap.data();
-        const reply = { id: replyDocSnap.id, ...replyData };
+        const reply = { id: replyDocSnap.id, ...replyData } as any;
         
         // 답글 작성자 정보 가져오기
         let replyAuthorInfo = {
@@ -339,9 +337,8 @@ export const createPost = async (boardCode: string, boardType: BoardType, data: 
       title: data.title,
       content: data.content,
       authorId: userId,
-      code: boardCode,
+      boardCode: boardCode,
       type: boardType,
-      isAnonymous: data.isAnonymous,
       attachments: [],
       tags: data.tags || [],
       stats: {
@@ -354,16 +351,21 @@ export const createPost = async (boardCode: string, boardType: BoardType, data: 
         isHidden: false,
         isBlocked: false,
         isPinned: false
+      },
+      authorInfo: {
+        displayName: data.isAnonymous ? '익명' : (userDoc as any).profile?.userName || '사용자',
+        profileImageUrl: data.isAnonymous ? '' : (userDoc as any).profile?.profileImageUrl || '',
+        isAnonymous: data.isAnonymous
       }
     };
     
     // 학교 또는 지역 정보 설정
-    if (boardType === 'school' && userDoc.school?.id) {
-      postData.schoolId = userDoc.school.id;
-    } else if (boardType === 'regional' && userDoc.regions) {
+    if (boardType === 'school' && (userDoc as any).school?.id) {
+      postData.schoolId = (userDoc as any).school.id;
+    } else if (boardType === 'regional' && (userDoc as any).regions) {
       postData.regions = {
-        sido: userDoc.regions.sido,
-        sigungu: userDoc.regions.sigungu
+        sido: (userDoc as any).regions.sido,
+        sigungu: (userDoc as any).regions.sigungu
       };
     }
     
@@ -538,7 +540,7 @@ export const toggleBoardFavorite = async (boardCode: string, boardType: BoardTyp
     }
     
     const userData = userDoc.data();
-    const favorites = userData.favorites?.boards || {};
+    const favorites = (userData as any).favorites?.boards || {};
     const boardCodes = favorites[boardType] || [];
     
     let isFavorite = false;
@@ -546,7 +548,7 @@ export const toggleBoardFavorite = async (boardCode: string, boardType: BoardTyp
     if (boardCodes.includes(boardCode)) {
       // 즐겨찾기 해제
       await updateDoc(userRef, {
-        [`favorites.boards.${boardType}`]: arrayUnion(boardCode)
+        [`favorites.boards.${boardType}`]: arrayRemove(boardCode)
       });
     } else {
       // 즐겨찾기 추가

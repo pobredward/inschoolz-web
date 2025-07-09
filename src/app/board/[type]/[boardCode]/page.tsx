@@ -9,16 +9,16 @@ import BoardSidePanel from "@/components/board/BoardSidePanel";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface BoardDetailPageProps {
-  params: {
+  params: Promise<{
     type: string;
     boardCode: string;
-  };
-  searchParams?: {
+  }>;
+  searchParams?: Promise<{
     page?: string;
     sort?: string;
     keyword?: string;
     filter?: string;
-  };
+  }>;
 }
 
 export default async function BoardDetailPage({ params, searchParams }: BoardDetailPageProps) {
@@ -32,17 +32,30 @@ export default async function BoardDetailPage({ params, searchParams }: BoardDet
   }
   
   // 게시판 정보 가져오기
-  const board = await getDocument('boards', boardCode);
+  const boardData: any = await getDocument('boards', boardCode);
   
-  if (!board) {
+  if (!boardData) {
     notFound();
   }
+
+  // Board 타입에 맞는 더미 데이터 생성
+  const board = {
+    code: boardCode,
+    name: boardData.name || "게시판",
+    type: type,
+    description: boardData.description || "게시판 설명",
+    stats: {
+      postCount: boardData.stats?.postCount || 0,
+      activeUserCount: boardData.stats?.activeUserCount || 0
+    }
+  };
   
   // 페이지 번호, 정렬 등 쿼리 파라미터 처리
-  const page = searchParams?.page ? parseInt(searchParams.page) : 1;
-  const sort = searchParams?.sort || 'latest';
-  const keyword = searchParams?.keyword || '';
-  const filter = searchParams?.filter || 'all';
+  const searchParamsData = await searchParams;
+  const page = searchParamsData?.page ? parseInt(searchParamsData.page) : 1;
+  const sort = searchParamsData?.sort || 'latest';
+  const keyword = searchParamsData?.keyword || '';
+  const filter = searchParamsData?.filter || 'all';
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">

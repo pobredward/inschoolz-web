@@ -7,7 +7,7 @@ export default async function UserProfileLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { userName: string };
+  params: Promise<{ userName: string }>;
 }) {
   // 서버 측에서 인증 확인
   const cookieStore = await cookies();

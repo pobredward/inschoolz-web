@@ -181,7 +181,7 @@ export default function CommunityManagementPage() {
 
   const getBoardTypeLabel = (type: BoardType) => {
     switch (type) {
-      case 'common': return '공통';
+      case 'national': return '전국';
       case 'regional': return '지역';
       case 'school': return '학교';
       default: return type;

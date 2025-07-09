@@ -273,7 +273,7 @@ export default function PostListFilter({ sort, filter, board }: PostListFilterPr
         </div>
         
         <div className="text-sm text-muted-foreground">
-          총 <span className="font-medium text-foreground">{board.stats?.postCount || 0}</span>개의 게시글
+          총 <span className="font-medium text-foreground">{(board as any).stats?.postCount || 0}</span>개의 게시글
         </div>
       </div>
     </div>

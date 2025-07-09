@@ -4,9 +4,9 @@ import { BoardType } from "@/types/board";
 import WritePageClient from "@/components/board/WritePageClient";
 
 interface WritePageProps {
-  params: {
+  params: Promise<{
     boardCode: string;
-  };
+  }>;
 }
 
 export async function generateMetadata(): Promise<Metadata> {

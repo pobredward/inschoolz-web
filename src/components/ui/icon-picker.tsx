@@ -23,7 +23,7 @@ const iconList = Object.entries(LucideIcons)
   .map(([name, Icon]) => ({ name, Icon }));
 
 // 카테고리 그룹화 (단순화를 위해 몇 가지만 정의)
-const categories = {
+const categories: { [key: string]: string[] } = {
   '일반': ['Home', 'User', 'Settings', 'Mail', 'Bell', 'Calendar', 'Search', 'Info'],
   '인터페이스': ['Menu', 'ChevronDown', 'ChevronUp', 'ChevronLeft', 'ChevronRight', 'X', 'Check', 'Plus', 'Minus'],
   '통신': ['MessageSquare', 'MessageCircle', 'Mail', 'Phone', 'Share', 'Send'],
@@ -34,7 +34,7 @@ const categories = {
 };
 
 // 카테고리에 아이콘 할당
-const categorizedIcons = iconList.reduce((acc, icon) => {
+const categorizedIcons: { [key: string]: typeof iconList } = iconList.reduce((acc, icon) => {
   let assigned = false;
   
   Object.entries(categories).forEach(([category, iconNames]) => {
@@ -51,7 +51,7 @@ const categorizedIcons = iconList.reduce((acc, icon) => {
   }
   
   return acc;
-}, {});
+}, {} as { [key: string]: typeof iconList });
 
 interface IconPickerProps {
   value: string;
@@ -72,7 +72,7 @@ export function IconPicker({
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // 선택된 아이콘 컴포넌트
-  const SelectedIcon = value ? LucideIcons[value as keyof typeof LucideIcons] : null;
+  const SelectedIcon = value ? LucideIcons[value as keyof typeof LucideIcons] as any : null;
 
   // 아이콘 검색 기능
   const filteredIcons = search 
@@ -150,22 +150,25 @@ export function IconPicker({
               <ScrollArea className="h-[300px]">
                 {search ? (
                   <div className="grid grid-cols-4 gap-2 p-3">
-                    {filteredIcons.map(({ name, Icon }) => (
-                      <Button
-                        key={name}
-                        variant="ghost"
-                        className={cn(
-                          "h-12 w-full p-0 justify-center items-center",
-                          value === name && "bg-muted"
-                        )}
-                        onClick={() => {
-                          onChange(name);
-                          setOpen(false);
-                        }}
-                      >
-                        <Icon className="h-5 w-5" />
-                      </Button>
-                    ))}
+                    {filteredIcons.map(({ name, Icon }) => {
+                      const IconComponent = Icon as any;
+                      return (
+                        <Button
+                          key={name}
+                          variant="ghost"
+                          className={cn(
+                            "h-12 w-full p-0 justify-center items-center",
+                            value === name && "bg-muted"
+                          )}
+                          onClick={() => {
+                            onChange(name);
+                            setOpen(false);
+                          }}
+                        >
+                          <IconComponent className="h-5 w-5" />
+                        </Button>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="p-3 space-y-4">
@@ -173,22 +176,25 @@ export function IconPicker({
                       <div key={category}>
                         <h3 className="text-sm font-medium mb-2">{category}</h3>
                         <div className="grid grid-cols-4 gap-2">
-                          {(icons as typeof iconList).map(({ name, Icon }) => (
-                            <Button
-                              key={name}
-                              variant="ghost"
-                              className={cn(
-                                "h-12 w-full p-0 justify-center items-center",
-                                value === name && "bg-muted"
-                              )}
-                              onClick={() => {
-                                onChange(name);
-                                setOpen(false);
-                              }}
-                            >
-                              <Icon className="h-5 w-5" />
-                            </Button>
-                          ))}
+                          {(icons as typeof iconList).map(({ name, Icon }) => {
+                            const IconComponent = Icon as any;
+                            return (
+                              <Button
+                                key={name}
+                                variant="ghost"
+                                className={cn(
+                                  "h-12 w-full p-0 justify-center items-center",
+                                  value === name && "bg-muted"
+                                )}
+                                onClick={() => {
+                                  onChange(name);
+                                  setOpen(false);
+                                }}
+                              >
+                                <IconComponent className="h-5 w-5" />
+                              </Button>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

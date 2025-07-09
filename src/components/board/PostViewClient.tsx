@@ -161,7 +161,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
                     {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}
                   </span>
                   <Badge variant="secondary" className="text-xs">
-                    {post.boardName}
+                    {post.boardCode}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -185,13 +185,13 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
           </div>
 
           {/* 게시글 이미지 */}
-          {post.imageUrls && post.imageUrls.length > 0 && (
+          {post.attachments && post.attachments.filter(att => att.type === 'image').length > 0 && (
             <div className="mb-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {post.imageUrls.map((url, index) => (
+                {post.attachments.filter(att => att.type === 'image').map((attachment, index) => (
                   <img
                     key={index}
-                    src={url}
+                    src={attachment.url}
                     alt={`첨부 이미지 ${index + 1}`}
                     className="rounded-lg max-w-full h-auto"
                   />

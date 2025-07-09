@@ -6,10 +6,10 @@ import { getPostDetail, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 
 interface PostViewPageProps {
-  params: {
+  params: Promise<{
     boardCode: string;
     postId: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({ params }: PostViewPageProps): Promise<Metadata> {
@@ -70,9 +70,7 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
     return (
       <PostViewClient
         post={post as unknown as Post}
-        comments={comments as unknown as Comment[]}
-        board={board}
-        type="national"
+        initialComments={comments as unknown as Comment[]}
       />
     );
   } catch (error) {

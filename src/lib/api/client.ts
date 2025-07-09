@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { getAuth } from 'firebase/auth';
 
 // API 기본 설정
@@ -15,7 +15,7 @@ const apiClient = axios.create({
 
 // 요청 인터셉터 설정
 apiClient.interceptors.request.use(
-  async (config: AxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
     const auth = getAuth();
     const user = auth.currentUser;
     

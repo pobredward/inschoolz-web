@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, RotateCcw, Trophy, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { updateGameScore } from '@/lib/api/games';
+import { useAuth } from '@/providers/AuthProvider';
 
 type GameState = 'waiting' | 'playing' | 'finished';
 
@@ -19,6 +20,7 @@ interface Tile {
 }
 
 export default function TileGamePage() {
+  const { user } = useAuth();
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [flippedTiles, setFlippedTiles] = useState<number[]>([]);
@@ -130,13 +132,15 @@ export default function TileGamePage() {
     setGameState('finished');
 
     // Firebase에 점수 저장
-    try {
-      const result = await updateGameScore('tileGame', score);
-      if (result.success) {
-        // 성공 처리는 UI에서 표시됨
+    if (user?.uid) {
+      try {
+        const result = await updateGameScore(user.uid, 'tileGame', score);
+        if (result.success) {
+          // 성공 처리는 UI에서 표시됨
+        }
+      } catch (error) {
+        console.error('게임 점수 저장 실패:', error);
       }
-    } catch (error) {
-      console.error('게임 점수 저장 실패:', error);
     }
   };
 

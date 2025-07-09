@@ -6,11 +6,11 @@ import { getPostDetail, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 
 interface PostViewPageProps {
-  params: {
+  params: Promise<{
     schoolId: string;
     boardCode: string;
     postId: string;
-  };
+  }>;
 }
 
 // 학교 정보 가져오기 (샘플 - 실제로는 Firebase에서 가져와야 함)
@@ -83,9 +83,7 @@ export default async function SchoolPostDetailPage({ params }: PostViewPageProps
     return (
       <PostViewClient
         post={post as unknown as Post}
-        comments={comments as unknown as Comment[]}
-        board={board}
-        type="school"
+        initialComments={comments as unknown as Comment[]}
       />
     );
   } catch (error) {

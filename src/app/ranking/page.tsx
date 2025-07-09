@@ -186,7 +186,54 @@ export default function RankingPage() {
       setIsLoading(true);
       setError(null);
       
-      const data = await getRankingData(user.uid);
+      // 전국 랭킹 데이터 가져오기
+      const globalRanking = await getRankingData('global');
+      
+      // 지역 랭킹 데이터 가져오기 (사용자의 지역 정보가 있는 경우)
+      let regionalRanking: any[] = [];
+      if (user.regions?.sido) {
+        regionalRanking = await getRankingData('region', undefined, user.regions.sido, user.regions.sigungu);
+      }
+      
+      // 학교 랭킹 데이터 가져오기 (사용자의 학교 정보가 있는 경우)
+      let schoolRanking: any[] = [];
+      if (user.school?.id) {
+        schoolRanking = await getRankingData('school', user.school.id);
+      }
+      
+      // RankingData 형태로 변환
+      const data: RankingData = {
+        global: globalRanking.map(item => ({
+          userId: item.userId,
+          userName: item.displayName,
+          level: item.level,
+          totalExperience: item.experience,
+          schoolName: item.schoolName,
+          rank: item.rank
+        })),
+        regional: regionalRanking.map(item => ({
+          userId: item.userId,
+          userName: item.displayName,
+          level: item.level,
+          totalExperience: item.experience,
+          schoolName: item.schoolName,
+          rank: item.rank
+        })),
+        school: schoolRanking.map(item => ({
+          userId: item.userId,
+          userName: item.displayName,
+          level: item.level,
+          totalExperience: item.experience,
+          schoolName: item.schoolName,
+          rank: item.rank
+        })),
+        userRanks: {
+          global: globalRanking.findIndex(item => item.userId === user.uid) + 1 || 0,
+          regional: regionalRanking.findIndex(item => item.userId === user.uid) + 1 || 0,
+          school: schoolRanking.findIndex(item => item.userId === user.uid) + 1 || 0
+        }
+      };
+      
       setRankingData(data);
     } catch (err) {
       console.error('랭킹 데이터 로딩 실패:', err);

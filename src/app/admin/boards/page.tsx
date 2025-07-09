@@ -28,7 +28,6 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getBoards } from '@/lib/api/boards';
 import { Board } from '@/types';
 import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -43,7 +42,7 @@ const boardFormSchema = z.object({
   code: z.string().min(2, "코드는 최소 2자 이상이어야 합니다").max(20, "코드는 최대 20자까지 입력 가능합니다"),
   name: z.string().min(2, "이름은 최소 2자 이상이어야 합니다").max(30, "이름은 최대 30자까지 입력 가능합니다"),
   description: z.string().max(200, "설명은 최대 200자까지 입력 가능합니다"),
-  type: z.enum(["common", "school", "regional"]),
+  type: z.enum(["national", "school", "regional"]),
   order: z.number().min(0, "순서는 0 이상이어야 합니다"),
   isActive: z.boolean(),
   isPublic: z.boolean(),
@@ -96,7 +95,7 @@ export default function BoardsAdminPage() {
       code: "",
       name: "",
       description: "",
-      type: "common",
+      type: "national",
       order: 0,
       isActive: true,
       isPublic: true,
@@ -110,7 +109,11 @@ export default function BoardsAdminPage() {
   const loadBoards = useCallback(async () => {
     setIsLoading(true);
     try {
-      const commonBoards = await getBoards('common');
+      // 전국 게시판을 Firestore에서 직접 가져옴
+      const nationalBoardsQuery = query(
+        collection(db, 'boards'),
+        where('type', '==', 'national')
+      );
       
       // 학교 게시판은 API가 특정 학교 ID를 요구하므로 Firestore에서 직접 가져옴
       const schoolBoardsQuery = query(
@@ -124,10 +127,16 @@ export default function BoardsAdminPage() {
         where('type', '==', 'regional')
       );
 
-      const [schoolBoardsSnapshot, regionalBoardsSnapshot] = await Promise.all([
+      const [nationalBoardsSnapshot, schoolBoardsSnapshot, regionalBoardsSnapshot] = await Promise.all([
+        getDocs(nationalBoardsQuery),
         getDocs(schoolBoardsQuery),
         getDocs(regionalBoardsQuery)
       ]);
+
+      const nationalBoards: BoardWithSchoolId[] = [];
+      nationalBoardsSnapshot.forEach(doc => {
+        nationalBoards.push({ id: doc.id, ...doc.data() } as BoardWithSchoolId);
+      });
 
       const schoolBoards: BoardWithSchoolId[] = [];
       schoolBoardsSnapshot.forEach(doc => {
@@ -140,7 +149,7 @@ export default function BoardsAdminPage() {
       });
 
       setBoards({
-        common: commonBoards as BoardWithSchoolId[],
+        national: nationalBoards, // 전국 게시판
         school: schoolBoards,
         regional: regionalBoards
       });
@@ -162,7 +171,7 @@ export default function BoardsAdminPage() {
       code: "",
       name: "",
       description: "",
-      type: currentTab as "common" | "school" | "regional",
+      type: currentTab as "national" | "school" | "regional",
       order: boards[currentTab as keyof typeof boards].length + 1,
       isActive: true,
       isPublic: true,
@@ -202,7 +211,7 @@ export default function BoardsAdminPage() {
       await deleteDoc(doc(db, 'boards', board.id));
       
       setBoards(prevBoards => ({
-        common: prevBoards.common.filter(b => b.id !== board.id),
+        national: prevBoards.national.filter(b => b.id !== board.id),
         school: prevBoards.school.filter(b => b.id !== board.id),
         regional: prevBoards.regional.filter(b => b.id !== board.id),
       }));
@@ -402,13 +411,13 @@ export default function BoardsAdminPage() {
       </div>
 
       <div className="rounded-lg border shadow-sm">
-        <Tabs defaultValue="common" onValueChange={(value) => setCurrentTab(value)} className="w-full">
+        <Tabs defaultValue="national" onValueChange={(value) => setCurrentTab(value)} className="w-full">
           <div className="flex items-center px-4 py-2 border-b">
             <TabsList className="w-full grid grid-cols-3 h-10">
-              <TabsTrigger value="common" className="flex items-center gap-1">
+              <TabsTrigger value="national" className="flex items-center gap-1">
                 <Globe size={16} />
                 <span>전국 게시판</span>
-                <Badge variant="outline" className="ml-1">{boards.common.length}</Badge>
+                <Badge variant="outline" className="ml-1">{boards.national.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="school" className="flex items-center gap-1">
                 <School size={16} />
@@ -429,12 +438,12 @@ export default function BoardsAdminPage() {
             </div>
           ) : (
             <>
-              <TabsContent value="common" className="p-4">
+              <TabsContent value="national" className="p-4">
                 <div className="mb-4">
                   <h2 className="text-xl font-semibold">전국 게시판</h2>
                   <p className="text-sm text-muted-foreground">모든 사용자가 볼 수 있는 전국 단위 게시판입니다.</p>
                 </div>
-                {filteredBoards('common').length === 0 ? (
+                {filteredBoards('national').length === 0 ? (
                   <div className="text-center py-12 border rounded-lg bg-muted/20">
                     {searchQuery ? (
                       <p className="text-muted-foreground">검색 결과가 없습니다</p>
@@ -443,7 +452,7 @@ export default function BoardsAdminPage() {
                     )}
                   </div>
                 ) : (
-                  renderBoardGroups('common')
+                  renderBoardGroups('national')
                 )}
               </TabsContent>
               
@@ -512,7 +521,7 @@ export default function BoardsAdminPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="common">전국 게시판</SelectItem>
+                          <SelectItem value="national">전국 게시판</SelectItem>
                           <SelectItem value="school">학교 게시판</SelectItem>
                           <SelectItem value="regional">지역 게시판</SelectItem>
                         </SelectContent>

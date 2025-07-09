@@ -4,10 +4,10 @@ import { db } from '@/lib/firebase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { type: string; boardCode: string; postId: string } }
+  { params }: { params: Promise<{ type: string; boardCode: string; postId: string }> }
 ) {
   try {
-    const { postId } = params;
+    const { postId } = await params;
 
     // Firestore에서 게시글 가져오기
     const postRef = doc(db, 'posts', postId);

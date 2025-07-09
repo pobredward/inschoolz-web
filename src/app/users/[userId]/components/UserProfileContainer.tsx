@@ -57,18 +57,18 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
   }, [currentUser, user.uid]);
 
   // 자신의 프로필인지 확인
-  const isOwnProfile = currentUser && currentUser.uid === user.uid;
+  const isOwnProfile = !!(currentUser && currentUser.uid === user.uid);
 
   return (
     <div className="container mx-auto py-6 px-4 md:px-6">
-      <ProfileHeader user={user} isOwnProfile={isOwnProfile} isBlocked={isBlocked} />
+      <ProfileHeader user={user} isOwnProfile={isOwnProfile} isBlocked={!!isBlocked} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         <div className="lg:col-span-2">
           <ProfileSection 
             user={user} 
             isOwnProfile={isOwnProfile}
-            isFollowing={isFollowing}
+            isFollowing={!!isFollowing}
             isLoading={isLoading}
             followersCount={followersCount}
             followingCount={followingCount}

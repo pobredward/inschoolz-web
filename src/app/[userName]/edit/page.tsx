@@ -29,7 +29,7 @@ function serializeUserData(user: User | null): User | null {
   return serialized;
 }
 
-export default async function ProfileEditPage({ params }: { params: { userName: string } }) {
+export default async function ProfileEditPage({ params }: { params: Promise<{ userName: string }> }) {
   // Next.js 15에서는 params를 await 해야 함
   const { userName } = await params;
   
@@ -79,6 +79,12 @@ export default async function ProfileEditPage({ params }: { params: { userName: 
 
     // Firebase 타임스탬프를 포함한 객체를 직렬화
     const serializedUserData = serializeUserData(profileUser);
+
+    // serializedUserData가 null이면 에러 (이론적으로는 발생하지 않아야 함)
+    if (!serializedUserData) {
+      console.error('사용자 데이터 직렬화 실패');
+      return redirect('/auth?redirect=/' + userName + '/edit');
+    }
 
     // 프로필 수정 컴포넌트 렌더링
     return (

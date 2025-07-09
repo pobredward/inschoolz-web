@@ -7,9 +7,9 @@ import { Globe, ArrowLeft, Plus, TrendingUp, Clock, MessageSquare } from "lucide
 import Link from "next/link";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     boardCode: string;
-  };
+  }>;
 }
 
 // 샘플 게시판 정보

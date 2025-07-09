@@ -8,9 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getBoardsByType } from "@/lib/api/board";
 
 interface BoardPageProps {
-  params: {
+  params: Promise<{
     type: string;
-  };
+  }>;
 }
 
 export default async function BoardPage({ params }: BoardPageProps) {

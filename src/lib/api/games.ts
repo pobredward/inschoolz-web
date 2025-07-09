@@ -149,9 +149,21 @@ export const updateGameScore = async (
       });
     }
     
-    // 경험치 계산
-    // 기본 경험치 + (점수 * 배율)
-    const xpEarned = Math.floor(XP_CONSTANTS.GAME_BASE_XP + (score * XP_CONSTANTS.GAME_SCORE_MULTIPLIER));
+    // 경험치 계산 (게임별 고정 경험치)
+    let xpEarned = 0;
+    switch (gameType) {
+      case 'flappyBird':
+        xpEarned = XP_CONSTANTS.FLAPPY_BIRD_XP;
+        break;
+      case 'reactionGame':
+        xpEarned = XP_CONSTANTS.REACTION_GAME_XP;
+        break;
+      case 'tileGame':
+        xpEarned = XP_CONSTANTS.TILE_GAME_XP;
+        break;
+      default:
+        xpEarned = 10; // 기본 경험치
+    }
     
     // 경험치 업데이트 및 레벨업 체크
     const result = await updateUserExperience(userId, xpEarned);

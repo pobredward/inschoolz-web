@@ -1,31 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import BoardListSection from "@/components/board/BoardListSection";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Board } from "@/types";
 
 type BoardType = "national" | "school" | "regional";
 
-type Board = {
-  id: string;
-  code: string;
-  name: string;
-  description?: string;
-  type: BoardType;
-  isActive: boolean;
-  customIcon?: string;
-  stats?: {
-    postCount: number;
-    viewCount: number;
-    activeUserCount: number;
-  };
-  parentCode?: string;
-};
-
-// 임시 데이터 - 실제로는 API에서 가져올 예정
+// 임시 목 데이터 (실제 환경에서는 API에서 가져옴)
 const MOCK_BOARDS: Record<BoardType, Board[]> = {
   national: [
     {
@@ -35,6 +19,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       description: "자유롭게 대화할 수 있는 게시판입니다.",
       type: "national",
       isActive: true,
+      order: 1,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 30,
+      updatedAt: Date.now(),
       stats: { postCount: 1250, viewCount: 45000, activeUserCount: 320 }
     },
     {
@@ -44,6 +34,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       description: "궁금한 점을 질문하고 답변을 얻을 수 있는 게시판입니다.",
       type: "national",
       isActive: true,
+      order: 2,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 25,
+      updatedAt: Date.now(),
       stats: { postCount: 876, viewCount: 32000, activeUserCount: 210 }
     },
     {
@@ -53,6 +49,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       description: "다양한 취미 활동을 공유하는 카테고리입니다.",
       type: "national",
       isActive: true,
+      order: 3,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 20,
+      updatedAt: Date.now(),
       stats: { postCount: 0, viewCount: 0, activeUserCount: 0 }
     },
     {
@@ -63,6 +65,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "national",
       isActive: true,
       parentCode: "hobby",
+      order: 4,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 18,
+      updatedAt: Date.now(),
       stats: { postCount: 542, viewCount: 18500, activeUserCount: 150 }
     },
     {
@@ -73,6 +81,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "national",
       isActive: true,
       parentCode: "hobby",
+      order: 5,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 15,
+      updatedAt: Date.now(),
       stats: { postCount: 324, viewCount: 12000, activeUserCount: 98 }
     },
     {
@@ -83,6 +97,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "national",
       isActive: true,
       parentCode: "hobby",
+      order: 6,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 12,
+      updatedAt: Date.now(),
       stats: { postCount: 410, viewCount: 15000, activeUserCount: 120 }
     }
   ],
@@ -94,6 +114,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       description: "학교 생활에 관한 이야기를 나누는 게시판입니다.",
       type: "school",
       isActive: true,
+      order: 1,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 30,
+      updatedAt: Date.now(),
       stats: { postCount: 752, viewCount: 25600, activeUserCount: 186 }
     },
     {
@@ -103,6 +129,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       description: "학업 관련 주제를 다루는 카테고리입니다.",
       type: "school",
       isActive: true,
+      order: 2,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 25,
+      updatedAt: Date.now(),
       stats: { postCount: 0, viewCount: 0, activeUserCount: 0 }
     },
     {
@@ -113,6 +145,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "school",
       isActive: true,
       parentCode: "academics",
+      order: 3,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 20,
+      updatedAt: Date.now(),
       stats: { postCount: 312, viewCount: 13500, activeUserCount: 95 }
     },
     {
@@ -123,6 +161,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "school",
       isActive: true,
       parentCode: "academics",
+      order: 4,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 18,
+      updatedAt: Date.now(),
       stats: { postCount: 217, viewCount: 9800, activeUserCount: 73 }
     }
   ],
@@ -134,6 +178,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       description: "서울 지역 관련 게시판입니다.",
       type: "regional",
       isActive: true,
+      order: 1,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 30,
+      updatedAt: Date.now(),
       stats: { postCount: 0, viewCount: 0, activeUserCount: 0 }
     },
     {
@@ -144,6 +194,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "regional",
       isActive: true,
       parentCode: "seoul",
+      order: 2,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 25,
+      updatedAt: Date.now(),
       stats: { postCount: 214, viewCount: 8900, activeUserCount: 65 }
     },
     {
@@ -154,6 +210,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "regional",
       isActive: true,
       parentCode: "seoul",
+      order: 3,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 22,
+      updatedAt: Date.now(),
       stats: { postCount: 186, viewCount: 7200, activeUserCount: 58 }
     },
     {
@@ -163,6 +225,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       description: "부산 지역 관련 게시판입니다.",
       type: "regional",
       isActive: true,
+      order: 4,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 20,
+      updatedAt: Date.now(),
       stats: { postCount: 0, viewCount: 0, activeUserCount: 0 }
     },
     {
@@ -173,6 +241,12 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
       type: "regional",
       isActive: true,
       parentCode: "busan",
+      order: 5,
+      isPublic: true,
+      allowAnonymous: true,
+      allowPolls: true,
+      createdAt: Date.now() - 86400000 * 18,
+      updatedAt: Date.now(),
       stats: { postCount: 142, viewCount: 5600, activeUserCount: 42 }
     }
   ]
@@ -231,8 +305,6 @@ export default function BoardsPage() {
           ) : (
             <BoardListSection 
               boards={boards}
-              title="전국 게시판"
-              description="모든 사용자가 이용할 수 있는 전국 공통 게시판입니다."
             />
           )}
         </TabsContent>
@@ -246,8 +318,6 @@ export default function BoardsPage() {
           ) : (
             <BoardListSection 
               boards={boards}
-              title="학교 게시판"
-              description="학교와 관련된 주제를 다루는 게시판입니다."
             />
           )}
         </TabsContent>
@@ -261,8 +331,6 @@ export default function BoardsPage() {
           ) : (
             <BoardListSection 
               boards={boards}
-              title="지역 게시판"
-              description="지역별 소식과 정보를 공유하는 게시판입니다."
             />
           )}
         </TabsContent>

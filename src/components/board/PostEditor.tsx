@@ -49,17 +49,17 @@ interface PostEditorProps {
 const formSchema = z.object({
   title: z.string().min(2, "제목은 2자 이상이어야 합니다").max(100, "제목은 100자 이하여야 합니다"),
   content: z.string().min(5, "내용은 5자 이상이어야 합니다"),
-  isAnonymous: z.boolean().default(false),
+  isAnonymous: z.boolean(),
   tags: z.array(z.string()).max(5, "태그는 최대 5개까지 추가할 수 있습니다"),
   poll: z.object({
-    isActive: z.boolean().default(false),
+    isActive: z.boolean(),
     question: z.string().optional(),
     options: z.array(z.object({
       text: z.string().min(1, "옵션 텍스트를 입력하세요"),
       imageUrl: z.string().optional(),
     })).min(2, "최소 2개의 옵션이 필요합니다").optional(),
     expiresAt: z.date().optional(),
-    multipleChoice: z.boolean().default(false),
+    multipleChoice: z.boolean(),
   }).optional(),
 });
 
@@ -67,7 +67,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function PostEditor({ boardCode, boardType, board }: PostEditorProps) {
   const router = useRouter();
-  const { user, userData } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState("");
   const [isPollActive, setIsPollActive] = useState(false);
@@ -92,7 +92,7 @@ export default function PostEditor({ boardCode, boardType, board }: PostEditorPr
   // 폼 제출 핸들러
   const onSubmit = async (values: FormValues) => {
     try {
-      if (!user || !userData) {
+      if (!user) {
         toast({
           title: "로그인이 필요합니다",
           description: "게시글을 작성하려면 로그인이 필요합니다.",

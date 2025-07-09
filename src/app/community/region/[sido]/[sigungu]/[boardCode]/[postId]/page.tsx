@@ -6,12 +6,12 @@ import { getPostDetail, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 
 interface PostViewPageProps {
-  params: {
+  params: Promise<{
     sido: string;
     sigungu: string;
     boardCode: string;
     postId: string;
-  };
+  }>;
 }
 
 // 지역 정보 가져오기 (샘플 - 실제로는 Firebase에서 가져와야 함)
@@ -83,9 +83,7 @@ export default async function RegionalPostDetailPage({ params }: PostViewPagePro
     return (
       <PostViewClient
         post={post as unknown as Post}
-        comments={comments as unknown as Comment[]}
-        board={board}
-        type="regional"
+        initialComments={comments as unknown as Comment[]}
       />
     );
   } catch (error) {

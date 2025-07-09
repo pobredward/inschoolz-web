@@ -5,11 +5,11 @@ import { PostViewClient } from '@/components/board/PostViewClient';
 import type { BoardType } from '@/types/board';
 
 interface PostDetailPageProps {
-  params: {
+  params: Promise<{
     type: BoardType;
     boardCode: string;
     postId: string;
-  };
+  }>;
 }
 
 export default async function PostDetailPage({ params }: PostDetailPageProps) {
@@ -35,9 +35,7 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
     return (
       <PostViewClient
         post={post as any}
-        comments={comments as any}
-        board={board}
-        type={type}
+        initialComments={comments as any}
       />
     );
   } catch (error) {

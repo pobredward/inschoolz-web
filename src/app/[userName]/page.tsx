@@ -33,7 +33,7 @@ function serializeUserData(user: User | null): User | null {
   return serialized;
 }
 
-export default async function UserProfilePage({ params }: { params: { userName: string } }) {
+export default async function UserProfilePage({ params }: { params: Promise<{ userName: string }> }) {
   // Next.js 15에서는 params를 await 해야 함
   const { userName } = await params;
   
