@@ -3,6 +3,8 @@ import { getPostDetail } from '@/lib/api/board';
 import { getBoardsByType } from '@/lib/api/board';
 import { PostViewClient } from '@/components/board/PostViewClient';
 import type { BoardType } from '@/types/board';
+import { Post, Comment } from '@/types';
+import { stripHtmlTags } from '@/lib/utils';
 
 interface PostDetailPageProps {
   params: Promise<{
@@ -28,14 +30,14 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
     }
 
     // 게시글이 해당 게시판에 속하는지 확인
-    if ((post as any).boardCode !== boardCode) {
+    if ((post as Post).boardCode !== boardCode) {
       notFound();
     }
 
     return (
       <PostViewClient
-        post={post as any}
-        initialComments={comments as any}
+        post={post as Post}
+        initialComments={comments as Comment[]}
       />
     );
   } catch (error) {
@@ -53,10 +55,10 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
     
     return {
       title: `${post.title} - Inschoolz`,
-      description: post.content.slice(0, 150) + '...',
+      description: stripHtmlTags(post.content).slice(0, 150) + '...',
       openGraph: {
         title: post.title,
-        description: post.content.slice(0, 150) + '...',
+        description: stripHtmlTags(post.content).slice(0, 150) + '...',
         images: post.attachments?.length > 0 ? [post.attachments[0].url] : [],
       },
     };

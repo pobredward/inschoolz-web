@@ -25,6 +25,7 @@ import {
 import { toast } from 'react-hot-toast';
 import CommentSection from './CommentSection';
 import { formatSmartTime } from '@/lib/utils';
+import { HtmlContent } from '@/components/ui/html-content';
 
 interface PostViewClientProps {
   post: Post;
@@ -119,10 +120,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     return formatSmartTime(timestamp);
   };
 
-  const parseContentText = (content: string) => {
-    // 간단한 텍스트 파싱 (필요에 따라 확장 가능)
-    return content;
-  };
+
 
   const handleCommentCountChange = (count: number) => {
     setCommentCount(count);
@@ -178,10 +176,11 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
           <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
 
           {/* 게시글 내용 */}
-          <div className="prose prose-sm max-w-none mb-6">
-            <p className="whitespace-pre-wrap leading-relaxed">
-              {parseContentText(post.content)}
-            </p>
+          <div className="mb-6">
+            <HtmlContent 
+              content={post.content}
+              className="whitespace-pre-wrap leading-relaxed"
+            />
           </div>
 
           {/* 게시글 이미지 */}

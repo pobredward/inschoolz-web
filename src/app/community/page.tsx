@@ -12,7 +12,7 @@ import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
 import { getBoardsByType, getPostsByBoardType, getAllPostsByType } from '@/lib/api/board';
 import BoardSelector from '@/components/board/BoardSelector';
-import { formatSmartTime } from '@/lib/utils';
+import { formatSmartTime, generatePreviewContent } from '@/lib/utils';
 
 interface CommunityPost extends Post {
   boardName: string;
@@ -70,7 +70,7 @@ export default function CommunityPage() {
             ...post,
             attachments: post.attachments || [], // 기본값 설정
             boardName: board?.name || post.boardCode,
-            previewContent: post.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...'
+            previewContent: generatePreviewContent(post.content)
           };
         });
         allPosts = postsWithBoardName;
@@ -82,7 +82,7 @@ export default function CommunityPage() {
           ...post,
           attachments: post.attachments || [], // 기본값 설정
           boardName: board?.name || '',
-          previewContent: post.content.replace(/<[^>]*>/g, '').substring(0, 100) + '...'
+          previewContent: generatePreviewContent(post.content)
         }));
       }
 
@@ -272,7 +272,11 @@ export default function CommunityPage() {
 
                   {/* 메타 정보 */}
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>{formatDate(post.createdAt)}</span>
+                    <div className="flex items-center space-x-1">
+                      <span>{post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}</span>
+                      <span>|</span>
+                      <span>{formatDate(post.createdAt)}</span>
+                    </div>
                     <div className="flex items-center space-x-3">
                       <span className="flex items-center space-x-1">
                         <MessageCircle className="h-3 w-3" />

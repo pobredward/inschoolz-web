@@ -708,7 +708,7 @@ export const getPostsByBoardType = async (
   try {
     const constraints = [
       where('type', '==', boardType),
-      where('code', '==', boardCode),
+      where('boardCode', '==', boardCode),
       where('status.isDeleted', '==', false),
       where('status.isHidden', '==', false),
       orderBy('status.isPinned', 'desc'),

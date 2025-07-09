@@ -126,10 +126,7 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
                       </AvatarFallback>
                     </Avatar>
                     <span className="text-sm text-muted-foreground">
-                      {post.author.isAnonymous ? '익명' : post.author.displayName}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatRelativeTime(post.createdAt)}
+                      {post.author.isAnonymous ? '익명' : post.author.displayName} | {formatRelativeTime(post.createdAt)}
                     </span>
                   </div>
                   

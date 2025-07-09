@@ -219,11 +219,11 @@ export default function PostList({
                       <span className="truncate">
                         {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '알 수 없음'}
                       </span>
+                      <span className="text-xs">|</span>
+                      <span className="text-xs">
+                        {formatDate(post.createdAt)}
+                      </span>
                     </div>
-                    
-                    <span className="text-xs">
-                      {formatDate(post.createdAt)}
-                    </span>
                     
                     {post.tags && post.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1">

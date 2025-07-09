@@ -233,30 +233,45 @@ export function serializeComment(comment: Record<string, unknown>) {
 }
 
 /**
- * HTML 태그를 제거하고 순수 텍스트만 반환하는 함수 (웹용)
- * @param html HTML 문자열 또는 일반 텍스트
- * @returns 순수 텍스트
+ * HTML 태그를 파싱하여 안전한 HTML로 변환
  */
-export function stripHtmlTags(html: string): string {
-  if (!html) return '';
+export async function parseHtmlContent(content: string): Promise<string> {
+  if (typeof window === 'undefined') {
+    // 서버사이드에서는 HTML 태그 제거
+    return content.replace(/<[^>]*>/g, '');
+  }
+
+  // 클라이언트사이드에서는 DOMPurify 사용
+  const DOMPurify = await import('dompurify');
   
-  // HTML 태그 제거
-  let text = html.replace(/<[^>]*>/g, '');
-  
-  // HTML 엔티티 디코딩
-  text = text
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'");
-  
-  // 연속된 공백 제거 및 앞뒤 공백 제거
-  text = text.replace(/\s+/g, ' ').trim();
-  
-  return text;
+  // 허용할 HTML 태그와 속성 설정
+  const cleanHtml = DOMPurify.default.sanitize(content, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+    ALLOW_DATA_ATTR: false,
+    ADD_ATTR: ['target'],
+    FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'button'],
+    FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover', 'onfocus', 'onblur'],
+  });
+
+  return cleanHtml;
+}
+
+/**
+ * HTML 태그를 제거하고 텍스트만 추출
+ */
+export function stripHtmlTags(content: string): string {
+  return content.replace(/<[^>]*>/g, '');
+}
+
+/**
+ * 게시글 내용 미리보기 생성 (HTML 태그 제거 후 일정 길이로 자르기)
+ */
+export function generatePreviewContent(content: string, maxLength: number = 100): string {
+  const textOnly = stripHtmlTags(content);
+  return textOnly.length > maxLength 
+    ? textOnly.substring(0, maxLength) + '...' 
+    : textOnly;
 }
 
 /**

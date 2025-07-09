@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { School, ArrowLeft, Plus, TrendingUp, Clock, MessageSquare } from "lucide-react";
+import { School, ArrowLeft, Plus, TrendingUp, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import SchoolAccessWrapper from "./SchoolAccessWrapper";
 
@@ -200,11 +200,7 @@ export default async function SchoolBoardPage({ params }: PageProps) {
                         {post.content}
                       </p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{post.author}</span>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{post.timeAgo}</span>
-                        </div>
+                        <span>{post.author} | {post.timeAgo}</span>
                         <span>조회 {post.views}</span>
                       </div>
                     </div>

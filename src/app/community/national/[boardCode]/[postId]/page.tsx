@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
 import { getPostDetail, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
+import { stripHtmlTags } from "@/lib/utils";
 
 interface PostViewPageProps {
   params: Promise<{
@@ -30,10 +31,10 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
 
     return {
       title: `${post.title} - ${boardInfo.name} - Inschoolz`,
-      description: post.content.slice(0, 150) + '...',
+      description: stripHtmlTags(post.content).slice(0, 150) + '...',
       openGraph: {
         title: `${post.title} - ${boardInfo.name}`,
-        description: post.content.slice(0, 150) + '...',
+        description: stripHtmlTags(post.content).slice(0, 150) + '...',
         type: 'article',
         siteName: 'Inschoolz',
       },
@@ -63,7 +64,7 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
     }
 
     // 게시글이 해당 게시판에 속하는지 확인
-    if ((post as any).boardCode !== boardCode) {
+    if ((post as Post).boardCode !== boardCode) {
       notFound();
     }
 
