@@ -15,7 +15,6 @@ import {
   Settings,
   Menu,
   Bell,
-  Search,
   AlertCircle,
   X
 } from 'lucide-react';
@@ -48,6 +47,7 @@ interface AuthUser {
   stats?: {
     level?: number;
     experience?: number;
+    currentExp?: number; // 추가: 현재 레벨에서의 경험치
   };
 }
 
@@ -65,24 +65,31 @@ function ExperienceDisplay({ user }: { user?: AuthUser }) {
 
   // 실제 사용자 데이터 사용 (기본값 설정)
   const level = user.stats?.level || user.profile?.level || 1;
-  const currentXp = user.stats?.experience || user.profile?.experience || 0;
-  const maxXp = level * 100; // 향후 실제 경험치 시스템으로 교체
+  const currentXp = user.stats?.currentExp || 0; // currentExp 사용 (현재 레벨에서의 경험치)
+  
+  // 정확한 maxXp 계산 (다음 레벨까지 필요한 경험치)
+  const getMaxXpForLevel = (level: number): number => {
+    // PRD 요구사항: 1->2레벨 10exp, 2->3레벨 20exp, 오름차순
+    return level * 10;
+  };
+  
+  const maxXp = getMaxXpForLevel(level);
   const xpPercentage = Math.min((currentXp / maxXp) * 100, 100);
 
   return (
     <div className="flex items-center gap-2" aria-label={`레벨 ${level}, 경험치 ${currentXp}/${maxXp}`}>
-      <div className="bg-pastel-green-300 text-pastel-green-800 px-2 py-1 rounded-full text-xs font-bold">
+      <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold">
         Lv.{level}
       </div>
-      <div className="flex flex-col items-center gap-1">
-        <div className="w-12 h-1.5 bg-pastel-green-100 rounded-full overflow-hidden">
+      <div className="flex items-center gap-2">
+        <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-pastel-green-400 transition-all duration-300 ease-out"
-            style={{ width: `${xpPercentage}%` }}
+            className="h-full bg-green-500 transition-all duration-300 ease-out"
+            style={{ width: `${Math.max(xpPercentage, 3)}%` }}
             aria-label={`경험치 진행률 ${xpPercentage.toFixed(1)}%`}
           />
         </div>
-        <span className="text-xs text-pastel-green-700 font-medium">
+        <span className="text-xs text-gray-600 font-medium whitespace-nowrap">
           {currentXp}/{maxXp}
         </span>
       </div>
@@ -223,21 +230,8 @@ export function Header() {
             ))}
           </nav>
 
-          {/* 헤더 오른쪽 - 검색, 경험치, 알림, 프로필 */}
+          {/* 헤더 오른쪽 - 경험치, 알림, 프로필 */}
           <div className="flex items-center gap-3">
-            {/* 검색 */}
-            <div className="hidden lg:block relative w-full max-w-sm">
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-pastel-green-600" aria-hidden="true" />
-                <input
-                  type="text"
-                  placeholder="게시글, 댓글, 학교, 사용자 검색"
-                  className="h-9 w-full rounded-md border border-pastel-green-200 pl-9 pr-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-pastel-green-400 focus:border-transparent"
-                  aria-label="검색어 입력"
-                />
-              </div>
-            </div>
-
             {/* 경험치/레벨 표시 - 로그인 시에만 표시 */}
             {user && (
               <div className="hidden md:block">
@@ -281,7 +275,10 @@ export function Header() {
                 </SheetHeader>
                 <nav className="flex flex-col space-y-1" role="navigation" aria-label="모바일 메뉴">
                   {user && (
-                    <div className="mb-4 p-3 bg-pastel-green-50 rounded-lg">
+                    <div className="mb-4 p-4 bg-gradient-to-r from-pastel-green-50 to-pastel-green-100 rounded-lg border border-pastel-green-200">
+                      <div className="text-center mb-2">
+                        <p className="text-sm font-medium text-pastel-green-800">{user.profile?.userName || '사용자'}님</p>
+                      </div>
                       <ExperienceDisplay user={user} />
                     </div>
                   )}

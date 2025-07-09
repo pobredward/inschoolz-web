@@ -62,27 +62,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setIsMounted(true);
   }, []);
 
-  // 사용자 권한 정보 가져오기
-  const fetchUserRole = async (uid: string) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const isUserAdmin = userData.role === 'admin';
-        setIsAdmin(isUserAdmin);
-        
-        // 관리자 권한 쿠키 설정
-        if (isUserAdmin) {
-          Cookies.set('userRole', 'admin', { expires: 7 });
-        } else {
-          Cookies.remove('userRole');
-        }
-      }
-    } catch (error) {
-      console.error('사용자 권한 정보 조회 오류:', error);
-    }
-  };
-
   // 인증 상태 변경 감지
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -90,29 +69,125 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (firebaseUser) {
         const { uid, email, displayName, photoURL, emailVerified } = firebaseUser;
         
-        // 쿠키 설정
-        Cookies.set('authToken', await firebaseUser.getIdToken(), { expires: 7 });
-        Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
-        Cookies.set('uid', uid, { expires: 7 });
-        
-        setUser({
-          uid,
-          email: email || '',
-          profile: {
-            userName: displayName || '',
+        try {
+          // Firestore에서 실제 사용자 데이터 가져오기
+          const userDocRef = doc(db, 'users', uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            // Firestore의 실제 사용자 데이터 사용
+            const firestoreUserData = userDoc.data();
+            
+            // 쿠키 설정
+            Cookies.set('authToken', await firebaseUser.getIdToken(), { expires: 7 });
+            Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
+            Cookies.set('uid', uid, { expires: 7 });
+            
+            setUser({
+              uid,
+              email: email || '',
+              profile: firestoreUserData.profile || {
+                userName: displayName || '',
+                email: email || '',
+                realName: '',
+                birthYear: 0,
+                birthMonth: 0,
+                birthDay: 0,
+                phoneNumber: '',
+                profileImageUrl: photoURL || '',
+                createdAt: Date.now(),
+                isAdmin: false
+              },
+              stats: firestoreUserData.stats || {
+                level: 1,
+                experience: 0,
+                currentExp: 0,
+                streak: 0,
+                postCount: 0,
+                commentCount: 0,
+                likeCount: 0
+              },
+              school: firestoreUserData.school,
+              regions: firestoreUserData.regions,
+              emailVerified
+            });
+            
+            // 관리자 권한 확인
+            const isUserAdmin = firestoreUserData.role === 'admin';
+            setIsAdmin(isUserAdmin);
+            
+            if (isUserAdmin) {
+              Cookies.set('userRole', 'admin', { expires: 7 });
+            } else {
+              Cookies.remove('userRole');
+            }
+          } else {
+            // Firestore에 사용자 데이터가 없는 경우 기본값 사용
+            Cookies.set('authToken', await firebaseUser.getIdToken(), { expires: 7 });
+            Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
+            Cookies.set('uid', uid, { expires: 7 });
+            
+            setUser({
+              uid,
+              email: email || '',
+              profile: {
+                userName: displayName || '',
+                email: email || '',
+                realName: '',
+                birthYear: 0,
+                birthMonth: 0,
+                birthDay: 0,
+                phoneNumber: '',
+                profileImageUrl: photoURL || '',
+                createdAt: Date.now(),
+                isAdmin: false
+              },
+              stats: {
+                level: 1,
+                experience: 0,
+                currentExp: 0,
+                streak: 0,
+                postCount: 0,
+                commentCount: 0,
+                likeCount: 0
+              },
+              emailVerified
+            });
+          }
+        } catch (error) {
+          console.error('사용자 데이터 조회 오류:', error);
+          // 오류 발생 시 기본값 사용
+          Cookies.set('authToken', await firebaseUser.getIdToken(), { expires: 7 });
+          Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
+          Cookies.set('uid', uid, { expires: 7 });
+          
+          setUser({
+            uid,
             email: email || '',
-            realName: '',
-            birthYear: 0,
-            birthMonth: 0,
-            birthDay: 0,
-            phoneNumber: '',
-            profileImageUrl: photoURL || '',
-            createdAt: Date.now(),
-            isAdmin: false
-          },
-          emailVerified
-        });
-        await fetchUserRole(uid);
+            profile: {
+              userName: displayName || '',
+              email: email || '',
+              realName: '',
+              birthYear: 0,
+              birthMonth: 0,
+              birthDay: 0,
+              phoneNumber: '',
+              profileImageUrl: photoURL || '',
+              createdAt: Date.now(),
+              isAdmin: false
+            },
+            stats: {
+              level: 1,
+              experience: 0,
+              currentExp: 0,
+              streak: 0,
+              postCount: 0,
+              commentCount: 0,
+              likeCount: 0
+            },
+            emailVerified
+          });
+        }
       } else {
         // 로그아웃 시 쿠키 삭제
         Cookies.remove('authToken');
