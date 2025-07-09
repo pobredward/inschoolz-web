@@ -1,0 +1,432 @@
+'use client'
+
+import { useState, useRef, useEffect } from 'react'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Image from '@tiptap/extension-image'
+import Link from '@tiptap/extension-link'
+import Placeholder from '@tiptap/extension-placeholder'
+import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import { uploadImage } from '@/lib/firebase'
+import { Button } from '@/components/ui/button'
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Link as LinkIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  ImageIcon,
+  List,
+  ListOrdered,
+  Quote,
+  Undo,
+  Redo,
+} from 'lucide-react'
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger 
+} from '@/components/ui/tooltip'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger 
+} from '@/components/ui/popover'
+
+interface RichTextEditorProps {
+  content: string
+  onChange: (content: string) => void
+  placeholder?: string
+}
+
+export default function RichTextEditor({ 
+  content, 
+  onChange, 
+  placeholder = '내용을 입력하세요...' 
+}: RichTextEditorProps) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Image,
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline',
+        },
+      }),
+      Placeholder.configure({
+        placeholder,
+      }),
+      Underline,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right'],
+      }),
+    ],
+    content,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML())
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[300px] max-h-[600px] overflow-y-auto p-4',
+      },
+    },
+  })
+
+  useEffect(() => {
+    // 에디터 초기화 완료 후 컨텐츠 설정
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content)
+    }
+  }, [editor, content])
+
+  // 에디터 컨테이너 클릭 시 포커스 설정
+  const handleEditorClick = () => {
+    if (editor && !editor.isFocused) {
+      editor.commands.focus()
+    }
+  }
+
+  // 이미지 업로드 처리
+  const handleImageUpload = async () => {
+    if (!selectedFile || !editor) return
+
+    setIsUploading(true)
+    try {
+      const imageUrl = await uploadImage(selectedFile)
+      editor.chain().focus().setImage({ src: imageUrl }).run()
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (error) {
+      console.error('이미지 업로드 실패:', error)
+      alert('이미지 업로드에 실패했습니다. 다시 시도해주세요.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  // 링크 추가
+  const handleAddLink = () => {
+    if (!editor || !linkUrl) return
+
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange('link')
+      .setLink({ href: linkUrl, target: '_blank' })
+      .run()
+
+    setLinkUrl('')
+  }
+
+  // 링크 제거
+  const handleRemoveLink = () => {
+    if (!editor) return
+    
+    editor.chain().focus().extendMarkRange('link').unsetLink().run()
+  }
+
+  if (!editor) {
+    return (
+      <div className="border rounded-md min-h-[300px] bg-gray-50 animate-pulse">
+        <div className="h-12 bg-gray-200 border-b"></div>
+        <div className="p-4">
+          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border rounded-md" ref={editorRef}>
+      <div className="flex flex-wrap gap-1 p-2 border-b bg-muted/20">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className={editor.isActive('bold') ? 'bg-muted' : ''}
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>굵게</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                className={editor.isActive('italic') ? 'bg-muted' : ''}
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>기울임</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                className={editor.isActive('underline') ? 'bg-muted' : ''}
+              >
+                <UnderlineIcon className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>밑줄</TooltipContent>
+          </Tooltip>
+
+          <Popover>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={editor.isActive('link') ? 'bg-muted' : ''}
+                    >
+                      <LinkIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>링크</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <PopoverContent className="w-80">
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label htmlFor="link">URL</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="link"
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      placeholder="https://example.com"
+                    />
+                    <Button type="button" onClick={handleAddLink}>추가</Button>
+                  </div>
+                </div>
+                
+                {editor.isActive('link') && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveLink}
+                  >
+                    링크 제거
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                className={editor.isActive({ textAlign: 'left' }) ? 'bg-muted' : ''}
+              >
+                <AlignLeft className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>왼쪽 정렬</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                className={editor.isActive({ textAlign: 'center' }) ? 'bg-muted' : ''}
+              >
+                <AlignCenter className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>가운데 정렬</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                className={editor.isActive({ textAlign: 'right' }) ? 'bg-muted' : ''}
+              >
+                <AlignRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>오른쪽 정렬</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                className={editor.isActive('bulletList') ? 'bg-muted' : ''}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>글머리 기호</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                className={editor.isActive('orderedList') ? 'bg-muted' : ''}
+              >
+                <ListOrdered className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>번호 매기기</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                className={editor.isActive('blockquote') ? 'bg-muted' : ''}
+              >
+                <Quote className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>인용구</TooltipContent>
+          </Tooltip>
+
+          <Popover>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>이미지 업로드</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <PopoverContent className="w-80">
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label htmlFor="image">이미지 파일 선택</Label>
+                  <Input
+                    id="image"
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setSelectedFile(e.target.files[0])
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleImageUpload}
+                  disabled={!selectedFile || isUploading}
+                >
+                  {isUploading ? '업로드 중...' : '이미지 추가'}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <div className="ml-auto flex gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => editor.chain().focus().undo().run()}
+                  disabled={!editor.can().undo()}
+                >
+                  <Undo className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>실행 취소</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => editor.chain().focus().redo().run()}
+                  disabled={!editor.can().redo()}
+                >
+                  <Redo className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>다시 실행</TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      </div>
+
+      <div 
+        onClick={handleEditorClick}
+        className="cursor-text"
+      >
+        <EditorContent 
+          editor={editor} 
+        />
+      </div>
+    </div>
+  )
+} 

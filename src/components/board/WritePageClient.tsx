@@ -1,0 +1,363 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { BoardType } from "@/types/board";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Save, BarChart, Tag } from "lucide-react";
+import RichTextEditor from "@/components/editor/RichTextEditor";
+import PollEditor, { PollData } from "@/components/editor/PollEditor";
+import { Switch } from "@/components/ui/switch";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/providers/AuthProvider";
+import { toast } from "sonner";
+import { getBoard } from "@/lib/api/boards";
+import { Board } from "@/types";
+import CategorySelector, { CategoryButton } from "./CategorySelector";
+
+interface WritePageClientProps {
+  type: BoardType;
+  code: string;
+}
+
+export default function WritePageClient({ type, code }: WritePageClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  
+  const [board, setBoard] = useState<Board | null>(null);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string } | undefined>();
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPollEnabled, setIsPollEnabled] = useState(false);
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const [pollData, setPollData] = useState<PollData>({
+    question: "",
+    options: [
+      { id: "option-1", text: "" },
+      { id: "option-2", text: "" }
+    ]
+  });
+
+  // URL에서 카테고리 정보 가져오기
+  const categoryId = searchParams.get("category");
+  const categoryName = searchParams.get("categoryName");
+
+  // 게시판 정보 로드
+  useEffect(() => {
+    const loadBoard = async () => {
+      if (!code) {
+        console.error('WritePageClient - code is undefined or empty');
+        return;
+      }
+      
+      try {
+        const boardData = await getBoard(code);
+        setBoard(boardData);
+        
+        // URL에서 카테고리 정보가 있으면 설정
+        if (categoryId && categoryName) {
+          setSelectedCategory({ id: categoryId, name: categoryName });
+        } else if (boardData?.categories && boardData.categories.length > 0) {
+          // 카테고리가 있는 게시판인데 URL에 카테고리 정보가 없으면 모달 표시
+          setShowCategorySelector(true);
+        }
+      } catch (error) {
+        console.error("게시판 정보 로드 실패:", error);
+        toast.error("게시판 정보를 불러오는데 실패했습니다.");
+      }
+    };
+
+    loadBoard();
+  }, [code, categoryId, categoryName]);
+  
+  const handleBack = () => {
+    router.back();
+  };
+
+  const handleCategorySelect = (category: { id: string; name: string }) => {
+    setSelectedCategory(category);
+    setShowCategorySelector(false);
+    
+    // URL에 카테고리 정보 추가
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("category", category.id);
+    params.set("categoryName", category.name);
+    router.replace(`/board/${type}/${code}/write?${params.toString()}`);
+  };
+
+  const handleCategoryChange = () => {
+    setShowCategorySelector(true);
+  };
+  
+  // 투표 옵션이 유효한지 확인
+  const isPollValid = () => {
+    if (!isPollEnabled) return true;
+    
+    const hasValidQuestion = pollData.question.trim().length > 0;
+    const hasValidOptions = pollData.options.length >= 2 && 
+      pollData.options.every(option => option.text.trim().length > 0);
+    
+    return hasValidQuestion && hasValidOptions;
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      toast.error("로그인이 필요합니다.");
+      return;
+    }
+
+    if (!board) {
+      toast.error("게시판 정보를 불러오는 중입니다.");
+      return;
+    }
+
+    // 카테고리가 있는 게시판인데 카테고리를 선택하지 않은 경우
+    if (board.categories && board.categories.length > 0 && !selectedCategory) {
+      toast.error("카테고리를 선택해주세요.");
+      setShowCategorySelector(true);
+      return;
+    }
+    
+    if (!title.trim()) {
+      toast.error("제목을 입력해주세요.");
+      return;
+    }
+    
+    if (!content.trim()) {
+      toast.error("내용을 입력해주세요.");
+      return;
+    }
+    
+    if (isPollEnabled && !isPollValid()) {
+      toast.error("투표 질문과 최소 2개의 선택지를 모두 입력해주세요.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // 안전한 사용자 이름 처리
+      const getUserDisplayName = () => {
+        if (isAnonymous) return "익명";
+        return user.profile?.userName || user.email?.split('@')[0] || "사용자";
+      };
+
+      // Firestore에 게시글 저장
+      const postData = {
+        type: type,
+        boardCode: code,
+        title: title.trim(),
+        content: content.trim(),
+        // category가 있을 때만 포함시키기
+        ...(selectedCategory && { category: selectedCategory }),
+        authorId: user.uid,
+        authorInfo: {
+          displayName: getUserDisplayName(),
+          isAnonymous: isAnonymous,
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        status: {
+          isPinned: false,
+          isDeleted: false,
+          isHidden: false,
+        },
+        stats: {
+          viewCount: 0,
+          likeCount: 0,
+          commentCount: 0,
+        },
+        attachments: [],
+        tags: [],
+        ...(isPollEnabled && pollData.question.trim() && {
+          poll: {
+            isActive: true,
+            question: pollData.question.trim(),
+            options: pollData.options
+              .filter(option => option.text.trim())
+              .map((option, index) => ({
+                text: option.text.trim(),
+                voteCount: 0,
+                index
+              })),
+            voters: [],
+          }
+        })
+      };
+      
+      console.log('게시글 데이터:', postData); // 디버깅용
+      
+      // 실제 Firestore에 저장
+      const docRef = await addDoc(collection(db, "posts"), postData);
+      const postId = docRef.id;
+      
+      toast.success("게시글이 작성되었습니다.");
+      // 게시글 작성 완료 후 해당 게시글로 이동
+      router.push(`/community/${type}/${code}/${postId}`);
+    } catch (error: unknown) {
+      console.error("게시글 작성 실패:", error);
+      const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다";
+      toast.error(`게시글 작성에 실패했습니다: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 로딩 중
+  if (!board) {
+    return (
+      <div className="container mx-auto py-8 px-4 md:px-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center">게시판 정보를 불러오는 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 게시글 작성 화면
+  return (
+    <div className="container mx-auto py-8 px-4 md:px-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-4 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={handleBack}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            뒤로가기
+          </Button>
+          
+          {selectedCategory && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Tag className="w-4 h-4" />
+              {selectedCategory.name}
+            </div>
+          )}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>게시글 작성</CardTitle>
+            <CardDescription>
+              {board.name} 게시판에 새로운 글을 작성해보세요.
+            </CardDescription>
+          </CardHeader>
+          
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-6">
+              {/* 카테고리 선택 */}
+              {board.categories && board.categories.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="flex items-center space-x-2">
+                    <Tag className="h-4 w-4" />
+                    <span>카테고리</span>
+                  </Label>
+                  <CategoryButton
+                    selectedCategory={selectedCategory}
+                    onClick={handleCategoryChange}
+                  />
+                </div>
+              )}
+
+              {/* 제목 */}
+              <div className="space-y-2">
+                <Label htmlFor="title">제목</Label>
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="제목을 입력하세요"
+                  required
+                />
+              </div>
+
+              {/* 내용 */}
+              <div className="space-y-2">
+                <Label htmlFor="content">내용</Label>
+                <RichTextEditor
+                  content={content}
+                  onChange={setContent}
+                  placeholder="내용을 입력하세요"
+                />
+              </div>
+
+              {/* 투표 기능 */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="poll-enabled"
+                    checked={isPollEnabled}
+                    onCheckedChange={setIsPollEnabled}
+                  />
+                  <Label htmlFor="poll-enabled" className="flex items-center gap-2">
+                    <BarChart className="w-4 h-4" />
+                    투표 추가
+                  </Label>
+                </div>
+                
+                {isPollEnabled && (
+                  <PollEditor
+                    pollData={pollData}
+                    onChange={setPollData}
+                  />
+                )}
+              </div>
+
+              {/* 익명 옵션 */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="anonymous"
+                  checked={isAnonymous}
+                  onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
+                />
+                <Label htmlFor="anonymous">익명으로 작성</Label>
+              </div>
+            </CardContent>
+
+            <CardFooter>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Save className="w-4 h-4 mr-2 animate-spin" />
+                    작성 중...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    게시글 작성
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+
+        {/* 카테고리 선택 모달 */}
+        {board && (
+          <CategorySelector
+            board={board}
+            selectedCategory={selectedCategory}
+            onCategorySelect={handleCategorySelect}
+            isOpen={showCategorySelector}
+            onClose={() => setShowCategorySelector(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
+} 

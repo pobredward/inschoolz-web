@@ -1,0 +1,881 @@
+import { 
+  collection,
+  doc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  increment,
+  serverTimestamp,
+  Timestamp
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { 
+  Board, 
+  Post, 
+  Comment, 
+  Like
+} from '@/types';
+import { uploadPostImage, uploadPostAttachment } from '@/lib/storage';
+import { awardExperience } from '@/lib/experience';
+
+// 게시판 목록 가져오기
+export const getBoards = async (type: 'national' | 'regional' | 'school', schoolId?: string, regions?: { sido: string; sigungu: string }): Promise<Board[]> => {
+  try {
+    const boardsRef = collection(db, 'boards');
+    let q;
+
+    if (type === 'national') {
+      q = query(
+        boardsRef,
+        where('type', '==', 'national'),
+        where('isActive', '==', true),
+        orderBy('order', 'asc')
+      );
+    } else if (type === 'regional' && regions) {
+      q = query(
+        boardsRef,
+        where('type', '==', 'regional'),
+        where('isActive', '==', true),
+        where('regions.sido', '==', regions.sido),
+        where('regions.sigungu', '==', regions.sigungu),
+        orderBy('order', 'asc')
+      );
+    } else if (type === 'school' && schoolId) {
+      q = query(
+        boardsRef,
+        where('type', '==', 'school'),
+        where('isActive', '==', true),
+        where('schoolId', '==', schoolId),
+        orderBy('order', 'asc')
+      );
+    } else {
+      throw new Error('유효하지 않은 게시판 타입 또는 파라미터입니다.');
+    }
+
+    const querySnapshot = await getDocs(q);
+    const boards: Board[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      boards.push({ id: doc.id, ...doc.data() } as Board);
+    });
+    
+    return boards;
+  } catch (error) {
+    console.error('게시판 목록 가져오기 오류:', error);
+    throw new Error('게시판 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시판 상세 정보 가져오기
+export const getBoard = async (code: string): Promise<Board | null> => {
+  if (!code || typeof code !== 'string') {
+    throw new Error('유효하지 않은 게시판 코드입니다.');
+  }
+  
+  try {
+    const boardsRef = collection(db, 'boards');
+    const q = query(
+      boardsRef,
+      where('code', '==', code),
+      where('isActive', '==', true),
+      limit(1)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const boardDoc = querySnapshot.docs[0];
+      const data = boardDoc.data();
+      const boardData = { id: boardDoc.id, ...data } as Board;
+      return boardData;
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error('게시판 상세 정보 가져오기 오류:', error);
+    throw new Error('게시판 상세 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 목록 가져오기
+export const getPosts = async (
+  code: string,
+  page = 1,
+  pageSize = 10,
+  sortBy: 'latest' | 'popular' = 'latest'
+): Promise<{ posts: Post[]; totalCount: number; hasMore: boolean }> => {
+  try {
+    const postsRef = collection(db, 'posts');
+    let q;
+    
+    if (sortBy === 'latest') {
+      q = query(
+        postsRef,
+        where('boardCode', '==', code),
+        where('status.isDeleted', '==', false),
+        where('status.isHidden', '==', false),
+        orderBy('createdAt', 'desc'),
+        limit(pageSize * page)
+      );
+    } else {
+      q = query(
+        postsRef,
+        where('boardCode', '==', code),
+        where('status.isDeleted', '==', false),
+        where('status.isHidden', '==', false),
+        orderBy('stats.likeCount', 'desc'),
+        limit(pageSize * page)
+      );
+    }
+    
+    const querySnapshot = await getDocs(q);
+    const posts: Post[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      posts.push({ id: doc.id, ...doc.data() } as Post);
+    });
+    
+    // 전체 게시글 수 가져오기
+    const countQuery = query(
+      postsRef,
+      where('boardCode', '==', code),
+      where('status.isDeleted', '==', false),
+      where('status.isHidden', '==', false)
+    );
+    
+    const countSnapshot = await getDocs(countQuery);
+    const totalCount = countSnapshot.size;
+    
+    // 페이징 처리
+    const startIndex = (page - 1) * pageSize;
+    const paginatedPosts = posts.slice(startIndex, startIndex + pageSize);
+    
+    return {
+      posts: paginatedPosts,
+      totalCount,
+      hasMore: totalCount > page * pageSize
+    };
+  } catch (error) {
+    console.error('게시글 목록 가져오기 오류:', error);
+    throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 상세 정보 가져오기
+export const getPost = async (postId: string): Promise<Post | null> => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (postDoc.exists()) {
+      // 조회수 증가
+      await updateDoc(postRef, {
+        'stats.viewCount': increment(1),
+        updatedAt: serverTimestamp()
+      });
+      
+      return { id: postDoc.id, ...postDoc.data() } as Post;
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error('게시글 상세 정보 가져오기 오류:', error);
+    throw new Error('게시글 상세 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 작성
+export interface CreatePostParams {
+  title: string;
+  content: string;
+  code: string;
+  type: 'national' | 'regional' | 'school';
+  category?: {
+    id: string;
+    name: string;
+  };
+  schoolId?: string;
+  regions?: {
+    sido: string;
+    sigungu: string;
+  };
+  images?: File[];
+  attachments?: File[];
+  tags?: string[];
+  isAnonymous?: boolean;
+  poll?: {
+    question: string;
+    options: string[];
+    expiresAt?: Date;
+    multipleChoice: boolean;
+  };
+}
+
+export const createPost = async (userId: string, params: CreatePostParams): Promise<Post> => {
+  try {
+    const {
+      title,
+      content,
+      code,
+      type,
+      category,
+      schoolId,
+      regions,
+      images,
+      attachments,
+      tags,
+      isAnonymous,
+      poll
+    } = params;
+
+    // 게시판 존재 여부 확인
+    const boardRef = doc(db, 'boards', code);
+    const boardDoc = await getDoc(boardRef);
+    
+    if (!boardDoc.exists()) {
+      throw new Error('존재하지 않는 게시판입니다.');
+    }
+
+    // 새 게시글 정보 생성
+    const newPost: Omit<Post, 'id'> = {
+      title,
+      content,
+      authorId: userId,
+      authorInfo: {
+        displayName: '', // 임시값, 실제로는 사용자 정보에서 가져와야 함
+        isAnonymous: isAnonymous || false
+      },
+      boardCode: code,
+      type,
+      category: category || undefined,
+      schoolId: schoolId || undefined,
+      regions: regions || undefined,
+      stats: {
+        viewCount: 0,
+        likeCount: 0,
+        commentCount: 0
+      },
+      status: {
+        isDeleted: false,
+        isHidden: false,
+        isBlocked: false,
+        isPinned: false
+      },
+      attachments: [],
+      tags: tags || [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    // 투표 정보 추가
+    if (poll) {
+      newPost.poll = {
+        isActive: true,
+        question: poll.question,
+        options: poll.options.map((text, index) => ({
+          text,
+          voteCount: 0,
+          index
+        })),
+        expiresAt: poll.expiresAt ? poll.expiresAt.getTime() : undefined,
+        multipleChoice: poll.multipleChoice
+      };
+    }
+
+    // Firestore에 게시글 추가
+    const postRef = await addDoc(collection(db, 'posts'), newPost);
+    const postId = postRef.id;
+
+    // 이미지 업로드 처리
+    if (images && images.length > 0) {
+      for (const image of images) {
+        const imageUrl = await uploadPostImage(postId, image);
+        
+        // 이미지 URL을 게시글 내용에 추가 (마크다운 형식)
+        await updateDoc(postRef, {
+          content: content + `\n\n![이미지](${imageUrl})`,
+          updatedAt: Timestamp.now()
+        });
+      }
+    }
+
+    // 첨부 파일 업로드 처리
+    if (attachments && attachments.length > 0) {
+      const uploadedAttachments = [];
+      
+      for (const file of attachments) {
+        const fileUrl = await uploadPostAttachment(postId, file);
+        
+        uploadedAttachments.push({
+          id: crypto.randomUUID(),
+          fileName: file.name,
+          fileUrl,
+          fileType: file.type,
+          fileSize: file.size,
+          postId,
+          userId,
+          createdAt: Date.now()
+        });
+      }
+      
+      // 첨부 파일 정보 업데이트
+      await updateDoc(postRef, {
+        attachments: uploadedAttachments,
+        updatedAt: Timestamp.now()
+      });
+    }
+
+    // 사용자 게시글 작성 수 증가
+    await updateDoc(doc(db, 'users', userId), {
+      'stats.postCount': increment(1),
+      updatedAt: Timestamp.now()
+    });
+
+    // 경험치 지급
+    try {
+      const expResult = await awardExperience(userId, 'post');
+      if (expResult.success && expResult.leveledUp) {
+        console.log(`🎉 레벨업! ${expResult.oldLevel} → ${expResult.newLevel} (게시글 작성)`);
+      }
+    } catch (expError) {
+      console.error('게시글 작성 경험치 지급 오류:', expError);
+      // 경험치 지급 실패는 게시글 작성 자체를 실패로 처리하지 않음
+    }
+
+    // 생성된 게시글 반환
+    const createdPost = await getPost(postId);
+    
+    if (!createdPost) {
+      throw new Error('게시글이 생성되었지만 정보를 가져오지 못했습니다.');
+    }
+    
+    return createdPost;
+  } catch (error) {
+    console.error('게시글 작성 오류:', error);
+    throw new Error('게시글 작성 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 수정
+export interface UpdatePostParams {
+  title?: string;
+  content?: string;
+  tags?: string[];
+  isAnonymous?: boolean;
+}
+
+export const updatePost = async (
+  postId: string,
+  userId: string,
+  params: UpdatePostParams
+): Promise<Post> => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      throw new Error('존재하지 않는 게시글입니다.');
+    }
+    
+    const postData = postDoc.data() as Post;
+    
+    // 게시글 작성자 확인
+    if (postData.authorId !== userId) {
+      throw new Error('게시글 수정 권한이 없습니다.');
+    }
+    
+    // 게시글 업데이트
+    const updateData: { [key: string]: any } = {
+      updatedAt: Timestamp.now()
+    };
+    
+    if (params.title) updateData.title = params.title;
+    if (params.content) updateData.content = params.content;
+    if (params.tags) updateData.tags = params.tags;
+    if (params.isAnonymous !== undefined) updateData['authorInfo.isAnonymous'] = params.isAnonymous;
+    
+    await updateDoc(postRef, updateData);
+    
+    // 업데이트된 게시글 반환
+    const updatedPost = await getPost(postId);
+    
+    if (!updatedPost) {
+      throw new Error('게시글이 수정되었지만 정보를 가져오지 못했습니다.');
+    }
+    
+    return updatedPost;
+  } catch (error) {
+    console.error('게시글 수정 오류:', error);
+    throw new Error('게시글 수정 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 삭제 (소프트 삭제)
+export const deletePost = async (postId: string, userId: string): Promise<void> => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      throw new Error('존재하지 않는 게시글입니다.');
+    }
+    
+    const postData = postDoc.data() as Post;
+    
+    // 게시글 작성자 확인
+    if (postData.authorId !== userId) {
+      throw new Error('게시글 삭제 권한이 없습니다.');
+    }
+    
+    // 게시글 소프트 삭제
+    await updateDoc(postRef, {
+      'status.isDeleted': true,
+      updatedAt: Timestamp.now()
+    });
+    
+    // 사용자 게시글 수 감소
+    await updateDoc(doc(db, 'users', userId), {
+      'stats.postCount': increment(-1),
+      updatedAt: Timestamp.now()
+    });
+  } catch (error) {
+    console.error('게시글 삭제 오류:', error);
+    throw new Error('게시글 삭제 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 좋아요/취소
+export const toggleLikePost = async (postId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> => {
+  try {
+    // 좋아요 상태 확인
+    const likesRef = collection(db, `posts/${postId}/likes`);
+    const q = query(likesRef, where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      throw new Error('존재하지 않는 게시글입니다.');
+    }
+    
+    const postData = postDoc.data() as Post;
+    
+    // 좋아요가 이미 존재하면 삭제, 없으면 추가
+    if (!querySnapshot.empty) {
+      // 좋아요 취소
+      const likeDoc = querySnapshot.docs[0];
+      await deleteDoc(doc(db, `posts/${postId}/likes`, likeDoc.id));
+      
+      // 게시글 좋아요 수 감소
+      await updateDoc(postRef, {
+        'stats.likeCount': increment(-1),
+        updatedAt: Timestamp.now()
+      });
+      
+      // 사용자 좋아요 수 감소
+      await updateDoc(doc(db, 'users', userId), {
+        'stats.likeCount': increment(-1),
+        updatedAt: Timestamp.now()
+      });
+      
+      return {
+        liked: false,
+        likeCount: (postData.stats.likeCount || 0) - 1
+      };
+    } else {
+      // 좋아요 추가
+      const newLike: Like = {
+        id: '',
+        userId,
+        postId,
+        createdAt: Date.now()
+      };
+      
+      const likeRef = await addDoc(likesRef, newLike);
+      
+      // Like 객체에 ID 추가
+      await updateDoc(likeRef, { id: likeRef.id });
+      
+      // 게시글 좋아요 수 증가
+      await updateDoc(postRef, {
+        'stats.likeCount': increment(1),
+        updatedAt: Timestamp.now()
+      });
+      
+      // 사용자 좋아요 수 증가
+      await updateDoc(doc(db, 'users', userId), {
+        'stats.likeCount': increment(1),
+        updatedAt: Timestamp.now()
+      });
+
+      // 좋아요 시 경험치 지급 (좋아요 취소는 경험치 지급하지 않음)
+      try {
+        const expResult = await awardExperience(userId, 'like');
+        if (expResult.success && expResult.leveledUp) {
+          console.log(`🎉 레벨업! ${expResult.oldLevel} → ${expResult.newLevel} (좋아요)`);
+        }
+      } catch (expError) {
+        console.error('좋아요 경험치 지급 오류:', expError);
+        // 경험치 지급 실패는 좋아요 자체를 실패로 처리하지 않음
+      }
+      
+      return {
+        liked: true,
+        likeCount: (postData.stats.likeCount || 0) + 1
+      };
+    }
+  } catch (error) {
+    console.error('게시글 좋아요 토글 오류:', error);
+    throw new Error('좋아요 처리 중 오류가 발생했습니다.');
+  }
+};
+
+// 댓글 목록 가져오기
+export const getComments = async (
+  postId: string,
+  page = 1,
+  pageSize = 10
+): Promise<{ comments: Comment[]; totalCount: number; hasMore: boolean }> => {
+  try {
+    const commentsRef = collection(db, `posts/${postId}/comments`);
+    const q = query(
+      commentsRef,
+      where('status.isDeleted', '==', false),
+      orderBy('createdAt', 'asc'),
+      limit(pageSize * page)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const comments: Comment[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      comments.push({ id: doc.id, ...doc.data() } as Comment);
+    });
+    
+    // 전체 댓글 수 가져오기
+    const countQuery = query(
+      commentsRef,
+      where('status.isDeleted', '==', false)
+    );
+    
+    const countSnapshot = await getDocs(countQuery);
+    const totalCount = countSnapshot.size;
+    
+    // 페이징 처리
+    const startIndex = (page - 1) * pageSize;
+    const paginatedComments = comments.slice(startIndex, startIndex + pageSize);
+    
+    return {
+      comments: paginatedComments,
+      totalCount,
+      hasMore: totalCount > page * pageSize
+    };
+  } catch (error) {
+    console.error('댓글 목록 가져오기 오류:', error);
+    throw new Error('댓글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 댓글 작성
+export interface CreateCommentParams {
+  content: string;
+  parentId?: string;
+  isAnonymous?: boolean;
+}
+
+export const createComment = async (
+  postId: string,
+  userId: string,
+  params: CreateCommentParams
+): Promise<Comment> => {
+  try {
+    const { content, parentId, isAnonymous } = params;
+    
+    // 게시글 존재 여부 확인
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      throw new Error('존재하지 않는 게시글입니다.');
+    }
+    
+    // 새 댓글 정보 생성
+    const newComment: Omit<Comment, 'id'> = {
+      postId,
+      content,
+      authorId: userId,
+      parentId: parentId || null,
+      isAnonymous: isAnonymous || false,
+      stats: {
+        likeCount: 0
+      },
+      status: {
+        isDeleted: false,
+        isBlocked: false
+      },
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    
+    // Firestore에 댓글 추가
+    const commentsRef = collection(db, `posts/${postId}/comments`);
+    const commentRef = await addDoc(commentsRef, newComment);
+    const commentId = commentRef.id;
+    
+    // Comment 객체에 ID 추가
+    await updateDoc(commentRef, { id: commentId });
+    
+    // 게시글 댓글 수 증가
+    await updateDoc(postRef, {
+      'stats.commentCount': increment(1),
+      updatedAt: Timestamp.now()
+    });
+    
+    // 사용자 댓글 작성 수 증가
+    await updateDoc(doc(db, 'users', userId), {
+      'stats.commentCount': increment(1),
+      updatedAt: Timestamp.now()
+    });
+
+    // 경험치 지급
+    try {
+      const expResult = await awardExperience(userId, 'comment');
+      if (expResult.success && expResult.leveledUp) {
+        console.log(`🎉 레벨업! ${expResult.oldLevel} → ${expResult.newLevel} (댓글 작성)`);
+      }
+    } catch (expError) {
+      console.error('댓글 작성 경험치 지급 오류:', expError);
+      // 경험치 지급 실패는 댓글 작성 자체를 실패로 처리하지 않음
+    }
+    
+    // 생성된 댓글 반환
+    const commentDoc = await getDoc(commentRef);
+    
+    if (!commentDoc.exists()) {
+      throw new Error('댓글이 생성되었지만 정보를 가져오지 못했습니다.');
+    }
+    
+    return { id: commentDoc.id, ...commentDoc.data() } as Comment;
+  } catch (error) {
+    console.error('댓글 작성 오류:', error);
+    throw new Error('댓글 작성 중 오류가 발생했습니다.');
+  }
+};
+
+// 댓글 수정
+export const updateComment = async (
+  postId: string,
+  commentId: string,
+  userId: string,
+  content: string
+): Promise<Comment> => {
+  try {
+    const commentRef = doc(db, `posts/${postId}/comments`, commentId);
+    const commentDoc = await getDoc(commentRef);
+    
+    if (!commentDoc.exists()) {
+      throw new Error('존재하지 않는 댓글입니다.');
+    }
+    
+    const commentData = commentDoc.data() as Comment;
+    
+    // 댓글 작성자 확인
+    if (commentData.authorId !== userId) {
+      throw new Error('댓글 수정 권한이 없습니다.');
+    }
+    
+    // 댓글 업데이트
+    await updateDoc(commentRef, {
+      content,
+      updatedAt: Timestamp.now()
+    });
+    
+    // 업데이트된 댓글 반환
+    const updatedCommentDoc = await getDoc(commentRef);
+    
+    if (!updatedCommentDoc.exists()) {
+      throw new Error('댓글이 수정되었지만 정보를 가져오지 못했습니다.');
+    }
+    
+    return { id: updatedCommentDoc.id, ...updatedCommentDoc.data() } as Comment;
+  } catch (error) {
+    console.error('댓글 수정 오류:', error);
+    throw new Error('댓글 수정 중 오류가 발생했습니다.');
+  }
+};
+
+// 댓글 삭제 (소프트 삭제)
+export const deleteComment = async (
+  postId: string,
+  commentId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    const commentRef = doc(db, `posts/${postId}/comments`, commentId);
+    const commentDoc = await getDoc(commentRef);
+    
+    if (!commentDoc.exists()) {
+      throw new Error('존재하지 않는 댓글입니다.');
+    }
+    
+    const commentData = commentDoc.data() as Comment;
+    
+    // 댓글 작성자 확인
+    if (commentData.authorId !== userId) {
+      throw new Error('댓글 삭제 권한이 없습니다.');
+    }
+    
+    // 댓글 소프트 삭제
+    await updateDoc(commentRef, {
+      'status.isDeleted': true,
+      updatedAt: Timestamp.now()
+    });
+    
+    // 게시글 댓글 수 감소
+    await updateDoc(doc(db, 'posts', postId), {
+      'stats.commentCount': increment(-1),
+      updatedAt: Timestamp.now()
+    });
+    
+    // 사용자 댓글 수 감소
+    await updateDoc(doc(db, 'users', userId), {
+      'stats.commentCount': increment(-1),
+      updatedAt: Timestamp.now()
+    });
+  } catch (error) {
+    console.error('댓글 삭제 오류:', error);
+    throw new Error('댓글 삭제 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 게시판 타입별 게시판 목록 조회
+ */
+export const getBoardsByType = async (boardType: 'national' | 'regional' | 'school'): Promise<Board[]> => {
+  try {
+    const q = query(
+      collection(db, 'boards'),
+      where('type', '==', boardType),
+      where('isActive', '==', true),
+      orderBy('order', 'asc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const boards: Board[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const boardData = doc.data();
+      boards.push({
+        id: doc.id,
+        name: boardData.name,
+        code: boardData.code,
+        description: boardData.description,
+        type: boardData.type,
+        parentCode: boardData.parentCode,
+        order: boardData.order,
+        isActive: boardData.isActive,
+        isPublic: boardData.isPublic || true,
+        createdAt: boardData.createdAt,
+        updatedAt: boardData.updatedAt,
+        stats: boardData.stats || { postCount: 0, viewCount: 0, activeUserCount: 0 },
+        allowAnonymous: boardData.allowAnonymous || false,
+        allowPolls: boardData.allowPolls || false,
+        icon: boardData.icon,
+        customIcon: boardData.customIcon,
+      });
+    });
+    
+    return boards;
+  } catch (error) {
+    console.error('게시판 목록 조회 오류:', error);
+    throw new Error('게시판 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 특정 게시판 정보 조회
+ */
+export const getBoardById = async (boardId: string): Promise<Board | null> => {
+  try {
+    const boardRef = doc(db, 'boards', boardId);
+    const boardDoc = await getDoc(boardRef);
+    
+    if (!boardDoc.exists()) {
+      return null;
+    }
+    
+    const boardData = boardDoc.data();
+    return {
+      id: boardDoc.id,
+      name: boardData.name,
+      code: boardData.code,
+      description: boardData.description,
+      type: boardData.type,
+      parentCode: boardData.parentCode,
+      order: boardData.order,
+      isActive: boardData.isActive,
+      isPublic: boardData.isPublic || true,
+      createdAt: boardData.createdAt,
+      updatedAt: boardData.updatedAt,
+      stats: boardData.stats || { postCount: 0, viewCount: 0, activeUserCount: 0 },
+      allowAnonymous: boardData.allowAnonymous || false,
+      allowPolls: boardData.allowPolls || false,
+      icon: boardData.icon,
+      customIcon: boardData.customIcon,
+    };
+  } catch (error) {
+    console.error('게시판 정보 조회 오류:', error);
+    return null;
+  }
+};
+
+/**
+ * 인기 게시판 목록 조회 (게시글 수 기준)
+ */
+export const getPopularBoards = async (limit_count: number = 5): Promise<Board[]> => {
+  try {
+    const q = query(
+      collection(db, 'boards'),
+      where('isActive', '==', true),
+      orderBy('stats.postCount', 'desc'),
+      limit(limit_count)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const boards: Board[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const boardData = doc.data();
+      boards.push({
+        id: doc.id,
+        name: boardData.name,
+        code: boardData.code,
+        description: boardData.description,
+        type: boardData.type,
+        parentCode: boardData.parentCode,
+        order: boardData.order,
+        isActive: boardData.isActive,
+        isPublic: boardData.isPublic || true,
+        createdAt: boardData.createdAt,
+        updatedAt: boardData.updatedAt,
+        stats: boardData.stats || { postCount: 0, viewCount: 0, activeUserCount: 0 },
+        allowAnonymous: boardData.allowAnonymous || false,
+        allowPolls: boardData.allowPolls || false,
+        icon: boardData.icon,
+        customIcon: boardData.customIcon,
+      });
+    });
+    
+    return boards;
+  } catch (error) {
+    console.error('인기 게시판 조회 오류:', error);
+    return [];
+  }
+}; 

@@ -1,0 +1,285 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# 제품 요구사항 문서(PRD)
+
+## 1. 개요
+Inschoolz는 대한민국 초·중·고 학생 및 졸업생을 위한 3계층 커뮤니티(학교∙지역∙전국)를 제공하는 웹·앱 서비스이다. 동급생 간 안전한 소통, 지역 정보 교류, 전국 단위 이슈 공유를 지원하며 경험치·랭킹 시스템으로 활발한 참여를 유도한다.
+도메인: www.inschoolz.com
+
+## 2. 문제 정의
+- 초·중·고 학생 대상 전용 커뮤니티 부재  
+- 학교별 익명 소통 공간 부족 → 정보 단절, 외부 서비스 의존  
+- 기존 대학생 플랫폼(예: 에브리타임)이 있으나, 초·중·고교 현황·연령 특화 기능 미흡  
+- 학생 인증 생략, 유입 활성화를 위함
+
+## 3. 대상 사용자
+### Primary
+- 국내 초·중·고 재학생(7–19세): 교내 정보, 공부/진로 상담, 친구 찾기
+### Secondary
+- 졸업생(19–24세): 선배 조언, 교내 추억 공유  
+- 교사/학부모(뷰 전용): 학생 동향 파악(향후 옵션)  
+
+## 4. 사용자 스토리
+- “초등학생으로서, 우리 반만 보는 게시판에 익명 글을 올려 마음 편히 고민을 나누고 싶다.”
+- “중학생으로서, 같은 지역 친구와 학원 정보 교환을 하고 싶다.”
+- “고등학생으로서, 전국 커뮤니티에서 입시 자료를 찾아 진로 선택에 도움을 받고 싶다.”
+- “졸업생으로서, 모교 게시판에 대학 생활 팁을 공유해 후배를 돕고 싶다.”
+- “유저로서, 글/댓글로 경험치를 쌓아 우리 학교 랭킹 1위를 달성하고 싶다.”
+
+## 5. 기능 요구사항
+### 핵심 기능 (회원가입)
+1. 학교 선택: firebase schools 컬렉션에서 KOR_NAME을 검색하여 본인의 학교를 선택. 이미 firebase로 1만개 이상 학교 등록 완료상태.
+2. 지역 선택: firebase regions 컬렉션에서 name을 선택 -> sigungu 세부선택하여 지역을 선택
+3. 추천 아이디: 친구를 추천하면 서로 경험치가 올라가게 로직 구현.
+### 핵심 기능 (커뮤니티)
+1. 커뮤니티 공통 사항
+   - 게시글, 댓글 및 대댓글, 좋아요, 스크랩, 신고 기능
+   - 사진 업로드 가능 (게시글 리스트에서 약 2개까지 미리보기 가능)
+2. 학교 커뮤니티  
+   - 즐겨찾기에 특정 학교를 저장해놓은 학생·졸업생만 접근 가능한 커뮤니티
+   - 중학생일 경우엔 본인이 나온 초등학교, 중학교가 즐겨찾기에 등록되어있을테니 학교 커뮤니티에서 토글로 선택하여 두 학교를 왔다갔다하면서 볼 수 있음. 각 유저별 즐겨찾기 가능 학교는 5개까지만 혀용.
+3. 지역 커뮤니티  
+   - 본인 주소에 등록되어있는 유저들끼리만 보는 커뮤니티
+4. 전국 커뮤니티  
+   - 모든 사용자가 접근 가능한 커뮤니티
+### 핵심 기능 (랭킹&경험치)
+1. 경험치·랭킹 시스템  
+   - 1->2레벨 10exp, 2->3레벨 20exp 오름차순. 경험치 변수는 현재 경험치, 누적 경험치, 레벨 3개로 관리.
+   - 커뮤니티 관련: 게시글 작성+10XP (하루3회), 댓글+5XP (하루5회), 좋아요+1XP
+   - 게임 관련: 게임마다 기준치를 충족 시 특정 경험치 지급
+   - 출석 체크: 마이페이지에서 매일 출셕체크 시 경험치 지급, 일주일 연속 시마다 추가 지급
+   - 경험치 및 레벨은 header의 오른쪽 프로필 아이콘 바로 왼쪽에 작게 나오게 (레벨+경험치bar). 마이페이지에선 크게확인.
+2. 리더보드  
+   - 리더보드 페이지에서 랭킹 조회 가능
+   - 랭킹에는 본인이 메인으로 등록한 학교 이름이 뜨게 하여, 자랑할 수 있게 학교별 경쟁심리 극대화.
+### 핵심 기능 (미니게임)
+   - 반응속도 게임, 타일 맞추기 등 간단한 게임 도입
+   - 일정 점수 이상 시 경험치 지급
+   - 하루 5회 플레이 제한, 또 하려면 동영상 광고 보게 해서 광고수익 극대화
+
+## 6. 기술 고려사항
+- 프론트: React Native(모바일), Next.js(웹 SSR)
+- 백엔드: Firebase(Cloud Firestore, Cloud Functions, FCM)  
+- 실시간: Firestore 실시간 리스너  
+- 이미지/파일: Firebase Storage
+- 분석: Firebase Analytics
+## 8. 데이터베이스 설계 (Firestore 구조)
+
+### 8.1 주요 컬렉션 및 설계 rationale
+
+- **users**: 사용자 기본 정보, 활동 통계, 제한, 게임 최고점, 친구/팔로우/스크랩, 알림, 경고, 신고 등 통합 관리. Firebase Authentication과 연동.
+- **boards**: 게시판(전국/지역/학교/기타) 메타데이터 및 접근 권한, 옵션, 통계 저장.
+- **posts**: 게시글 본문 및 메타데이터, 하위 subcollection으로 댓글, 좋아요, 투표 참여, 신고 기록. 댓글은 post 하위에 저장하며, 전체 검색/관리 목적의 별도 comments 컬렉션도 활용.
+- **schools**: 학교 정보(코드/이름/주소/통계 등) 및 학교별 게임 기록 집계.
+- **regions**: 시/도 및 하위 시군구 정보 저장. 지역 커뮤니티 분리 목적.
+- **hottestPosts**: 인기글(조회수+좋아요+댓글) 별도 관리. 실시간 인기글 피드 용.
+- **boardAggregates**: 게시판 월별 집계/통계 데이터. 대시보드, 트렌드 분석 용.
+- **tags**: 커뮤니티 태그 관리 및 차단 기능 지원.
+- **system**: 경험치/레벨/광고/버전 등 사이트 전역 설정.
+- **attendance**: 출석체크, 연속 출석 기록, streak 관리.
+- **gameRankings**: 미니게임별 일간/주간/전체 랭킹 보드. 실시간 경쟁심 유도.
+
+### 8.2 효율성/비효율성 판단 및 구조 최적화
+- **불필요/중복 또는 비효율 컬렉션은 미사용**
+  - game별 점수(예: flappyBirdScores 등)는 posts의 gameStats 및 schools/boardAggregates에서 통합 집계. 필요 시 랭킹만 별도 유지(gameRankings).
+  - userAdActivity, adStats 등 광고 관련 세부 통계는 adStats, system.ads 등 집계형으로만 유지. 개별 사용 기록은 최소화.
+  - userScraps, scrapFolders는 users의 scraps, favorites 필드로 충분히 커버 가능. 별도 컬렉션은 미사용.
+  - comments(전체): post 하위 subcollection으로 충분. 단, 전체 검색/감시 목적이면 별도 컬렉션 유지.
+  - userRelationships, userInvitations는 users.social, favorites, warnings 등으로 통합. 대용량 관계형 네트워크가 필요할 경우에만 별도 컬렉션 운영.
+  - searchHistory, popularSearches는 트래픽 많을 경우만 별도 집계. 1차 릴리즈에서는 미포함.
+  - chatMessages, chatRooms는 MVP 범위 밖으로 일단 제외(향후 확장 가능성 열어둠).
+
+### 8.3 최종 Firestore 핵심 구조(2024.06)
+
+- users/{userId}
+    - profile, regions, school, stats, activityLimits, gameStats, favorites, warnings, social, scraps, preferences
+    - subcollections: notifications, warningHistory, reportedItems
+- boards/{boardCode}
+    - 게시판 메타데이터(유형/권한/옵션/통계/지역/학교 등)
+- posts/{postId}
+    - 게시글 데이터(작성자, 내용, 익명, 이미지, 상태, 통계, 태그, 투표 등)
+    - subcollections: comments, likes, votes, reports
+- schools/{schoolId}
+    - 학교 정보 및 게임/활동 집계
+- regions/{regionId}
+    - 시/도 및 시군구 정보
+- hottestPosts/{autoId}
+    - 인기글 관리(실시간 랭킹)
+- boardAggregates/{boardCode_YYYYMM}
+    - 게시판별 월간/일별/상위 작성자 통계
+- tags/{tagName}
+    - 태그 관리 및 차단 기능
+- system/settings
+    - 경험치, 광고, 레벨, 버전 등 전역설정
+- attendance/{userId}
+    - 출석 체크 및 streak
+- gameRankings/{gameType}
+    - 랭킹 보드(일간/주간/역대)
+
+*추가로 MVP/런칭시점에서는 광고 상세 통계, 친구관계, 전체 댓글/스크랩/검색 기록/채팅 등은 생략 또는 단순화하여 운영. 필요 시 점진적으로 도입.*
+
+## 9. 커뮤니티 도메인/구조 설계
+
+### 9.1 커뮤니티 계층 및 도메인 구조
+
+- **계층적 도메인 구조:**
+  - 전국 커뮤니티: `/community/national/{boardCode}`
+  - 지역 커뮤니티: `/community/region/{sido}/{sigungu}/{boardCode}`
+  - 학교 커뮤니티: `/community/school/{schoolId}/{boardCode}`
+
+#### 9.2 주요 관리 포인트 및 rationale
+- **boardCode** 기반 단일 커뮤니티 엔드포인트 설계: 모든 게시판은 boards 컬렉션의 boardCode로 통합 관리, boardType(national/regional/school) 및 접근 권한 필드로 구분.
+- **URL Path Parameter 활용:**
+  - 전국/지역/학교 구분 및 boardCode를 path로 표현하여, URL만으로 커뮤니티 유형·위치·게시판 명확 식별 가능
+  - 지역 커뮤니티의 경우, sido(시/도), sigungu(시군구)를 path에 포함시켜 효율적 regional filtering 지원
+- **게시판 즐겨찾기/접근 제한:**
+  - 각 유저는 users.favorites.schools(학교), favorites.boards(게시판) 배열을 통해 즐겨찾는 커뮤니티 접근 및 권한 관리
+- **관리자·통계 효율화:**
+  - boardCode 단위로 통계, 인기글, 집계, 권한 제어가 단순해지고, 관리 UI/API 일관성 확보
+
+#### 9.3 예시 URL 구조
+- 전국 자유게시판: `/community/national/free`
+- 서울특별시 강남구 학원정보: `/community/region/서울특별시/강남구/academy`
+- 가락고등학교 자유게시판: `/community/school/00001/free`
+
+*이와 같은 계층적 도메인 구조는 관리 효율성, 확장성, 사용자 접근성(즐겨찾기/URL 공유) 모두를 고려한 최적화 방안임.*
+
+## 10. SEO(검색엔진 최적화) 전략
+
+### 10.1 주요 목표
+- 커뮤니티 내 공개 게시글(전국/지역/학교 자유게시판 등)의 제목, 주요 본문 내용, 학교명/지역명 등이 검색엔진에 최대한 노출되도록 하여 신규 유입/브랜드 인지도 제고
+
+### 10.2 상세 요구사항 및 방안
+- **SSR(서버사이드 렌더링) 적용:**
+  - Next.js 기반 SSR을 활용하여 커뮤니티 게시글 페이지의 메타태그, Open Graph, 구조화 데이터(JSON-LD) 자동 생성
+- **게시글별 SEO 메타데이터:**
+  - `<title>`: 게시글 제목, 학교명/지역명, 커뮤니티명 조합 (예시: `[제목] - [학교명/지역명] - Inschoolz`)
+  - `<meta name=\"description\">`: 게시글 본문 요약(최대 150자), 작성자 닉네임, 게시일 포함
+  - `<meta property=\"og:title\">`, `<meta property=\"og:description\">`, `<meta property=\"og:image\">` 등 SNS/검색엔진 미리보기 최적화
+- **게시글 URL 구조:**
+  - 게시글 상세 URL에 boardType/학교ID/지역명 등 포함, 예: `/community/school/00001/free/abcdefg` (abcdefg=postId)
+- **robots.txt/sitemap.xml 자동화:**
+  - 공개 커뮤니티 게시판/게시글만 크롤링 허용, 비공개/익명/민감게시판은 robots.txt 통해 비색인 처리
+  - sitemap.xml을 동적으로 생성해 검색엔진에 최신 게시글/주요 커뮤니티 구조 노출
+- **검색엔진 색인 정책:**
+  - 게시글 공개 범위(board.accessLevel.read = all)만 색인 허용
+  - 익명 게시글, 민감/비공개 게시판, 개인정보 포함 게시글은 meta robots=noindex 적용
+
+### 10.3 성공 기준
+- 주요 커뮤니티 게시글, 학교명, 지역명 등으로 검색 시 Inschoolz 게시글이 구글/네이버 등에서 상위 노출
+- 신규 유입 트래픽에서 검색엔진 유입 비율 30% 이상 달성
+
+*이와 같은 SEO 전략을 통해 커뮤니티의 검색 노출/브랜드 확산/신규 유입 극대화를 기대함.*
+
+
+### 주요 목표
+- 커뮤니티 내 공개 게시글(전국/지역/학교 자유게시판 등)의 제목, 주요 본문 내용, 학교명/지역명 등이 검색엔진에 최대한 노출되도록 하여 신규 유입/브랜드 인지도 제고
+
+### 상세 요구사항 및 방안
+- **SSR(서버사이드 렌더링) 적용:**
+  - Next.js 기반 SSR을 활용하여 커뮤니티 게시글 페이지의 메타태그, Open Graph, 구조화 데이터(JSON-LD) 자동 생성
+- **게시글별 SEO 메타데이터:**
+  - `<title>`: 게시글 제목, 학교명/지역명, 커뮤니티명 조합 (예시: `[제목] - [학교명/지역명] - Inschoolz`)
+  - `<meta name="description">`: 게시글 본문 요약(최대 150자), 작성자 닉네임, 게시일 포함
+  - `<meta property="og:title">`, `<meta property="og:description">`, `<meta property="og:image">` 등 SNS/검색엔진 미리보기 최적화
+- **게시글 URL 구조:**
+  - 게시글 상세 URL에 boardType/학교ID/지역명 등 포함, 예: `/community/school/00001/free/abcdefg` (abcdefg=postId)
+- **robots.txt/sitemap.xml 자동화:**
+  - 공개 커뮤니티 게시판/게시글만 크롤링 허용, 비공개/익명/민감게시판은 robots.txt 통해 비색인 처리
+  - sitemap.xml을 동적으로 생성해 검색엔진에 최신 게시글/주요 커뮤니티 구조 노출
+- **검색엔진 색인 정책:**
+  - 게시글 공개 범위(board.accessLevel.read = all)만 색인 허용
+  - 익명 게시글, 민감/비공개 게시판, 개인정보 포함 게시글은 meta robots=noindex 적용
+
+### 성공 기준
+- 주요 커뮤니티 게시글, 학교명, 지역명 등으로 검색 시 Inschoolz 게시글이 구글/네이버 등에서 상위 노출
+- 신규 유입 트래픽에서 검색엔진 유입 비율 30% 이상 달성
+
+*이와 같은 SEO 전략을 통해 커뮤니티의 검색 노출/브랜드 확산/신규 유입 극대화를 기대함.*
+
+
+### 커뮤니티 계층 및 도메인 구조
+
+- **계층적 도메인 구조:**
+  - 전국 커뮤니티: `/community/national/{boardCode}`
+  - 지역 커뮤니티: `/community/region/{sido}/{sigungu}/{boardCode}`
+  - 학교 커뮤니티: `/community/school/{schoolId}/{boardCode}`
+
+#### 주요 관리 포인트 및 rationale
+- **boardCode** 기반 단일 커뮤니티 엔드포인트 설계: 모든 게시판은 boards 컬렉션의 boardCode로 통합 관리, boardType(national/regional/school) 및 접근 권한 필드로 구분.
+- **URL Path Parameter 활용:**
+  - 전국/지역/학교 구분 및 boardCode를 path로 표현하여, URL만으로 커뮤니티 유형·위치·게시판 명확 식별 가능
+  - 지역 커뮤니티의 경우, sido(시/도), sigungu(시군구)를 path에 포함시켜 효율적 regional filtering 지원
+- **게시판 즐겨찾기/접근 제한:**
+  - 각 유저는 users.favorites.schools(학교), favorites.boards(게시판) 배열을 통해 즐겨찾는 커뮤니티 접근 및 권한 관리
+- **관리자·통계 효율화:**
+  - boardCode 단위로 통계, 인기글, 집계, 권한 제어가 단순해지고, 관리 UI/API 일관성 확보
+
+#### 예시 URL 구조
+- 전국 자유게시판: `/community/national/free`
+- 서울특별시 강남구 학원정보: `/community/region/서울특별시/강남구/academy`
+- 가락고등학교 자유게시판: `/community/school/00001/free`
+
+*이와 같은 계층적 도메인 구조는 관리 효율성, 확장성, 사용자 접근성(즐겨찾기/URL 공유) 모두를 고려한 최적화 방안임.*
+
+
+### 주요 컬렉션 및 설계 rationale
+
+- **users**: 사용자 기본 정보, 활동 통계, 제한, 게임 최고점, 친구/팔로우/스크랩, 알림, 경고, 신고 등 통합 관리. Firebase Authentication과 연동.
+- **boards**: 게시판(전국/지역/학교/기타) 메타데이터 및 접근 권한, 옵션, 통계 저장.
+- **posts**: 게시글 본문 및 메타데이터, 하위 subcollection으로 댓글, 좋아요, 투표 참여, 신고 기록. 댓글은 post 하위에 저장하며, 전체 검색/관리 목적의 별도 comments 컬렉션도 활용.
+- **schools**: 학교 정보(코드/이름/주소/통계 등) 및 학교별 게임 기록 집계.
+- **regions**: 시/도 및 하위 시군구 정보 저장. 지역 커뮤니티 분리 목적.
+- **hottestPosts**: 인기글(조회수+좋아요+댓글) 별도 관리. 실시간 인기글 피드 용.
+- **boardAggregates**: 게시판 월별 집계/통계 데이터. 대시보드, 트렌드 분석 용.
+- **tags**: 커뮤니티 태그 관리 및 차단 기능 지원.
+- **system**: 경험치/레벨/광고/버전 등 사이트 전역 설정.
+- **attendance**: 출석체크, 연속 출석 기록, streak 관리.
+- **gameRankings**: 미니게임별 일간/주간/전체 랭킹 보드. 실시간 경쟁심 유도.
+
+#### 효율성/비효율성 판단 및 구조 최적화
+- **불필요/중복 또는 비효율 컬렉션은 미사용**
+  - game별 점수(예: flappyBirdScores 등)는 posts의 gameStats 및 schools/boardAggregates에서 통합 집계. 필요 시 랭킹만 별도 유지(gameRankings).
+  - userAdActivity, adStats 등 광고 관련 세부 통계는 adStats, system.ads 등 집계형으로만 유지. 개별 사용 기록은 최소화.
+  - userScraps, scrapFolders는 users의 scraps, favorites 필드로 충분히 커버 가능. 별도 컬렉션은 미사용.
+  - comments(전체): post 하위 subcollection으로 충분. 단, 전체 검색/감시 목적이면 별도 컬렉션 유지.
+  - userRelationships, userInvitations는 users.social, favorites, warnings 등으로 통합. 대용량 관계형 네트워크가 필요할 경우에만 별도 컬렉션 운영.
+  - searchHistory, popularSearches는 트래픽 많을 경우만 별도 집계. 1차 릴리즈에서는 미포함.
+  - chatMessages, chatRooms는 MVP 범위 밖으로 일단 제외(향후 확장 가능성 열어둠).
+
+#### 최종 Firestore 핵심 구조(2024.06)
+
+- users/{userId}
+    - profile, regions, school, stats, activityLimits, gameStats, favorites, warnings, social, scraps, preferences
+    - subcollections: notifications, warningHistory, reportedItems
+- boards/{boardCode}
+    - 게시판 메타데이터(유형/권한/옵션/통계/지역/학교 등)
+- posts/{postId}
+    - 게시글 데이터(작성자, 내용, 익명, 이미지, 상태, 통계, 태그, 투표 등)
+    - subcollections: comments, likes, votes, reports
+- schools/{schoolId}
+    - 학교 정보 및 게임/활동 집계
+- regions/{regionId}
+    - 시/도 및 시군구 정보
+- hottestPosts/{autoId}
+    - 인기글 관리(실시간 랭킹)
+- boardAggregates/{boardCode_YYYYMM}
+    - 게시판별 월간/일별/상위 작성자 통계
+- tags/{tagName}
+    - 태그 관리 및 차단 기능
+- system/settings
+    - 경험치, 광고, 레벨, 버전 등 전역설정
+- attendance/{userId}
+    - 출석 체크 및 streak
+- gameRankings/{gameType}
+    - 랭킹 보드(일간/주간/역대)
+
+*추가로 MVP/런칭시점에서는 광고 상세 통계, 친구관계, 전체 댓글/스크랩/검색 기록/채팅 등은 생략 또는 단순화하여 운영. 필요 시 점진적으로 도입.*
+
+## 7. 디자인
+- 폰트: 잼민이 글씨
+- 색상: 파스텔 그린
+- navbar: 홈, 커뮤니티, 미니게임, 랭킹, 마이페이지

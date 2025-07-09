@@ -1,0 +1,319 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Inschoolz Code Guideline
+
+## 1. Project Overview
+
+**Inschoolz** is a 3-tier community platform for Korean students and alumni, built on:
+- **Frontend**: Next.js 15 (web, SSR/CSR hybrid), React Native Expo (mobile), TypeScript, Zustand, React Query, Tailwind CSS, Shadcn UI
+- **Backend**: Firebase (Firestore, Auth, Storage, Cloud Functions Node 18), Zod for validation, Express adapter, RESTful callable APIs
+- **Data**: Firestore as single source of truth, strict collection/subcollection schema
+- **Infra/DevOps**: Vercel (web), Expo EAS (mobile), GitHub Actions CI/CD, Sentry, Firebase Monitoring
+
+**Key Architectural Decisions:**
+- Domain-driven folder structure across web, mobile, functions
+- Firestore as authoritative data layer; Cloud Functions for business logic
+- Real-time updates via Firestore listeners
+- Monorepo NOT used; each target (web, mobile, functions) has its own repo
+
+---
+
+## 2. Core Principles
+
+1. **Type Safety First**: All code MUST be fully typed with TypeScript and Zod for runtime validation.
+2. **Single Responsibility**: Each module, component, or function MUST have one clear purpose.
+3. **Explicit Data Flow**: Data mutations and side effects MUST be clearly separated from UI logic.
+4. **Security by Default**: All data access MUST enforce Firebase Security Rules and validate user permissions.
+5. **Consistent Error Handling**: All async logic MUST handle errors explicitly and report them to monitoring.
+
+---
+
+## 3. Language-Specific Guidelines
+
+### 3.1 TypeScript (Web/Mobile/Functions)
+
+#### File Organization & Structure
+
+- **MUST**: Follow domain-driven folder structure.
+    - `/src/domains/{domain}/` for business logic (e.g., community, user, xp)
+    - Presentation/UI in `/src/app` (web) or `/src/router` (mobile)
+    - Shared utilities in `/src/libs` or `/src/domains/shared`
+    - Cloud Functions: `/src/{domain}/`, `/src/utils/`
+
+```plaintext
+/web
+  └── src
+      ├── app/
+      ├── domains/
+      │   ├── community/
+      │   └── user/
+      └── libs/
+```
+
+#### Import/Dependency Management
+
+- **MUST**: Use absolute imports (configured via `tsconfig.json`).
+- **MUST**: Group imports: external, internal, then styles.
+- **MUST**: Import only what is needed; avoid deep relative imports (`../../../`).
+- **MUST NOT**: Import from outside the current domain except via shared modules.
+
+```typescript
+// MUST: Grouped & absolute imports
+import { useState } from "react";
+import { getSchoolById } from "@/domains/school/api";
+import "@/styles/globals.css";
+```
+
+```typescript
+// MUST NOT: Deep relative imports
+import { foo } from "../../../../utils/foo";
+```
+
+#### Error Handling Patterns
+
+- **MUST**: All async functions MUST use `try/catch`. Errors MUST be logged (Sentry/Cloud Logging).
+- **MUST**: Use Zod or similar for all runtime data validation (especially API boundaries).
+- **MUST NOT**: Swallow errors silently or ignore Promise rejections.
+
+```typescript
+// MUST: Error handling with Zod validation
+import { z } from "zod";
+const SchoolSchema = z.object({ id: z.string(), name: z.string() });
+
+async function fetchSchool(id: string) {
+  try {
+    const data = await getSchoolData(id);
+    const school = SchoolSchema.parse(data);
+    return school;
+  } catch (err) {
+    Sentry.captureException(err);
+    throw err;
+  }
+}
+```
+
+```typescript
+// MUST NOT: Silent error swallowing
+async function fetchSchool(id: string) {
+  const data = await getSchoolData(id);
+  // No validation, no error handling
+  return data;
+}
+```
+
+---
+
+## 4. Code Style Rules
+
+### 4.1 MUST Follow
+
+1. **Type Annotations**: All functions and component props MUST have explicit types.  
+   *Rationale*: Prevents runtime bugs and improves code intelligence.
+
+2. **Atomic Components**: UI components MUST be small, reusable, and stateless when possible.  
+   *Rationale*: Improves testability and reusability.
+
+3. **React Query & Zustand**: All Firestore data fetching MUST use React Query. Global state (user, auth, settings) MUST use Zustand.  
+   *Rationale*: Ensures consistency and caching.
+
+4. **Tailwind CSS**: All styling MUST use Tailwind classes.  
+   *Rationale*: Enforces design consistency and eliminates CSS drift.
+
+5. **API Data Validation**: All data from external sources (Firestore, HTTP, Storage) MUST be validated with Zod.  
+   *Rationale*: Prevents data shape errors and security issues.
+
+6. **SSR/SEO**: Next.js pages that are public-facing (community, post detail) MUST use SSR and set all meta tags for SEO.  
+   *Rationale*: Ensures search engine discoverability.
+
+```typescript
+// MUST: Explicit types and validation
+type UserProfileProps = { name: string; xp: number };
+
+const UserProfile: React.FC<UserProfileProps> = ({ name, xp }) => (
+  <div className="font-bold">{name}: {xp} XP</div>
+);
+```
+
+```typescript
+// MUST: React Query for data fetching
+const { data: school, isLoading } = useQuery(["school", id], () => fetchSchool(id));
+```
+
+### 4.2 MUST NOT Do
+
+1. **No Large/Monolithic Files**:  
+   *Anti-pattern*: Combining multiple modules, UI, and business logic in a single file.
+2. **No Uncontrolled State**:  
+   *Anti-pattern*: Using React local state for global/shared data (e.g., user info).
+3. **No Direct Firestore Calls in UI Components**:  
+   *Anti-pattern*: Querying Firestore directly inside React components.
+4. **No Implicit Any**:  
+   *Anti-pattern*: Omitting types, allowing TypeScript to infer `any`.
+5. **No Magic Strings/Numbers**:  
+   *Anti-pattern*: Hardcoding collection names, XP values, etc.
+
+```typescript
+// MUST NOT: Monolithic file with multiple responsibilities
+// -- UI, data fetching, and state management all mixed
+export function CommunityPage() {
+  const [posts, setPosts] = useState([]);
+  // ... Firestore logic here
+  // ... UI rendering
+}
+```
+
+```typescript
+// MUST: Separate concerns
+// /domains/community/api.ts
+export async function fetchPosts(boardCode: string) { /* ... */ }
+
+// /domains/community/components/CommunityPage.tsx
+import { fetchPosts } from "../api";
+```
+
+---
+
+## 5. Architecture Patterns
+
+### 5.1 Component/Module Structure
+
+- **MUST**: Organize code by domain (`/domains/{domain}/`) and layer (api, model, components, hooks).
+- **MUST**: Each file/folder has a single responsibility (e.g., `/api`, `/components`, `/model`, `/hooks`).
+
+```plaintext
+/domains/community/
+  ├── api.ts
+  ├── model.ts
+  ├── components/
+  └── hooks/
+```
+
+### 5.2 Data Flow Patterns
+
+- **MUST**: All Firestore reads/writes via domain APIs (never directly in UI).
+- **MUST**: Use React Query for all async data (web/mobile).
+- **MUST**: Use Zustand for cross-component state (e.g., current user, theme).
+- **MUST**: Use Firestore listeners for real-time updates; unsubscribe on unmount.
+
+```typescript
+// MUST: Domain API for Firestore
+export async function getPostById(postId: string) {
+  const doc = await getDoc(docRef);
+  return PostSchema.parse(doc.data());
+}
+```
+
+### 5.3 State Management
+
+- **MUST**: Use Zustand for global state, React Query for async server state.
+- **MUST NOT**: Use Redux or custom state libraries.
+- **MUST**: Keep local UI state inside components; global state only for cross-app data.
+
+```typescript
+// MUST: Zustand store example
+import create from "zustand";
+
+type UserState = { user: User | null; setUser: (u: User) => void };
+export const useUserStore = create<UserState>((set) => ({
+  user: null,
+  setUser: (user) => set({ user }),
+}));
+```
+
+### 5.4 API Design Standards
+
+- **MUST**: All Cloud Functions MUST be HTTPS callable, typed, and Zod-validated.
+- **MUST**: API endpoints MUST NOT expose raw Firestore data; always validate and sanitize.
+- **MUST**: Use RESTful resource naming (`/posts`, `/users/{userId}/xp`).
+
+```typescript
+// MUST: Cloud Function with Zod validation
+import * as functions from "firebase-functions";
+import { z } from "zod";
+
+const InputSchema = z.object({ xp: z.number().min(0) });
+
+export const updateXp = functions.https.onCall(async (data, context) => {
+  const input = InputSchema.parse(data);
+  // ... business logic
+  return { success: true };
+});
+```
+
+---
+
+## Example Code Snippets
+
+```typescript
+// MUST: Small, typed, and validated domain API
+import { z } from "zod";
+const PostSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  authorId: z.string(),
+});
+
+export async function getPost(postId: string): Promise<Post> {
+  const snap = await getDoc(doc(db, "posts", postId));
+  return PostSchema.parse(snap.data());
+}
+```
+
+```typescript
+// MUST NOT: Large, untyped, multi-responsibility file
+// -- UI, data fetch, and state in one
+function PostsPage() {
+  const [posts, setPosts] = useState<any[]>([]);
+  useEffect(() => {
+    getDocs(collection(db, "posts")).then((snap) => {
+      setPosts(snap.docs.map((d) => d.data()));
+    });
+  }, []);
+  return <div>{posts.map((p) => <div>{p.title}</div>)}</div>;
+}
+```
+
+```typescript
+// MUST: SSR page with SEO meta tags (Next.js)
+export async function generateMetadata({ params }) {
+  const post = await getPost(params.postId);
+  return {
+    title: `${post.title} - ${post.schoolName} - Inschoolz`,
+    description: `${post.content.slice(0, 150)}...`,
+    openGraph: {
+      title: post.title,
+      description: post.content,
+      image: post.imageUrl,
+    },
+  };
+}
+```
+
+```typescript
+// MUST: Error handling in async function
+try {
+  await doSomething();
+} catch (error) {
+  Sentry.captureException(error);
+  throw error;
+}
+```
+
+---
+
+## 6. Quality Criteria
+
+- **Type Safety**: 100% codebase coverage with TypeScript and Zod.
+- **Single Responsibility**: Each file/folder/module has one clear purpose.
+- **Explicit Data Flow**: No hidden side effects; all data mutations are traceable.
+- **Consistent Error Handling**: All async logic is guarded and reported.
+- **Security**: No direct Firestore access in UI; all access controlled and validated.
+- **SEO-First**: All public pages SSR'd with complete meta tags.
+
+---
+
+**This guideline is the binding standard for all Inschoolz code. All code reviews and merges MUST enforce these rules.**

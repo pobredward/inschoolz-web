@@ -1,0 +1,645 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  QueryDocumentSnapshot,
+  updateDoc,
+  increment
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { School } from '@/types';
+
+/**
+ * 학교 목록 검색
+ */
+export const searchSchools = async (
+  searchTerm: string = '',
+  region?: string,
+  page = 1,
+  pageSize = 20
+): Promise<{ schools: School[], totalCount: number, hasMore: boolean }> => {
+  try {
+    const schoolsRef = collection(db, 'schools');
+    let q;
+
+    // 검색어 유무에 따른 쿼리 설정
+    if (searchTerm) {
+      // 검색어가 있는 경우 - Firestore의 where를 사용해 시작 문자열 일치 검색
+      // startAt 및 endAt을 사용하여 검색어로 시작하는 이름 찾기
+      const endSearchTerm = searchTerm + '\uf8ff'; // '\uf8ff'는 유니코드 범위에서 매우 높은 값
+      
+      q = query(
+        schoolsRef,
+        orderBy('KOR_NAME'),
+        where('KOR_NAME', '>=', searchTerm),
+        where('KOR_NAME', '<=', endSearchTerm),
+        limit(pageSize * 2) // 충분한 결과를 확보하기 위해 요청 페이지 크기의 2배
+      );
+      
+      console.log('Searching with term:', searchTerm);
+    } else if (region && region !== 'all') {
+      // 지역 필터링
+      q = query(
+        schoolsRef,
+        where('REGION', '==', region),
+        orderBy('KOR_NAME'),
+        limit(pageSize)
+      );
+    } else {
+      // 검색어가 없는 경우 - 빈 결과 반환 (사용자가 검색어를 입력해야 함)
+      return {
+        schools: [],
+        totalCount: 0,
+        hasMore: false
+      };
+    }
+
+    console.log('Executing school search query');
+    const querySnapshot = await getDocs(q);
+    console.log('Found schools count:', querySnapshot.size);
+    
+    const schools: School[] = [];
+    
+    querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
+      const schoolData = doc.data();
+      
+      // 검색어가 있으면 includes로 한번 더 필터링하여 '각리초등학교'와 같이 중간에 검색어가 포함된 경우도 찾음
+      if (searchTerm && !schoolData.KOR_NAME.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return;
+      }
+      
+      schools.push({
+        id: doc.id,
+        name: schoolData.KOR_NAME,
+        address: schoolData.ADDRESS,
+        district: schoolData.REGION,
+        type: getSchoolType(schoolData.KOR_NAME),
+        websiteUrl: schoolData.HOMEPAGE,
+        regions: {
+          sido: schoolData.REGION,
+          sigungu: getDistrict(schoolData.ADDRESS)
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        memberCount: schoolData.memberCount || 0,
+        favoriteCount: schoolData.favoriteCount || 0
+      } as School);
+    });
+    
+    // 전체 결과 수
+    const totalCount = schools.length;
+    
+    // 페이징 처리
+    const startIndex = (page - 1) * pageSize;
+    const paginatedSchools = schools.slice(startIndex, startIndex + pageSize);
+    
+    return {
+      schools: paginatedSchools,
+      totalCount,
+      hasMore: totalCount > page * pageSize
+    };
+  } catch (error) {
+    console.error('학교 검색 오류:', error);
+    throw new Error('학교를 검색하는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 학교 상세 정보 조회
+ */
+export const getSchoolById = async (schoolId: string): Promise<School | null> => {
+  try {
+    const schoolRef = doc(db, 'schools', schoolId);
+    const schoolDoc = await getDoc(schoolRef);
+    
+    if (schoolDoc.exists()) {
+      const schoolData = schoolDoc.data();
+      
+      return {
+        id: schoolDoc.id,
+        name: schoolData.KOR_NAME,
+        address: schoolData.ADDRESS,
+        district: schoolData.REGION,
+        type: getSchoolType(schoolData.KOR_NAME),
+        websiteUrl: schoolData.HOMEPAGE,
+        regions: {
+          sido: schoolData.REGION,
+          sigungu: getDistrict(schoolData.ADDRESS)
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        memberCount: schoolData.memberCount || 0,
+        favoriteCount: schoolData.favoriteCount || 0
+      } as School;
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error('학교 정보 조회 오류:', error);
+    throw new Error('학교 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 모든 지역(시/도) 목록 가져오기
+ */
+export const getAllRegions = async (): Promise<string[]> => {
+  try {
+    const regionsRef = collection(db, 'regions');
+    const querySnapshot = await getDocs(regionsRef);
+    
+    const regions: string[] = [];
+    querySnapshot.forEach((doc) => {
+      regions.push(doc.id);
+    });
+    
+    return regions.sort();
+  } catch (error) {
+    console.error('지역 목록 조회 오류:', error);
+    throw new Error('지역 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 특정 시/도의 시/군/구 목록 가져오기
+ */
+export const getDistrictsByRegion = async (region: string): Promise<string[]> => {
+  try {
+    const regionRef = doc(db, 'regions', region);
+    const regionDoc = await getDoc(regionRef);
+    
+    if (regionDoc.exists()) {
+      const regionData = regionDoc.data();
+      const sigunguData = regionData.sigungu || {};
+      
+      // sigungu 객체에서 값만 추출하여 반환
+      return Object.values(sigunguData);
+    } else {
+      return [];
+    }
+  } catch (error) {
+    console.error('시/군/구 목록 조회 오류:', error);
+    throw new Error('시/군/구 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 학교 이름에서 학교 타입 추출 헬퍼 함수
+function getSchoolType(schoolName: string): '초등학교' | '중학교' | '고등학교' | '대학교' {
+  if (schoolName.includes('초등학교')) return '초등학교';
+  if (schoolName.includes('중학교')) return '중학교';
+  if (schoolName.includes('고등학교')) return '고등학교';
+  if (schoolName.includes('대학교')) return '대학교';
+  
+  // 기본값
+  return '고등학교';
+}
+
+// 주소에서 시/군/구 추출 헬퍼 함수
+function getDistrict(address: string): string {
+  // 주소 형식: "서울특별시 강남구 xxx" 또는 "경기도 수원시 xxx"
+  const parts = address.split(' ');
+  
+  if (parts.length >= 2) {
+    return parts[1]; // 두 번째 요소가 일반적으로 시/군/구
+  }
+  
+  return '';
+}
+
+/**
+ * 모든 학교 목록 가져오기
+ */
+export const getAllSchools = async (): Promise<School[]> => {
+  try {
+    const schoolsRef = collection(db, 'schools');
+    const q = query(schoolsRef, orderBy('KOR_NAME'), limit(100));
+    const querySnapshot = await getDocs(q);
+    
+    const schools: School[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const schoolData = doc.data();
+      
+      schools.push({
+        id: doc.id,
+        name: schoolData.KOR_NAME,
+        address: schoolData.ADDRESS,
+        district: schoolData.REGION,
+        type: getSchoolType(schoolData.KOR_NAME),
+        websiteUrl: schoolData.HOMEPAGE,
+        regions: {
+          sido: schoolData.REGION,
+          sigungu: getDistrict(schoolData.ADDRESS)
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        memberCount: schoolData.memberCount || 0,
+        favoriteCount: schoolData.favoriteCount || 0
+      } as School);
+    });
+    
+    return schools;
+  } catch (error) {
+    console.error('학교 목록 조회 오류:', error);
+    throw new Error('학교 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 학교 즐겨찾기 토글
+ */
+export const toggleFavoriteSchool = async (
+  userId: string,
+  schoolId: string
+): Promise<{
+  success: boolean;
+  isFavorite: boolean;
+  message?: string;
+  favoriteCount?: number;
+}> => {
+  try {
+    // 사용자 문서 참조
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+    
+    const userData = userDoc.data();
+    const favorites = userData.favorites || {};
+    const favoriteSchools = favorites.schools || [];
+    
+    // 학교가 이미 즐겨찾기에 있는지 확인
+    const isAlreadyFavorite = favoriteSchools.includes(schoolId);
+    
+    let updatedFavoriteSchools;
+    let message: string;
+    
+    if (isAlreadyFavorite) {
+      // 즐겨찾기 제거
+      updatedFavoriteSchools = favoriteSchools.filter((id: string) => id !== schoolId);
+      message = '즐겨찾기에서 제거되었습니다.';
+    } else {
+      // 즐겨찾기 추가 - 5개 제한 체크
+      if (favoriteSchools.length >= 5) {
+        return {
+          success: false,
+          isFavorite: false,
+          message: '즐겨찾기는 최대 5개 학교까지만 추가할 수 있습니다. 다른 학교를 제거한 후 다시 시도해주세요.',
+          favoriteCount: favoriteSchools.length
+        };
+      }
+      
+      updatedFavoriteSchools = [...favoriteSchools, schoolId];
+      message = '즐겨찾기에 추가되었습니다.';
+    }
+    
+    // 사용자 문서 업데이트
+    await updateDoc(userRef, {
+      'favorites.schools': updatedFavoriteSchools,
+      updatedAt: Date.now()
+    });
+    
+    // 학교 문서의 즐겨찾기 카운트 업데이트
+    const schoolRef = doc(db, 'schools', schoolId);
+    const schoolDoc = await getDoc(schoolRef);
+    
+    if (schoolDoc.exists()) {
+      const schoolData = schoolDoc.data();
+      const currentFavoriteCount = schoolData.favoriteCount || 0;
+      
+      await updateDoc(schoolRef, {
+        favoriteCount: isAlreadyFavorite ? Math.max(0, currentFavoriteCount - 1) : currentFavoriteCount + 1
+      });
+    }
+    
+    return {
+      success: true,
+      isFavorite: !isAlreadyFavorite,
+      message,
+      favoriteCount: updatedFavoriteSchools.length
+    };
+  } catch (error) {
+    console.error('학교 즐겨찾기 토글 오류:', error);
+    return {
+      success: false,
+      isFavorite: false,
+      message: '즐겨찾기를 변경하는 중 오류가 발생했습니다.'
+    };
+  }
+};
+
+/**
+ * 학교 선택 함수 (메인 학교로 설정)
+ */
+export const selectSchool = async (
+  userId: string,
+  schoolId: string,
+  schoolName: string,
+  schoolInfo: {
+    grade?: string;
+    classNumber?: string;
+    studentNumber?: string;
+    isGraduate?: boolean;
+  }
+): Promise<boolean> => {
+  try {
+    // 사용자 참조
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+    
+    const userData = userDoc.data();
+    const previousSchool = userData.school ? userData.school.id : null;
+    
+    // 학교 정보 업데이트
+    const schoolUpdate: {
+      school: {
+        id: string;
+        name: string;
+        grade: string | null;
+        classNumber: string | null;
+        studentNumber: string | null;
+        isGraduate: boolean;
+      };
+      updatedAt: number;
+    } = {
+      school: {
+        id: schoolId,
+        name: schoolName,
+        // 졸업생인 경우 학년, 반, 번호 정보를 null로 설정
+        grade: schoolInfo.isGraduate ? null : schoolInfo.grade || null,
+        classNumber: schoolInfo.isGraduate ? null : schoolInfo.classNumber || null,
+        studentNumber: schoolInfo.isGraduate ? null : schoolInfo.studentNumber || null,
+        isGraduate: schoolInfo.isGraduate || false
+      },
+      updatedAt: Date.now()
+    };
+    
+    await updateDoc(userRef, schoolUpdate);
+    
+    // 이전 학교와 현재 선택한 학교가 다른 경우
+    if (previousSchool && previousSchool !== schoolId) {
+      // 이전 학교의 회원 수 감소
+      const prevSchoolRef = doc(db, 'schools', previousSchool);
+      const prevSchoolDoc = await getDoc(prevSchoolRef);
+      
+      if (prevSchoolDoc.exists()) {
+        const prevSchoolData = prevSchoolDoc.data();
+        const currentMemberCount = prevSchoolData.memberCount || 0;
+        
+        await updateDoc(prevSchoolRef, {
+          memberCount: Math.max(0, currentMemberCount - 1),
+          updatedAt: Date.now()
+        });
+      }
+      
+      // 새 학교의 회원 수 증가
+      const newSchoolRef = doc(db, 'schools', schoolId);
+      await updateDoc(newSchoolRef, {
+        memberCount: increment(1),
+        updatedAt: Date.now()
+      });
+    } else if (!previousSchool) {
+      // 처음으로 학교를 선택하는 경우, 해당 학교의 회원 수만 증가
+      const schoolRef = doc(db, 'schools', schoolId);
+      await updateDoc(schoolRef, {
+        memberCount: increment(1),
+        updatedAt: Date.now()
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('학교 선택 오류:', error);
+    throw new Error('학교 선택 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 사용자의 즐겨찾기 학교 목록 가져오기
+ */
+export const getUserFavoriteSchools = async (userId: string): Promise<School[]> => {
+  try {
+    // 사용자 문서에서 즐겨찾기 학교 ID 목록 조회
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+    
+    const userData = userDoc.data();
+    const favorites = userData.favorites || {};
+    const favoriteSchoolIds = favorites.schools || [];
+    
+    if (favoriteSchoolIds.length === 0) {
+      return [];
+    }
+    
+    // 즐겨찾기 학교 정보 조회
+    const favoriteSchools: School[] = [];
+    
+    for (const schoolId of favoriteSchoolIds) {
+      const school = await getSchoolById(schoolId);
+      if (school) {
+        favoriteSchools.push(school);
+      }
+    }
+    
+    return favoriteSchools;
+  } catch (error) {
+    console.error('즐겨찾기 학교 목록 조회 오류:', error);
+    throw new Error('즐겨찾기 학교 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 추천 아이디 검증 및 경험치 지급
+export const validateReferralAndReward = async (
+  newUserId: string,
+  referralUserName: string
+): Promise<{ success: boolean; message: string; referrerId?: string }> => {
+  try {
+    if (!referralUserName || referralUserName.trim() === '') {
+      return { success: false, message: '추천 아이디를 입력해주세요.' };
+    }
+
+    // 추천인 검색 (userName으로 검색)
+    const usersRef = collection(db, 'users');
+    const q = query(
+      usersRef,
+      where('profile.userName', '==', referralUserName.trim()),
+      limit(1)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      return { success: false, message: '존재하지 않는 사용자입니다.' };
+    }
+
+    const referrerDoc = querySnapshot.docs[0];
+    const referrerId = referrerDoc.id;
+    const referrerData = referrerDoc.data();
+
+    // 자기 자신 추천 방지
+    if (referrerId === newUserId) {
+      return { success: false, message: '자기 자신을 추천할 수 없습니다.' };
+    }
+
+    // 추천인과 신규 사용자 모두에게 경험치 지급
+    const referralExpReward = 50; // 추천 보상 경험치
+
+    // 추천인 경험치 지급
+    await updateDoc(doc(db, 'users', referrerId), {
+      'stats.experience': increment(referralExpReward),
+      'stats.currentExp': increment(referralExpReward),
+      updatedAt: Date.now()
+    });
+
+    // 신규 사용자 경험치 지급
+    await updateDoc(doc(db, 'users', newUserId), {
+      'stats.experience': increment(referralExpReward),
+      'stats.currentExp': increment(referralExpReward),
+      referrerId: referrerId,
+      updatedAt: Date.now()
+    });
+
+    return { 
+      success: true, 
+      message: `${referrerData.profile.userName}님을 추천했습니다! 서로 ${referralExpReward} 경험치를 받았습니다.`,
+      referrerId: referrerId
+    };
+  } catch (error) {
+    console.error('추천 처리 오류:', error);
+    return { success: false, message: '추천 처리 중 오류가 발생했습니다.' };
+  }
+};
+
+// 추천 아이디 중복 확인
+export const checkReferralExists = async (userName: string): Promise<{ exists: boolean; displayName?: string }> => {
+  try {
+    if (!userName || userName.trim() === '') {
+      return { exists: false };
+    }
+
+    const usersRef = collection(db, 'users');
+    const q = query(
+      usersRef,
+      where('profile.userName', '==', userName.trim()),
+      limit(1)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const userData = querySnapshot.docs[0].data();
+      return { 
+        exists: true, 
+        displayName: userData.profile.userName || '사용자'
+      };
+    }
+
+    return { exists: false };
+  } catch (error) {
+    console.error('추천 아이디 확인 오류:', error);
+    return { exists: false };
+  }
+};
+
+/**
+ * 사용자가 특정 학교 커뮤니티에 접근할 수 있는지 확인
+ */
+export const checkSchoolAccess = async (
+  userId: string,
+  schoolId: string
+): Promise<{
+  hasAccess: boolean;
+  reason?: string;
+}> => {
+  try {
+    // 사용자 문서 참조
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return {
+        hasAccess: false,
+        reason: '사용자 정보를 찾을 수 없습니다.'
+      };
+    }
+    
+    const userData = userDoc.data();
+    const favorites = userData.favorites || {};
+    const favoriteSchools = favorites.schools || [];
+    
+    // 즐겨찾기에 해당 학교가 있는지 확인
+    const hasSchoolInFavorites = favoriteSchools.includes(schoolId);
+    
+    if (!hasSchoolInFavorites) {
+      return {
+        hasAccess: false,
+        reason: '이 학교 커뮤니티에 접근하려면 먼저 즐겨찾기에 추가해주세요.'
+      };
+    }
+    
+    return {
+      hasAccess: true
+    };
+  } catch (error) {
+    console.error('학교 접근 권한 확인 오류:', error);
+    return {
+      hasAccess: false,
+      reason: '접근 권한을 확인하는 중 오류가 발생했습니다.'
+    };
+  }
+};
+
+/**
+ * 사용자의 접근 가능한 학교 목록 가져오기 (즐겨찾기 기반)
+ */
+export const getAccessibleSchools = async (userId: string): Promise<School[]> => {
+  try {
+    return await getUserFavoriteSchools(userId);
+  } catch (error) {
+    console.error('접근 가능한 학교 목록 조회 오류:', error);
+    return [];
+  }
+};
+
+/**
+ * 사용자의 메인 학교 정보 가져오기
+ */
+export const getMainSchool = async (userId: string): Promise<School | null> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return null;
+    }
+    
+    const userData = userDoc.data();
+    const schoolId = userData.school?.id;
+    
+    if (!schoolId) {
+      return null;
+    }
+    
+    // 메인 학교 정보 조회
+    const school = await getSchoolById(schoolId);
+    return school;
+  } catch (error) {
+    console.error('메인 학교 정보 조회 오류:', error);
+    return null;
+  }
+}; 

@@ -1,0 +1,94 @@
+import { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { redirect, notFound } from 'next/navigation';
+import { getUserByUserName, getUserById } from '@/lib/api/users';
+import { Toaster } from '@/components/ui/sonner';
+import ProfileEditClient from './ProfileEditClient';
+import { User } from '@/types';
+
+export const metadata: Metadata = {
+  title: '프로필 수정 | InSchoolz',
+  description: '내 프로필, 학교 정보, 관심사를 수정하세요.',
+};
+
+// Firebase 타임스탬프 객체를 일반 숫자로 변환하는 함수
+function serializeUserData(user: User | null): User | null {
+  // null이나 undefined면 그대로 반환
+  if (!user) return null;
+  
+  // 객체를 JSON으로 변환했다가 다시 파싱하여 깊은 복사 및 직렬화
+  const serialized = JSON.parse(JSON.stringify(user, (key, value) => {
+    // Firestore Timestamp 객체는 seconds와 nanoseconds 속성을 가짐
+    if (value && typeof value === 'object' && 'seconds' in value && 'nanoseconds' in value) {
+      // UNIX 타임스탬프로 변환 (밀리초)
+      return value.seconds * 1000 + value.nanoseconds / 1000000;
+    }
+    return value;
+  }));
+  
+  return serialized;
+}
+
+export default async function ProfileEditPage({ params }: { params: { userName: string } }) {
+  // Next.js 15에서는 params를 await 해야 함
+  const { userName } = await params;
+  
+  // 쿠키에서 로그인된 사용자 정보 확인
+  const cookieStore = await cookies();
+  const authToken = cookieStore.get('authToken')?.value;
+  
+  // 로그인되지 않은 경우 로그인 페이지로 리디렉션
+  if (!authToken) {
+    return redirect('/auth?redirect=/' + userName + '/edit');
+  }
+
+  try {
+    // userName으로 사용자 조회
+    const profileUser = await getUserByUserName(userName);
+    
+    if (!profileUser) {
+      return notFound();
+    }
+
+    // userId 또는 uid 쿠키 찾기
+    let currentUserId = cookieStore.get('userId')?.value;
+    if (!currentUserId) {
+      currentUserId = cookieStore.get('uid')?.value;
+    }
+    
+    // 쿠키에서 사용자 ID를 찾을 수 없는 경우
+    if (!currentUserId) {
+      console.log('사용자 ID를 쿠키에서 찾을 수 없음');
+      return redirect('/auth?redirect=/' + userName + '/edit');
+    }
+    
+    // 사용자 정보 조회
+    const currentUser = await getUserById(currentUserId);
+    
+    if (!currentUser) {
+      return redirect('/auth?redirect=/' + userName + '/edit');
+    }
+    
+    // 본인 프로필인지 확인 - 본인 프로필만 수정 가능
+    const isOwnProfile = currentUser.uid === profileUser.uid;
+    
+    if (!isOwnProfile) {
+      // 다른 사용자의 프로필은 수정 불가능
+      return redirect('/' + userName);
+    } 
+
+    // Firebase 타임스탬프를 포함한 객체를 직렬화
+    const serializedUserData = serializeUserData(profileUser);
+
+    // 프로필 수정 컴포넌트 렌더링
+    return (
+      <div className="container mx-auto py-6">
+        <Toaster />
+        <ProfileEditClient userData={serializedUserData} />
+      </div>
+    );
+  } catch (error) {
+    console.error('사용자 정보 조회 오류:', error);
+    return redirect('/auth?redirect=/' + userName + '/edit');
+  }
+} 
