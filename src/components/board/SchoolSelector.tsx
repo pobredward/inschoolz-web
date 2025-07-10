@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, School as SchoolIcon, Star, Plus } from 'lucide-react';
+import { ChevronDown, School as SchoolIcon, Star } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,11 +61,21 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
     try {
       setIsLoading(true);
       
+      // 기존 학교 정보에서 추가 정보 추출 (안전한 타입 체크)
+      const schoolData = user.school as { 
+        id?: string; 
+        name?: string; 
+        isGraduate?: boolean; 
+        grade?: string; 
+        classNumber?: string; 
+        studentNumber?: string; 
+      } | undefined;
+      
       await selectSchool(user.uid, school.id, school.name, {
-        isGraduate: user.school?.isGraduate || false,
-        grade: user.school?.grade,
-        classNumber: user.school?.classNumber,
-        studentNumber: user.school?.studentNumber
+        isGraduate: schoolData?.isGraduate || false,
+        grade: schoolData?.grade,
+        classNumber: schoolData?.classNumber,
+        studentNumber: schoolData?.studentNumber
       });
 
       toast.success(`${school.name}으로 메인 학교가 변경되었습니다.`);
@@ -87,11 +97,6 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
     }
   };
 
-  const handleAddSchool = () => {
-    // 학교 추가 페이지로 이동 (마이페이지의 즐겨찾기 학교 관리)
-    window.location.href = '/mypage?tab=schools';
-  };
-
   const currentSchool = favoriteSchools.find(school => school.id === user?.school?.id);
 
   if (!user) {
@@ -105,40 +110,29 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
           <SchoolIcon className="h-4 w-4 text-gray-400" />
           <span className="text-sm text-gray-600">즐겨찾기 학교가 없습니다</span>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleAddSchool}
-          className="flex items-center space-x-1"
-        >
-          <Plus className="h-3 w-3" />
-          <span>학교 추가</span>
-        </Button>
+        <div className="text-sm text-gray-500">
+          마이페이지에서 학교를 추가해주세요
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={className}>
+    <div className={`relative ${className}`}>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
+          <Button 
+            variant="outline" 
             className="w-full justify-between"
             disabled={isLoading}
           >
             <div className="flex items-center space-x-2">
               <SchoolIcon className="h-4 w-4" />
               <span className="truncate">
-                {currentSchool ? currentSchool.name : '학교 선택'}
+                {currentSchool ? currentSchool.name : '학교를 선택하세요'}
               </span>
-              {currentSchool && (
-                <Badge variant="secondary" className="text-xs">
-                  메인
-                </Badge>
-              )}
             </div>
-            <ChevronDown className="h-4 w-4 opacity-50" />
+            <ChevronDown className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         
@@ -163,16 +157,6 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
               </div>
             </DropdownMenuItem>
           ))}
-          
-          <DropdownMenuItem
-            onClick={handleAddSchool}
-            className="border-t mt-1 pt-2 cursor-pointer text-blue-600"
-          >
-            <div className="flex items-center space-x-2 w-full">
-              <Plus className="h-4 w-4" />
-              <span>즐겨찾기 학교 관리</span>
-            </div>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
