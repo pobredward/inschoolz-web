@@ -38,16 +38,16 @@ const termsAgreementSchema = z.object({
 
 type TermsAgreementValues = z.infer<typeof termsAgreementSchema>;
 
-type FormDataType = {
-  termsAgreed: boolean;
-  privacyAgreed: boolean;
-  locationAgreed: boolean;
-  marketingAgreed: boolean;
-};
-
 interface TermsAgreementStepProps {
-  formData: FormDataType;
-  updateFormData: (data: Partial<FormDataType>) => void;
+  formData: {
+    agreements: {
+      terms: boolean;
+      privacy: boolean;
+      location: boolean;
+      marketing: boolean;
+    };
+  };
+  updateFormData: (data: any) => void;
 }
 
 export function TermsAgreementStep({ formData, updateFormData }: TermsAgreementStepProps) {

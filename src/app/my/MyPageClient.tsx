@@ -38,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEFAULT_LEVEL_REQUIREMENTS } from '@/lib/experience';
+
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -47,9 +47,10 @@ const formatExp = (exp: number): string => {
   return exp.toLocaleString();
 };
 
-// 레벨에 따른 필요 경험치 계산 (동기적)
+// 레벨에 따른 필요 경험치 계산 (헤더와 동일한 로직)
 const getRequiredExpForLevel = (level: number): number => {
-  return DEFAULT_LEVEL_REQUIREMENTS[level as keyof typeof DEFAULT_LEVEL_REQUIREMENTS] || (level - 1) * level * 5;
+  // PRD 요구사항: 1->2레벨 10exp, 2->3레벨 20exp, 오름차순
+  return level * 10;
 };
 
 // 학교 정보 인터페이스
@@ -260,7 +261,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                                userData.profile?.gender === 'female' ? '여성' :
                                userData.profile?.gender === 'other' ? '기타' : '미설정'}
                             </p>
-                            <p><span className="font-medium">학교: </span>{userData.school?.name} {userData.school?.isGraduate ? '졸업' : `재학 ${userData.school?.grade}학년 ${userData.school?.classNumber}반 ${userData.school?.studentNumber}번`}</p>
+                            <p><span className="font-medium">학교: </span>{userData.school?.name || '미설정'}</p>
 
                             <p><span className="font-medium">생년월일: </span>
                               {userData.profile?.birthYear 
@@ -274,7 +275,16 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                           <div className="text-sm">
                           <p><span className="font-medium">연락처: </span>{userData.profile?.phoneNumber || '미설정'}</p>
                           <p><span className="font-medium">이메일: </span>{userData.email || '미설정'}</p>
-                          <p><span className="font-medium">주소: </span>{userData.regions?.sido || '미설정'} {userData.regions?.sigungu || '미설정'} {userData.regions?.address || '미설정'}</p>
+                          <p><span className="font-medium">주소: </span>
+                            {(() => {
+                              const parts = [
+                                userData.regions?.sido,
+                                userData.regions?.sigungu, 
+                                userData.regions?.address
+                              ].filter(Boolean);
+                              return parts.length > 0 ? parts.join(' ') : '미설정';
+                            })()}
+                          </p>
                           </div>
                         </div>
                       </div>
@@ -284,14 +294,14 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
                           <Badge className="bg-primary/15 text-primary hover:bg-primary/20 border-none">LV. {userData.stats?.level || 1}</Badge>
-                          <span className="text-sm font-medium">{formatExp(userData.stats?.currentExp || 0)} / {formatExp(getRequiredExpForLevel(userData.stats?.level || 1))} exp</span>
+                          <span className="text-sm font-medium">{formatExp(userData.stats?.experience || 0)} / {formatExp(getRequiredExpForLevel(userData.stats?.level || 1))} exp</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">누적 {formatExp(userData.stats?.experience || 0)} exp</span>
+                        <span className="text-xs text-muted-foreground">누적 {formatExp(userData.stats?.totalExperience || 0)} exp</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2.5">
                         <div 
                           className="bg-primary h-2.5 rounded-full transition-all" 
-                          style={{ width: `${Math.min(100, Math.floor(((userData.stats?.currentExp || 0) / getRequiredExpForLevel(userData.stats?.level || 1)) * 100))}%` }}
+                          style={{ width: `${Math.min(100, Math.floor(((userData.stats?.experience || 0) / getRequiredExpForLevel(userData.stats?.level || 1)) * 100))}%` }}
                         ></div>
                       </div>
                     </div>
@@ -352,30 +362,10 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   </div>
                   <div className="mt-2 pt-2 border-t border-muted">
                     <div className="flex flex-wrap gap-2 text-sm">
-                      {userData.school.isGraduate ? (
-                        <Badge variant="outline" className="bg-green-50">
-                          <GraduationCap className="h-3 w-3 mr-1" />
-                          졸업생
-                        </Badge>
-                      ) : (
-                        <>
-                          {userData.school.grade && (
-                            <Badge variant="outline">
-                              {userData.school.grade}학년
-                            </Badge>
-                          )}
-                          {userData.school.classNumber && (
-                            <Badge variant="outline">
-                              {userData.school.classNumber}반
-                            </Badge>
-                          )}
-                          {userData.school.studentNumber && (
-                            <Badge variant="outline">
-                              {userData.school.studentNumber}번
-                            </Badge>
-                          )}
-                        </>
-                      )}
+                      <Badge variant="outline" className="bg-blue-50">
+                        <GraduationCap className="h-3 w-3 mr-1" />
+                        재학생
+                      </Badge>
                     </div>
                   </div>
                 </div>

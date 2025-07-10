@@ -4,7 +4,7 @@ import { MessageSquare, ThumbsUp, Eye } from "lucide-react";
 import { formatRelativeTime, now } from "@/lib/utils";
 import { BoardType } from "@/types/board";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface PopularPostsSectionProps {
   type: BoardType;
@@ -23,7 +23,8 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
       boardType: type,
       author: {
         displayName: "영어좋아하는학생",
-        isAnonymous: false
+        isAnonymous: false,
+        profileImageUrl: undefined
       },
       stats: {
         viewCount: 2450,
@@ -39,7 +40,8 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
       boardType: type,
       author: {
         displayName: "급식러",
-        isAnonymous: true
+        isAnonymous: true,
+        profileImageUrl: undefined
       },
       stats: {
         viewCount: 1823,
@@ -55,7 +57,8 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
       boardType: type,
       author: {
         displayName: "학생회장",
-        isAnonymous: false
+        isAnonymous: false,
+        profileImageUrl: undefined
       },
       stats: {
         viewCount: 2156,
@@ -71,7 +74,8 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
       boardType: type,
       author: {
         displayName: "선행이",
-        isAnonymous: false
+        isAnonymous: false,
+        profileImageUrl: undefined
       },
       stats: {
         viewCount: 1450,
@@ -87,7 +91,8 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
       boardType: type,
       author: {
         displayName: "백의의천사",
-        isAnonymous: false
+        isAnonymous: false,
+        profileImageUrl: undefined
       },
       stats: {
         viewCount: 1270,
@@ -121,6 +126,10 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-6 w-6">
+                      <AvatarImage 
+                        src={post.author.profileImageUrl} 
+                        alt={post.author.displayName || '사용자'} 
+                      />
                       <AvatarFallback className="text-xs">
                         {post.author.isAnonymous ? '익명' : post.author.displayName.substring(0, 2)}
                       </AvatarFallback>

@@ -8,7 +8,7 @@ import {
   MessageSquare, 
   Gamepad2, 
   Trophy, 
-  User, 
+  User as UserIcon, 
   LogIn, 
   LogOut, 
   UserPlus, 
@@ -19,6 +19,7 @@ import {
   X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,20 +35,17 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useAuth } from '@/providers/AuthProvider';
-
-// 타입 정의
-interface AuthUser {
+// 임시 User 타입 (타입 파일 수정 후 제거 예정)
+interface User {
   uid: string;
-  email?: string;
-  profile?: {
-    userName?: string;
-    level?: number;
-    experience?: number;
+  email: string;
+  profile: {
+    userName: string;
+    profileImageUrl?: string;
   };
-  stats?: {
-    level?: number;
-    experience?: number;
-    currentExp?: number; // 추가: 현재 레벨에서의 경험치
+  stats: {
+    level: number;
+    experience: number;
   };
 }
 
@@ -59,13 +57,13 @@ const menuItems = [
   { name: '랭킹', path: '/ranking', icon: <Trophy className="h-5 w-5" />, ariaLabel: '랭킹 페이지로 이동' },
 ];
 
-// 경험치/레벨 컴포넌트
-function ExperienceDisplay({ user }: { user?: AuthUser }) {
+// 경험치/레벨 컴포넌트 - 통일된 User 타입 사용
+function ExperienceDisplay({ user }: { user?: User }) {
   if (!user) return null;
 
-  // 실제 사용자 데이터 사용 (기본값 설정)
-  const level = user.stats?.level || user.profile?.level || 1;
-  const currentXp = user.stats?.currentExp || 0; // currentExp 사용 (현재 레벨에서의 경험치)
+  // 통일된 사용자 데이터 사용
+  const level = user.stats?.level || 1;
+  const currentXp = user.stats?.experience || 0; // experience 사용
   
   // 정확한 maxXp 계산 (다음 레벨까지 필요한 경험치)
   const getMaxXpForLevel = (level: number): number => {
@@ -133,7 +131,7 @@ export function Header() {
   const myMenuItem = { 
     name: '마이페이지', 
     path: profilePath, 
-    icon: <User className="h-5 w-5" />, 
+    icon: <UserIcon className="h-5 w-5" />, 
     ariaLabel: '마이페이지로 이동' 
   };
   
@@ -276,8 +274,22 @@ export function Header() {
                 <nav className="flex flex-col space-y-1" role="navigation" aria-label="모바일 메뉴">
                   {user && (
                     <div className="mb-4 p-4 bg-gradient-to-r from-pastel-green-50 to-pastel-green-100 rounded-lg border border-pastel-green-200">
-                      <div className="text-center mb-2">
-                        <p className="text-sm font-medium text-pastel-green-800">{user.profile?.userName || '사용자'}님</p>
+                      <div className="flex items-center gap-3 mb-3">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage 
+                            src={user.profile?.profileImageUrl} 
+                            alt={user.profile?.userName || '사용자'} 
+                          />
+                          <AvatarFallback className="bg-pastel-green-200 text-pastel-green-800 text-lg">
+                            {user.profile?.userName?.substring(0, 2) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-pastel-green-800 truncate">
+                            {user.profile?.userName || '사용자'}님
+                          </p>
+                          <p className="text-xs text-pastel-green-600 truncate">{user.email}</p>
+                        </div>
                       </div>
                       <ExperienceDisplay user={user} />
                     </div>
@@ -308,25 +320,48 @@ export function Header() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="rounded-full hover:bg-pastel-green-100 focus:ring-2 focus:ring-pastel-green-400"
+                  className="rounded-full hover:bg-pastel-green-100 focus:ring-2 focus:ring-pastel-green-400 p-1"
                   aria-label="사용자 메뉴 열기"
                   aria-haspopup="true"
                   disabled={isLoading}
                 >
-                  <User className="h-5 w-5 text-pastel-green-600" />
+                  {user ? (
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage 
+                        src={user.profile?.profileImageUrl} 
+                        alt={user.profile?.userName || '사용자'} 
+                      />
+                      <AvatarFallback className="bg-pastel-green-100 text-pastel-green-700 text-sm">
+                        {user.profile?.userName?.substring(0, 2) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <UserIcon className="h-5 w-5 text-pastel-green-600" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 {user ? (
                   <>
-                    <div className="px-2 py-1.5">
-                      <p className="text-sm font-medium">{user.profile?.userName || '사용자'}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <div className="flex items-center gap-3 px-2 py-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage 
+                          src={user.profile?.profileImageUrl} 
+                          alt={user.profile?.userName || '사용자'} 
+                        />
+                        <AvatarFallback className="bg-pastel-green-100 text-pastel-green-700 text-sm">
+                          {user.profile?.userName?.substring(0, 2) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{user.profile?.userName || '사용자'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href={profilePath} className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
+                        <UserIcon className="mr-2 h-4 w-4" />
                         <span>내 프로필</span>
                       </Link>
                     </DropdownMenuItem>

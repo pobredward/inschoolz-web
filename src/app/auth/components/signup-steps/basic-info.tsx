@@ -44,7 +44,7 @@ const basicInfoSchema = z.object({
     .regex(/^(0?[1-9]|1[0-2])$/, { message: '올바른 월을 입력해주세요. (1-12)' }),
   birthDay: z.string()
     .regex(/^(0?[1-9]|[12]\d|3[01])$/, { message: '올바른 일을 입력해주세요. (1-31)' }),
-  phone: z.string()
+  phoneNumber: z.string()
     .regex(/^\d{10,11}$/, { message: '올바른 휴대폰 번호를 입력해주세요. (10-11자리)' }),
   referral: z.string().optional(),
 }).refine((data) => data.password === data.passwordConfirm, {
@@ -54,19 +54,7 @@ const basicInfoSchema = z.object({
 
 type BasicInfoValues = z.infer<typeof basicInfoSchema>;
 
-type FormDataType = {
-  userName?: string;
-  email?: string;
-  password?: string;
-  passwordConfirm?: string;
-  realName?: string;
-  gender?: string;
-  birthYear?: string;
-  birthMonth?: string;
-  birthDay?: string;
-  phone?: string;
-  referral?: string;
-};
+import { FormDataType } from '@/types';
 
 interface BasicInfoStepProps {
   formData: FormDataType;

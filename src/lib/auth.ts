@@ -12,7 +12,6 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   FacebookAuthProvider,
-  sendEmailVerification,
   signOut,
   deleteUser
 } from 'firebase/auth';
@@ -40,16 +39,12 @@ export const registerWithEmail = async (
     // 프로필 업데이트 (Firebase Auth는 여전히 displayName 사용)
     await updateProfile(firebaseUser, { displayName: userName });
     
-    // 이메일 인증 발송
-    await sendEmailVerification(firebaseUser);
-    
     // Firestore에 사용자 정보 저장
     const newUser: User = {
       uid: firebaseUser.uid,
       email: firebaseUser.email || '',
       profile: {
         userName: userName,
-        email: firebaseUser.email || '',
         realName: '',
         gender: '',
         birthYear: 0,
@@ -61,11 +56,11 @@ export const registerWithEmail = async (
         isAdmin: false
       },
       role: 'student',
-      isVerified: false,
+      isVerified: true, // 이메일 인증 없이 바로 인증된 상태로 처리
       stats: {
         level: 1,
         experience: 0,
-        currentExp: 0,
+        totalExperience: 0,
         postCount: 0,
         commentCount: 0,
         likeCount: 0,

@@ -4,7 +4,6 @@ import type { NextRequest } from 'next/server';
 // 인증이 필요 없는 공개 경로 목록
 const publicRoutes = [
   '/auth',
-  '/auth/verify-email',
   '/auth/reset-password',
   '/',
   '/about',
@@ -35,14 +34,6 @@ export function middleware(request: NextRequest) {
   // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
   if (!authCookie) {
     return NextResponse.redirect(new URL('/auth?tab=login', request.url));
-  }
-  
-  // 이메일 인증 확인 쿠키
-  const emailVerifiedCookie = request.cookies.get('emailVerified');
-  
-  // 이메일 미인증 상태면 인증 페이지로 리디렉션
-  if (emailVerifiedCookie?.value !== 'true') {
-    return NextResponse.redirect(new URL('/auth/verify-email', request.url));
   }
   
   // 관리자 페이지 접근 제한 (관리자 역할 확인)

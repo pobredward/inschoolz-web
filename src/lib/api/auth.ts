@@ -2,22 +2,24 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
-  sendEmailVerification,
   sendPasswordResetEmail,
   updateProfile
 } from 'firebase/auth';
 import { 
   doc, 
   setDoc, 
-  serverTimestamp, 
   getDoc,
-  updateDoc
+  updateDoc,
+  collection,
+  query,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { auth, db, storage } from '@/lib/firebase';
 import { FormDataType, User } from '@/types';
 import { FirebaseError } from 'firebase/app';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { validateReferralAndReward } from './schools';
+
 
 /**
  * 회원가입 함수
@@ -60,122 +62,143 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
     // 사용자 프로필 정보 설정 (userName)
     if (auth.currentUser) {
       await updateProfile(auth.currentUser, {
-        displayName: userData.userName, // Firebase Auth는 displayName을 사용하지만, 우리 앱은 userName으로 통일
-        photoURL: profileImageUrl // 업로드된 프로필 이미지 URL 설정
+        displayName: userData.userName,
+        photoURL: profileImageUrl
       });
     }
     
-    // 이메일 인증 메일 발송
-    if (auth.currentUser) {
-      await sendEmailVerification(auth.currentUser);
-    }
-    
-    // Firestore에 사용자 데이터 저장 (단일 문서에 중첩 필드로 저장)
+    // Firestore에 사용자 데이터 저장 (통일된 구조 - Timestamp 사용)
     const userDocRef = doc(db, 'users', userId);
     
-    // 중첩 필드를 포함한 사용자 데이터
-    const userDoc = {
+    // 기본 사용자 데이터 구조 (undefined 필드 제거, Timestamp 사용)
+    const userDoc: any = {
       uid: userId,
       email: userData.email,
-      role: 'user' as 'user' | 'student' | 'teacher' | 'admin',
-      isVerified: false,
-      referrerId: userData.referral || null,
+      role: 'student',
+      isVerified: true, // 이메일 인증 없이 바로 인증된 상태로 처리
       
       // 프로필 정보
       profile: {
-        userName: userData.userName || '',
-        realName: userData.realName || '',
-        gender: userData.gender || '',
-        birthYear: userData.birthYear ? Number(userData.birthYear) : null,
-        birthMonth: userData.birthMonth ? Number(userData.birthMonth) : null,
-        birthDay: userData.birthDay ? Number(userData.birthDay) : null,
-        phoneNumber: userData.phone || '',
-        profileImageUrl: profileImageUrl, // 업로드된 프로필 이미지 URL 저장
-        createdAt: Date.now(),
+        userName: userData.userName,
+        realName: userData.realName,
+        gender: userData.gender,
+        birthYear: Number(userData.birthYear),
+        birthMonth: Number(userData.birthMonth),
+        birthDay: Number(userData.birthDay),
+        phoneNumber: userData.phoneNumber,
+        profileImageUrl: profileImageUrl,
+        createdAt: Date.now(), // number 타입으로 변경
         isAdmin: false
       },
       
-      // 지역 정보
-      regions: userData.city ? {
-        sido: userData.province || '',
-        sigungu: userData.city || '',
-        address: userData.detailAddress || ''
-      } : null,
-      
-      // 학교 정보
-      school: userData.school ? {
-        id: userData.school,
-        name: userData.schoolName || '',
-        grade: userData.grade || '',
-        classNumber: userData.classNumber || '',
-        studentNumber: userData.studentNumber || '',
-        isGraduate: userData.isGraduate || false
-      } : null,
-      
-      // 통계 정보
+      // 경험치/통계
       stats: {
         level: 1,
         experience: 0,
+        totalExperience: 0,
         postCount: 0,
         commentCount: 0,
         likeCount: 0,
         streak: 0
       },
       
-      agreedTerms: {
-        terms: userData.termsAgreed || false,
-        privacy: userData.privacyAgreed || false,
-        location: userData.locationAgreed || false,
-        marketing: userData.marketingAgreed || false
+      // 약관 동의
+      agreements: {
+        terms: userData.agreements.terms,
+        privacy: userData.agreements.privacy,
+        location: userData.agreements.location,
+        marketing: userData.agreements.marketing
       },
       
-      favorites: {
-        schools: userData.favoriteSchools || []
-      },
-      
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      // 시스템 정보 (Timestamp 사용)
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
     
-    // Firestore에 단일 문서로 저장
+    // 학교 정보가 있는 경우에만 추가 (앱과 동일한 로직)
+    if (userData.school && userData.school.id && userData.school.id.trim() !== '') {
+      userDoc.school = {
+        id: userData.school.id,
+        name: userData.school.name || ''
+      };
+    }
+    
+    // 지역 정보가 있는 경우에만 추가 (앱과 동일한 로직)
+    if (userData.regions && userData.regions.sido && userData.regions.sigungu) {
+      userDoc.regions = {
+        sido: userData.regions.sido,
+        sigungu: userData.regions.sigungu,
+        address: userData.regions.address || ''
+      };
+    }
+    
+    // 추천인 정보가 있는 경우에만 추가
+    if (userData.referral && userData.referral.trim() !== '') {
+      userDoc.referrerId = userData.referral;
+    }
+    
+    // Firestore에 저장
     await setDoc(userDocRef, userDoc);
     
     // 선택한 학교가 있는 경우, 학교의 멤버 카운트 증가
-    if (userData.school) {
-      const schoolRef = doc(db, 'schools', userData.school);
-      const schoolDoc = await getDoc(schoolRef);
-      
-      if (schoolDoc.exists()) {
-        const schoolData = schoolDoc.data();
-        const currentCount = schoolData.memberCount || 0;
+    if (userData.school && userData.school.id && userData.school.id.trim() !== '') {
+      try {
+        const schoolRef = doc(db, 'schools', userData.school.id);
+        const schoolDoc = await getDoc(schoolRef);
         
-        await updateDoc(schoolRef, {
-          memberCount: currentCount + 1
-        });
+        if (schoolDoc.exists()) {
+          const schoolData = schoolDoc.data();
+          const currentCount = schoolData.memberCount || 0;
+          
+          await updateDoc(schoolRef, {
+            memberCount: currentCount + 1
+          });
+        }
+      } catch (schoolError) {
+        console.error('학교 멤버 카운트 업데이트 오류:', schoolError);
+        // 학교 업데이트 실패해도 회원가입은 성공으로 처리
       }
     }
     
-    // 추천 아이디가 있는 경우 추천 보상 처리
+    // 추천 아이디가 있는 경우 추천 보상 처리 (앱과 동일한 로직)
     if (userData.referral && userData.referral.trim() !== '') {
       try {
-        await validateReferralAndReward(userData.referral, userId);
-        console.log('추천 보상 처리 완료:', userData.referral);
+        // 추천인 찾기
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('profile.userName', '==', userData.referral));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const referrerDoc = querySnapshot.docs[0];
+          const referrerData = referrerDoc.data();
+          
+          // 추천인과 신규 사용자 모두에게 경험치 지급
+          const bonusExp = 30; // 추천 보상 경험치
+          
+          // 추천인 경험치 업데이트
+          await updateDoc(referrerDoc.ref, {
+            'stats.experience': (referrerData.stats?.experience || 0) + bonusExp,
+            'stats.totalExperience': (referrerData.stats?.totalExperience || 0) + bonusExp,
+            updatedAt: Date.now()
+          });
+          
+          // 신규 사용자 경험치 업데이트
+          await updateDoc(doc(db, 'users', userId), {
+            'stats.experience': bonusExp,
+            'stats.totalExperience': bonusExp,
+            updatedAt: Date.now()
+          });
+          
+          console.log('추천 보상 처리 완료:', userData.referral);
+        }
       } catch (referralError) {
         console.error('추천 보상 처리 오류:', referralError);
         // 추천 보상 실패해도 회원가입은 성공으로 처리
       }
     }
-    
-    // 가입 완료된 사용자 정보 반환
-    const userResult = {
-      ...userDoc,
-      uid: userId,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
 
-    return { user: userResult as unknown as User };
-  } catch (error: unknown) {
+    return { user: userDoc };
+  } catch (error) {
     console.error('회원가입 오류:', error);
     
     // Firebase 에러 메시지를 사용자 친화적으로 변환
@@ -242,22 +265,6 @@ export const logout = async (): Promise<void> => {
   } catch (error) {
     console.error('로그아웃 오류:', error);
     throw new Error('로그아웃 중 오류가 발생했습니다.');
-  }
-};
-
-/**
- * 이메일 인증 메일 재발송
- */
-export const resendVerificationEmail = async (): Promise<void> => {
-  try {
-    if (!auth.currentUser) {
-      throw new Error('로그인 상태가 아닙니다.');
-    }
-    
-    await sendEmailVerification(auth.currentUser);
-  } catch (error) {
-    console.error('이메일 인증 발송 오류:', error);
-    throw new Error('인증 이메일 발송 중 오류가 발생했습니다.');
   }
 };
 

@@ -9,16 +9,17 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
-import { BasicInfoStep } from './signup-steps/basic-info';
+
+import { EmailPasswordStep } from './signup-steps/email-password';
 import { SchoolSelectionStep } from './signup-steps/school-selection';
 import { RegionInfoStep } from './signup-steps/region-info';
-import { TermsAgreementStep } from './signup-steps/terms-agreement';
+import { DetailedInfoStep } from './signup-steps/detailed-info';
 
 const steps = [
-  { id: 'basic-info', title: '기본 정보' },
+  { id: 'email-password', title: '기본 정보' },
   { id: 'school-selection', title: '학교 선택' },
   { id: 'region-info', title: '지역 정보' },
-  { id: 'terms-agreement', title: '약관 동의' },
+  { id: 'detailed-info', title: '세부 정보' },
 ];
 
 export function SignupForm() {
@@ -26,39 +27,50 @@ export function SignupForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    // 기본 정보
-    userName: '',
+    // 1단계: 이메일, 비밀번호
     email: '',
     password: '',
     passwordConfirm: '',
-    realName: '',
-    gender: '',
-    birthYear: '',
-    birthMonth: '',
-    birthDay: '',
-    phone: '',
     verificationCode: '',
-    referral: '',
     
-    // 학교 정보
-    school: '',
-    schoolName: '',
-    grade: '',
-    classNumber: '',
-    studentNumber: '',
+    // 2단계: 학교 정보
+    school: {
+      id: '',
+      name: '',
+      grade: '',
+      classNumber: '',
+      studentNumber: '',
+      isGraduate: false,
+    },
     favoriteSchools: [] as string[],
     
-    // 지역 정보
-    province: '',
-    city: '',
+    // 3단계: 지역 정보
+    regions: {
+      sido: '',
+      sigungu: '',
+      address: '',
+    },
     
-    // 약관 동의
-    termsAgreed: false,
-    privacyAgreed: false,
-    locationAgreed: false,
-    marketingAgreed: false,
+    // 4단계: 세부 정보
+    userName: '',
+    realName: '',
+    gender: '',
+    birthYear: 0,
+    birthMonth: 0,
+    birthDay: 0,
+    phoneNumber: '',
+    referral: '',
     
-    // 타입 호환성을 위해 빈 배열로 유지
+    // 4단계: 약관 동의
+    agreements: {
+      terms: false,
+      privacy: false,
+      location: false,
+      marketing: false,
+    },
+    
+    // 기타
+    profileImage: null as File | null,
     interests: [] as string[],
   });
 
@@ -87,7 +99,7 @@ export function SignupForm() {
       return;
     }
 
-    if (!formData.termsAgreed || !formData.privacyAgreed || !formData.locationAgreed) {
+    if (!formData.agreements.terms || !formData.agreements.privacy || !formData.agreements.location) {
       toast.error("약관 동의 필요", {
         description: "필수 이용약관에 모두 동의해주세요."
       });
@@ -101,11 +113,11 @@ export function SignupForm() {
       await signUp(formData);
       
       toast.success("회원가입 성공", {
-        description: "이메일 인증 메일을 발송했습니다. 이메일을 확인해주세요."
+        description: "회원가입이 완료되었습니다. 환영합니다!"
       });
       
-      // 이메일 인증 페이지로 이동
-      router.push('/auth/verify-email');
+      // 메인 페이지로 이동
+      router.push('/');
     } catch (error) {
       console.error('회원가입 오류:', error);
       
@@ -135,9 +147,10 @@ export function SignupForm() {
 
       <Card className="p-6">
         {currentStep === 0 && (
-          <BasicInfoStep 
+          <EmailPasswordStep 
             formData={formData} 
-            updateFormData={updateFormData} 
+            updateFormData={updateFormData}
+            onNext={handleNext}
           />
         )}
         {currentStep === 1 && (
@@ -154,9 +167,10 @@ export function SignupForm() {
           />
         )}
         {currentStep === 3 && (
-          <TermsAgreementStep 
+          <DetailedInfoStep 
             formData={formData} 
-            updateFormData={updateFormData} 
+            updateFormData={updateFormData}
+            onSubmit={handleSubmit}
           />
         )}
 

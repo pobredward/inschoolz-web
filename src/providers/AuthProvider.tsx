@@ -87,10 +87,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setUser({
               uid,
               email: email || '',
+              role: firestoreUserData.role || 'student',
+              isVerified: emailVerified,
               profile: firestoreUserData.profile || {
                 userName: displayName || '',
-                email: email || '',
                 realName: '',
+                gender: '',
                 birthYear: 0,
                 birthMonth: 0,
                 birthDay: 0,
@@ -102,7 +104,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               stats: firestoreUserData.stats || {
                 level: 1,
                 experience: 0,
-                currentExp: 0,
+                totalExperience: 0,
                 streak: 0,
                 postCount: 0,
                 commentCount: 0,
@@ -110,6 +112,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               },
               school: firestoreUserData.school,
               regions: firestoreUserData.regions,
+              agreements: firestoreUserData.agreements || {
+                terms: false,
+                privacy: false,
+                location: false,
+                marketing: false
+              },
+              createdAt: firestoreUserData.createdAt || Date.now(),
+              updatedAt: firestoreUserData.updatedAt || Date.now(),
+              lastLoginAt: firestoreUserData.lastLoginAt,
+              referrerId: firestoreUserData.referrerId,
               emailVerified
             });
             
@@ -131,10 +143,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setUser({
               uid,
               email: email || '',
+              role: 'student',
+              isVerified: emailVerified,
               profile: {
                 userName: displayName || '',
-                email: email || '',
                 realName: '',
+                gender: '',
                 birthYear: 0,
                 birthMonth: 0,
                 birthDay: 0,
@@ -146,12 +160,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               stats: {
                 level: 1,
                 experience: 0,
-                currentExp: 0,
+                totalExperience: 0,
                 streak: 0,
                 postCount: 0,
                 commentCount: 0,
                 likeCount: 0
               },
+              agreements: {
+                terms: false,
+                privacy: false,
+                location: false,
+                marketing: false
+              },
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
               emailVerified
             });
           }
@@ -180,7 +202,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             stats: {
               level: 1,
               experience: 0,
-              currentExp: 0,
+              totalExperience: 0,
               streak: 0,
               postCount: 0,
               commentCount: 0,
@@ -221,18 +243,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
-        profile: {
-          userName,
-          email: user.email || '',
-          realName: '',
-          birthYear: 0,
-          birthMonth: 0,
-          birthDay: 0,
-          phoneNumber: '',
-          profileImageUrl: user.photoURL || '',
-          createdAt: Date.now(),
-          isAdmin: false
-        },
+                  profile: {
+            userName,
+            realName: '',
+            gender: '',
+            birthYear: 0,
+            birthMonth: 0,
+            birthDay: 0,
+            phoneNumber: '',
+            profileImageUrl: user.photoURL || '',
+            createdAt: Date.now(),
+            isAdmin: false
+          },
         createdAt: new Date(),
         role: 'user'
       });
@@ -263,20 +285,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // 인증 토큰 쿠키 설정 (7일 유효)
       Cookies.set('authToken', await user.getIdToken(), { expires: 7 });
       
-      // 이메일 인증 상태 쿠키 설정
-      Cookies.set('emailVerified', user.emailVerified ? 'true' : 'false', { expires: 7 });
-      
       // 사용자 UID 쿠키 설정
       Cookies.set('uid', user.uid, { expires: 7 });
       
-      // 이메일 인증 확인
-      if (!user.emailVerified) {
-        // 이메일 인증이 필요한 경우 인증 페이지로 리디렉션
-        router.push('/auth/verify-email');
-      } else {
-        // 인증된 사용자는 메인 페이지로 리디렉션
-        router.push('/');
-      }
+      // 인증된 사용자는 메인 페이지로 리디렉션
+      router.push('/');
     } catch (error: unknown) {
       console.error('로그인 오류:', error);
       const errorCode = (error as { code?: string }).code;
@@ -296,7 +309,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       // 쿠키 삭제
       Cookies.remove('authToken');
-      Cookies.remove('emailVerified');
       Cookies.remove('uid');
       
       await firebaseSignOut(auth);
@@ -413,7 +425,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           stats: firestoreUserData.stats || {
             level: 1,
             experience: 0,
-            currentExp: 0,
+            totalExperience: 0,
             streak: 0,
             postCount: 0,
             commentCount: 0,

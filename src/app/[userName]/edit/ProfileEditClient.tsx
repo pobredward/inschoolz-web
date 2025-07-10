@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "@/types";
 import { toast } from "sonner";
 import { updateUserProfile, updateProfileImage } from '@/lib/api/users';
+import { getAllRegions, getDistrictsByRegion } from '@/lib/api/schools';
 import { useAuth } from "@/providers/AuthProvider";
 import {
   Select,
@@ -35,8 +36,11 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [regionsLoading, setRegionsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [provinces, setProvinces] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     userName: userData.profile?.userName || '',
     realName: userData.profile?.realName || '',
@@ -46,7 +50,49 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
     gender: userData.profile?.gender || '',
     phoneNumber: userData.profile?.phoneNumber || '',
     profileImageUrl: userData.profile?.profileImageUrl || '',
+    sido: userData.regions?.sido || '',
+    sigungu: userData.regions?.sigungu || '',
+    address: userData.regions?.address || '',
   });
+
+  // 시/도 목록 불러오기
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      setRegionsLoading(true);
+      try {
+        const regions = await getAllRegions();
+        setProvinces(regions);
+      } catch (error) {
+        console.error('시/도 목록 불러오기 오류:', error);
+      } finally {
+        setRegionsLoading(false);
+      }
+    };
+
+    fetchProvinces();
+  }, []);
+
+  // 시/군/구 목록 불러오기
+  useEffect(() => {
+    const fetchCities = async () => {
+      if (!formData.sido) {
+        setCities([]);
+        return;
+      }
+
+      setRegionsLoading(true);
+      try {
+        const districts = await getDistrictsByRegion(formData.sido);
+        setCities(districts);
+      } catch (error) {
+        console.error('시/군/구 목록 불러오기 오류:', error);
+      } finally {
+        setRegionsLoading(false);
+      }
+    };
+
+    fetchCities();
+  }, [formData.sido]);
 
   // 폼 입력값 변경 핸들러
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -56,7 +102,16 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
 
   // Select 컴포넌트 값 변경 핸들러
   const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // 시/도 변경 시 시/군/구 초기화
+      if (name === 'sido') {
+        newData.sigungu = '';
+      }
+      
+      return newData;
+    });
   };
 
   // 파일 업로드 버튼 클릭 핸들러
@@ -137,6 +192,9 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
         birthDay,
         gender: formData.gender || undefined,
         phoneNumber: formData.phoneNumber || undefined,
+        sido: formData.sido || undefined,
+        sigungu: formData.sigungu || undefined,
+        address: formData.address || undefined,
       });
       
       toast.success('프로필이 성공적으로 업데이트되었습니다.');
@@ -199,125 +257,187 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
                   accept="image/*"
                   onChange={handleFileChange}
                   className="hidden"
-                  disabled={uploadingImage}
                 />
               </div>
               
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleUploadButtonClick}
-                disabled={uploadingImage}
-                className="mt-2"
-              >
-                {uploadingImage ? '업로드 중...' : '이미지 변경'}
-              </Button>
+              <p className="text-sm text-muted-foreground text-center">
+                클릭하여 프로필 사진 변경
+              </p>
             </div>
             
-            <div className="flex-1 w-full space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="userName">사용자 이름 <span className="text-red-500">*</span></Label>
+            <div className="flex-1 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="userName">사용자명 *</Label>
                   <Input
                     id="userName"
                     name="userName"
                     value={formData.userName}
                     onChange={handleChange}
-                    placeholder="사용자 이름을 입력하세요"
-                    required
+                    placeholder="사용자명을 입력하세요"
                   />
                 </div>
                 
-                <div className="space-y-2">
+                <div>
                   <Label htmlFor="realName">실명</Label>
                   <Input
                     id="realName"
                     name="realName"
                     value={formData.realName}
                     onChange={handleChange}
-                    placeholder="실명을 입력하세요 (선택사항)"
+                    placeholder="실명을 입력하세요"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="gender">성별</Label>
+                  <Select value={formData.gender} onValueChange={(value) => handleSelectChange('gender', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="성별 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">남성</SelectItem>
+                      <SelectItem value="female">여성</SelectItem>
+                      <SelectItem value="other">기타</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="phoneNumber">전화번호</Label>
+                  <Input
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    placeholder="전화번호를 입력하세요"
                   />
                 </div>
               </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
-            <div className="space-y-2">
-              <Label>성별</Label>
-              <Select
-                value={formData.gender}
-                onValueChange={(value) => handleSelectChange('gender', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="성별을 선택하세요" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">남성</SelectItem>
-                  <SelectItem value="female">여성</SelectItem>
-                  <SelectItem value="other">기타</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber">연락처</Label>
-              <Input
-                id="phoneNumber"
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                placeholder="연락처를 입력하세요"
-              />
-            </div>
-            
-            <div className="space-y-2 md:col-span-2">
-              <Label>생년월일</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Input
-                  name="birthYear"
-                  value={formData.birthYear}
-                  onChange={handleChange}
-                  placeholder="년도"
-                  type="number"
-                />
-                <Input
-                  name="birthMonth"
-                  value={formData.birthMonth}
-                  onChange={handleChange}
-                  placeholder="월"
-                  type="number"
-                  min="1"
-                  max="12"
-                />
-                <Input
-                  name="birthDay"
-                  value={formData.birthDay}
-                  onChange={handleChange}
-                  placeholder="일"
-                  type="number"
-                  min="1"
-                  max="31"
-                />
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="birthYear">출생년도</Label>
+                  <Input
+                    id="birthYear"
+                    name="birthYear"
+                    type="number"
+                    value={formData.birthYear}
+                    onChange={handleChange}
+                    placeholder="YYYY"
+                    min="1900"
+                    max={new Date().getFullYear()}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="birthMonth">월</Label>
+                  <Select value={formData.birthMonth} onValueChange={(value) => handleSelectChange('birthMonth', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="월" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                        <SelectItem key={month} value={month.toString()}>
+                          {month}월
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="birthDay">일</Label>
+                  <Select value={formData.birthDay} onValueChange={(value) => handleSelectChange('birthDay', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="일" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                        <SelectItem key={day} value={day.toString()}>
+                          {day}일
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
       
-      <div className="flex justify-end space-x-4">
-        <Button 
-          variant="outline" 
-          onClick={handleGoBack}
-        >
-          취소
-        </Button>
-        <Button 
-          onClick={handleSaveProfile}
-          disabled={loading}
-        >
-          {loading ? '저장 중...' : '저장하기'}
+      <Card>
+        <CardHeader>
+          <CardTitle>지역 정보</CardTitle>
+          <CardDescription>거주 지역 정보를 수정합니다.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="sido">시/도</Label>
+              <Select 
+                value={formData.sido} 
+                onValueChange={(value) => handleSelectChange('sido', value)}
+                disabled={regionsLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="시/도 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {provinces.map((province) => (
+                    <SelectItem key={province} value={province}>
+                      {province}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="sigungu">시/군/구</Label>
+              <Select 
+                value={formData.sigungu} 
+                onValueChange={(value) => handleSelectChange('sigungu', value)}
+                disabled={regionsLoading || !formData.sido}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="시/군/구 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="address">상세주소</Label>
+            <Input
+              id="address"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              placeholder="상세주소를 입력하세요 (선택사항)"
+            />
+          </div>
+        </CardContent>
+      </Card>
+      
+      <div className="flex justify-end">
+        <Button onClick={handleSaveProfile} disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              저장 중...
+            </>
+          ) : (
+            '저장하기'
+          )}
         </Button>
       </div>
     </div>

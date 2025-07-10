@@ -226,12 +226,12 @@ export default function CommunityManagementPage() {
       {/* 게시판 타입별 탭 */}
       <Tabs value={selectedBoardType} onValueChange={(value) => setSelectedBoardType(value as BoardType)}>
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="common">전국 커뮤니티</TabsTrigger>
+          <TabsTrigger value="national">전국 커뮤니티</TabsTrigger>
           <TabsTrigger value="regional">지역 커뮤니티</TabsTrigger>
           <TabsTrigger value="school">학교 커뮤니티</TabsTrigger>
         </TabsList>
 
-        {(['common', 'regional', 'school'] as BoardType[]).map((boardType) => (
+        {(['national', 'regional', 'school'] as BoardType[]).map((boardType) => (
           <TabsContent key={boardType} value={boardType} className="mt-6">
             <div className="grid gap-4">
               {filteredBoards.length === 0 ? (
@@ -401,7 +401,7 @@ export default function CommunityManagementPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="common">공통</SelectItem>
+                      <SelectItem value="national">전국</SelectItem>
                       <SelectItem value="regional">지역</SelectItem>
                       <SelectItem value="school">학교</SelectItem>
                     </SelectContent>

@@ -1,55 +1,29 @@
-#!/usr/bin/env node
-/**
- * Firestore 스키마 마이그레이션 실행 스크립트
- * 
- * 사용법:
- * npm run migrate:schema
- * 
- * 또는 직접 실행:
- * npx tsx src/lib/run-migration.ts
- */
+// 마이그레이션 실행 스크립트
+// 콘솔에서 직접 실행하거나 개발 환경에서 호출할 수 있습니다.
 
-import * as dotenv from 'dotenv';
-import path from 'path';
+import { migrateUserData } from './user-migration';
 
-// 환경 변수 로드
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
-
-import { runSchemaMigration, createSampleData } from './schema-migration';
-
-async function main() {
-  const args = process.argv.slice(2);
-  const command = args[0];
-
+export async function runMigration() {
+  console.log('🚀 사용자 데이터 마이그레이션을 시작합니다...');
+  
   try {
-    switch (command) {
-      case 'sample':
-        console.log('🎯 Creating sample data...');
-        await createSampleData();
-        break;
-      
-      case 'check':
-        // 마이그레이션 상태만 확인
-        console.log('🔍 Checking migration status...');
-        // TODO: SchemaMigration의 checkMigrationStatus 호출
-        break;
-        
-      default:
-        console.log('🚀 Running full schema migration...');
-        await runSchemaMigration();
+    const result = await migrateUserData();
+    
+    if (result.success) {
+      console.log('✅ 마이그레이션 완료!');
+      console.log(`📊 처리된 사용자 수: ${result.processedCount}명`);
+    } else {
+      console.log('❌ 마이그레이션 실패:', result.error);
     }
     
-    console.log('✅ Migration completed successfully!');
-    process.exit(0);
+    return result;
   } catch (error) {
-    console.error('❌ Migration failed:', error);
-    process.exit(1);
+    console.error('💥 마이그레이션 중 예외 발생:', error);
+    return { success: false, error: '마이그레이션 중 예외 발생' };
   }
 }
 
-// 스크립트가 직접 실행될 때만 main 함수 호출
-if (require.main === module) {
-  main();
-}
-
-export { main }; 
+// 개발 환경에서 직접 실행
+if (process.env.NODE_ENV === 'development') {
+  // runMigration(); // 필요시 주석 해제
+} 

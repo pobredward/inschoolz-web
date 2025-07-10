@@ -6,7 +6,7 @@ import { formatRelativeTime } from "@/lib/utils";
 import { MessageSquare, ThumbsUp, Eye, Pin, PenSquare, Loader2 } from "lucide-react";
 import { BoardType, BoardFilterOptions } from "@/types/board";
 import { Card } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { 
   Pagination, 
@@ -31,6 +31,7 @@ interface PostWithOptionalFields {
   authorInfo?: {
     displayName?: string;
     isAnonymous?: boolean;
+    profileImageUrl?: string; // 추가된 필드
   };
   createdAt: Date | Timestamp | number;
   status?: {
@@ -212,6 +213,10 @@ export default function PostList({
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1 min-w-0">
                       <Avatar className="h-5 w-5">
+                        <AvatarImage 
+                          src={post.authorInfo?.profileImageUrl} 
+                          alt={post.authorInfo?.displayName || '사용자'} 
+                        />
                         <AvatarFallback className="text-xs">
                           {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'NA'}
                         </AvatarFallback>

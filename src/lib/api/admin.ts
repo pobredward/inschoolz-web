@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Board } from '@/types/board';
 
@@ -266,15 +266,58 @@ export const getAdminStats = async (): Promise<{
   totalExperience: number;
 }> => {
   try {
-    // TODO: 실제 통계 계산 로직 구현
-    // 현재는 임시 데이터 반환
+    // 사용자 수 계산
+    const usersSnapshot = await getCountFromServer(collection(db, 'users'));
+    const totalUsers = usersSnapshot.data().count;
+
+    // 활성 사용자 수 계산 (최근 30일 내 활동)
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const activeUsersQuery = query(
+      collection(db, 'users'),
+      where('lastActiveAt', '>=', thirtyDaysAgo)
+    );
+    const activeUsersSnapshot = await getCountFromServer(activeUsersQuery);
+    const activeUsers = activeUsersSnapshot.data().count;
+
+    // 게시글 수 계산
+    const postsSnapshot = await getCountFromServer(collection(db, 'posts'));
+    const totalPosts = postsSnapshot.data().count;
+
+    // 댓글 수 계산 (모든 게시글의 comments 서브컬렉션 합계)
+    let totalComments = 0;
+    const postsQuerySnapshot = await getDocs(collection(db, 'posts'));
+    for (const postDoc of postsQuerySnapshot.docs) {
+      const commentsSnapshot = await getCountFromServer(collection(db, 'posts', postDoc.id, 'comments'));
+      totalComments += commentsSnapshot.data().count;
+    }
+
+    // 신고 건수 계산 (처리되지 않은 신고)
+    let pendingReports = 0;
+    for (const postDoc of postsQuerySnapshot.docs) {
+      const reportsQuery = query(
+        collection(db, 'posts', postDoc.id, 'reports'),
+        where('status', '==', 'pending')
+      );
+      const reportsSnapshot = await getCountFromServer(reportsQuery);
+      pendingReports += reportsSnapshot.data().count;
+    }
+
+    // 총 경험치 계산 (모든 사용자의 누적 경험치 합계)
+    const usersQuerySnapshot = await getDocs(collection(db, 'users'));
+    let totalExperience = 0;
+    usersQuerySnapshot.forEach((userDoc) => {
+      const userData = userDoc.data();
+      const userXP = userData.stats?.xp?.total || 0;
+      totalExperience += userXP;
+    });
+
     return {
-      totalUsers: 1250,
-      activeUsers: 892,
-      totalPosts: 3456,
-      totalComments: 8921,
-      pendingReports: 12,
-      totalExperience: 456789,
+      totalUsers,
+      activeUsers,
+      totalPosts,
+      totalComments,
+      pendingReports,
+      totalExperience,
     };
   } catch (error) {
     console.error('관리자 통계 조회 오류:', error);

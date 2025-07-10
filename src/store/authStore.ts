@@ -1,140 +1,199 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { auth, db } from '@/lib/firebase';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  User as FirebaseUser,
-  updateProfile
-} from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { User } from '@/types';
 
+// 인증 상태 타입 정의
 interface AuthState {
   user: User | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
   error: string | null;
-  signUp: (email: string, password: string, userName: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  resetError: () => void;
-  setUser: (user: User | null) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+// 인증 액션 타입 정의
+interface AuthActions {
+  setUser: (user: User | null) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  clearAuth: () => void;
+  updateUserProfile: (profileData: Partial<User['profile']>) => void;
+  updateUserStats: (statsData: Partial<User['stats']>) => void;
+  updateUserSchool: (schoolData: Partial<User['school']>) => void;
+  updateUserRegions: (regionsData: Partial<User['regions']>) => void;
+  // 즐겨찾기 학교 기능은 향후 구현 예정
+  incrementExperience: (amount: number) => void;
+  updateGameStats: (gameType: string, stats: { totalScore: number }) => void;
+}
+
+// 초기 상태
+const initialState: AuthState = {
+  user: null,
+  isLoading: false,
+  isAuthenticated: false,
+  error: null,
+};
+
+// AuthStore 생성
+export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
-    (set) => ({
-      user: null,
-      isLoading: false,
-      error: null,
-      
-      signUp: async (email, password, userName) => {
-        try {
-          set({ isLoading: true, error: null });
-          
-          // Firebase 인증으로 사용자 생성
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const firebaseUser = userCredential.user;
-          
-          // 사용자 프로필 업데이트
-          await updateProfile(firebaseUser, { displayName: userName });
-          
-          // Firestore에 사용자 정보 저장
-          const newUser: User = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            profile: {
-              userName: userName,
-              email: firebaseUser.email || '',
-              realName: '',
-              birthYear: 0,
-              birthMonth: 0,
-              birthDay: 0,
-              phoneNumber: '',
-              profileImageUrl: firebaseUser.photoURL || '',
-              createdAt: Date.now(),
-              isAdmin: false
+    (set, get) => ({
+      ...initialState,
+
+      // 사용자 설정
+      setUser: (user) => {
+        set({
+          user,
+          isAuthenticated: !!user,
+          error: null,
+        });
+      },
+
+      // 로딩 상태 설정
+      setLoading: (loading) => {
+        set({ isLoading: loading });
+      },
+
+      // 에러 설정
+      setError: (error) => {
+        set({ error });
+      },
+
+      // 인증 정보 초기화
+      clearAuth: () => {
+        set(initialState);
+      },
+
+      // 프로필 업데이트
+      updateUserProfile: (profileData) => {
+        const { user } = get();
+        if (user) {
+          set({
+            user: {
+              ...user,
+              profile: {
+                ...user.profile,
+                ...profileData,
+              },
             },
-            role: 'student',
-            isVerified: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          };
-          
-          await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
-          set({ user: newUser, isLoading: false });
-        } catch (error) {
-          console.error('회원가입 오류:', error);
-          set({ 
-            error: error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.', 
-            isLoading: false 
           });
         }
       },
-      
-      signIn: async (email, password) => {
-        try {
-          set({ isLoading: true, error: null });
+
+      // 통계 업데이트
+      updateUserStats: (statsData) => {
+        const { user } = get();
+        if (user) {
+          set({
+            user: {
+              ...user,
+              stats: {
+                ...user.stats,
+                ...statsData,
+              },
+            },
+          });
+        }
+      },
+
+      // 학교 정보 업데이트
+      updateUserSchool: (schoolData) => {
+        const { user } = get();
+        if (user && user.school) {
+          set({
+            user: {
+              ...user,
+              school: {
+                ...user.school,
+                ...schoolData,
+              },
+            },
+          });
+        }
+      },
+
+      // 지역 정보 업데이트
+      updateUserRegions: (regionsData) => {
+        const { user } = get();
+        if (user && user.regions) {
+          set({
+            user: {
+              ...user,
+              regions: {
+                ...user.regions,
+                ...regionsData,
+              },
+            },
+          });
+        }
+      },
+
+      // 즐겨찾기 학교 기능은 향후 구현 예정
+
+      // 경험치 증가
+      incrementExperience: (amount) => {
+        const { user } = get();
+        if (user) {
+          const newTotalExperience = user.stats.totalExperience + amount;
           
-          // Firebase 인증으로 로그인
-          const userCredential = await signInWithEmailAndPassword(auth, email, password);
-          const firebaseUser = userCredential.user;
+          // 레벨 계산 로직 (1->2레벨: 10exp, 2->3레벨: 20exp, 오름차순)
+          let newLevel = user.stats.level;
+          let requiredExp = 0;
           
-          // Firestore에서 사용자 정보 가져오기
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          
-          if (userDoc.exists()) {
-            set({ user: userDoc.data() as User, isLoading: false });
-          } else {
-            throw new Error('사용자 정보를 찾을 수 없습니다.');
+          for (let level = 1; level < newLevel; level++) {
+            requiredExp += level * 10;
           }
-        } catch (error) {
-          console.error('로그인 오류:', error);
-          set({ 
-            error: error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.', 
-            isLoading: false 
+          
+          let currentLevelExp = newTotalExperience - requiredExp;
+          let nextLevelReq = newLevel * 10;
+          
+          while (currentLevelExp >= nextLevelReq) {
+            currentLevelExp -= nextLevelReq;
+            newLevel++;
+            nextLevelReq = newLevel * 10;
+          }
+
+          set({
+            user: {
+              ...user,
+              stats: {
+                ...user.stats,
+                experience: currentLevelExp,
+                totalExperience: newTotalExperience,
+                level: newLevel,
+              },
+            },
           });
         }
       },
-      
-      signOut: async () => {
-        try {
-          set({ isLoading: true, error: null });
-          await firebaseSignOut(auth);
-          set({ user: null, isLoading: false });
-        } catch (error) {
-          console.error('로그아웃 오류:', error);
-          set({ 
-            error: error instanceof Error ? error.message : '로그아웃 중 오류가 발생했습니다.', 
-            isLoading: false 
+
+      // 게임 통계 업데이트
+      updateGameStats: (gameType, stats) => {
+        const { user } = get();
+        if (user && user.gameStats) {
+          set({
+            user: {
+              ...user,
+              gameStats: {
+                ...user.gameStats,
+                [gameType]: stats,
+              },
+            },
           });
         }
       },
-      
-      resetError: () => set({ error: null }),
-      
-      setUser: (user) => set({ user })
     }),
     {
-      name: 'auth-storage',
-      partialize: (state) => ({ user: state.user }),
+      name: 'auth-store', // localStorage 키
+      partialize: (state) => ({
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 );
 
-// 사용자 인증 상태 변경을 감지하는 리스너
-// 클라이언트 측에서만 실행되도록 하는 로직
-if (typeof window !== 'undefined') {
-  onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-    if (firebaseUser) {
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-      if (userDoc.exists()) {
-        useAuthStore.getState().setUser(userDoc.data() as User);
-      }
-    } else {
-      useAuthStore.getState().setUser(null);
-    }
-  });
-} 
+// 편의 함수들
+export const useUser = () => useAuthStore((state) => state.user);
+export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated);
+export const useIsLoading = () => useAuthStore((state) => state.isLoading);
+export const useAuthError = () => useAuthStore((state) => state.error); 

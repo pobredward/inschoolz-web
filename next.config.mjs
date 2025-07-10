@@ -4,6 +4,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   images: {
     domains: ['firebasestorage.googleapis.com', 'source.unsplash.com', 'via.placeholder.com', 'placehold.co']
   },

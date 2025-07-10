@@ -39,8 +39,8 @@ export function RegionInfoStep({ formData, updateFormData }: RegionInfoStepProps
   const form = useForm<RegionInfoValues>({
     resolver: zodResolver(regionInfoSchema),
     defaultValues: {
-      province: formData.province || '',
-      city: formData.city || '',
+      province: formData.regions?.sido || '',
+      city: formData.regions?.sigungu || '',
     },
   });
 
@@ -87,17 +87,38 @@ export function RegionInfoStep({ formData, updateFormData }: RegionInfoStepProps
 
   const handleFieldChange = (field: 'province' | 'city', value: string) => {
     form.setValue(field, value);
-    updateFormData({ [field]: value });
     
-    // 시/도가 변경되면 시/군/구 초기화
+    // regions 구조로 저장하도록 수정
+    const currentRegions = formData.regions || { sido: '', sigungu: '', address: '' };
+    
     if (field === 'province') {
+      updateFormData({ 
+        regions: {
+          ...currentRegions,
+          sido: value,
+          sigungu: '' // 시/도 변경 시 시/군/구 초기화
+        }
+      });
       form.setValue('city', '');
-      updateFormData({ city: '' });
+    } else if (field === 'city') {
+      updateFormData({ 
+        regions: {
+          ...currentRegions,
+          sigungu: value
+        }
+      });
     }
   };
 
   const onSubmit = (values: RegionInfoValues) => {
-    updateFormData(values);
+    // regions 구조로 업데이트
+    updateFormData({
+      regions: {
+        sido: values.province,
+        sigungu: values.city,
+        address: formData.regions?.address || ''
+      }
+    });
   };
 
   return (
