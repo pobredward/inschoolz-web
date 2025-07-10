@@ -12,7 +12,6 @@ import {
   Flag,
   School,
   Gamepad2,
-  BarChart3,
   Settings,
   LogOut,
   ExternalLink
@@ -71,7 +70,6 @@ export default function AdminSidebar() {
     { href: '/admin/reports', icon: Flag, label: '신고 관리' },
     { href: '/admin/schools', icon: School, label: '학교 관리' },
     { href: '/admin/games', icon: Gamepad2, label: '게임 설정' },
-    { href: '/admin/statistics', icon: BarChart3, label: '통계 및 분석' },
     { href: '/admin/settings', icon: Settings, label: '시스템 설정' },
   ];
   

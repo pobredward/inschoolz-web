@@ -139,11 +139,13 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-gray-500">미니게임 설정 및 점수</span>
             </Button>
 
-            <Button variant="outline" className="w-full h-20 flex flex-col gap-2" disabled>
-              <BarChart3 className="h-6 w-6 text-indigo-600" />
-              <span className="font-medium">통계 분석</span>
-              <span className="text-xs text-gray-500">상세 통계 및 분석</span>
-            </Button>
+            <Link href="/admin/schools">
+              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <BarChart3 className="h-6 w-6 text-indigo-600" />
+                <span className="font-medium">학교 관리</span>
+                <span className="text-xs text-gray-500">학교 정보 및 설정 관리</span>
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

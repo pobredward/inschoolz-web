@@ -1,6 +1,7 @@
-import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Board } from '@/types/board';
+import { School } from '@/types';
 
 // 경험치 설정 타입 정의
 export interface ExperienceSettings {
@@ -324,3 +325,201 @@ export const getAdminStats = async (): Promise<{
     throw new Error('통계 데이터를 가져오는 중 오류가 발생했습니다.');
   }
 }; 
+
+// 관리자용 학교 관리 함수들
+export const adminGetAllSchools = async (): Promise<School[]> => {
+  try {
+    const schoolsRef = collection(db, 'schools');
+    
+    // 인덱스 기반 최적화된 쿼리: favoriteCount desc, memberCount desc 순으로 정렬
+    const q = query(
+      schoolsRef,
+      orderBy('favoriteCount', 'desc'),
+      orderBy('memberCount', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const schools: School[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const schoolData = doc.data();
+      const memberCount = schoolData.memberCount || 0;
+      const favoriteCount = schoolData.favoriteCount || 0;
+      
+      // memberCount >= 1 또는 favoriteCount >= 1인 학교만 추가
+      if (memberCount >= 1 || favoriteCount >= 1) {
+        schools.push({
+          id: doc.id,
+          name: schoolData.KOR_NAME || schoolData.name,
+          address: schoolData.ADDRESS || schoolData.address,
+          district: schoolData.REGION || schoolData.district,
+          type: getSchoolType(schoolData.KOR_NAME || schoolData.name),
+          logoUrl: schoolData.logoUrl,
+          websiteUrl: schoolData.HOMEPAGE || schoolData.websiteUrl,
+          regions: {
+            sido: schoolData.REGION || schoolData.regions?.sido,
+            sigungu: getDistrict(schoolData.ADDRESS || schoolData.address)
+          },
+          gameStats: schoolData.gameStats,
+          createdAt: schoolData.createdAt || Date.now(),
+          updatedAt: schoolData.updatedAt || Date.now(),
+          memberCount,
+          favoriteCount
+        });
+      }
+    });
+    
+    // 이미 Firestore에서 정렬된 상태로 가져오므로 추가 정렬 불필요
+    return schools;
+  } catch (error) {
+    console.error('관리자 학교 목록 조회 오류:', error);
+    throw new Error('학교 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+export const adminSearchSchools = async (searchTerm: string): Promise<School[]> => {
+  try {
+    if (!searchTerm.trim()) {
+      return adminGetAllSchools();
+    }
+
+    const schoolsRef = collection(db, 'schools');
+    
+    // KOR_NAME으로 시작하는 학교들만 Firebase에서 직접 검색
+    const q = query(
+      schoolsRef,
+      where('KOR_NAME', '>=', searchTerm),
+      where('KOR_NAME', '<', searchTerm + '\uf8ff'),
+      orderBy('KOR_NAME'),
+      limit(100) // 결과 수 제한으로 성능 최적화
+    );
+
+    const snapshot = await getDocs(q);
+    const schools: School[] = [];
+
+    snapshot.forEach((doc) => {
+      const schoolData = doc.data();
+      const schoolName = schoolData.KOR_NAME || schoolData.name || '';
+      
+      schools.push({
+        id: doc.id,
+        name: schoolName,
+        address: schoolData.ADDRESS || schoolData.address || '',
+        district: schoolData.REGION || schoolData.district || '',
+        type: getSchoolType(schoolName),
+        logoUrl: schoolData.logoUrl || '',
+        websiteUrl: schoolData.HOMEPAGE || schoolData.websiteUrl || '',
+        regions: {
+          sido: schoolData.REGION || schoolData.regions?.sido || '',
+          sigungu: getDistrict(schoolData.ADDRESS || schoolData.address || '')
+        },
+        gameStats: schoolData.gameStats || {},
+        createdAt: schoolData.createdAt || Date.now(),
+        updatedAt: schoolData.updatedAt || Date.now(),
+        memberCount: schoolData.memberCount || 0,
+        favoriteCount: schoolData.favoriteCount || 0
+      });
+    });
+
+    // 학교명 기준으로 정확도 정렬
+    return schools.sort((a, b) => {
+      const aName = a.name || '';
+      const bName = b.name || '';
+      
+      // 완전 매칭 우선
+      const aExactMatch = aName === searchTerm ? 1 : 0;
+      const bExactMatch = bName === searchTerm ? 1 : 0;
+      if (aExactMatch !== bExactMatch) return bExactMatch - aExactMatch;
+      
+      // 즐겨찾기 수로 정렬
+      const aFavorites = a.favoriteCount || 0;
+      const bFavorites = b.favoriteCount || 0;
+      if (aFavorites !== bFavorites) return bFavorites - aFavorites;
+      
+      // 멤버 수로 정렬
+      return (b.memberCount || 0) - (a.memberCount || 0);
+    });
+  } catch (error) {
+    console.error('관리자 학교 검색 오류:', error);
+    throw new Error('학교 검색 중 오류가 발생했습니다.');
+  }
+};
+
+export const adminCreateSchool = async (schoolData: Omit<School, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  try {
+    const schoolsRef = collection(db, 'schools');
+    const newSchoolRef = doc(schoolsRef);
+    
+    const createData = {
+      KOR_NAME: schoolData.name,
+      ADDRESS: schoolData.address,
+      REGION: schoolData.district,
+      HOMEPAGE: schoolData.websiteUrl || '',
+      logoUrl: schoolData.logoUrl || '',
+      memberCount: schoolData.memberCount || 0,
+      favoriteCount: schoolData.favoriteCount || 0,
+      gameStats: schoolData.gameStats || {},
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    
+    await setDoc(newSchoolRef, createData);
+    return newSchoolRef.id;
+  } catch (error) {
+    console.error('관리자 학교 생성 오류:', error);
+    throw new Error('학교 생성 중 오류가 발생했습니다.');
+  }
+};
+
+export const adminUpdateSchool = async (schoolId: string, schoolData: Partial<School>): Promise<void> => {
+  try {
+    const schoolRef = doc(db, 'schools', schoolId);
+    
+    const updateData: Record<string, string | number | object> = {
+      updatedAt: Date.now()
+    };
+    
+    if (schoolData.name !== undefined) updateData.KOR_NAME = schoolData.name;
+    if (schoolData.address !== undefined) updateData.ADDRESS = schoolData.address;
+    if (schoolData.district !== undefined) updateData.REGION = schoolData.district;
+    if (schoolData.websiteUrl !== undefined) updateData.HOMEPAGE = schoolData.websiteUrl;
+    if (schoolData.logoUrl !== undefined) updateData.logoUrl = schoolData.logoUrl;
+    if (schoolData.memberCount !== undefined) updateData.memberCount = schoolData.memberCount;
+    if (schoolData.favoriteCount !== undefined) updateData.favoriteCount = schoolData.favoriteCount;
+    if (schoolData.gameStats !== undefined) updateData.gameStats = schoolData.gameStats;
+    
+    await updateDoc(schoolRef, updateData);
+  } catch (error) {
+    console.error('관리자 학교 수정 오류:', error);
+    throw new Error('학교 정보 수정 중 오류가 발생했습니다.');
+  }
+};
+
+export const adminDeleteSchool = async (schoolId: string): Promise<void> => {
+  try {
+    const schoolRef = doc(db, 'schools', schoolId);
+    await deleteDoc(schoolRef);
+  } catch (error) {
+    console.error('관리자 학교 삭제 오류:', error);
+    throw new Error('학교 삭제 중 오류가 발생했습니다.');
+  }
+};
+
+// 헬퍼 함수들
+function getSchoolType(schoolName: string): '초등학교' | '중학교' | '고등학교' | '대학교' {
+  if (schoolName.includes('초등학교')) return '초등학교';
+  if (schoolName.includes('중학교')) return '중학교';
+  if (schoolName.includes('고등학교')) return '고등학교';
+  if (schoolName.includes('대학교')) return '대학교';
+  return '고등학교';
+}
+
+function getDistrict(address: string): string {
+  if (!address) return '';
+  
+  const addressParts = address.split(' ');
+  if (addressParts.length >= 2) {
+    return addressParts[1];
+  }
+  return '';
+} 
