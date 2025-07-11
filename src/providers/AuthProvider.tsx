@@ -79,10 +79,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             // Firestore의 실제 사용자 데이터 사용
             const firestoreUserData = userDoc.data();
             
-            // 쿠키 설정
-            Cookies.set('authToken', await firebaseUser.getIdToken(), { expires: 7 });
+            // 쿠키 설정 (일관성을 위해 uid와 userId 둘 다 설정)
+            const authToken = await firebaseUser.getIdToken();
+            Cookies.set('authToken', authToken, { expires: 7 });
             Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
             Cookies.set('uid', uid, { expires: 7 });
+            Cookies.set('userId', uid, { expires: 7 }); // 추가: 일관성을 위해
+            
+            console.log('AuthProvider - 쿠키 설정 완료:', { uid, authToken: authToken.substring(0, 20) + '...' });
             
             setUser({
               uid,
@@ -136,9 +140,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             }
           } else {
             // Firestore에 사용자 데이터가 없는 경우 기본값 사용
-            Cookies.set('authToken', await firebaseUser.getIdToken(), { expires: 7 });
+            const authToken = await firebaseUser.getIdToken();
+            Cookies.set('authToken', authToken, { expires: 7 });
             Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
             Cookies.set('uid', uid, { expires: 7 });
+            Cookies.set('userId', uid, { expires: 7 }); // 추가: 일관성을 위해
+            
+            console.log('AuthProvider - 기본 쿠키 설정 완료:', { uid });
             
             setUser({
               uid,
@@ -161,6 +169,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 level: 1,
                 experience: 0,
                 totalExperience: 0,
+                currentLevelRequiredXp: 0,
                 streak: 0,
                 postCount: 0,
                 commentCount: 0,
@@ -180,17 +189,23 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } catch (error) {
           console.error('사용자 데이터 조회 오류:', error);
           // 오류 발생 시 기본값 사용
-          Cookies.set('authToken', await firebaseUser.getIdToken(), { expires: 7 });
+          const authToken = await firebaseUser.getIdToken();
+          Cookies.set('authToken', authToken, { expires: 7 });
           Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
           Cookies.set('uid', uid, { expires: 7 });
+          Cookies.set('userId', uid, { expires: 7 }); // 추가: 일관성을 위해
+          
+          console.log('AuthProvider - 오류 후 기본 쿠키 설정:', { uid });
           
           setUser({
             uid,
             email: email || '',
+            role: 'student',
+            isVerified: emailVerified,
             profile: {
               userName: displayName || '',
-              email: email || '',
               realName: '',
+              gender: '',
               birthYear: 0,
               birthMonth: 0,
               birthDay: 0,
@@ -203,11 +218,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               level: 1,
               experience: 0,
               totalExperience: 0,
+              currentLevelRequiredXp: 0,
               streak: 0,
               postCount: 0,
               commentCount: 0,
               likeCount: 0
             },
+            agreements: {
+              terms: false,
+              privacy: false,
+              location: false,
+              marketing: false
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
             emailVerified
           });
         }
@@ -216,7 +240,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         Cookies.remove('authToken');
         Cookies.remove('emailVerified');
         Cookies.remove('uid');
+        Cookies.remove('userId'); // 추가: 일관성을 위해
         Cookies.remove('userRole');
+        
+        console.log('AuthProvider - 로그아웃: 모든 쿠키 삭제');
         
         setUser(null);
         setIsAdmin(false);
@@ -285,8 +312,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // 인증 토큰 쿠키 설정 (7일 유효)
       Cookies.set('authToken', await user.getIdToken(), { expires: 7 });
       
-      // 사용자 UID 쿠키 설정
+      // 사용자 UID 쿠키 설정 (일관성을 위해 uid와 userId 둘 다 설정)
       Cookies.set('uid', user.uid, { expires: 7 });
+      Cookies.set('userId', user.uid, { expires: 7 });
       
       // 인증된 사용자는 메인 페이지로 리디렉션
       router.push('/');
@@ -310,6 +338,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // 쿠키 삭제
       Cookies.remove('authToken');
       Cookies.remove('uid');
+      Cookies.remove('userId');
       
       await firebaseSignOut(auth);
       router.push('/');

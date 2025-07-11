@@ -577,56 +577,37 @@ export const toggleBlock = async (
  */
 export const getUserActivitySummary = async (userId: string) => {
   try {
-    // 가장 활발한 게시판 Top 3
-    const postsRef = collection(db, 'posts');
-    const postsQuery = query(
-      postsRef,
-      where('authorId', '==', userId),
-      where('status.isDeleted', '==', false)
-    );
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+
+    const userData = userDoc.data() as User;
     
-    const postsSnapshot = await getDocs(postsQuery);
-    const posts = postsSnapshot.docs.map(doc => doc.data() as Post);
-    
-    // 게시판별 게시글 수 집계
-    const boardPostCounts: Record<string, number> = {};
-    
-    posts.forEach(post => {
-      if (boardPostCounts[post.boardCode]) {
-        boardPostCounts[post.boardCode]++;
-      } else {
-        boardPostCounts[post.boardCode] = 1;
-      }
-    });
-    
-    // 게시글 수가 많은 순으로 정렬
-    const sortedBoards = Object.entries(boardPostCounts)
-      .sort(([, countA], [, countB]) => countB - countA)
-      .slice(0, 3)
-      .map(([boardCode, count]) => ({ boardCode, count }));
-    
-    // 가장 인기있는 게시글 Top 3
-    const popularPostsQuery = query(
-      postsRef,
-      where('authorId', '==', userId),
-      where('status.isDeleted', '==', false),
-      orderBy('stats.likeCount', 'desc'),
-      limit(3)
-    );
-    
-    const popularPostsSnapshot = await getDocs(popularPostsQuery);
-    const popularPosts = popularPostsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Post));
+    // 다음 레벨까지 필요한 경험치 계산
+    const calculateNextLevelXP = (currentLevel: number): number => {
+      return currentLevel * 10; // 1->2레벨: 10XP, 2->3레벨: 20XP, ...
+    };
+
+    const level = userData.stats?.level || 1;
+    const currentExp = userData.stats?.currentExp || 0;
+    const totalExperience = userData.stats?.totalExperience || 0;
+    const nextLevelXP = calculateNextLevelXP(level);
     
     return {
-      mostActiveBoards: sortedBoards,
-      topPosts: popularPosts
+      level,
+      currentExp,
+      totalExperience,
+      nextLevelXP,
+      totalPosts: userData.stats?.postCount || 0,
+      totalComments: userData.stats?.commentCount || 0,
+      totalLikes: userData.stats?.likeCount || 0,
+      totalViews: 0, // 추후 구현
+      streak: userData.stats?.streak || 0
     };
   } catch (error) {
     console.error('사용자 활동 요약 조회 오류:', error);
-    throw new Error('사용자 활동 요약을 조회하는 중 오류가 발생했습니다.');
+    throw new Error('사용자 활동 요약을 가져오는 중 오류가 발생했습니다.');
   }
 };
 

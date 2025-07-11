@@ -42,8 +42,10 @@ export interface UserProfile {
 // 사용자 통계 인터페이스 (통일된 구조)
 export interface UserStats {
   level: number; // 레벨
-  experience: number; // 현재 경험치
-  totalExperience: number; // 누적 경험치
+  currentExp: number; // 현재 레벨에서의 경험치 (0부터 시작)
+  experience: number; // 총 경험치 (호환성을 위해 유지, totalExperience와 동일)
+  totalExperience: number; // 누적 경험치 (메인 필드)
+  currentLevelRequiredXp: number; // 현재 레벨에서 다음 레벨로 가기 위해 필요한 경험치
   postCount: number; // 게시글 수
   commentCount: number; // 댓글 수
   likeCount: number; // 좋아요 수
@@ -79,9 +81,15 @@ export interface User {
   
   // 게임 통계
   gameStats?: {
-    flappyBird?: { totalScore: number };
-    reactionGame?: { totalScore: number };
-    tileGame?: { totalScore: number };
+    flappyBird?: { 
+      bestReactionTime?: number; // ms 단위
+    };
+    reactionGame?: { 
+      bestReactionTime?: number; // ms 단위
+    };
+    tileGame?: { 
+      bestReactionTime?: number; // ms 단위
+    };
   };
   
   // 약관 동의 (통합)
@@ -338,4 +346,61 @@ export interface UserAttendance {
   leveledUp?: boolean;
   oldLevel?: number;
   newLevel?: number;
+} 
+
+export interface SystemSettings {
+  experience: {
+    postReward: number;
+    commentReward: number;
+    likeReward: number;
+    attendanceReward: number;
+    attendanceStreakReward: number;
+    referralReward: number;
+    levelRequirements: Record<number, number>;
+  };
+  dailyLimits: {
+    postsForReward: number;
+    commentsForReward: number;
+    gamePlayCount: number;
+  };
+  gameSettings: {
+    reactionGame: {
+      rewardThreshold: number;
+      rewardAmount: number;
+      thresholds?: Array<{
+        minScore: number;
+        xpReward: number;
+      }>;
+    };
+    tileGame: {
+      rewardThreshold: number;
+      rewardAmount: number;
+      thresholds?: Array<{
+        minScore: number;
+        xpReward: number;
+      }>;
+    };
+    flappyBird: {
+      rewardThreshold: number;
+      rewardAmount: number;
+    };
+  };
+  ads: {
+    rewardedVideo: {
+      gameExtraPlays: number;
+      cooldownMinutes: number;
+    };
+  };
+  appVersion: {
+    current: string;
+    minimum: string;
+    forceUpdate: boolean;
+  };
+  maintenance: {
+    isActive: boolean;
+  };
+  attendanceBonus?: {
+    weeklyBonusXP: number;
+    streakBonus: number;
+  };
 } 

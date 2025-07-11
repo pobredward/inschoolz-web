@@ -1,57 +1,54 @@
-import { doc, getDoc, updateDoc, increment, collection, query, orderBy, limit, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, serverTimestamp, increment, collection, query, where, orderBy, limit, getDocs, FieldValue } from 'firebase/firestore';
+import { db } from './firebase';
 import { User, SystemSettings } from '@/types';
 
-// 경험치 관련 상수 (시스템 설정에서 동적으로 로드됨)
-export const DEFAULT_XP_CONSTANTS = {
-  // 커뮤니티 활동 경험치
-  POST_XP: 10,
-  COMMENT_XP: 5,
-  LIKE_XP: 1,
-  
-  // 출석 경험치
-  ATTENDANCE_XP: 5,
-  ATTENDANCE_STREAK_XP: 10,
-  
-  // 추천 경험치
-  REFERRAL_XP: 50,
-  
-  // 게임 경험치 (기본값)
-  REACTION_GAME_XP: 15,
-  TILE_GAME_XP: 20,
-  FLAPPY_BIRD_XP: 25,
-  
-  // 일일 활동 제한
-  DAILY_POST_LIMIT: 3,
-  DAILY_COMMENT_LIMIT: 5,
-  DAILY_GAME_LIMIT: 5
+// 레벨별 필요 경험치 (1→2레벨 10exp, 2→3레벨 20exp, 오름차순)
+// 각 레벨에서 다음 레벨로 가기 위해 필요한 경험치
+export const LEVEL_REQUIREMENTS = {
+  1: 10,   // 1레벨 → 2레벨
+  2: 20,   // 2레벨 → 3레벨
+  3: 30,   // 3레벨 → 4레벨
+  4: 40,   // 4레벨 → 5레벨
+  5: 50,   // 5레벨 → 6레벨
+  6: 60,   // 6레벨 → 7레벨
+  7: 70,   // 7레벨 → 8레벨
+  8: 80,   // 8레벨 → 9레벨
+  9: 90,   // 9레벨 → 10레벨
+  10: 100, // 10레벨 → 11레벨
+  11: 110, // 11레벨 → 12레벨
+  12: 120, // 12레벨 → 13레벨
+  13: 130,
+  14: 140,
+  15: 150,
+  16: 160,
+  17: 170,
+  18: 180,
+  19: 190,
+  20: 200
 };
 
-// 하위 호환성을 위한 export
-export const XP_CONSTANTS = DEFAULT_XP_CONSTANTS;
-
-// 레벨별 필요 경험치 (1->2레벨 10exp, 2->3레벨 20exp, 오름차순)
-export const DEFAULT_LEVEL_REQUIREMENTS = {
-  1: 0,
-  2: 10,
-  3: 30,  // 10 + 20
-  4: 60,  // 10 + 20 + 30
-  5: 100, // 10 + 20 + 30 + 40
-  6: 150, // 10 + 20 + 30 + 40 + 50
-  7: 210,
-  8: 280,
-  9: 360,
-  10: 450,
-  11: 550,
-  12: 660,
-  13: 780,
-  14: 910,
-  15: 1050,
-  16: 1200,
-  17: 1360,
-  18: 1530,
-  19: 1710,
-  20: 1900
+// 레벨별 누적 경험치 (총 경험치로 레벨 계산용)
+export const CUMULATIVE_REQUIREMENTS = {
+  1: 0,    // 1레벨 시작
+  2: 10,   // 1→2레벨 10exp
+  3: 30,   // 10 + 20 = 30
+  4: 60,   // 30 + 30 = 60
+  5: 100,  // 60 + 40 = 100
+  6: 150,  // 100 + 50 = 150
+  7: 210,  // 150 + 60 = 210
+  8: 280,  // 210 + 70 = 280
+  9: 360,  // 280 + 80 = 360
+  10: 450, // 360 + 90 = 450
+  11: 550, // 450 + 100 = 550
+  12: 660, // 550 + 110 = 660
+  13: 780, // 660 + 120 = 780
+  14: 910, // 780 + 130 = 910
+  15: 1050, // 910 + 140 = 1050
+  16: 1200, // 1050 + 150 = 1200
+  17: 1360, // 1200 + 160 = 1360
+  18: 1530, // 1360 + 170 = 1530
+  19: 1710, // 1530 + 180 = 1710
+  20: 1900  // 1710 + 190 = 1900
 };
 
 /**
@@ -65,9 +62,73 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
   }
   
   try {
-    const settingsDoc = await getDoc(doc(db, 'system', 'settings'));
-    if (settingsDoc.exists()) {
-      cachedSystemSettings = settingsDoc.data() as SystemSettings;
+    // Firebase의 실제 experienceSettings 문서 읽기
+    const experienceSettingsDoc = await getDoc(doc(db, 'system', 'experienceSettings'));
+    
+    if (experienceSettingsDoc.exists()) {
+      const firebaseSettings = experienceSettingsDoc.data();
+      
+      // Firebase 구조를 코드 구조로 변환
+      cachedSystemSettings = {
+        experience: {
+          postReward: firebaseSettings.community?.postXP || 10, // 기본값 10
+          commentReward: firebaseSettings.community?.commentXP || 5, // 기본값 5
+          likeReward: firebaseSettings.community?.likeXP || 1, // 기본값 1
+          attendanceReward: firebaseSettings.attendance?.dailyXP || 5, // 기본값 5
+          attendanceStreakReward: firebaseSettings.attendance?.streakBonus || 10, // 기본값 10
+          referralReward: 50, // 기본값 50
+          levelRequirements: LEVEL_REQUIREMENTS, // 시스템 설정에서 로드된 값 사용
+        },
+        dailyLimits: {
+          postsForReward: firebaseSettings.community?.dailyPostLimit || 3, // 기본값 3
+          commentsForReward: firebaseSettings.community?.dailyCommentLimit || 5, // 기본값 5
+          gamePlayCount: firebaseSettings.games?.reactionGame?.dailyLimit || 5 // 기본값 5
+        },
+        gameSettings: {
+          reactionGame: {
+            rewardThreshold: 500, // 기본값 유지 (thresholds 배열로 대체됨)
+            rewardAmount: 15, // 기본값 15
+            thresholds: firebaseSettings.games?.reactionGame?.thresholds || [
+              { minScore: 100, xpReward: 5 },
+              { minScore: 200, xpReward: 10 },
+              { minScore: 300, xpReward: 15 }
+            ]
+          },
+          tileGame: {
+            rewardThreshold: 800, // 기본값 유지 (thresholds 배열로 대체됨)
+            rewardAmount: 20, // 기본값 20
+            thresholds: firebaseSettings.games?.tileGame?.thresholds || [
+              { minScore: 50, xpReward: 5 },
+              { minScore: 100, xpReward: 10 },
+              { minScore: 150, xpReward: 15 }
+            ]
+          },
+          flappyBird: {
+            rewardThreshold: 10,
+            rewardAmount: 25 // 기본값 25
+          }
+        },
+        ads: {
+          rewardedVideo: {
+            gameExtraPlays: 3,
+            cooldownMinutes: 30
+          }
+        },
+        appVersion: {
+          current: '1.0.0',
+          minimum: '1.0.0',
+          forceUpdate: false
+        },
+        maintenance: {
+          isActive: false
+        },
+        // Firebase 설정 추가
+        attendanceBonus: {
+          weeklyBonusXP: firebaseSettings.attendance?.weeklyBonusXP || 50,
+          streakBonus: firebaseSettings.attendance?.streakBonus || 5
+        }
+      };
+      
       return cachedSystemSettings;
     }
   } catch (error) {
@@ -77,31 +138,41 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
   // 기본값 반환
   return {
     experience: {
-      postReward: DEFAULT_XP_CONSTANTS.POST_XP,
-      commentReward: DEFAULT_XP_CONSTANTS.COMMENT_XP,
-      likeReward: DEFAULT_XP_CONSTANTS.LIKE_XP,
-      attendanceReward: DEFAULT_XP_CONSTANTS.ATTENDANCE_XP,
-      attendanceStreakReward: DEFAULT_XP_CONSTANTS.ATTENDANCE_STREAK_XP,
-      referralReward: DEFAULT_XP_CONSTANTS.REFERRAL_XP,
-      levelRequirements: DEFAULT_LEVEL_REQUIREMENTS
+      postReward: 10,
+      commentReward: 5,
+      likeReward: 1,
+      attendanceReward: 5,
+      attendanceStreakReward: 10,
+      referralReward: 50,
+      levelRequirements: LEVEL_REQUIREMENTS
     },
     dailyLimits: {
-      postsForReward: DEFAULT_XP_CONSTANTS.DAILY_POST_LIMIT,
-      commentsForReward: DEFAULT_XP_CONSTANTS.DAILY_COMMENT_LIMIT,
-      gamePlayCount: DEFAULT_XP_CONSTANTS.DAILY_GAME_LIMIT
+      postsForReward: 3,
+      commentsForReward: 5,
+      gamePlayCount: 5
     },
     gameSettings: {
       reactionGame: {
         rewardThreshold: 500,
-        rewardAmount: DEFAULT_XP_CONSTANTS.REACTION_GAME_XP
+        rewardAmount: 15,
+        thresholds: [
+          { minScore: 100, xpReward: 5 },
+          { minScore: 200, xpReward: 10 },
+          { minScore: 300, xpReward: 15 }
+        ]
       },
       tileGame: {
         rewardThreshold: 800,
-        rewardAmount: DEFAULT_XP_CONSTANTS.TILE_GAME_XP
+        rewardAmount: 20,
+        thresholds: [
+          { minScore: 50, xpReward: 5 },
+          { minScore: 100, xpReward: 10 },
+          { minScore: 150, xpReward: 15 }
+        ]
       },
       flappyBird: {
         rewardThreshold: 10,
-        rewardAmount: DEFAULT_XP_CONSTANTS.FLAPPY_BIRD_XP
+        rewardAmount: 25
       }
     },
     ads: {
@@ -117,8 +188,20 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     },
     maintenance: {
       isActive: false
+    },
+    attendanceBonus: {
+      weeklyBonusXP: 50,
+      streakBonus: 5
     }
   };
+};
+
+/**
+ * 시스템 설정 캐시 무효화
+ * 관리자가 설정을 변경했을 때 호출
+ */
+export const invalidateSystemSettingsCache = (): void => {
+  cachedSystemSettings = null;
 };
 
 /**
@@ -144,12 +227,9 @@ export const calculateExpToNextLevel = async (currentLevel: number): Promise<num
 /**
  * 총 경험치에서 현재 레벨 계산
  */
-export const calculateLevelFromTotalExp = async (totalExp: number): Promise<number> => {
-  const settings = await getSystemSettings();
-  const requirements = settings.experience.levelRequirements;
-  
+export const calculateLevelFromTotalExp = (totalExp: number): number => {
   let level = 1;
-  for (const [levelStr, requiredExp] of Object.entries(requirements)) {
+  for (const [levelStr, requiredExp] of Object.entries(CUMULATIVE_REQUIREMENTS)) {
     const levelNum = parseInt(levelStr);
     if (totalExp >= requiredExp) {
       level = levelNum;
@@ -157,136 +237,156 @@ export const calculateLevelFromTotalExp = async (totalExp: number): Promise<numb
       break;
     }
   }
-  
   return level;
 };
 
 /**
- * 현재 레벨에서의 경험치 및 진행률 계산
+ * 현재 레벨에서 다음 레벨로 가기 위해 필요한 경험치
  */
-export const calculateCurrentLevelProgress = async (totalExp: number): Promise<{
+export const getExpRequiredForNextLevel = (currentLevel: number): number => {
+  return LEVEL_REQUIREMENTS[currentLevel as keyof typeof LEVEL_REQUIREMENTS] || (currentLevel * 10);
+};
+
+/**
+ * 현재 레벨에서의 경험치 진행률 계산
+ */
+export const calculateCurrentLevelProgress = (totalExp: number): {
   level: number;
-  currentLevelExp: number;
+  currentExp: number;
   expToNextLevel: number;
+  currentLevelRequiredXp: number;
   progressPercentage: number;
-}> => {
-  const level = await calculateLevelFromTotalExp(totalExp);
-  const currentLevelExp = await calculateRequiredExpForLevel(level);
-  const nextLevelExp = await calculateRequiredExpForLevel(level + 1);
+} => {
+  const level = calculateLevelFromTotalExp(totalExp);
+  const currentLevelStartExp = CUMULATIVE_REQUIREMENTS[level as keyof typeof CUMULATIVE_REQUIREMENTS] || 0;
+  const currentExp = totalExp - currentLevelStartExp;
+  const currentLevelRequiredXp = getExpRequiredForNextLevel(level);
+  const expToNextLevel = currentLevelRequiredXp - currentExp;
   
-  const currentLevelProgress = totalExp - currentLevelExp;
-  const expToNextLevel = nextLevelExp - totalExp;
-  const requiredForThisLevel = nextLevelExp - currentLevelExp;
-  
-  const progressPercentage = Math.min(100, Math.floor((currentLevelProgress / requiredForThisLevel) * 100));
+  const progressPercentage = Math.min(100, Math.floor((currentExp / currentLevelRequiredXp) * 100));
   
   return {
     level,
-    currentLevelExp: currentLevelProgress,
-    expToNextLevel,
+    currentExp,
+    expToNextLevel: Math.max(0, expToNextLevel),
+    currentLevelRequiredXp,
     progressPercentage
   };
 };
 
 /**
- * 일일 활동 제한 확인
+ * 레벨업 체크 및 처리
+ */
+export const checkLevelUp = (currentLevel: number, currentExp: number, currentLevelRequiredXp: number): {
+  shouldLevelUp: boolean;
+  newLevel: number;
+  newCurrentExp: number;
+  newCurrentLevelRequiredXp: number;
+} => {
+  let newLevel = currentLevel;
+  let newCurrentExp = currentExp;
+  let newCurrentLevelRequiredXp = currentLevelRequiredXp;
+  let shouldLevelUp = false;
+  
+  // 레벨업 조건: 현재 경험치가 필요 경험치보다 크거나 같을 때
+  while (newCurrentExp >= newCurrentLevelRequiredXp) {
+    shouldLevelUp = true;
+    newCurrentExp -= newCurrentLevelRequiredXp; // 레벨업 후 남은 경험치
+    newLevel++;
+    newCurrentLevelRequiredXp = getExpRequiredForNextLevel(newLevel);
+  }
+  
+  return {
+    shouldLevelUp,
+    newLevel,
+    newCurrentExp,
+    newCurrentLevelRequiredXp
+  };
+};
+
+/**
+ * 일일 활동 제한 확인 함수
  */
 export const checkDailyLimit = async (userId: string, activityType: 'posts' | 'comments' | 'games'): Promise<{
   canEarnExp: boolean;
   currentCount: number;
   limit: number;
-  resetTime: Date;
 }> => {
-  const userDoc = await getDoc(doc(db, 'users', userId));
-  if (!userDoc.exists()) {
-    throw new Error('사용자를 찾을 수 없습니다.');
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      return { canEarnExp: false, currentCount: 0, limit: 0 };
+    }
+    
+    const userData = userDoc.data() as User;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 활동 제한 데이터 확인
+    const activityLimits = userData.activityLimits;
+    if (!activityLimits || activityLimits.lastResetDate !== today) {
+      // 새로운 날이거나 데이터가 없으면 제한 없음
+      return { canEarnExp: true, currentCount: 0, limit: getActivityLimit(activityType) };
+    }
+    
+    let currentCount = 0;
+    
+    if (activityType === 'games') {
+      // 게임의 경우 모든 게임 타입의 합계
+      const gamesCounts = activityLimits.dailyCounts.games || { flappyBird: 0, reactionGame: 0, tileGame: 0 };
+      currentCount = gamesCounts.flappyBird + gamesCounts.reactionGame + gamesCounts.tileGame;
+    } else {
+      // posts, comments의 경우
+      currentCount = (activityLimits.dailyCounts[activityType] as number) || 0;
+    }
+    
+    const limit = getActivityLimit(activityType);
+    
+    return {
+      canEarnExp: currentCount < limit,
+      currentCount,
+      limit
+    };
+  } catch (error) {
+    console.error('일일 제한 확인 오류:', error);
+    return { canEarnExp: false, currentCount: 0, limit: 0 };
   }
-  
-  const userData = userDoc.data() as User;
-  const settings = await getSystemSettings();
-  const today = new Date().toISOString().split('T')[0];
-  
-  // 일일 제한 데이터 확인
-  const activityLimits = userData.activityLimits;
-  const lastResetDate = activityLimits?.lastResetDate;
-  const dailyCounts = activityLimits?.dailyCounts || { posts: 0, comments: 0, games: { flappyBird: 0, reactionGame: 0, tileGame: 0 } };
-  
-  // 날짜가 바뀌었으면 리셋
-  const needsReset = lastResetDate !== today;
-  
-  let currentCount = 0;
-  let limit = 0;
-  
+};
+
+/**
+ * 활동 타입별 제한 수치 반환
+ */
+const getActivityLimit = (activityType: 'posts' | 'comments' | 'games'): number => {
   switch (activityType) {
-    case 'posts':
-      currentCount = needsReset ? 0 : dailyCounts.posts || 0;
-      limit = settings.dailyLimits.postsForReward;
-      break;
-    case 'comments':
-      currentCount = needsReset ? 0 : dailyCounts.comments || 0;
-      limit = settings.dailyLimits.commentsForReward;
-      break;
-    case 'games':
-      const totalGames = (dailyCounts.games?.flappyBird || 0) + 
-                        (dailyCounts.games?.reactionGame || 0) + 
-                        (dailyCounts.games?.tileGame || 0);
-      currentCount = needsReset ? 0 : totalGames;
-      limit = settings.dailyLimits.gamePlayCount;
-      break;
+    case 'posts': return 3;
+    case 'comments': return 5;
+    case 'games': return 5;
+    default: return 0;
   }
-  
-  // 다음 리셋 시간 (다음날 00:00)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-  
-  return {
-    canEarnExp: currentCount < limit,
-    currentCount,
-    limit,
-    resetTime: tomorrow
-  };
 };
 
 /**
  * 활동 카운트 업데이트
  */
-export const updateActivityCount = async (userId: string, activityType: 'posts' | 'comments', gameType?: 'flappyBird' | 'reactionGame' | 'tileGame'): Promise<void> => {
-  const today = new Date().toISOString().split('T')[0];
-  const userRef = doc(db, 'users', userId);
-  
-  const userDoc = await getDoc(userRef);
-  if (!userDoc.exists()) return;
-  
-  const userData = userDoc.data() as User;
-  const activityLimits = userData.activityLimits;
-  const needsReset = activityLimits?.lastResetDate !== today;
-  
-  // 리셋이 필요한 경우
-  if (needsReset) {
-    await updateDoc(userRef, {
-      'activityLimits.lastResetDate': today,
-      'activityLimits.dailyCounts.posts': activityType === 'posts' ? 1 : 0,
-      'activityLimits.dailyCounts.comments': activityType === 'comments' ? 1 : 0,
-      'activityLimits.dailyCounts.games.flappyBird': gameType === 'flappyBird' ? 1 : 0,
-      'activityLimits.dailyCounts.games.reactionGame': gameType === 'reactionGame' ? 1 : 0,
-      'activityLimits.dailyCounts.games.tileGame': gameType === 'tileGame' ? 1 : 0
-    });
-  } else {
-    // 기존 카운트 증가
-    if (activityType === 'posts') {
-      await updateDoc(userRef, {
-        'activityLimits.dailyCounts.posts': increment(1)
-      });
-    } else if (activityType === 'comments') {
-      await updateDoc(userRef, {
-        'activityLimits.dailyCounts.comments': increment(1)
-      });
-    } else if (gameType) {
-      await updateDoc(userRef, {
-        [`activityLimits.dailyCounts.games.${gameType}`]: increment(1)
-      });
+export const updateActivityCount = async (userId: string, activityType: 'posts' | 'comments', gameType?: string): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 활동 카운트 증가
+    const updateData: Record<string, string | FieldValue> = {
+      [`activityLimits.lastResetDate`]: today,
+      [`activityLimits.dailyCounts.${activityType}`]: increment(1)
+    };
+    
+    if (gameType) {
+      updateData[`activityLimits.dailyCounts.games.${gameType}`] = increment(1);
     }
+    
+    await updateDoc(userRef, updateData);
+  } catch (error) {
+    console.error('활동 카운트 업데이트 오류:', error);
   }
 };
 
@@ -417,45 +517,84 @@ export const updateUserExperience = async (
     }
     
     const userData = userDoc.data() as User;
-    const currentExp = userData.stats?.experience || 0;
     const currentLevel = userData.stats?.level || 1;
+    const currentExp = userData.stats?.currentExp || 0;
+    const currentLevelRequiredXp = userData.stats?.currentLevelRequiredXp || getExpRequiredForNextLevel(currentLevel);
+    const totalExperience = userData.stats?.totalExperience || 0;
     
-    // 새로운 총 경험치
-    const newTotalExp = currentExp + xp;
+    // 새로운 경험치 계산
+    const newCurrentExp = currentExp + xp;
+    const newTotalExperience = totalExperience + xp;
     
-    // 새 레벨 계산
-    const newLevel = await calculateLevelFromTotalExp(newTotalExp);
-    const leveledUp = newLevel > currentLevel;
-    
-    // 현재 레벨 진행률 계산
-    const progress = await calculateCurrentLevelProgress(newTotalExp);
+    // 레벨업 체크
+    const levelUpResult = checkLevelUp(currentLevel, newCurrentExp, currentLevelRequiredXp);
     
     // 데이터 업데이트
-    await updateDoc(userRef, {
-      'stats.experience': newTotalExp,
-      'stats.level': newLevel,
-      'stats.currentExp': progress.currentLevelExp
-    });
+    const updateData = {
+      'stats.totalExperience': newTotalExperience,
+      'stats.level': levelUpResult.newLevel,
+      'stats.currentExp': levelUpResult.newCurrentExp,
+      'stats.currentLevelRequiredXp': levelUpResult.newCurrentLevelRequiredXp,
+      'stats.experience': newTotalExperience, // 호환성을 위해 유지 (totalExperience와 동일)
+      'updatedAt': serverTimestamp()
+    };
     
-    if (leveledUp) {
-      console.log(`🎉 사용자 ${userId}가 레벨 ${currentLevel}에서 레벨 ${newLevel}로 레벨업했습니다!`);
+    await updateDoc(userRef, updateData);
+    
+    if (levelUpResult.shouldLevelUp) {
+      console.log(`🎉 사용자 ${userId}가 레벨 ${currentLevel}에서 레벨 ${levelUpResult.newLevel}로 레벨업했습니다!`);
     }
     
-    console.log(`✨ 사용자 ${userId}에게 ${xp} 경험치가 추가되었습니다. (총 ${newTotalExp}XP)`);
+    console.log(`✨ 사용자 ${userId}에게 ${xp} 경험치가 추가되었습니다. (총 ${newTotalExperience}XP)`);
     
     // 업데이트된 사용자 데이터 조회
     const updatedUserDoc = await getDoc(userRef);
     const updatedUserData = updatedUserDoc.data() as User;
     
     return { 
-      leveledUp, 
+      leveledUp: levelUpResult.shouldLevelUp, 
       oldLevel: currentLevel, 
-      newLevel, 
+      newLevel: levelUpResult.newLevel, 
       userData: updatedUserData 
     };
   } catch (error) {
-    console.error('경험치 업데이트 오류:', error);
-    return { leveledUp: false };
+    console.error('경험치 업데이트 실패:', error);
+    throw error;
+  }
+};
+
+/**
+ * 사용자 경험치 데이터 동기화 (기존 데이터 마이그레이션용)
+ */
+export const syncUserExperienceData = async (userId: string): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+    
+    const userData = userDoc.data() as User;
+    
+    // totalExperience를 기준으로 정확한 레벨과 현재 경험치 계산
+    const totalExp = userData.stats?.totalExperience || userData.stats?.experience || 0;
+    const progress = calculateCurrentLevelProgress(totalExp);
+    
+    // 데이터 동기화
+    await updateDoc(userRef, {
+      'stats.totalExperience': totalExp,
+      'stats.experience': totalExp, // 호환성을 위해 유지
+      'stats.level': progress.level,
+      'stats.currentExp': progress.currentExp,
+      'stats.currentLevelRequiredXp': progress.currentLevelRequiredXp,
+      'updatedAt': serverTimestamp()
+    });
+    
+    console.log(`✅ 사용자 ${userId}의 경험치 데이터가 동기화되었습니다.`);
+    console.log(`- 총 경험치: ${totalExp}, 레벨: ${progress.level}, 현재 경험치: ${progress.currentExp}/${progress.currentLevelRequiredXp}`);
+  } catch (error) {
+    console.error('경험치 데이터 동기화 오류:', error);
   }
 };
 

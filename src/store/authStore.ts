@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '@/types';
+import { checkLevelUp, getExpRequiredForNextLevel } from '@/lib/experience';
 
 // 인증 상태 타입 정의
 interface AuthState {
@@ -129,37 +130,31 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       // 즐겨찾기 학교 기능은 향후 구현 예정
 
-      // 경험치 증가
+      // 경험치 증가 (새로운 로직)
       incrementExperience: (amount) => {
         const { user } = get();
         if (user) {
-          const newTotalExperience = user.stats.totalExperience + amount;
+          const currentLevel = user.stats.level;
+          const currentExp = user.stats.currentExp || 0;
+          const currentLevelRequiredXp = user.stats.currentLevelRequiredXp || getExpRequiredForNextLevel(currentLevel);
+          const totalExperience = user.stats.totalExperience + amount;
           
-          // 레벨 계산 로직 (1->2레벨: 10exp, 2->3레벨: 20exp, 오름차순)
-          let newLevel = user.stats.level;
-          let requiredExp = 0;
+          // 새로운 경험치 계산
+          const newCurrentExp = currentExp + amount;
           
-          for (let level = 1; level < newLevel; level++) {
-            requiredExp += level * 10;
-          }
+          // 레벨업 체크
+          const levelUpResult = checkLevelUp(currentLevel, newCurrentExp, currentLevelRequiredXp);
           
-          let currentLevelExp = newTotalExperience - requiredExp;
-          let nextLevelReq = newLevel * 10;
-          
-          while (currentLevelExp >= nextLevelReq) {
-            currentLevelExp -= nextLevelReq;
-            newLevel++;
-            nextLevelReq = newLevel * 10;
-          }
-
           set({
             user: {
               ...user,
               stats: {
                 ...user.stats,
-                experience: currentLevelExp,
-                totalExperience: newTotalExperience,
-                level: newLevel,
+                currentExp: levelUpResult.newCurrentExp,
+                totalExperience: totalExperience,
+                experience: totalExperience, // 호환성을 위해 유지
+                level: levelUpResult.newLevel,
+                currentLevelRequiredXp: levelUpResult.newCurrentLevelRequiredXp,
               },
             },
           });

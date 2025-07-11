@@ -2,6 +2,7 @@ import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc,
 import { db } from '../firebase';
 import { Board } from '@/types/board';
 import { School } from '@/types';
+import { invalidateSystemSettingsCache } from '../experience';
 
 // 경험치 설정 타입 정의
 export interface ExperienceSettings {
@@ -107,6 +108,7 @@ export const updateExperienceSettings = async (settings: ExperienceSettings): Pr
       ...settings,
       updatedAt: Date.now(),
     });
+    await invalidateSystemSettingsCache(); // 캐시 무효화
   } catch (error) {
     console.error('경험치 설정 업데이트 오류:', error);
     throw new Error('경험치 설정 업데이트 중 오류가 발생했습니다.');

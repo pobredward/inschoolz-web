@@ -1,23 +1,19 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { School, User } from "@/types";
-import { useAuth } from "@/providers/AuthProvider";
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { 
-  GraduationCap, 
   BookCheck, 
+  GraduationCap, 
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { User, School } from '@/types';
 import { getUserById } from '@/lib/api/users';
+import { useAuth } from "@/providers/AuthProvider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getSchoolById, selectSchool, getUserFavoriteSchools, toggleFavoriteSchool, searchSchools } from '@/lib/api/schools';
 import { toast } from "sonner";
 import {
@@ -29,8 +25,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import AttendanceCalendar from '../[userName]/components/AttendanceCalendar';
-import { useRouter } from 'next/navigation';
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -194,7 +188,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
       setLoading(false);
     }
     // user가 undefined인 경우는 아직 로딩 중이므로 아무것도 하지 않음
-  }, [user, initialUserData, fetchFavoriteSchools]);
+  }, [user, fetchFavoriteSchools]);
 
   if (loading) {
     return <div className="p-4 text-center">정보를 불러오는 중...</div>;
@@ -556,51 +550,51 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
           </CardHeader>
           <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="flex justify-between items-center p-3 bg-muted rounded-md">
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-md opacity-60">
                 <div>
                       <h4 className="font-medium">Flappy Bird</h4>
-                      <p className="text-xs text-muted-foreground">최고 점수: {userData.gameStats?.flappyBird?.totalScore || 0}</p>
+                      <p className="text-xs text-muted-foreground">곧 출시 예정입니다</p>
                   </div>
-                    <Button size="sm" variant="outline" onClick={() => router.push('/games/flappy-bird')}>
-                      플레이
+                    <Button size="sm" variant="outline" disabled>
+                      준비 중
                     </Button>
                   </div>
                   
                   <div className="flex justify-between items-center p-3 bg-muted rounded-md">
                     <div>
                       <h4 className="font-medium">반응 속도 게임</h4>
-                      <p className="text-xs text-muted-foreground">최고 점수: {userData.gameStats?.reactionGame?.totalScore || 0}</p>
+                      <p className="text-xs text-muted-foreground">최고 점수: {userData.gameStats?.reactionGame?.bestReactionTime || 0}</p>
                     </div>
                     <Button size="sm" variant="outline" onClick={() => router.push('/games/reaction')}>
                       플레이
                     </Button>
                 </div>
                 
-                  <div className="flex justify-between items-center p-3 bg-muted rounded-md">
+                  <div className="flex justify-between items-center p-3 bg-muted rounded-md opacity-60">
                 <div>
                       <h4 className="font-medium">타일 맞추기</h4>
-                      <p className="text-xs text-muted-foreground">최고 점수: {userData.gameStats?.tileGame?.totalScore || 0}</p>
+                      <p className="text-xs text-muted-foreground">곧 출시 예정입니다</p>
                   </div>
-                    <Button size="sm" variant="outline" onClick={() => router.push('/games/tile')}>
-                      플레이
+                    <Button size="sm" variant="outline" disabled>
+                      준비 중
                     </Button>
                   </div>
                 </div>
                 
                 <div className="pt-3 border-t">
-                  <h4 className="text-sm font-medium mb-2">일일 게임 제한</h4>
+                  <h4 className="text-sm font-medium mb-2">일일 게임 현황</h4>
                   <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
+                <div className="opacity-60">
                       <p className="text-xs text-muted-foreground">Flappy Bird</p>
-                      <p className="font-bold">{userData.activityLimits?.dailyCounts?.games?.flappyBird || 0}/5</p>
+                      <p className="font-bold">준비 중</p>
                   </div>
                     <div>
                       <p className="text-xs text-muted-foreground">반응 속도</p>
                       <p className="font-bold">{userData.activityLimits?.dailyCounts?.games?.reactionGame || 0}/5</p>
                   </div>
-                    <div>
+                    <div className="opacity-60">
                       <p className="text-xs text-muted-foreground">타일 맞추기</p>
-                      <p className="font-bold">{userData.activityLimits?.dailyCounts?.games?.tileGame || 0}/5</p>
+                      <p className="font-bold">준비 중</p>
                 </div>
               </div>
             </div>

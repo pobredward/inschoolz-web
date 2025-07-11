@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { UserAttendance } from '@/types';
 import { checkAttendance } from '@/lib/api/attendance';
 import { useExperience } from '@/providers/experience-provider';
-import { XP_CONSTANTS } from '@/lib/experience';
 
 interface AttendanceCalendarProps {
   userId: string;
@@ -167,7 +166,7 @@ export default function AttendanceCalendar({ userId, isProfileOwner = false, onA
       if (updatedAttendance.leveledUp) {
         // 레벨업 알림
         showLevelUp(
-          updatedAttendance.expGained || XP_CONSTANTS.ATTENDANCE_XP,
+          updatedAttendance.expGained || 0,
           updatedAttendance.oldLevel || 1, 
           updatedAttendance.newLevel || 2
         );

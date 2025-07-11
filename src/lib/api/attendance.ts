@@ -6,13 +6,13 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserAttendance, AttendanceLog } from '@/types';
-import { XP_CONSTANTS, updateUserExperience } from '@/lib/experience';
+import { getSystemSettings, updateUserExperience } from '@/lib/experience';
 import { now } from '@/lib/utils';
 
-// 경험치 관련 상수 - lib/experience.ts로 이동
-// const ATTENDANCE_XP = 10; // 일반 출석 경험치
-// const STREAK_7_XP = 50;   // 7일 연속 출석 보너스
-// const STREAK_30_XP = 200; // 30일 연속 출석 보너스
+// 경험치 관련 상수는 시스템 설정에서 동적으로 가져옴
+// const ATTENDANCE_XP = 10; // 제거됨 - 시스템 설정에서 가져옴
+// const STREAK_7_XP = 50;   // 제거됨 - 시스템 설정에서 가져옴
+// const STREAK_30_XP = 200; // 제거됨 - 시스템 설정에서 가져옴
 
 /**
  * 한국 시간대 기준(UTC+9)으로 날짜 문자열 생성
@@ -27,12 +27,13 @@ const getKoreanDateForAttendance = (): { todayStr: string, thisMonth: string } =
   const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
   const koreaMinutes = utcMinutes + koreaTimezoneOffset;
   
-  // 한국 날짜 계산
+  // 한국 시간 계산
   const koreaDate = new Date(now);
-  koreaDate.setUTCHours(0, koreaMinutes, 0, 0);
+  koreaDate.setUTCHours(Math.floor(koreaMinutes / 60));
+  koreaDate.setUTCMinutes(koreaMinutes % 60);
   
+  // 날짜 부분만 추출
   const year = koreaDate.getUTCFullYear();
-  // getMonth()는 0부터 시작하므로 1을 더해줌
   const month = String(koreaDate.getUTCMonth() + 1).padStart(2, '0');
   const day = String(koreaDate.getUTCDate()).padStart(2, '0');
   
@@ -46,45 +47,28 @@ const getKoreanDateForAttendance = (): { todayStr: string, thisMonth: string } =
  * 연속 출석 일수에 따른 추가 경험치 계산
  * @param streak 연속 출석 일수
  * @param prevStreak 이전 연속 출석 일수
+ * @param settings 시스템 설정
  * @returns 추가 경험치
  */
-const calculateStreakBonus = (streak: number, prevStreak: number): number => {
+const calculateStreakBonus = (streak: number, prevStreak: number, settings: { attendanceBonus?: { weeklyBonusXP: number } }): number => {
   let bonus = 0;
+  
+  // Firebase 설정에서 보너스 값 가져오기
+  const weeklyBonusXP = settings.attendanceBonus?.weeklyBonusXP || 50;
+  const monthlyBonusXP = 200; // 30일 보너스는 기본값 유지 (Firebase에 없음)
   
   // 7일 연속 출석 보너스
   if (streak >= 7 && prevStreak < 7) {
-    bonus += 50; // STREAK_7_XP
+    bonus += weeklyBonusXP;
   }
   
   // 30일 연속 출석 보너스
   if (streak >= 30 && prevStreak < 30) {
-    bonus += 200; // STREAK_30_XP
+    bonus += monthlyBonusXP;
   }
   
   return bonus;
 };
-
-// 기존 updateUserExperience 함수는 더 이상 사용하지 않고 lib/experience.ts의 함수 사용
-// /**
-//  * 사용자 경험치 업데이트
-//  * @param userId 사용자 ID
-//  * @param xp 추가할 경험치
-//  */
-// const updateUserExperience = async (userId: string, xp: number): Promise<void> => {
-//   if (!xp) return;
-//   
-//   try {
-//     const userRef = doc(db, 'users', userId);
-//     
-//     await updateDoc(userRef, {
-//       'stats.experience': increment(xp)
-//     });
-//     
-//     console.log(`사용자 ${userId}에게 ${xp} 경험치가 추가되었습니다.`);
-//   } catch (error) {
-//     console.error('경험치 업데이트 오류:', error);
-//   }
-// };
 
 /**
  * 사용자 출석 체크 정보 조회 및 출석체크 처리
@@ -128,8 +112,10 @@ export const checkAttendance = async (
         
         await setDoc(attendanceRef, newAttendance);
         
-        // 첫 출석 경험치 추가
-        const expResult = await updateUserExperience(userId, XP_CONSTANTS.ATTENDANCE_XP);
+        // 첫 출석 경험치 추가 - 시스템 설정 기반
+        const settings = await getSystemSettings();
+        const attendanceXP = settings.experience.attendanceReward;
+        const expResult = await updateUserExperience(userId, attendanceXP);
         
         return {
           checkedToday: true,
@@ -138,7 +124,7 @@ export const checkAttendance = async (
           monthCount: 1,
           lastAttendance: Date.now(),
           monthlyLog: newMonthlyLog,
-          expGained: XP_CONSTANTS.ATTENDANCE_XP,
+          expGained: attendanceXP,
           leveledUp: expResult.leveledUp,
           oldLevel: expResult.oldLevel,
           newLevel: expResult.newLevel
@@ -202,11 +188,12 @@ export const checkAttendance = async (
         monthlyLog: updatedMonthlyLog
       });
       
-      // 기본 출석 경험치 추가
-      let totalXp = XP_CONSTANTS.ATTENDANCE_XP;
+      // 기본 출석 경험치 추가 - 시스템 설정 기반
+      const settings = await getSystemSettings();
+      let totalXp = settings.experience.attendanceReward;
       
       // 연속 출석 보너스 계산
-      const streakBonus = calculateStreakBonus(streak, prevStreak);
+      const streakBonus = calculateStreakBonus(streak, prevStreak, settings);
       totalXp += streakBonus;
       
       // 사용자 경험치 업데이트 및 레벨업 확인
@@ -217,12 +204,15 @@ export const checkAttendance = async (
         'stats.streak': streak
       });
       
-      // 출석체크 정보 반환 (레벨업 정보 포함)
+      // 월별 출석 일수 계산
+      const monthCount = Object.keys(updatedMonthlyLog).length;
+      const totalCount = Object.keys(updatedAttendances).length;
+      
       return {
         checkedToday: true,
         streak,
-        totalCount: Object.keys(updatedAttendances).length,
-        monthCount: Object.keys(updatedMonthlyLog).length,
+        totalCount,
+        monthCount,
         lastAttendance: Date.now(),
         monthlyLog: updatedMonthlyLog,
         expGained: totalXp,
@@ -232,17 +222,21 @@ export const checkAttendance = async (
       };
     }
     
-    // 이미 출석체크 했거나 조회만 하는 경우
+    // 출석체크 정보만 조회하는 경우
+    const monthCount = Object.keys(monthlyLog).length;
+    const totalCount = Object.keys(attendances).length;
+    
     return {
       checkedToday,
       streak,
-      totalCount: Object.keys(attendances).length,
-      monthCount: Object.keys(monthlyLog).length,
+      totalCount,
+      monthCount,
       lastAttendance: attendanceData.lastAttendance,
       monthlyLog
     };
+    
   } catch (error) {
-    console.error('출석체크 오류:', error);
-    throw new Error('출석체크 중 오류가 발생했습니다.');
+    console.error('출석체크 처리 오류:', error);
+    throw error;
   }
 }; 

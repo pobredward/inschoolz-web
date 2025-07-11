@@ -35,19 +35,8 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useAuth } from '@/providers/AuthProvider';
-// 임시 User 타입 (타입 파일 수정 후 제거 예정)
-interface User {
-  uid: string;
-  email: string;
-  profile: {
-    userName: string;
-    profileImageUrl?: string;
-  };
-  stats: {
-    level: number;
-    experience: number;
-  };
-}
+import { useExperience } from '@/providers/experience-provider';
+import { User } from '@/types';
 
 // 메뉴 아이템 정의 (PRD 요구사항에 맞게 수정)
 const menuItems = [
@@ -57,25 +46,21 @@ const menuItems = [
   { name: '랭킹', path: '/ranking', icon: <Trophy className="h-5 w-5" />, ariaLabel: '랭킹 페이지로 이동' },
 ];
 
-// 경험치/레벨 컴포넌트 - 통일된 User 타입 사용
+// 경험치/레벨 컴포넌트 - 실시간 업데이트 지원
 function ExperienceDisplay({ user }: { user?: User }) {
-  if (!user) return null;
+  const { userStats } = useExperience();
+  
+  if (!user && !userStats) return null;
 
-  // 통일된 사용자 데이터 사용
-  const level = user.stats?.level || 1;
-  const currentXp = user.stats?.experience || 0; // experience 사용
+  // 실시간 stats 우선 사용, 없으면 user 데이터 사용
+  const level = userStats?.level || user?.stats?.level || 1;
+  const currentExp = userStats?.currentExp || user?.stats?.currentExp || 0;
+  const currentLevelRequiredXp = userStats?.currentLevelRequiredXp || user?.stats?.currentLevelRequiredXp || (level * 10);
   
-  // 정확한 maxXp 계산 (다음 레벨까지 필요한 경험치)
-  const getMaxXpForLevel = (level: number): number => {
-    // PRD 요구사항: 1->2레벨 10exp, 2->3레벨 20exp, 오름차순
-    return level * 10;
-  };
-  
-  const maxXp = getMaxXpForLevel(level);
-  const xpPercentage = Math.min((currentXp / maxXp) * 100, 100);
+  const xpPercentage = Math.min((currentExp / currentLevelRequiredXp) * 100, 100);
 
   return (
-    <div className="flex items-center gap-2" aria-label={`레벨 ${level}, 경험치 ${currentXp}/${maxXp}`}>
+    <div className="flex items-center gap-2" aria-label={`레벨 ${level}, 경험치 ${currentExp}/${currentLevelRequiredXp}`}>
       <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold">
         Lv.{level}
       </div>
@@ -88,7 +73,7 @@ function ExperienceDisplay({ user }: { user?: User }) {
           />
         </div>
         <span className="text-xs text-gray-600 font-medium whitespace-nowrap">
-          {currentXp}/{maxXp}
+          {currentExp}/{currentLevelRequiredXp}
         </span>
       </div>
     </div>

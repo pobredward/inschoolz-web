@@ -63,12 +63,40 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "gameStats.reactionGame.bestReactionTime",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
     {
       "collectionGroup": "schools",
       "fieldPath": "KOR_NAME",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "fieldPath": "gameStats.reactionGame.bestReactionTime",
       "indexes": [
         {
           "order": "ASCENDING",
