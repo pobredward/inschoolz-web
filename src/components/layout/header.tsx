@@ -200,7 +200,7 @@ export function Header() {
                   variant={pathname === item.path ? "default" : "ghost"}
                   className={`flex items-center gap-1 px-3 transition-colors ${
                     pathname === item.path 
-                      ? 'bg-pastel-green-300 text-pastel-green-800 hover:bg-pastel-green-400' 
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300' 
                       : 'hover:bg-pastel-green-100 hover:text-pastel-green-700'
                   }`}
                   aria-label={item.ariaLabel}
@@ -285,7 +285,7 @@ export function Header() {
                         variant={pathname === item.path ? "default" : "ghost"}
                         className={`w-full justify-start ${
                           pathname === item.path 
-                            ? 'bg-pastel-green-300 text-pastel-green-800' 
+                            ? 'bg-green-100 text-green-800 border border-green-300' 
                             : 'hover:bg-pastel-green-100'
                         }`}
                         aria-label={item.ariaLabel}
