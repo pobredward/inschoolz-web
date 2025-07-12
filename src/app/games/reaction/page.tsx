@@ -360,19 +360,25 @@ export default function ReactionGamePage() {
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               ⭐ 경험치 정보
             </h2>
+            <div className="text-sm text-gray-600 mb-4">
+              반응속도가 빠를수록 더 많은 경험치를 획득할 수 있습니다!
+            </div>
             <div className="space-y-3">
               {experienceThresholds
                 .sort((a, b) => a.minReactionTime - b.minReactionTime)
                 .map((threshold, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span className="text-sm font-medium">
-                      {threshold.minReactionTime}ms 이하
+                      {threshold.minReactionTime}ms 이하 (더 빠름)
                     </span>
                     <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                       +{threshold.xpReward} XP
                     </span>
                   </div>
                 ))}
+            </div>
+            <div className="text-xs text-gray-500 mt-3">
+              💡 팁: 100ms 이하로 반응하면 최대 경험치를 획득할 수 있어요!
             </div>
           </div>
         )}

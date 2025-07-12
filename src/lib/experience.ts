@@ -89,9 +89,9 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
             rewardThreshold: 500, // 기본값 유지 (thresholds 배열로 대체됨)
             rewardAmount: 15, // 기본값 15
             thresholds: firebaseSettings.games?.reactionGame?.thresholds || [
-              { minScore: 100, xpReward: 5 },
+              { minScore: 100, xpReward: 15 },
               { minScore: 200, xpReward: 10 },
-              { minScore: 300, xpReward: 15 }
+              { minScore: 300, xpReward: 5 }
             ]
           },
           tileGame: {
@@ -156,9 +156,9 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
         rewardThreshold: 500,
         rewardAmount: 15,
         thresholds: [
-          { minScore: 100, xpReward: 5 },
+          { minScore: 100, xpReward: 15 },
           { minScore: 200, xpReward: 10 },
-          { minScore: 300, xpReward: 15 }
+          { minScore: 300, xpReward: 5 }
         ]
       },
       tileGame: {

@@ -26,25 +26,29 @@ export interface GameStatsResponse {
   };
 }
 
-// 점수에 따른 경험치 계산 (Firebase 설정 기반)
+// 반응시간에 따른 경험치 계산 (Firebase 설정 기반)
 const calculateGameXP = async (gameType: GameType, reactionTime: number): Promise<number> => {
   try {
     const settings = await getSystemSettings();
     
     // 게임 타입에 따라 적절한 설정 선택
     if (gameType === 'reactionGame' && settings.gameSettings.reactionGame.thresholds) {
+      // 반응속도 게임은 시간이 짧을수록 좋으므로 내림차순 정렬 (가장 빠른 시간부터)
       const sortedThresholds = [...settings.gameSettings.reactionGame.thresholds].sort((a, b) => a.minScore - b.minScore);
       
+      // 반응시간이 임계값 이하인 첫 번째 임계값의 경험치 반환
       for (const threshold of sortedThresholds) {
         if (reactionTime <= threshold.minScore) {
           return threshold.xpReward;
         }
       }
     } else if (gameType === 'tileGame' && settings.gameSettings.tileGame.thresholds) {
-      const sortedThresholds = [...settings.gameSettings.tileGame.thresholds].sort((a, b) => a.minScore - b.minScore);
+      // 타일 게임은 점수가 높을수록 좋으므로 내림차순 정렬
+      const sortedThresholds = [...settings.gameSettings.tileGame.thresholds].sort((a, b) => b.minScore - a.minScore);
       
+      // 점수가 임계값 이상인 첫 번째 임계값의 경험치 반환
       for (const threshold of sortedThresholds) {
-        if (reactionTime <= threshold.minScore) {
+        if (reactionTime >= threshold.minScore) {
           return threshold.xpReward;
         }
       }
@@ -164,7 +168,7 @@ export const getUserGameStats = async (userId: string): Promise<GameStatsRespons
       tileGame: activityLimits.dailyCounts?.games?.tileGame || 0,
     };
     
-    // 최저 반응시간
+    // 최저 반응시간 및 최고 점수
     const bestReactionTimes = {
       flappyBird: userData.gameStats?.flappyBird?.bestReactionTime || null,
       reactionGame: userData.gameStats?.reactionGame?.bestReactionTime || null,
@@ -174,11 +178,26 @@ export const getUserGameStats = async (userId: string): Promise<GameStatsRespons
     // 일일 최대 플레이 횟수
     const maxPlays = 5;
     
-    // 대략적인 총 획득 경험치 계산
-    const totalXpEarned = Object.values(bestReactionTimes).reduce((sum, time) => {
-      if (sum === null) sum = 0;
-      return sum + (time ? Math.floor(time / 100) * 5 : 0);
-    }, 0 as number);
+    // 게임별 획득 가능한 경험치 계산
+    let totalXpEarned = 0;
+    
+    // 반응속도 게임 경험치 계산
+    if (bestReactionTimes.reactionGame) {
+      const reactionXp = await calculateGameXP('reactionGame', bestReactionTimes.reactionGame);
+      totalXpEarned += reactionXp;
+    }
+    
+    // 타일 게임 경험치 계산
+    if (bestReactionTimes.tileGame) {
+      const tileXp = await calculateGameXP('tileGame', bestReactionTimes.tileGame);
+      totalXpEarned += tileXp;
+    }
+    
+    // FlappyBird 게임 경험치 계산
+    if (bestReactionTimes.flappyBird) {
+      const flappyXp = await calculateGameXP('flappyBird', bestReactionTimes.flappyBird);
+      totalXpEarned += flappyXp;
+    }
     
     return {
       success: true,
@@ -186,7 +205,7 @@ export const getUserGameStats = async (userId: string): Promise<GameStatsRespons
         todayPlays,
         maxPlays,
         bestReactionTimes,
-        totalXpEarned: totalXpEarned || 0
+        totalXpEarned
       }
     };
     
@@ -194,7 +213,7 @@ export const getUserGameStats = async (userId: string): Promise<GameStatsRespons
     console.error('게임 통계 조회 실패:', error);
     return {
       success: false,
-      message: '게임 통계 조회 중 오류가 발생했습니다.'
+      message: '게임 통계를 불러오는 중 오류가 발생했습니다.'
     };
   }
 }; 

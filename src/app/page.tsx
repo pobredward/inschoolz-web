@@ -4,10 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowRightIcon,
-  GamepadIcon,
   MessageCircleIcon,
   ShieldIcon,
-  Trophy,
   MapPin,
   School,
   Zap
@@ -138,7 +136,7 @@ export default function Home() {
             {/* 인기 게시글 섹션 */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">실시간 인기 글</h2>
+                <h2 className="text-xl font-bold text-gray-900">🔥 실시간 인기 글</h2>
                 <Link 
                   href="/community?tab=national" 
                   className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1"
@@ -205,9 +203,8 @@ export default function Home() {
 
             {/* 커뮤니티 바로가기 */}
             <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <MessageCircleIcon className="h-5 w-5 text-blue-500" />
-                커뮤니티 바로가기
+              <h2 className="text-xl font-bold text-gray-900">
+                💬 커뮤니티 바로가기
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href="/community?tab=national">
@@ -242,8 +239,7 @@ export default function Home() {
 
             {/* 미니게임 바로가기 */}
             <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <GamepadIcon className="h-5 w-5 text-purple-500" />
+              <h2 className="text-xl font-bold text-gray-900">
                 🎮 미니게임
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -286,8 +282,7 @@ export default function Home() {
             {/* 랭킹 미리보기 */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-500" />
+                <h2 className="text-xl font-bold text-gray-900">
                   🏆 랭킹
                 </h2>
                 <Link 

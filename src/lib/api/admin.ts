@@ -65,9 +65,9 @@ export const getExperienceSettings = async (): Promise<ExperienceSettings> => {
             enabled: true,
             dailyLimit: 5,
             thresholds: [
-              { minScore: 100, xpReward: 5 },
+              { minScore: 100, xpReward: 15 },
               { minScore: 200, xpReward: 10 },
-              { minScore: 300, xpReward: 15 },
+              { minScore: 300, xpReward: 5 },
             ],
           },
           tileGame: {
