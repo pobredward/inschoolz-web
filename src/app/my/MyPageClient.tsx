@@ -590,7 +590,13 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   </div>
                     <div>
                       <p className="text-xs text-muted-foreground">반응 속도</p>
-                      <p className="font-bold">{userData.activityLimits?.dailyCounts?.games?.reactionGame || 0}/5</p>
+                      <p className="font-bold">{(() => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const activityLimits = userData.activityLimits;
+                        const isNewDay = !activityLimits || activityLimits.lastResetDate !== today;
+                        const todayPlays = isNewDay ? 0 : (activityLimits.dailyCounts?.games?.reactionGame || 0);
+                        return todayPlays;
+                      })()}/5</p>
                   </div>
                     <div className="opacity-60">
                       <p className="text-xs text-muted-foreground">타일 맞추기</p>

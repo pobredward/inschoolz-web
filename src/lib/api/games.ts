@@ -147,12 +147,21 @@ export const getUserGameStats = async (userId: string): Promise<GameStatsRespons
     }
     
     const userData = userDoc.data() as User;
+    const today = new Date().toISOString().split('T')[0];
     
-    // 오늘 플레이 횟수
-    const todayPlays = {
-      flappyBird: userData.activityLimits?.dailyCounts?.games?.flappyBird || 0,
-      reactionGame: userData.activityLimits?.dailyCounts?.games?.reactionGame || 0,
-      tileGame: userData.activityLimits?.dailyCounts?.games?.tileGame || 0,
+    // 날짜 체크 - 새로운 날이거나 데이터가 없으면 기본값 반환
+    const activityLimits = userData.activityLimits;
+    const isNewDay = !activityLimits || activityLimits.lastResetDate !== today;
+    
+    // 오늘 플레이 횟수 (새로운 날이면 모두 0으로 초기화)
+    const todayPlays = isNewDay ? {
+      flappyBird: 0,
+      reactionGame: 0,
+      tileGame: 0,
+    } : {
+      flappyBird: activityLimits.dailyCounts?.games?.flappyBird || 0,
+      reactionGame: activityLimits.dailyCounts?.games?.reactionGame || 0,
+      tileGame: activityLimits.dailyCounts?.games?.tileGame || 0,
     };
     
     // 최저 반응시간
