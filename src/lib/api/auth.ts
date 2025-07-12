@@ -71,7 +71,7 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
     const userDocRef = doc(db, 'users', userId);
     
     // 기본 사용자 데이터 구조 (undefined 필드 제거, Timestamp 사용)
-    const userDoc: any = {
+    const userDoc: User = {
       uid: userId,
       email: userData.email,
       role: 'student',
@@ -113,7 +113,7 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       // 시스템 정보 (Timestamp 사용)
       createdAt: Date.now(),
       updatedAt: Date.now()
-    };
+    } as User;
     
     // 학교 정보가 있는 경우에만 추가 (앱과 동일한 로직)
     if (userData.school && userData.school.id && userData.school.id.trim() !== '') {
@@ -140,7 +140,7 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
     // Firestore에 저장
     await setDoc(userDocRef, userDoc);
     
-    // 선택한 학교가 있는 경우, 학교의 멤버 카운트 증가
+    // 선택한 학교가 있는 경우, 학교의 멤버 카운트와 즐겨찾기 카운트 증가
     if (userData.school && userData.school.id && userData.school.id.trim() !== '') {
       try {
         const schoolRef = doc(db, 'schools', userData.school.id);
@@ -148,14 +148,16 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
         
         if (schoolDoc.exists()) {
           const schoolData = schoolDoc.data();
-          const currentCount = schoolData.memberCount || 0;
+          const currentMemberCount = schoolData.memberCount || 0;
+          const currentFavoriteCount = schoolData.favoriteCount || 0;
           
           await updateDoc(schoolRef, {
-            memberCount: currentCount + 1
+            memberCount: currentMemberCount + 1,
+            favoriteCount: currentFavoriteCount + 1 // 즐겨찾기 카운트도 증가
           });
         }
       } catch (schoolError) {
-        console.error('학교 멤버 카운트 업데이트 오류:', schoolError);
+        console.error('학교 멤버 카운트 및 즐겨찾기 카운트 업데이트 오류:', schoolError);
         // 학교 업데이트 실패해도 회원가입은 성공으로 처리
       }
     }

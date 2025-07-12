@@ -623,7 +623,7 @@ export const getRankingData = async (
       usersQuery = query(
         collection(db, 'users'),
         where('school.id', '==', schoolId),
-        orderBy('stats.experience', 'desc'),
+        orderBy('stats.totalExperience', 'desc'),
         limit(limitCount)
       );
     } else if (type === 'region' && sido) {
@@ -632,14 +632,14 @@ export const getRankingData = async (
           collection(db, 'users'),
           where('regions.sido', '==', sido),
           where('regions.sigungu', '==', sigungu),
-          orderBy('stats.experience', 'desc'),
+          orderBy('stats.totalExperience', 'desc'),
           limit(limitCount)
         );
       } else {
         usersQuery = query(
           collection(db, 'users'),
           where('regions.sido', '==', sido),
-          orderBy('stats.experience', 'desc'),
+          orderBy('stats.totalExperience', 'desc'),
           limit(limitCount)
         );
       }
@@ -647,7 +647,7 @@ export const getRankingData = async (
       // 전체 랭킹
       usersQuery = query(
         collection(db, 'users'),
-        orderBy('stats.experience', 'desc'),
+        orderBy('stats.totalExperience', 'desc'),
         limit(limitCount)
       );
     }
@@ -671,7 +671,7 @@ export const getRankingData = async (
         displayName: userData.profile.userName,
         schoolName: userData.school?.name,
         level: userData.stats?.level || 1,
-        experience: userData.stats?.experience || 0,
+        experience: userData.stats?.totalExperience || 0,
         profileImageUrl: userData.profile.profileImageUrl
       });
     });
@@ -698,7 +698,7 @@ export const getUserRank = async (
     if (!userDoc.exists()) return null;
     
     const userData = userDoc.data() as User;
-    const userExp = userData.stats?.experience || 0;
+    const userExp = userData.stats?.totalExperience || 0;
     
     let usersQuery;
     
@@ -706,7 +706,7 @@ export const getUserRank = async (
       usersQuery = query(
         collection(db, 'users'),
         where('school.id', '==', schoolId),
-        where('stats.experience', '>', userExp)
+        where('stats.totalExperience', '>', userExp)
       );
     } else if (type === 'region' && sido) {
       if (sigungu) {
@@ -714,20 +714,20 @@ export const getUserRank = async (
           collection(db, 'users'),
           where('regions.sido', '==', sido),
           where('regions.sigungu', '==', sigungu),
-          where('stats.experience', '>', userExp)
+          where('stats.totalExperience', '>', userExp)
         );
       } else {
         usersQuery = query(
           collection(db, 'users'),
           where('regions.sido', '==', sido),
-          where('stats.experience', '>', userExp)
+          where('stats.totalExperience', '>', userExp)
         );
       }
     } else {
       // 전체 랭킹
       usersQuery = query(
         collection(db, 'users'),
-        where('stats.experience', '>', userExp)
+        where('stats.totalExperience', '>', userExp)
       );
     }
     
