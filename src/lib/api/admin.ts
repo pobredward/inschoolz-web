@@ -328,6 +328,56 @@ export const getAdminStats = async (): Promise<{
   }
 }; 
 
+/**
+ * 홈 화면용 통계 데이터 조회
+ */
+export const getHomeStats = async (): Promise<{
+  totalUsers: number;
+  todayPosts: number;
+  onlineUsers: number;
+  totalPosts: number;
+}> => {
+  try {
+    // 사용자 수 계산
+    const usersSnapshot = await getCountFromServer(collection(db, 'users'));
+    const totalUsers = usersSnapshot.data().count;
+
+    // 오늘 작성된 게시글 수 계산
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayPostsQuery = query(
+      collection(db, 'posts'),
+      where('createdAt', '>=', today.getTime()),
+      where('status.isDeleted', '==', false)
+    );
+    const todayPostsSnapshot = await getCountFromServer(todayPostsQuery);
+    const todayPosts = todayPostsSnapshot.data().count;
+
+    // 온라인 사용자 수 계산 (최근 5분 내 활동)
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    const onlineUsersQuery = query(
+      collection(db, 'users'),
+      where('lastActiveAt', '>=', fiveMinutesAgo)
+    );
+    const onlineUsersSnapshot = await getCountFromServer(onlineUsersQuery);
+    const onlineUsers = onlineUsersSnapshot.data().count;
+
+    // 전체 게시글 수 계산
+    const postsSnapshot = await getCountFromServer(collection(db, 'posts'));
+    const totalPosts = postsSnapshot.data().count;
+
+    return {
+      totalUsers,
+      todayPosts,
+      onlineUsers,
+      totalPosts,
+    };
+  } catch (error) {
+    console.error('홈 통계 조회 오류:', error);
+    throw new Error('홈 통계 데이터를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
 // 관리자용 학교 관리 함수들
 export const adminGetAllSchools = async (): Promise<School[]> => {
   try {

@@ -91,6 +91,47 @@ export const getPopularPosts = async (type: BoardType, count = 5) => {
   }
 };
 
+// 홈 화면용 인기 게시글 가져오기 (14일 내 조회수 기준)
+export const getPopularPostsForHome = async (count = 10) => {
+  try {
+    // 14일 전 Timestamp 계산
+    const fourteenDaysAgo = Timestamp.fromDate(new Date(Date.now() - (14 * 24 * 60 * 60 * 1000)));
+    
+    const constraints = [
+      where('createdAt', '>=', fourteenDaysAgo),
+      where('status.isDeleted', '==', false),
+      where('status.isHidden', '==', false),
+      where('type', '==', 'national'), // 전국 커뮤니티만
+      orderBy('createdAt', 'desc'), // 최신순으로 정렬
+      limit(count * 3) // 더 많은 게시글을 가져와서 클라이언트에서 필터링
+    ];
+    
+    const posts = await getDocuments<Post>('posts', constraints);
+    
+    // 조회수 기준으로 정렬하고 상위 게시글만 선택 (클라이언트 사이드)
+    const sortedPosts = posts
+      .sort((a, b) => (b.stats?.viewCount || 0) - (a.stats?.viewCount || 0))
+      .slice(0, count);
+    
+    // 게시판 정보 추가
+    const postsWithBoardInfo = await Promise.all(
+      sortedPosts.map(async (post) => {
+        const board = await getDocument<Board>('boards', post.boardCode);
+        return {
+          ...post,
+          boardName: board?.name || post.boardCode,
+          previewContent: post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''
+        };
+      })
+    );
+    
+    return postsWithBoardInfo;
+  } catch (error) {
+    console.error('홈 화면 인기 게시글 가져오기 오류:', error);
+    throw new Error('인기 게시글을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
 // 특정 게시판의 게시글 목록 가져오기
 export const getPostsByBoard = async (
   boardCode: string, 

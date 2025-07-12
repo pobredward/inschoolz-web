@@ -282,3 +282,55 @@ export async function getRankingStats(options: Omit<RankingQueryOptions, 'limit'
     throw error;
   }
 } 
+
+/**
+ * 홈 화면용 랭킹 미리보기 (5등까지)
+ */
+export async function getRankingPreview(
+  userId?: string,
+  schoolId?: string,
+  sido?: string,
+  sigungu?: string
+): Promise<{
+  national: RankingUser[];
+  regional: RankingUser[];
+  school: RankingUser[];
+}> {
+  try {
+    // 전국 랭킹 (5등까지)
+    const nationalRanking = await getRankings({
+      type: 'national',
+      limit: 5
+    });
+
+    // 지역 랭킹 (5등까지)
+    let regionalRanking = { users: [] as RankingUser[] };
+    if (sido && sigungu) {
+      regionalRanking = await getRankings({
+        type: 'regional',
+        sido,
+        sigungu,
+        limit: 5
+      });
+    }
+
+    // 학교 랭킹 (5등까지)
+    let schoolRanking = { users: [] as RankingUser[] };
+    if (schoolId) {
+      schoolRanking = await getRankings({
+        type: 'school',
+        schoolId,
+        limit: 5
+      });
+    }
+
+    return {
+      national: nationalRanking.users,
+      regional: regionalRanking.users,
+      school: schoolRanking.users,
+    };
+  } catch (error) {
+    console.error('Error fetching ranking preview:', error);
+    throw error;
+  }
+} 
