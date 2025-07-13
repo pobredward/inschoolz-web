@@ -15,7 +15,7 @@ const MOCK_BOARDS: Record<BoardType, Board[]> = {
     {
       id: "national-1",
       code: "free",
-      name: "자유게시판",
+      name: "자유게시판..",
       description: "자유롭게 대화할 수 있는 게시판입니다.",
       type: "national",
       isActive: true,
