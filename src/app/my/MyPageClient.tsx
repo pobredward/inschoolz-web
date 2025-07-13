@@ -6,15 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { 
-  BookCheck, 
-  GraduationCap, 
-} from 'lucide-react';
+// import { 
+//   BookCheck, 
+//   GraduationCap, 
+// } from 'lucide-react';
 import { User, School } from '@/types';
 import { getUserById } from '@/lib/api/users';
 import { useAuth } from "@/providers/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getSchoolById, selectSchool, getUserFavoriteSchools, toggleFavoriteSchool, searchSchools } from '@/lib/api/schools';
+import { selectSchool, getUserFavoriteSchools, toggleFavoriteSchool, searchSchools } from '@/lib/api/schools';
 import { toast } from "sonner";
 import {
   Dialog,
@@ -32,6 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -47,25 +49,16 @@ const getRequiredExpForLevel = (level: number): number => {
   return level * 10;
 };
 
-// 학교 정보 인터페이스
-interface SchoolDetail {
-  id: string;
-  name: string;
-  address?: string;
-  memberCount?: number;
-  favoriteCount?: number;
-  // 필요한 다른 속성들...
-}
+// 학교 정보 인터페이스 (사용하지 않음 - 제거됨)
 
 interface MyPageClientProps {
   userData?: User | null;
 }
 
 export default function MyPageClient({ userData: initialUserData }: MyPageClientProps) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(!initialUserData);
   const [userData, setUserData] = useState<User | null>(initialUserData || null);
-  const [mySchoolDetails, setMySchoolDetails] = useState<SchoolDetail | null>(null);
   const [isSchoolDialogOpen, setIsSchoolDialogOpen] = useState(false);
   const [selectedSchoolInfo, setSelectedSchoolInfo] = useState<{id: string, name: string} | null>(null);
   const [isGraduate, setIsGraduate] = useState(false);
@@ -77,6 +70,8 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<School[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [isFavoriteSchoolsModalOpen, setIsFavoriteSchoolsModalOpen] = useState(false);
+  const [favoriteSchoolsTab, setFavoriteSchoolsTab] = useState<'manage' | 'search'>('manage');
   
   const router = useRouter();
 
@@ -143,6 +138,32 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
     setIsSearchDialogOpen(false);
   };
 
+  // 메인 학교 설정 함수
+  const handleSetMainSchool = async (schoolId: string, schoolName: string) => {
+    if (!user) return;
+    
+    try {
+      // 여기서는 간단히 selectSchool 함수를 사용하여 메인 학교를 설정
+      const result = await selectSchool(user.uid, schoolId, schoolName, {
+        isGraduate: true // 기본값으로 졸업생 설정
+      });
+      
+      if (result) {
+        // 사용자 정보 새로고침
+        const updatedUserData = await getUserById(user.uid);
+        setUserData(updatedUserData);
+        
+        // AuthProvider의 글로벌 상태도 새로고침하여 실시간 반영
+        await refreshUser();
+        
+        toast.success(`${schoolName}이(가) 메인 학교로 설정되었습니다.`);
+      }
+    } catch (error) {
+      console.error('메인 학교 설정 오류:', error);
+      toast.error('메인 학교 설정 중 오류가 발생했습니다.');
+    }
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -160,11 +181,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
         }
         
         const data = userDoc.data() as User;
-        if (data.school?.id) {
-          const schoolDoc = await getDoc(doc(db, 'schools', data.school.id));
-          setMySchoolDetails(schoolDoc.exists() ? 
-            { ...schoolDoc.data() as SchoolDetail } : null);
-        }
         
         setUserData(data);
         
@@ -209,228 +225,216 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
       <div className="space-y-6">
         {/* 메인 컨텐츠 그리드 레이아웃 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 왼쪽 컬럼: 내 프로필 + 학교 관리 */}
+          {/* 왼쪽 컬럼: 프로필 헤더 + 내 정보 + 활동 통계 + 설정 메뉴 */}
           <div className="lg:col-span-2 space-y-6">
-            {/* 프로필 카드 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>내 프로필</CardTitle>
-            <CardDescription>나의 개인 정보와 통계</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-              <div className="flex flex-col items-center">
-                <Avatar className="w-28 h-28 mb-3">
-                  <AvatarImage src={userData.profile?.profileImageUrl || ''} alt={userData.profile?.userName} />
-                  <AvatarFallback>{userData.profile?.userName?.substring(0, 2) || 'ME'}</AvatarFallback>
-                </Avatar>
-                
-                  <Button 
-                    variant="outline" 
-                    className="mt-2 w-full"
-                      onClick={() => router.push(`/${userData.profile?.userName}/edit`)}
-                  >
-                    프로필 수정
-                  </Button>
-              </div>
-              
-              <div className="flex-1 w-full">
+            {/* 프로필 헤더 - 앱과 동일한 구조 */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                  <div className="flex flex-col items-center relative">
+                    <Avatar className="w-20 h-20 mb-3">
+                      <AvatarImage src={userData.profile?.profileImageUrl || ''} alt={userData.profile?.userName} />
+                      <AvatarFallback>{userData.profile?.userName?.substring(0, 2) || 'ME'}</AvatarFallback>
+                    </Avatar>
+                    <Badge className="absolute -bottom-1 -right-1 bg-green-500 text-white text-xs px-2 py-1">
+                      Lv.{userData.stats?.level || 1}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex-1 w-full">
                     <div className="space-y-4">
                       <div>
                         <h2 className="text-xl font-bold">{userData.profile?.userName}</h2>
                         <p className="text-sm text-muted-foreground">
-                          
+                          {userData.school?.name || '학교 미설정'}
                           {userData.profile?.isAdmin && (
                             <Badge variant="secondary" className="ml-2">관리자</Badge>
                           )}
                         </p>
                       </div>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                        <div className="space-y-1">
-                          <div className="text-sm">
-                            <p><span className="font-medium">이름: </span>{userData.profile?.realName || '미설정'}</p>
-                            <p><span className="font-medium">성별: </span>
-                              {userData.profile?.gender === 'male' ? '남성' : 
-                               userData.profile?.gender === 'female' ? '여성' :
-                               userData.profile?.gender === 'other' ? '기타' : '미설정'}
-                            </p>
-                            <p><span className="font-medium">학교: </span>{userData.school?.name || '미설정'}</p>
-
-                            <p><span className="font-medium">생년월일: </span>
-                              {userData.profile?.birthYear 
-                                ? `${userData.profile.birthYear}년 ${userData.profile.birthMonth}월 ${userData.profile.birthDay}일` 
-                                : '미설정'}
-                            </p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{formatExp(userData.stats?.currentExp || 0)} / {formatExp(getRequiredExpForLevel(userData.stats?.level || 1))} XP</span>
                           </div>
                         </div>
-                        
-                        <div className="space-y-1">
-                          <div className="text-sm">
-                          <p><span className="font-medium">연락처: </span>{userData.profile?.phoneNumber || '미설정'}</p>
-                          <p><span className="font-medium">이메일: </span>{userData.email || '미설정'}</p>
-                          <p><span className="font-medium">주소: </span>
-                            {(() => {
-                              const parts = [
-                                userData.regions?.sido,
-                                userData.regions?.sigungu, 
-                                userData.regions?.address
-                              ].filter(Boolean);
-                              return parts.length > 0 ? parts.join(' ') : '미설정';
-                            })()}
-                          </p>
-                          </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full transition-all" 
+                            style={{ width: `${Math.min(100, Math.floor(((userData.stats?.currentExp || 0) / getRequiredExpForLevel(userData.stats?.level || 1)) * 100))}%` }}
+                          ></div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="mt-6">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-primary/15 text-primary hover:bg-primary/20 border-none">LV. {userData.stats?.level || 1}</Badge>
-                          <span className="text-sm font-medium">{formatExp(userData.stats?.experience || 0)} / {formatExp(getRequiredExpForLevel(userData.stats?.level || 1))} exp</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">누적 {formatExp(userData.stats?.totalExperience || 0)} exp</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2.5">
-                        <div 
-                          className="bg-primary h-2.5 rounded-full transition-all" 
-                          style={{ width: `${Math.min(100, Math.floor(((userData.stats?.experience || 0) / getRequiredExpForLevel(userData.stats?.level || 1)) * 100))}%` }}
-                        ></div>
-                      </div>
-                    </div>
-              </div>
-            </div>
-            
-            <div className="pt-4 border-t">
-              <h3 className="font-medium mb-2">활동 통계</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                <div className="p-2 bg-muted rounded-md text-center">
-                  <p className="text-xs text-muted-foreground">게시글</p>
-                  <p className="font-bold">{userData.stats?.postCount || 0}</p>
-                </div>
-                <div className="p-2 bg-muted rounded-md text-center">
-                  <p className="text-xs text-muted-foreground">댓글</p>
-                  <p className="font-bold">{userData.stats?.commentCount || 0}</p>
-                </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                <div className="p-2 bg-muted rounded-md text-center">
-                      <p className="text-xs text-muted-foreground">팔로워</p>
-                      <p className="font-bold">{userData.social?.followers || 0}</p>
-                </div>
-                <div className="p-2 bg-muted rounded-md text-center">
-                      <p className="text-xs text-muted-foreground">팔로잉</p>
-                      <p className="font-bold">{userData.social?.following || 0}</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-            {/* 학교 관리 카드 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>학교 관리</CardTitle>
-            <CardDescription>내 학교 및 즐겨찾기 학교 관리</CardDescription>
-          </CardHeader>
-              <CardContent className="space-y-6">
-            {/* 내 학교 섹션 */}
-                <div>
-                  <h3 className="text-sm font-medium mb-3 flex items-center">
-                <BookCheck className="h-4 w-4 text-primary mr-1" />
-                내 학교
-              </h3>
-              {userData?.school ? (
-                <div className="border rounded-md p-3 bg-muted/30">
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <p className="font-medium">{userData.school.name}</p>
-                      <p className="text-sm text-muted-foreground">가입 {mySchoolDetails?.memberCount || 0}명 · 즐겨찾기 {mySchoolDetails?.favoriteCount || 0}명</p>
-                      <p className="text-xs text-muted-foreground mt-1">{mySchoolDetails?.address || '주소 정보 없음'}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground px-2 py-1 bg-primary/10 rounded-full">
-                      메인 학교
-                    </p>
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-muted">
-                    <div className="flex flex-wrap gap-2 text-sm">
-                      <Badge variant="outline" className="bg-blue-50">
-                        <GraduationCap className="h-3 w-3 mr-1" />
-                        재학생
-                      </Badge>
-                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center p-3 border rounded-md bg-muted/50">
-                  <p className="text-muted-foreground">아직 학교를 선택하지 않았습니다. 아래에서 학교를 검색하여 선택해보세요.</p>
-                      <Button
-                        className="mt-3 bg-primary hover:bg-primary/90 text-white"
-                        onClick={() => setIsSearchDialogOpen(true)}
-                      >
-                        학교 검색
-                      </Button>
-                </div>
-              )}
-            </div>
+              </CardContent>
+            </Card>
 
-                {/* 즐겨찾기 학교 섹션 */}
-                <div>
-                  <h3 className="text-sm font-medium mb-3 flex items-center justify-between">
-                    <span className="flex items-center">
-                      <BookCheck className="h-4 w-4 text-primary mr-1" />
-                      즐겨찾기 학교 <span className="ml-2 text-xs text-muted-foreground">({favoriteSchools.length}/5)</span>
-                    </span>
-                    <Button 
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setIsSearchDialogOpen(true)}
-                      className="bg-primary hover:bg-primary/90 text-white"
-                    >
-                      <span className="text-xs font-medium">학교 검색</span>
-                    </Button>
-                  </h3>
-                  
-                  {favoriteSchools.length > 0 ? (
-                    <div className="space-y-2">
-                      {favoriteSchools.map((school) => (
-                        <div key={school.id} className="border rounded-md p-2 bg-muted/30">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="font-medium">{school.name}</p>
-                              <p className="text-xs text-muted-foreground">가입 {school.memberCount || 0}명 · 즐겨찾기 {school.favoriteCount || 0}명</p>
-                              <p className="text-xs text-muted-foreground mt-1">{school.address || '주소 정보 없음'}</p>
-                </div>
-                            <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                                onClick={() => handleSelectSchool(school)}
-                        >
-                                선택
-                        </Button>
-                        <Button 
-                                variant="ghost"
-                          size="sm" 
-                                onClick={() => handleToggleFavorite(school.id)}
-                              >
-                                삭제
-                        </Button>
-              </div>
-              </div>
+            {/* 내 정보 카드 - 앱과 동일한 구조 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  📋 내 정보
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">이름:</span>
+                      <span className="text-sm font-medium">{userData.profile?.realName || '미설정'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">성별:</span>
+                      <span className="text-sm font-medium">
+                        {userData.profile?.gender === 'male' ? '남성' : 
+                         userData.profile?.gender === 'female' ? '여성' :
+                         userData.profile?.gender === 'other' ? '기타' : '미설정'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">생년월일:</span>
+                      <span className="text-sm font-medium">
+                        {userData.profile?.birthYear 
+                          ? `${userData.profile.birthYear}년 ${userData.profile.birthMonth}월 ${userData.profile.birthDay}일` 
+                          : '미설정'}
+                      </span>
+                    </div>
                   </div>
-                      ))}
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">이메일:</span>
+                      <span className="text-sm font-medium">{userData.email || '미설정'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">연락처:</span>
+                      <span className="text-sm font-medium">{userData.profile?.phoneNumber || '미설정'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">주소:</span>
+                      <span className="text-sm font-medium">
+                        {(() => {
+                          const parts = [
+                            userData.regions?.sido,
+                            userData.regions?.sigungu, 
+                            userData.regions?.address
+                          ].filter(Boolean);
+                          return parts.length > 0 ? parts.join(' ') : '미설정';
+                        })()}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                    <div className="text-center p-3 border rounded-md bg-muted/50">
-                      <p className="text-muted-foreground">즐겨찾기한 학교가 없습니다.</p>
+              </CardContent>
+            </Card>
+
+            {/* 활동 통계 - 앱과 동일한 구조 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  📊 활동 통계
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-muted/30 rounded-lg p-4 text-center">
+                    <div className="text-2xl mb-2">📝</div>
+                    <div className="text-xl font-bold text-blue-600">{userData.stats?.postCount || 0}</div>
+                    <div className="text-sm text-muted-foreground">내가 쓴 글</div>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-4 text-center">
+                    <div className="text-2xl mb-2">💬</div>
+                    <div className="text-xl font-bold text-blue-600">{userData.stats?.commentCount || 0}</div>
+                    <div className="text-sm text-muted-foreground">내 댓글</div>
+                  </div>
+                  <div className="bg-muted/30 rounded-lg p-4 text-center">
+                    <div className="text-2xl mb-2">❤️</div>
+                    <div className="text-xl font-bold text-blue-600">{userData.stats?.likeCount || 0}</div>
+                    <div className="text-sm text-muted-foreground">좋아요한 글</div>
+                  </div>
+                                     <div className="bg-muted/30 rounded-lg p-4 text-center">
+                     <div className="text-2xl mb-2">🔖</div>
+                     <div className="text-xl font-bold text-blue-600">0</div>
+                     <div className="text-sm text-muted-foreground">스크랩</div>
+                   </div>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+
+            {/* 설정 메뉴 - 앱과 동일한 구조 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  ⚙️ 설정
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    onClick={() => router.push(`/${userData.profile?.userName}/edit`)}
+                  >
+                    <span className="mr-3">✏️</span>
+                    프로필 수정
+                    <span className="ml-auto">›</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    onClick={() => toast.info('알림 설정 기능은 준비중입니다.')}
+                  >
+                    <span className="mr-3">🔔</span>
+                    알림 설정
+                    <span className="ml-auto">›</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    onClick={() => setIsFavoriteSchoolsModalOpen(true)}
+                  >
+                    <span className="mr-3">🏫</span>
+                    즐겨찾기 학교 <span className="ml-2 text-xs text-muted-foreground">({favoriteSchools.length}/5)</span>
+                    <span className="ml-auto">›</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    onClick={() => toast.info('도움말 기능은 준비중입니다.')}
+                  >
+                    <span className="mr-3">❓</span>
+                    도움말
+                    <span className="ml-auto">›</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    onClick={() => toast.info('고객센터 기능은 준비중입니다.')}
+                  >
+                    <span className="mr-3">📞</span>
+                    고객센터
+                    <span className="ml-auto">›</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 앱 정보 */}
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>InSchoolz v1.0.0</p>
+                  <p>© 2024 InSchoolz. All rights reserved.</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
           
           {/* 오른쪽 컬럼: 출석체크 */}
@@ -740,11 +744,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     const updatedUserData = await getUserById(user.uid);
                     setUserData(updatedUserData);
                     
-                    // 학교 상세 정보도 가져오기
-                    if (selectedSchoolInfo.id) {
-                      const schoolDetails = await getSchoolById(selectedSchoolInfo.id);
-                      setMySchoolDetails(schoolDetails);
-                    }
+                    // 학교 상세 정보는 사용자 데이터에 포함되어 있음
                     
                     toast.success(`${selectedSchoolInfo.name}이(가) 내 학교로 설정되었습니다.`);
                   }
@@ -833,6 +833,251 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
             <Button 
               variant="outline" 
               onClick={() => setIsSearchDialogOpen(false)}
+            >
+              닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 즐겨찾기 학교 관리 모달 */}
+      <Dialog open={isFavoriteSchoolsModalOpen} onOpenChange={setIsFavoriteSchoolsModalOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🏫 즐겨찾기 학교 관리
+            </DialogTitle>
+            <DialogDescription>
+              즐겨찾기 학교를 관리하고 메인 학교를 설정하세요. (최대 5개)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Tabs value={favoriteSchoolsTab} onValueChange={(value) => setFavoriteSchoolsTab(value as 'manage' | 'search')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manage" className="flex items-center gap-2">
+                📋 관리
+              </TabsTrigger>
+              <TabsTrigger value="search" className="flex items-center gap-2">
+                🔍 학교 추가
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="manage" className="space-y-4 max-h-[55vh] overflow-y-auto">
+              {favoriteSchools.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🏫</div>
+                  <h3 className="text-xl font-semibold mb-2">즐겨찾기 학교가 없습니다</h3>
+                  <p className="text-muted-foreground mb-6">
+                    학교를 추가하여 해당 학교 커뮤니티에 참여하세요
+                  </p>
+                  <Button 
+                    onClick={() => setFavoriteSchoolsTab('search')}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    학교 추가하기
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <h3 className="font-semibold text-blue-900">즐겨찾기 학교 ({favoriteSchools.length}/5)</h3>
+                    </div>
+                    <p className="text-sm text-blue-700">
+                      메인 학교는 커뮤니티와 랭킹에서 기본으로 표시됩니다
+                    </p>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    {favoriteSchools.map((school) => (
+                      <div key={school.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-semibold text-sm">🏫</span>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-gray-900">{school.name}</h4>
+                                  {userData?.school?.id === school.id && (
+                                    <Badge className="bg-green-500 text-white text-xs px-2 py-1">
+                                      메인
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {school.address}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-gray-500 ml-13">
+                              <span className="flex items-center gap-1">
+                                👥 멤버 {school.memberCount || 0}명
+                              </span>
+                              <span className="flex items-center gap-1">
+                                ⭐ 즐겨찾기 {school.favoriteCount || 0}명
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col gap-2">
+                            {userData?.school?.id !== school.id && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSetMainSchool(school.id, school.name)}
+                                className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                              >
+                                메인 설정
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleFavorite(school.id)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              삭제
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {favoriteSchools.length < 5 && (
+                    <div className="text-center pt-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setFavoriteSchoolsTab('search')}
+                        className="border-dashed border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                      >
+                        + 학교 추가하기
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="search" className="space-y-4 max-h-[55vh] overflow-y-auto">
+              <div className="space-y-4">
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <h3 className="font-semibold text-yellow-900">학교 검색 안내</h3>
+                  </div>
+                  <p className="text-sm text-yellow-700">
+                    학교 이름의 앞자리에서 두 글자 이상 입력하세요.<br/>
+                    예시: 서울가곡초등학교인 경우 가곡(X) 서울가곡(O)
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="학교 이름 입력"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearchSchool();
+                      }
+                    }}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleSearchSchool} disabled={searchLoading}>
+                    {searchLoading ? '검색 중...' : '검색'}
+                  </Button>
+                </div>
+                
+                <div className="space-y-3">
+                  {searchResults.map((school) => {
+                    const isAlreadyAdded = favoriteSchools.some(fav => fav.id === school.id);
+                    
+                    return (
+                      <div
+                        key={school.id}
+                        className={`bg-white border rounded-xl p-4 transition-all ${
+                          isAlreadyAdded 
+                            ? 'border-gray-200 bg-gray-50' 
+                            : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                <span className="text-gray-600 font-semibold text-sm">🏫</span>
+                              </div>
+                              <div>
+                                <h4 className={`font-semibold ${isAlreadyAdded ? 'text-gray-500' : 'text-gray-900'}`}>
+                                  {school.name}
+                                </h4>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {school.address}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-gray-500 ml-13">
+                              <span className="flex items-center gap-1">
+                                👥 멤버 {school.memberCount || 0}명
+                              </span>
+                              <span className="flex items-center gap-1">
+                                ⭐ 즐겨찾기 {school.favoriteCount || 0}명
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center">
+                            {isAlreadyAdded ? (
+                              <Badge variant="secondary" className="bg-gray-200 text-gray-600">
+                                추가됨
+                              </Badge>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  await handleToggleFavorite(school.id);
+                                  setFavoriteSchoolsTab('manage');
+                                }}
+                                disabled={favoriteSchools.length >= 5}
+                                className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                              >
+                                즐겨찾기 추가
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {searchTerm.length >= 2 && searchResults.length === 0 && !searchLoading && (
+                    <div className="text-center py-8">
+                      <div className="text-4xl mb-4">🔍</div>
+                      <h3 className="text-lg font-semibold mb-2">검색 결과가 없습니다</h3>
+                      <p className="text-muted-foreground">
+                        다른 검색어로 시도해보세요
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsFavoriteSchoolsModalOpen(false);
+                setFavoriteSchoolsTab('manage');
+                setSearchTerm('');
+                setSearchResults([]);
+              }}
             >
               닫기
             </Button>

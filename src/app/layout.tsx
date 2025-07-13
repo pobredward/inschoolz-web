@@ -3,6 +3,7 @@ import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/providers/Providers";
 import { Header } from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
 
 // 한글 폰트 - 잼민이체 스타일에 가까운 귀여운 폰트
@@ -55,10 +56,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning className={notoSansKR.variable}>
-      <body className={`${notoSansKR.className} antialiased min-h-screen bg-background font-sans`}>
+      <body className={`${notoSansKR.className} antialiased min-h-screen bg-background font-sans flex flex-col`}>
         <Providers>
           <Header />
-          <main>{children}</main>
+          <main className="flex-1">{children}</main>
+          <Footer />
           <Toaster />
         </Providers>
       </body>

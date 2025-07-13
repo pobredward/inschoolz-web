@@ -107,8 +107,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               },
               stats: firestoreUserData.stats || {
                 level: 1,
-                experience: 0,
                 totalExperience: 0,
+                currentExp: 0,
                 streak: 0,
                 postCount: 0,
                 commentCount: 0,
@@ -167,8 +167,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               },
               stats: {
                 level: 1,
-                experience: 0,
                 totalExperience: 0,
+                currentExp: 0,
                 currentLevelRequiredXp: 0,
                 streak: 0,
                 postCount: 0,
@@ -216,8 +216,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             },
             stats: {
               level: 1,
-              experience: 0,
               totalExperience: 0,
+              currentExp: 0,
               currentLevelRequiredXp: 0,
               streak: 0,
               postCount: 0,
@@ -439,22 +439,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser({
           uid,
           email: email || '',
+          role: firestoreUserData.role || 'student',
+          isVerified: emailVerified,
           profile: firestoreUserData.profile || {
             userName: displayName || '',
-            email: email || '',
             realName: '',
+            gender: '',
             birthYear: 0,
             birthMonth: 0,
             birthDay: 0,
             phoneNumber: '',
             profileImageUrl: photoURL || '',
-            createdAt: Date.now(),
+            createdAt: firestoreUserData.createdAt || Date.now(),
             isAdmin: false
           },
           stats: firestoreUserData.stats || {
             level: 1,
-            experience: 0,
             totalExperience: 0,
+            currentExp: 0,
+            currentLevelRequiredXp: 0,
             streak: 0,
             postCount: 0,
             commentCount: 0,
@@ -462,6 +465,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           },
           school: firestoreUserData.school,
           regions: firestoreUserData.regions,
+          agreements: firestoreUserData.agreements || {
+            terms: false,
+            privacy: false,
+            location: false,
+            marketing: false
+          },
+          createdAt: firestoreUserData.createdAt || Date.now(),
+          updatedAt: firestoreUserData.updatedAt || Date.now(),
           emailVerified
         });
         

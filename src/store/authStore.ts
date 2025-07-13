@@ -152,7 +152,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
                 ...user.stats,
                 currentExp: levelUpResult.newCurrentExp,
                 totalExperience: totalExperience,
-                experience: totalExperience, // 호환성을 위해 유지
                 level: levelUpResult.newLevel,
                 currentLevelRequiredXp: levelUpResult.newCurrentLevelRequiredXp,
               },
