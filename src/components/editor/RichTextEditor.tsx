@@ -43,12 +43,14 @@ interface RichTextEditorProps {
   content: string
   onChange: (content: string) => void
   placeholder?: string
+  onImageUpload?: (attachment: { type: 'image'; url: string; name: string; size: number }) => void
 }
 
 export default function RichTextEditor({ 
   content, 
   onChange, 
-  placeholder = '내용을 입력하세요...' 
+  placeholder = '내용을 입력하세요...',
+  onImageUpload
 }: RichTextEditorProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -108,6 +110,17 @@ export default function RichTextEditor({
     try {
       const imageUrl = await uploadImage(selectedFile)
       editor.chain().focus().setImage({ src: imageUrl }).run()
+      
+      // 상위 컴포넌트에 attachment 정보 전달
+      if (onImageUpload) {
+        onImageUpload({
+          type: 'image',
+          url: imageUrl,
+          name: selectedFile.name,
+          size: selectedFile.size
+        })
+      }
+      
       setSelectedFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''

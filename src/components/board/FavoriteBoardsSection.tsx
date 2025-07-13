@@ -48,7 +48,7 @@ export default function FavoriteBoardsSection({ type }: FavoriteBoardsSectionPro
             <Card 
               key={board.id}
               className="transition-all hover:shadow-md cursor-pointer"
-              onClick={() => router.push(`/board/${type}/${board.code}`)}
+              onClick={() => router.push(`/community/${type}/${board.code}`)}
             >
               <CardHeader className="p-4 pb-0">
                 <div className="flex items-center justify-between">

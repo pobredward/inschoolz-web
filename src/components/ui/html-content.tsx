@@ -44,12 +44,38 @@ export function HtmlContent({ content, className = '', fallbackToText = true }: 
     );
   }
 
-  return (
-    <div 
-      className={`prose prose-sm max-w-none ${className}`}
-      dangerouslySetInnerHTML={{ __html: parsedContent }}
-    />
-  );
+  // 이미지 클릭 핸들러
+  const handleImageClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'IMG') {
+      const img = target as HTMLImageElement;
+      window.open(img.src, '_blank');
+    }
+  };
+
+  // HTML 태그가 포함되어 있는지 확인
+  const hasHtmlTags = parsedContent.includes('<') && parsedContent.includes('>');
+
+  if (hasHtmlTags) {
+    // HTML 태그가 있는 경우 dangerouslySetInnerHTML 사용
+    return (
+      <div 
+        className={`prose prose-sm max-w-none ${className}`}
+        dangerouslySetInnerHTML={{ __html: parsedContent }}
+        onClick={handleImageClick}
+      />
+    );
+  } else {
+    // 텍스트만 있는 경우 whitespace-pre-wrap 사용
+    return (
+      <div 
+        className={`whitespace-pre-wrap leading-relaxed ${className}`}
+        onClick={handleImageClick}
+      >
+        {parsedContent}
+      </div>
+    );
+  }
 }
 
 // 서버사이드에서 사용할 수 있는 동기 버전

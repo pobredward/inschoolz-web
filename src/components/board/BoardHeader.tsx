@@ -17,7 +17,7 @@ export default function BoardHeader({ type }: BoardHeaderProps) {
 
   const handleTypeChange = (value: string) => {
     if (value && value !== type) {
-      router.push(`/board/${value}`);
+      router.push(`/community/${value}`);
     }
   };
 

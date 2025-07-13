@@ -81,12 +81,16 @@ export default function CommunityPage() {
   }, [selectedTab]);
 
   useEffect(() => {
-    loadPosts();
-  }, [selectedTab, selectedBoard, sortBy]);
+    if (boards.length > 0) {
+      loadPosts();
+    }
+  }, [selectedTab, selectedBoard, sortBy, boards]);
 
   const loadBoards = async () => {
     try {
+      console.log('Loading boards for type:', selectedTab);
       const boardsData = await getBoardsByType(selectedTab);
+      console.log('Loaded boards:', boardsData);
       setBoards(boardsData);
       setSelectedBoard('all'); // 탭 변경 시 전체로 리셋
     } catch (error) {
@@ -99,15 +103,18 @@ export default function CommunityPage() {
       setIsLoading(true);
       let allPosts: CommunityPost[] = [];
 
+      console.log('Loading posts for tab:', selectedTab, 'boards:', boards.length);
+
       if (selectedBoard === 'all') {
         // 모든 게시판의 게시글 가져오기
         const boardPosts = await getAllPostsByType(selectedTab);
         const postsWithBoardName = boardPosts.map(post => {
           const board = boards.find(b => b.code === post.boardCode);
+          console.log('Post boardCode:', post.boardCode, 'Found board:', board?.name);
           return {
             ...post,
             attachments: post.attachments || [], // 기본값 설정
-            boardName: board?.name || post.boardCode,
+            boardName: board?.name || `게시판 (${post.boardCode})`,
             previewContent: generatePreviewContent(post.content)
           };
         });
@@ -116,10 +123,11 @@ export default function CommunityPage() {
         // 특정 게시판의 게시글만 가져오기
         const boardPosts = await getPostsByBoardType(selectedTab, selectedBoard);
         const board = boards.find(b => b.code === selectedBoard);
+        console.log('Selected board:', selectedBoard, 'Found board:', board?.name);
         allPosts = boardPosts.map(post => ({
           ...post,
           attachments: post.attachments || [], // 기본값 설정
-          boardName: board?.name || '',
+          boardName: board?.name || `게시판 (${selectedBoard})`,
           previewContent: generatePreviewContent(post.content)
         }));
       }

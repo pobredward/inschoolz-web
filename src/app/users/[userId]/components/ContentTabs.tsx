@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUserPosts, getUserComments } from '@/lib/api/users';
 import { Post, Comment } from '@/types';
 import { BookmarkIcon, MessageSquareIcon } from 'lucide-react';
+import { stripHtmlTags } from '@/lib/utils';
 
 interface ContentTabsProps {
   userId: string;
@@ -132,7 +133,7 @@ export default function ContentTabs({ userId, isOwnProfile = false }: ContentTab
           <div
             key={post.id}
             className="rounded-lg border p-4 transition-all hover:bg-accent"
-            onClick={() => window.location.href = `/boards/${post.boardCode}/${post.id}`}
+            onClick={() => window.location.href = `/community/${post.boardCode}/${post.id}`}
           >
             <div className="flex justify-between">
               <h3 className="font-medium line-clamp-1">{post.title}</h3>
@@ -140,8 +141,8 @@ export default function ContentTabs({ userId, isOwnProfile = false }: ContentTab
                 {new Date(post.createdAt).toLocaleString()}
               </span>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-              {post.content}
+            <p className="mt-2 text-sm text-muted-foreground line-clamp-2 whitespace-pre-wrap">
+              {stripHtmlTags(post.content)}
             </p>
             <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
               <span className="flex items-center">

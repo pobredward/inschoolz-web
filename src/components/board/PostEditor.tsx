@@ -73,7 +73,7 @@ export default function PostEditor({ boardCode, boardType, board }: PostEditorPr
   const [isPollActive, setIsPollActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pollOptions, setPollOptions] = useState<{ text: string; imageUrl?: string }[]>([{ text: "" }, { text: "" }]);
-  
+
   // 폼 초기화
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -137,7 +137,7 @@ export default function PostEditor({ boardCode, boardType, board }: PostEditorPr
       });
       
       // 작성된 게시글로 이동
-      router.push(`/board/${boardType}/${boardCode}/${postId}`);
+      router.push(`/community/${boardType}/${boardCode}/${postId}`);
     } catch (error) {
       console.error('게시글 작성 오류:', error);
       toast({

@@ -140,7 +140,7 @@ export default function PostList({
 
   // 게시글 작성 페이지로 이동
   const handleWritePost = () => {
-    router.push(`/board/${type}/${boardCode}/write`);
+    router.push(`/community/${type}/${boardCode}/write`);
   };
   
   // 날짜 포맷팅 함수
@@ -194,7 +194,7 @@ export default function PostList({
       <div className="space-y-3">
         {posts.map((post) => (
           <Card key={post.id} className="overflow-hidden hover:bg-muted/30 transition-colors">
-            <Link href={`/board/${type}/${boardCode}/${post.id}`} className="block p-4">
+            <Link href={`/community/${type}/${boardCode}/${post.id}`} className="block p-4">
               <div className="flex items-start gap-2">
                 {post.status?.isPinned && (
                   <div className="mt-1">

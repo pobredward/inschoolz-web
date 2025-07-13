@@ -237,31 +237,90 @@ export function serializeComment(comment: Record<string, unknown>) {
  */
 export async function parseHtmlContent(content: string): Promise<string> {
   if (typeof window === 'undefined') {
-    // 서버사이드에서는 HTML 태그 제거
-    return content.replace(/<[^>]*>/g, '');
+    // 서버사이드에서는 HTML 태그 제거하고 줄바꿈 처리
+    return content
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<p[^>]*>/gi, '')
+      .replace(/<div[^>]*>/gi, '\n')
+      .replace(/<\/div>/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .trim();
   }
 
   // 클라이언트사이드에서는 DOMPurify 사용
   const DOMPurify = await import('dompurify');
   
-  // 허용할 HTML 태그와 속성 설정
-  const cleanHtml = DOMPurify.default.sanitize(content, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'span', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a'],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+  // 먼저 줄바꿈 처리를 위해 HTML 태그를 변환
+  const processedContent = content
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<p[^>]*>/gi, '')
+    .replace(/<div[^>]*>/gi, '\n')
+    .replace(/<\/div>/gi, '');
+  
+  // 허용할 HTML 태그와 속성 설정 (img 태그 추가)
+  const cleanHtml = DOMPurify.default.sanitize(processedContent, {
+    ALLOWED_TAGS: ['strong', 'b', 'em', 'i', 'u', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'img'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt', 'width', 'height', 'style'],
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ['target'],
     FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'button'],
     FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover', 'onfocus', 'onblur'],
   });
 
-  return cleanHtml;
+  // HTML 엔티티 디코딩 및 줄바꿈 정리
+  const finalContent = cleanHtml
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .trim();
+
+  return finalContent;
 }
 
 /**
  * HTML 태그를 제거하고 텍스트만 추출
  */
 export function stripHtmlTags(content: string): string {
-  return content.replace(/<[^>]*>/g, '');
+  if (!content) return '';
+  
+  // <br>, <p> 태그를 줄바꿈으로 변환
+  let text = content
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<p[^>]*>/gi, '')
+    .replace(/<div[^>]*>/gi, '\n')
+    .replace(/<\/div>/gi, '');
+  
+  // 다른 HTML 태그 제거
+  text = text.replace(/<[^>]*>/g, '');
+  
+  // HTML 엔티티 디코딩
+  text = text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+  
+  // 앞뒤 공백 제거
+  text = text.trim();
+  
+  return text;
 }
 
 /**
@@ -301,7 +360,7 @@ export function parseContentText(content: string): string {
       return stripHtmlTags(content);
     }
     
-    // 일반 텍스트인 경우
+    // 일반 텍스트인 경우 (줄바꿈 보존)
     return content;
   } catch {
     // JSON 파싱 실패 시 HTML 태그 제거 시도

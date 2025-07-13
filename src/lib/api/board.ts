@@ -253,7 +253,6 @@ export const getCommentsByPost = async (postId: string) => {
     const commentsRef = collection(db, 'posts', postId, 'comments');
     const q = query(
       commentsRef,
-      where('status.isDeleted', '==', false),
       where('parentId', '==', null),
       orderBy('createdAt', 'desc')
     );
@@ -265,6 +264,11 @@ export const getCommentsByPost = async (postId: string) => {
       const commentData = commentDoc.data();
       const comment = { id: commentDoc.id, ...commentData } as any;
       
+      // 삭제된 댓글이지만 대댓글이 없는 경우 건너뛰기
+      if (comment.status.isDeleted && comment.content !== '삭제된 댓글입니다.') {
+        continue;
+      }
+      
       // 사용자 정보 가져오기
       let authorInfo = {
         displayName: '사용자',
@@ -272,7 +276,7 @@ export const getCommentsByPost = async (postId: string) => {
         isAnonymous: comment.isAnonymous
       };
       
-      if (!comment.isAnonymous && comment.authorId) {
+      if (!comment.isAnonymous && comment.authorId && !comment.status.isDeleted) {
         try {
           const userDocRef = doc(db, 'users', comment.authorId);
           const userDocSnap = await getDoc(userDocRef);
@@ -296,25 +300,29 @@ export const getCommentsByPost = async (postId: string) => {
       const repliesQuery = query(
         repliesRef,
         where('parentId', '==', comment.id),
-        where('status.isDeleted', '==', false),
         orderBy('createdAt', 'asc')
       );
       
       const repliesSnapshot = await getDocs(repliesQuery);
       const replies = [];
       
-      for (const replyDocSnap of repliesSnapshot.docs) {
-        const replyData = replyDocSnap.data();
-        const reply = { id: replyDocSnap.id, ...replyData } as any;
+      for (const replyDoc of repliesSnapshot.docs) {
+        const replyData = replyDoc.data();
+        const reply = { id: replyDoc.id, ...replyData } as any;
         
-        // 답글 작성자 정보 가져오기
+        // 삭제된 대댓글이지만 내용이 "삭제된 댓글입니다."가 아닌 경우 건너뛰기
+        if (reply.status.isDeleted && reply.content !== '삭제된 댓글입니다.') {
+          continue;
+        }
+        
+        // 대댓글 작성자 정보 가져오기
         let replyAuthorInfo = {
           displayName: '사용자',
           profileImageUrl: '',
           isAnonymous: reply.isAnonymous
         };
         
-        if (!reply.isAnonymous && reply.authorId) {
+        if (!reply.isAnonymous && reply.authorId && !reply.status.isDeleted) {
           try {
             const replyUserDocRef = doc(db, 'users', reply.authorId);
             const replyUserDocSnap = await getDoc(replyUserDocRef);
@@ -329,37 +337,33 @@ export const getCommentsByPost = async (postId: string) => {
               }
             }
           } catch (error) {
-            console.error('답글 작성자 정보 조회 오류:', error);
+            console.error('대댓글 사용자 정보 조회 오류:', error);
           }
         }
         
-        // 답글 Timestamp 직렬화
-        const serializedReply = {
+        replies.push({
           ...reply,
+          author: replyAuthorInfo,
+          // Timestamp 직렬화
           createdAt: reply.createdAt?.toMillis ? reply.createdAt.toMillis() : reply.createdAt,
           updatedAt: reply.updatedAt?.toMillis ? reply.updatedAt.toMillis() : reply.updatedAt,
-          author: replyAuthorInfo
-        };
-        
-        replies.push(serializedReply);
+        });
       }
       
-      // 댓글 Timestamp 직렬화 및 사용자 정보와 대댓글 추가
-      const serializedComment = {
+      comments.push({
         ...comment,
+        author: authorInfo,
+        replies,
+        // Timestamp 직렬화
         createdAt: comment.createdAt?.toMillis ? comment.createdAt.toMillis() : comment.createdAt,
         updatedAt: comment.updatedAt?.toMillis ? comment.updatedAt.toMillis() : comment.updatedAt,
-        author: authorInfo,
-        replies
-      };
-      
-      comments.push(serializedComment);
+      });
     }
     
     return comments;
   } catch (error) {
-    console.error('댓글 목록 가져오기 오류:', error);
-    throw new Error('댓글 목록을 가져오는 중 오류가 발생했습니다.');
+    console.error('댓글 조회 오류:', error);
+    throw new Error('댓글을 불러오는 중 오류가 발생했습니다.');
   }
 };
 
@@ -439,16 +443,7 @@ export const createPost = async (boardCode: string, boardType: BoardType, data: 
       'stats.postCount': increment(1)
     });
 
-    // 경험치 지급
-    try {
-      const expResult = await awardExperience(userId, 'post');
-      if (expResult.success && expResult.leveledUp) {
-        console.log(`🎉 레벨업! ${expResult.oldLevel} → ${expResult.newLevel} (게시글 작성)`);
-      }
-    } catch (expError) {
-      console.error('게시글 작성 경험치 지급 오류:', expError);
-      // 경험치 지급 실패는 게시글 작성 자체를 실패로 처리하지 않음
-    }
+    // 경험치 부여 로직 제거 - 프론트엔드에서 처리
     
     return postId;
   } catch (error) {
@@ -552,16 +547,7 @@ export const createComment = async (postId: string, content: string, userId: str
       'stats.commentCount': increment(1)
     });
 
-    // 경험치 지급
-    try {
-      const expResult = await awardExperience(userId, 'comment');
-      if (expResult.success && expResult.leveledUp) {
-        console.log(`🎉 레벨업! ${expResult.oldLevel} → ${expResult.newLevel} (댓글 작성)`);
-      }
-    } catch (expError) {
-      console.error('댓글 작성 경험치 지급 오류:', expError);
-      // 경험치 지급 실패는 댓글 작성 자체를 실패로 처리하지 않음
-    }
+    // 경험치 부여 로직 제거 - 프론트엔드에서 처리
     
     return commentDoc.id;
   } catch (error) {
@@ -635,6 +621,25 @@ export const updateComment = async (postId: string, commentId: string, content: 
   }
 };
 
+// 대댓글 존재 여부 확인
+const hasReplies = async (postId: string, commentId: string): Promise<boolean> => {
+  try {
+    const repliesRef = collection(db, 'posts', postId, 'comments');
+    const repliesQuery = query(
+      repliesRef,
+      where('parentId', '==', commentId),
+      where('status.isDeleted', '==', false),
+      limit(1)
+    );
+    
+    const repliesSnapshot = await getDocs(repliesQuery);
+    return !repliesSnapshot.empty;
+  } catch (error) {
+    console.error('대댓글 확인 오류:', error);
+    return false;
+  }
+};
+
 // 댓글 삭제하기
 export const deleteComment = async (postId: string, commentId: string, userId: string) => {
   try {
@@ -652,7 +657,21 @@ export const deleteComment = async (postId: string, commentId: string, userId: s
       throw new Error('댓글을 삭제할 권한이 없습니다.');
     }
     
-    // 댓글을 실제로 삭제하는 대신 isDeleted 플래그 설정
+    // 대댓글 존재 여부 확인
+    const hasRepliesExist = await hasReplies(postId, commentId);
+    
+    if (hasRepliesExist) {
+      // 대댓글이 있는 경우: 소프트 삭제 (내용만 변경)
+      await updateDoc(commentRef, {
+        content: '삭제된 댓글입니다.',
+        status: {
+          ...commentData.status,
+          isDeleted: true
+        },
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      // 대댓글이 없는 경우: 실제 삭제
     await updateDoc(commentRef, {
       status: {
         ...commentData.status,
@@ -660,6 +679,7 @@ export const deleteComment = async (postId: string, commentId: string, userId: s
       },
       updatedAt: serverTimestamp()
     });
+    }
     
     // 게시글 댓글 수 감소
     await updateDocument('posts', postId, {
@@ -715,30 +735,7 @@ export const toggleCommentLike = async (postId: string, commentId: string, userI
   }
 };
 
-// 댓글 신고하기
-export const reportComment = async (postId: string, commentId: string, userId: string, reason: string) => {
-  try {
-    // 신고 데이터 생성
-    const reportData = {
-      reporterId: userId,
-      targetType: 'comment' as const,
-      targetId: commentId,
-      postId,
-      reason,
-      status: 'pending' as const,
-      createdAt: serverTimestamp()
-    };
-    
-    // 신고 저장
-    const reportRef = collection(db, 'posts', postId, 'comments', commentId, 'reports');
-    await addDoc(reportRef, reportData);
-    
-    return true;
-  } catch (error) {
-    console.error('댓글 신고 오류:', error);
-    throw new Error('댓글을 신고하는 중 오류가 발생했습니다.');
-  }
-};
+// 댓글 신고하기 함수는 제거됨 - 통합 신고 시스템 사용 (reports.ts)
 
 // 특정 게시판의 게시글 목록 가져오기 (커뮤니티 페이지용)
 export const getPostsByBoardType = async (
@@ -783,5 +780,66 @@ export const getAllPostsByType = async (
   } catch (error) {
     console.error('전체 게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 수정
+export const updatePost = async (postId: string, data: PostFormData) => {
+  try {
+    // 게시글 정보 가져오기
+    const postDoc = await getDocument('posts', postId);
+    
+    if (!postDoc) {
+      throw new Error('게시글을 찾을 수 없습니다.');
+    }
+    
+    // 수정할 데이터 준비
+    const updateData: any = {
+      title: data.title,
+      content: data.content,
+      tags: data.tags || [],
+      updatedAt: serverTimestamp(),
+      'authorInfo.isAnonymous': data.isAnonymous
+    };
+    
+    // 익명 설정에 따른 작성자 정보 업데이트
+    if (data.isAnonymous) {
+      updateData['authorInfo.displayName'] = '익명';
+      updateData['authorInfo.profileImageUrl'] = '';
+    } else {
+      // 사용자 정보 다시 가져오기
+      const userDoc = await getDocument('users', (postDoc as any).authorId);
+      if (userDoc) {
+        updateData['authorInfo.displayName'] = (userDoc as any).profile?.userName || '사용자';
+        updateData['authorInfo.profileImageUrl'] = (userDoc as any).profile?.profileImageUrl || '';
+      }
+    }
+    
+    // 투표 정보 업데이트
+    if (data.poll && data.poll.question && data.poll.options.length > 1) {
+      updateData.poll = {
+        isActive: true,
+        question: data.poll.question,
+        options: data.poll.options.map((option, index) => ({
+          text: option.text,
+          imageUrl: option.imageUrl,
+          voteCount: 0,
+          index
+        })),
+        expiresAt: data.poll.expiresAt ? data.poll.expiresAt.getTime() : undefined,
+        multipleChoice: data.poll.multipleChoice
+      };
+    } else {
+      // 투표 정보 제거
+      updateData.poll = undefined;
+    }
+    
+    // 게시글 업데이트
+    await updateDocument('posts', postId, updateData);
+    
+    return postId;
+  } catch (error) {
+    console.error('게시글 수정 오류:', error);
+    throw new Error('게시글을 수정하는 중 오류가 발생했습니다.');
   }
 };

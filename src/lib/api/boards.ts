@@ -337,16 +337,7 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
       updatedAt: Timestamp.now()
     });
 
-    // 경험치 지급
-    try {
-      const expResult = await awardExperience(userId, 'post');
-      if (expResult.success && expResult.leveledUp) {
-        console.log(`🎉 레벨업! ${expResult.oldLevel} → ${expResult.newLevel} (게시글 작성)`);
-      }
-    } catch (expError) {
-      console.error('게시글 작성 경험치 지급 오류:', expError);
-      // 경험치 지급 실패는 게시글 작성 자체를 실패로 처리하지 않음
-    }
+    // 경험치 부여 로직 제거 - 프론트엔드에서 처리
 
     // 생성된 게시글 반환
     const createdPost = await getPost(postId);
@@ -547,33 +538,52 @@ export const getComments = async (
     const commentsRef = collection(db, `posts/${postId}/comments`);
     const q = query(
       commentsRef,
-      where('status.isDeleted', '==', false),
       orderBy('createdAt', 'asc'),
       limit(pageSize * page)
     );
     
     const querySnapshot = await getDocs(q);
-    const comments: Comment[] = [];
+    const allComments: Comment[] = [];
     
     querySnapshot.forEach((doc) => {
-      comments.push({ id: doc.id, ...doc.data() } as Comment);
+      const commentData = doc.data() as Comment;
+      const comment = { id: doc.id, ...commentData };
+      
+      // 삭제된 댓글이지만 대댓글이 없는 경우 건너뛰기
+      if (comment.status.isDeleted && comment.content !== '삭제된 댓글입니다.') {
+        return;
+      }
+      
+      allComments.push(comment);
     });
     
-    // 전체 댓글 수 가져오기
-    const countQuery = query(
-      commentsRef,
-      where('status.isDeleted', '==', false)
-    );
-    
+    // 전체 댓글 수 가져오기 (삭제된 댓글 중 표시되는 것만 포함)
+    const countQuery = query(commentsRef);
     const countSnapshot = await getDocs(countQuery);
-    const totalCount = countSnapshot.size;
+    let totalCount = 0;
+    
+    countSnapshot.forEach((doc) => {
+      const commentData = doc.data() as Comment;
+      // 삭제된 댓글이지만 대댓글이 없는 경우 제외
+      if (commentData.status.isDeleted && commentData.content !== '삭제된 댓글입니다.') {
+        return;
+      }
+      totalCount++;
+    });
     
     // 페이징 처리
     const startIndex = (page - 1) * pageSize;
-    const paginatedComments = comments.slice(startIndex, startIndex + pageSize);
+    const paginatedComments = allComments.slice(startIndex, startIndex + pageSize);
+    
+    // Timestamp 직렬화
+    const serializedComments = paginatedComments.map(comment => ({
+      ...comment,
+      createdAt: (comment.createdAt as any)?.toMillis ? (comment.createdAt as any).toMillis() : comment.createdAt,
+      updatedAt: (comment.updatedAt as any)?.toMillis ? (comment.updatedAt as any).toMillis() : comment.updatedAt,
+    }));
     
     return {
-      comments: paginatedComments,
+      comments: serializedComments,
       totalCount,
       hasMore: totalCount > page * pageSize
     };
@@ -644,16 +654,7 @@ export const createComment = async (
       updatedAt: Timestamp.now()
     });
 
-    // 경험치 지급
-    try {
-      const expResult = await awardExperience(userId, 'comment');
-      if (expResult.success && expResult.leveledUp) {
-        console.log(`🎉 레벨업! ${expResult.oldLevel} → ${expResult.newLevel} (댓글 작성)`);
-      }
-    } catch (expError) {
-      console.error('댓글 작성 경험치 지급 오류:', expError);
-      // 경험치 지급 실패는 댓글 작성 자체를 실패로 처리하지 않음
-    }
+    // 경험치 부여 로직 제거 - 프론트엔드에서 처리
     
     // 생성된 댓글 반환
     const commentDoc = await getDoc(commentRef);
@@ -711,6 +712,25 @@ export const updateComment = async (
   }
 };
 
+// 대댓글 존재 여부 확인
+const hasReplies = async (postId: string, commentId: string): Promise<boolean> => {
+  try {
+    const repliesRef = collection(db, `posts/${postId}/comments`);
+    const repliesQuery = query(
+      repliesRef,
+      where('parentId', '==', commentId),
+      where('status.isDeleted', '==', false),
+      limit(1)
+    );
+    
+    const repliesSnapshot = await getDocs(repliesQuery);
+    return !repliesSnapshot.empty;
+  } catch (error) {
+    console.error('대댓글 확인 오류:', error);
+    return false;
+  }
+};
+
 // 댓글 삭제 (소프트 삭제)
 export const deleteComment = async (
   postId: string,
@@ -732,11 +752,23 @@ export const deleteComment = async (
       throw new Error('댓글 삭제 권한이 없습니다.');
     }
     
-    // 댓글 소프트 삭제
+    // 대댓글 존재 여부 확인
+    const hasRepliesExist = await hasReplies(postId, commentId);
+    
+    if (hasRepliesExist) {
+      // 대댓글이 있는 경우: 소프트 삭제 (내용만 변경)
     await updateDoc(commentRef, {
+        content: '삭제된 댓글입니다.',
       'status.isDeleted': true,
       updatedAt: Timestamp.now()
     });
+    } else {
+      // 대댓글이 없는 경우: 실제 삭제
+      await updateDoc(commentRef, {
+        'status.isDeleted': true,
+        updatedAt: Timestamp.now()
+      });
+    }
     
     // 게시글 댓글 수 감소
     await updateDoc(doc(db, 'posts', postId), {

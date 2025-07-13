@@ -406,6 +406,16 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    onClick={() => router.push('/my/reports')}
+                  >
+                    <span className="mr-3">🚨</span>
+                    신고 기록
+                    <span className="ml-auto">›</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
                     onClick={() => toast.info('도움말 기능은 준비중입니다.')}
                   >
                     <span className="mr-3">❓</span>

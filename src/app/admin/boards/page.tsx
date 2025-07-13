@@ -365,7 +365,7 @@ export default function BoardsAdminPage() {
       
       <CardFooter className="pt-2 flex justify-between">
         <Link 
-          href={`/board/${board.type}/${board.code}`} 
+          href={`/community?tab=${board.type}`} 
           target="_blank"
           className="text-sm"
         >

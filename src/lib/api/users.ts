@@ -198,8 +198,15 @@ export const getUserComments = async (
     const endIndex = startIndex + pageSize;
     const paginatedComments = allComments.slice(startIndex, endIndex);
     
+    // Timestamp 직렬화
+    const serializedComments = paginatedComments.map(comment => ({
+      ...comment,
+      createdAt: (comment.createdAt as any)?.toMillis ? (comment.createdAt as any).toMillis() : comment.createdAt,
+      updatedAt: (comment.updatedAt as any)?.toMillis ? (comment.updatedAt as any).toMillis() : comment.updatedAt,
+    }));
+    
     return {
-      comments: paginatedComments,
+      comments: serializedComments,
       totalCount,
       hasMore: totalCount > endIndex
     };

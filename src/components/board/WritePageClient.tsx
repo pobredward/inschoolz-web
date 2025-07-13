@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { getBoard } from "@/lib/api/boards";
 import { Board } from "@/types";
 import CategorySelector, { CategoryButton } from "./CategorySelector";
+import { awardPostExperience } from "@/lib/experience-service";
+import { ExperienceModal } from "@/components/ui/experience-modal";
 
 interface WritePageClientProps {
   type: BoardType;
@@ -45,6 +47,21 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
       { id: "option-2", text: "" }
     ]
   });
+  const [attachments, setAttachments] = useState<{ type: 'image' | 'file'; url: string; name: string; size: number }[]>([]);
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [experienceData, setExperienceData] = useState<{
+    expGained: number;
+    activityType: 'post' | 'comment' | 'like';
+    leveledUp: boolean;
+    oldLevel?: number;
+    newLevel?: number;
+    currentExp: number;
+    expToNextLevel: number;
+    remainingCount: number;
+    totalDailyLimit: number;
+    reason?: string;
+  } | null>(null);
+  const [pendingPostId, setPendingPostId] = useState<string | null>(null);
 
   // URL에서 카테고리 정보 가져오기
   const categoryId = searchParams.get("category");
@@ -177,7 +194,7 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
           likeCount: 0,
           commentCount: 0,
         },
-        attachments: [],
+        attachments: attachments, // 첨부파일 포함
         tags: [],
         ...(isPollEnabled && pollData.question.trim() && {
           poll: {
@@ -201,9 +218,35 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
       const docRef = await addDoc(collection(db, "posts"), postData);
       const postId = docRef.id;
       
+      // 경험치 부여
+      try {
+        const expResult = await awardPostExperience(user.uid);
+        if (expResult.success) {
+          setExperienceData({
+            expGained: expResult.expGained,
+            activityType: 'post',
+            leveledUp: expResult.leveledUp,
+            oldLevel: expResult.oldLevel,
+            newLevel: expResult.newLevel,
+            currentExp: expResult.currentExp,
+            expToNextLevel: expResult.expToNextLevel,
+            remainingCount: expResult.remainingCount,
+            totalDailyLimit: expResult.totalDailyLimit,
+            reason: expResult.reason
+          });
+          setPendingPostId(postId);
+          setShowExperienceModal(true);
+        } else {
+          // 경험치 부여 실패 시 즉시 이동
+          router.push(`/community/${type}/${code}/${postId}`);
+        }
+      } catch (expError) {
+        console.error('경험치 부여 실패:', expError);
+        // 경험치 부여 실패는 게시글 작성 성공에 영향을 주지 않음
+        router.push(`/community/${type}/${code}/${postId}`);
+      }
+      
       toast.success("게시글이 작성되었습니다.");
-      // 게시글 작성 완료 후 해당 게시글로 이동
-      router.push(`/community/${type}/${code}/${postId}`);
     } catch (error: unknown) {
       console.error("게시글 작성 실패:", error);
       const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다";
@@ -211,6 +254,22 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // 이미지 업로드 핸들러
+  const handleImageUpload = (attachment: { type: 'image'; url: string; name: string; size: number }) => {
+    setAttachments(prev => [...prev, attachment]);
+  };
+
+  // 경험치 모달 닫기 핸들러
+  const handleExperienceModalClose = () => {
+    setShowExperienceModal(false);
+    // 모달 닫기 후 게시글 상세 페이지로 이동
+    if (pendingPostId) {
+      router.push(`/community/${type}/${code}/${pendingPostId}`);
+      setPendingPostId(null);
+    }
+    setExperienceData(null);
   };
 
   // 로딩 중
@@ -289,6 +348,7 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
                   content={content}
                   onChange={setContent}
                   placeholder="내용을 입력하세요"
+                  onImageUpload={handleImageUpload}
                 />
               </div>
 
@@ -355,6 +415,15 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
             onCategorySelect={handleCategorySelect}
             isOpen={showCategorySelector}
             onClose={() => setShowCategorySelector(false)}
+          />
+        )}
+
+        {/* 경험치 획득 모달 */}
+        {experienceData && (
+          <ExperienceModal
+            isOpen={showExperienceModal}
+            onClose={handleExperienceModalClose}
+            data={experienceData}
           />
         )}
       </div>

@@ -81,7 +81,7 @@ export default function Home() {
         setLoading(true);
         
         // 인기 게시글 로드
-        const posts = await getPopularPostsForHome(5);
+        const posts = await getPopularPostsForHome(3);
         setPopularPosts(posts);
         
         // 랭킹 미리보기 로드
