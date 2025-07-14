@@ -29,7 +29,8 @@ import {
   getCommentsByPost, 
   createComment as createCommentAPI, 
   updateComment, 
-  deleteComment
+  deleteComment,
+  toggleCommentLike
 } from '@/lib/api/board';
 import { toast } from 'react-hot-toast';
 import { awardCommentExperience } from '@/lib/experience-service';
@@ -439,15 +440,24 @@ export default function CommentSection({
     }
   };
 
-  // 댓글 좋아요 (향후 구현)
-  const handleLikeComment = async () => {
+  // 댓글 좋아요
+  const handleLikeComment = async (commentId: string) => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
       return;
     }
     
-    // TODO: 댓글 좋아요 API 구현
-    toast.success('댓글 좋아요 기능은 준비 중입니다.');
+    try {
+      const isLiked = await toggleCommentLike(postId, commentId, user.uid);
+      
+      // 댓글 목록 새로고침
+      await refreshComments();
+      
+      toast.success(isLiked ? '댓글에 좋아요를 눌렀습니다.' : '댓글 좋아요를 취소했습니다.');
+    } catch (error) {
+      console.error('댓글 좋아요 오류:', error);
+      toast.error('댓글 좋아요 처리 중 오류가 발생했습니다.');
+    }
   };
 
   // 답글 작성 모드 토글

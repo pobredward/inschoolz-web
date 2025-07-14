@@ -15,6 +15,7 @@ import { getUserById } from '@/lib/api/users';
 import { useAuth } from "@/providers/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { selectSchool, getUserFavoriteSchools, toggleFavoriteSchool, searchSchools } from '@/lib/api/schools';
+import { getBookmarkedPostsCount } from '@/lib/api/board';
 import { toast } from "sonner";
 import {
   Dialog,
@@ -72,6 +73,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
   const [searchLoading, setSearchLoading] = useState(false);
   const [isFavoriteSchoolsModalOpen, setIsFavoriteSchoolsModalOpen] = useState(false);
   const [favoriteSchoolsTab, setFavoriteSchoolsTab] = useState<'manage' | 'search'>('manage');
+  const [bookmarkCount, setBookmarkCount] = useState(0);
   
   const router = useRouter();
 
@@ -85,6 +87,18 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
     } catch (error) {
       console.error('즐겨찾기 학교 목록 조회 오류:', error);
       toast.error('즐겨찾기 학교 목록을 불러오는데 실패했습니다.');
+    }
+  }, [user]);
+
+  // 북마크 개수 가져오기
+  const fetchBookmarkCount = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const count = await getBookmarkedPostsCount(user.uid);
+      setBookmarkCount(count);
+    } catch (error) {
+      console.error('북마크 개수 조회 오류:', error);
     }
   }, [user]);
 
@@ -199,12 +213,13 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
     // user가 존재할 때만 fetchUserData 실행
     if (user) {
       fetchUserData();
+      fetchBookmarkCount();
     } else if (user === null) {
       // user가 명시적으로 null인 경우 (로그아웃 상태)
       setLoading(false);
     }
     // user가 undefined인 경우는 아직 로딩 중이므로 아무것도 하지 않음
-  }, [user, fetchFavoriteSchools]);
+  }, [user, fetchFavoriteSchools, fetchBookmarkCount]);
 
   if (loading) {
     return <div className="p-4 text-center">정보를 불러오는 중...</div>;
@@ -340,26 +355,38 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-muted/30 rounded-lg p-4 text-center">
+                  <div 
+                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push('/my/posts')}
+                  >
                     <div className="text-2xl mb-2">📝</div>
                     <div className="text-xl font-bold text-blue-600">{userData.stats?.postCount || 0}</div>
                     <div className="text-sm text-muted-foreground">내가 쓴 글</div>
                   </div>
-                  <div className="bg-muted/30 rounded-lg p-4 text-center">
+                  <div 
+                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push('/my/comments')}
+                  >
                     <div className="text-2xl mb-2">💬</div>
                     <div className="text-xl font-bold text-blue-600">{userData.stats?.commentCount || 0}</div>
                     <div className="text-sm text-muted-foreground">내 댓글</div>
                   </div>
-                  <div className="bg-muted/30 rounded-lg p-4 text-center">
+                  <div 
+                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push('/my/likes')}
+                  >
                     <div className="text-2xl mb-2">❤️</div>
                     <div className="text-xl font-bold text-blue-600">{userData.stats?.likeCount || 0}</div>
                     <div className="text-sm text-muted-foreground">좋아요한 글</div>
                   </div>
-                                     <div className="bg-muted/30 rounded-lg p-4 text-center">
-                     <div className="text-2xl mb-2">🔖</div>
-                     <div className="text-xl font-bold text-blue-600">0</div>
-                     <div className="text-sm text-muted-foreground">스크랩</div>
-                   </div>
+                  <div 
+                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push('/my/bookmarks')}
+                  >
+                    <div className="text-2xl mb-2">🔖</div>
+                    <div className="text-xl font-bold text-blue-600">{bookmarkCount}</div>
+                    <div className="text-sm text-muted-foreground">스크랩</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -386,7 +413,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => toast.info('알림 설정 기능은 준비중입니다.')}
+                    onClick={() => router.push('/my/settings/notifications')}
                   >
                     <span className="mr-3">🔔</span>
                     알림 설정
@@ -416,7 +443,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => toast.info('도움말 기능은 준비중입니다.')}
+                    onClick={() => router.push('/help')}
                   >
                     <span className="mr-3">❓</span>
                     도움말
@@ -426,7 +453,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => toast.info('고객센터 기능은 준비중입니다.')}
+                    onClick={() => router.push('/support')}
                   >
                     <span className="mr-3">📞</span>
                     고객센터

@@ -24,7 +24,8 @@ import { Post, Comment, Board } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
 import { useAuth } from '@/providers/AuthProvider';
 import { 
-  togglePostLike
+  togglePostLike,
+  togglePostBookmark
 } from '@/lib/api/board';
 import {
   deletePost
@@ -113,9 +114,9 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     }
 
     try {
-      // TODO: togglePostBookmark API 구현 필요
-      setIsBookmarked(!isBookmarked);
-      toast.success(isBookmarked ? '북마크를 해제했습니다.' : '북마크에 추가했습니다.');
+      const newBookmarkState = await togglePostBookmark(post.id, user.uid);
+      setIsBookmarked(newBookmarkState);
+      toast.success(newBookmarkState ? '북마크에 추가했습니다.' : '북마크를 해제했습니다.');
     } catch (error) {
       console.error('북마크 처리 실패:', error);
       toast.error('북마크 처리에 실패했습니다.');

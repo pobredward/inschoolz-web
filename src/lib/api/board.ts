@@ -21,7 +21,8 @@ import {
 import { db } from '@/lib/firebase';
 import { 
   Post, 
-  Board
+  Board,
+  User
 } from '@/types';
 import { 
   BoardType,
@@ -841,5 +842,114 @@ export const updatePost = async (postId: string, data: PostFormData) => {
   } catch (error) {
     console.error('게시글 수정 오류:', error);
     throw new Error('게시글을 수정하는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 북마크/스크랩 토글
+export const togglePostBookmark = async (postId: string, userId: string) => {
+  try {
+    // 사용자 문서에서 스크랩 목록 가져오기
+    const userDoc = await getDocument('users', userId);
+    if (!userDoc) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+    
+    const userData = userDoc as User & { scraps?: string[] };
+    const scraps = userData.scraps || [];
+    const isBookmarked = scraps.includes(postId);
+    
+    let updatedScraps: string[];
+    
+    if (isBookmarked) {
+      // 북마크 제거
+      updatedScraps = scraps.filter((id: string) => id !== postId);
+    } else {
+      // 북마크 추가
+      updatedScraps = [...scraps, postId];
+    }
+    
+    // 사용자 문서 업데이트
+    await updateDocument('users', userId, {
+      scraps: updatedScraps,
+      updatedAt: serverTimestamp()
+    });
+    
+    return !isBookmarked; // 새로운 북마크 상태 반환
+  } catch (error) {
+    console.error('게시글 북마크 토글 오류:', error);
+    throw new Error('북마크 처리 중 오류가 발생했습니다.');
+  }
+};
+
+// 사용자가 북마크한 게시글 목록 가져오기
+export const getBookmarkedPosts = async (userId: string) => {
+  try {
+    // 사용자 문서에서 스크랩 목록 가져오기
+    const userDoc = await getDocument('users', userId);
+    if (!userDoc) {
+      return [];
+    }
+    
+    const userData = userDoc as User & { scraps?: string[] };
+    const scraps = userData.scraps || [];
+    
+    if (scraps.length === 0) {
+      return [];
+    }
+    
+    // 스크랩한 게시글들 가져오기
+    const posts = [];
+    for (const postId of scraps) {
+      try {
+        const post = await getDocument('posts', postId);
+        if (post && !(post as any).status?.isDeleted) {
+          posts.push(post);
+        }
+      } catch (error) {
+        console.warn(`게시글 ${postId} 조회 실패:`, error);
+      }
+    }
+    
+    // 최신순으로 정렬
+    return posts.sort((a: any, b: any) => b.createdAt - a.createdAt);
+  } catch (error) {
+    console.error('북마크 목록 조회 오류:', error);
+    throw new Error('북마크 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 사용자가 북마크한 게시글 개수 가져오기
+export const getBookmarkedPostsCount = async (userId: string): Promise<number> => {
+  try {
+    // 사용자 문서에서 스크랩 목록 가져오기
+    const userDoc = await getDocument('users', userId);
+    if (!userDoc) {
+      return 0;
+    }
+    
+    const userData = userDoc as User & { scraps?: string[] };
+    const scraps = userData.scraps || [];
+    
+    if (scraps.length === 0) {
+      return 0;
+    }
+    
+    // 유효한 게시글 개수 확인
+    let validCount = 0;
+    for (const postId of scraps) {
+      try {
+        const post = await getDocument('posts', postId);
+        if (post && !(post as any).status?.isDeleted) {
+          validCount++;
+        }
+      } catch (error) {
+        console.warn(`게시글 ${postId} 조회 실패:`, error);
+      }
+    }
+    
+    return validCount;
+  } catch (error) {
+    console.error('북마크 개수 조회 오류:', error);
+    return 0;
   }
 };
