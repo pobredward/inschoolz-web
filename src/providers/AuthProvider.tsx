@@ -16,6 +16,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
 import Cookies from 'js-cookie';
+import { resetDailyActivityLimits } from '@/lib/experience';
 
 interface AuthUser extends User {
   emailVerified: boolean;
@@ -76,6 +77,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const userDoc = await getDoc(userDocRef);
           
           if (userDoc.exists()) {
+            // 일일 활동 제한 자동 리셋 실행
+            await resetDailyActivityLimits(uid);
+            
             // Firestore의 실제 사용자 데이터 사용
             const firestoreUserData = userDoc.data();
             

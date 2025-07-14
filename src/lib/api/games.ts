@@ -85,7 +85,6 @@ export const updateGameScore = async (userId: string, gameType: GameType, score:
       (currentBestReactionTime === null || reactionTime < currentBestReactionTime);
     
     // 게임 통계 업데이트
-    const today = new Date().toISOString().split('T')[0];
     const updateData: Record<string, number | string | FieldValue> = {};
     
     // 최저 반응시간 업데이트 (반응속도 게임의 경우)
@@ -93,15 +92,8 @@ export const updateGameScore = async (userId: string, gameType: GameType, score:
       updateData[`gameStats.${gameType}.bestReactionTime`] = reactionTime;
     }
     
-    // 일일 플레이 카운트 증가
-    const currentDate = userData.activityLimits?.lastResetDate;
-    if (currentDate !== today) {
-      // 날짜가 바뀌었으면 카운트 리셋
-      updateData[`activityLimits.lastResetDate`] = today;
-      updateData[`activityLimits.dailyCounts.games.${gameType}`] = 1;
-    } else {
-      updateData[`activityLimits.dailyCounts.games.${gameType}`] = increment(1);
-    }
+    // 일일 플레이 카운트 증가 (날짜 체크 불필요 - 접속 시점에 이미 리셋됨)
+    updateData[`activityLimits.dailyCounts.games.${gameType}`] = increment(1);
     
     // Firestore 업데이트
     await updateDoc(userRef, updateData);
