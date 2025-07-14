@@ -360,7 +360,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     onClick={() => router.push('/my/posts')}
                   >
                     <div className="text-2xl mb-2">📝</div>
-                    <div className="text-xl font-bold text-blue-600">{userData.stats?.postCount || 0}</div>
                     <div className="text-sm text-muted-foreground">내가 쓴 글</div>
                   </div>
                   <div 
@@ -368,7 +367,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     onClick={() => router.push('/my/comments')}
                   >
                     <div className="text-2xl mb-2">💬</div>
-                    <div className="text-xl font-bold text-blue-600">{userData.stats?.commentCount || 0}</div>
                     <div className="text-sm text-muted-foreground">내 댓글</div>
                   </div>
                   <div 
@@ -376,7 +374,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     onClick={() => router.push('/my/likes')}
                   >
                     <div className="text-2xl mb-2">❤️</div>
-                    <div className="text-xl font-bold text-blue-600">{userData.stats?.likeCount || 0}</div>
                     <div className="text-sm text-muted-foreground">좋아요한 글</div>
                   </div>
                   <div 
@@ -384,7 +381,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     onClick={() => router.push('/my/bookmarks')}
                   >
                     <div className="text-2xl mb-2">🔖</div>
-                    <div className="text-xl font-bold text-blue-600">{bookmarkCount}</div>
                     <div className="text-sm text-muted-foreground">스크랩</div>
                   </div>
                 </div>
