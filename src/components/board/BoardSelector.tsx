@@ -8,7 +8,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { Board } from "@/types";
-import { getBoards } from "@/lib/api/boards";
+import { getBoardsByType } from "@/lib/api/board";
 import { useAuth } from "@/providers/AuthProvider";
 
 interface BoardSelectorProps {
@@ -43,19 +43,8 @@ export default function BoardSelector({
   const loadBoards = async () => {
     setLoading(true);
     try {
-      let boardList: Board[] = [];
-      
-      if (type === 'national') {
-        boardList = await getBoards('national');
-      } else if (type === 'regional' && user?.regions) {
-        boardList = await getBoards('regional', undefined, {
-          sido: user.regions.sido,
-          sigungu: user.regions.sigungu
-        });
-      } else if (type === 'school' && user?.school?.id) {
-        boardList = await getBoards('school', user.school.id);
-      }
-      
+      // 앱과 동일하게 getBoardsByType 사용
+      const boardList = await getBoardsByType(type);
       setBoards(boardList);
     } catch (error) {
       console.error('게시판 목록 로딩 오류:', error);
