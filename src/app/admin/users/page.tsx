@@ -18,8 +18,6 @@ import {
   Edit, 
   Trash2, 
   AlertTriangle, 
-  Crown, 
-  CheckCircle, 
   RefreshCw
 } from 'lucide-react';
 import { 
@@ -192,6 +190,8 @@ export default function AdminUsersPage() {
   const getRoleColor = (role?: string) => {
     switch (role) {
       case 'admin': return 'bg-purple-100 text-purple-800';
+      case 'teacher': return 'bg-green-100 text-green-800';
+      case 'student': return 'bg-blue-100 text-blue-800';
       case 'user': return 'bg-blue-100 text-blue-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -206,9 +206,37 @@ export default function AdminUsersPage() {
     }
   };
 
-  const formatDate = (timestamp?: number) => {
+  const formatDate = (timestamp?: number | { seconds?: number; nanoseconds?: number } | any) => {
     if (!timestamp) return '-';
-    return new Date(timestamp).toLocaleDateString('ko-KR');
+    try {
+      let date: Date;
+      
+      // Firestore Timestamp 객체인 경우
+      if (timestamp && typeof timestamp === 'object' && timestamp.seconds) {
+        date = new Date(timestamp.seconds * 1000);
+      }
+      // toDate 메소드가 있는 Firestore Timestamp인 경우
+      else if (timestamp && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+      }
+      // 숫자 타임스탬프인 경우
+      else if (typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      }
+      // 문자열인 경우
+      else if (typeof timestamp === 'string') {
+        date = new Date(timestamp);
+      }
+      else {
+        return '-';
+      }
+      
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString('ko-KR');
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return '-';
+    }
   };
 
   return (
@@ -400,40 +428,44 @@ export default function AdminUsersPage() {
                             <Users className="h-4 w-4 text-green-600" />
                           </div>
                           <div>
-                            <div className="font-medium">{user.profile.userName}</div>
-                            <div className="text-sm text-gray-500">{user.profile.realName}</div>
+                            <div className="font-medium">{user.profile?.userName || user.email}</div>
+                            <div className="text-sm text-gray-500">{user.profile?.realName || '-'}</div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>{user.school?.name || '-'}</TableCell>
-                      <TableCell>{user.regions ? `${user.regions.sido} ${user.regions.sigungu}` : '-'}</TableCell>
+                      <TableCell>
+                        {user.regions ? `${user.regions.sido || ''} ${user.regions.sigungu || ''}`.trim() || '-' : '-'}
+                      </TableCell>
                       <TableCell>
                         <Badge className={getRoleColor(user.role)}>
-                          {user.role === 'admin' ? '관리자' : '일반 사용자'}
+                          {user.role === 'admin' ? '관리자' : user.role === 'student' ? '학생' : user.role === 'teacher' ? '교사' : '일반 사용자'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge className={getStatusColor(user.status)}>
-                          {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : '정지'}
+                          {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : user.status === 'suspended' ? '정지' : '알 수 없음'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
                           <div>Lv.{user.stats?.level || 1}</div>
-                          <div className="text-gray-500">{user.stats?.experience || 0} XP</div>
+                          <div className="text-gray-500">{user.stats?.totalExperience || 0} XP</div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className={`text-sm ${0 > 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                          {0}건
+                        <span className={`text-sm ${(user.warnings?.count || 0) > 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                          {user.warnings?.count || 0}건
                         </span>
                       </TableCell>
-                      <TableCell>{formatDate(user.profile.createdAt)}</TableCell>
+                      <TableCell>{formatDate(user.profile?.createdAt || user.createdAt)}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Select onValueChange={(value) => handleRoleChange(user.uid, value as any)}>
-                            <SelectTrigger className="w-24 h-8">
-                              <Crown className="h-3 w-3" />
+                            <SelectTrigger className="w-28 h-8">
+                              <span className="text-xs">
+                                {user.role === 'admin' ? '관리자' : '일반 사용자'}
+                              </span>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">관리자</SelectItem>
@@ -442,8 +474,10 @@ export default function AdminUsersPage() {
                           </Select>
                           
                           <Select onValueChange={(value) => handleStatusChange(user.uid, value as any)}>
-                            <SelectTrigger className="w-24 h-8">
-                              <CheckCircle className="h-3 w-3" />
+                            <SelectTrigger className="w-20 h-8">
+                              <span className="text-xs">
+                                {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : user.status === 'suspended' ? '정지' : '활성'}
+                              </span>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="active">활성</SelectItem>
@@ -467,7 +501,7 @@ export default function AdminUsersPage() {
                             size="sm"
                             onClick={() => {
                               setExperienceDialog({ isOpen: true, user });
-                              setExperienceForm({ experience: user.stats?.experience || 0, reason: '' });
+                              setExperienceForm({ experience: user.stats?.totalExperience || 0, reason: '' });
                             }}
                           >
                             <Edit className="h-3 w-3" />

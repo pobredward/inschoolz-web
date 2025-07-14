@@ -306,6 +306,16 @@ export interface Comment {
     isDeleted: boolean;
     isBlocked: boolean;
   };
+  postData?: {
+    title: string;
+    type: string;
+    boardCode: string;
+    schoolId?: string;
+    regions?: {
+      sido: string;
+      sigungu: string;
+    };
+  };
 }
 
 export interface Region {

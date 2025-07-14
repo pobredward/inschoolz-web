@@ -116,12 +116,22 @@ export default function MyCommentsPage() {
                       <Calendar className="h-3 w-3" />
                       <span>{formatSmartTime(comment.createdAt)}</span>
                     </div>
-                    <Link href={`/post/${comment.postId}#comment-${comment.id}`}>
-                      <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
-                        <ExternalLink className="h-4 w-4 mr-1" />
-                        원글 보기
-                      </Button>
-                    </Link>
+                    {comment.postData && (
+                      <Link href={
+                        comment.postData.type === 'national' 
+                          ? `/community/national/${comment.postData.boardCode}/${comment.postId}`
+                          : comment.postData.type === 'regional' && comment.postData.regions
+                          ? `/community/region/${comment.postData.regions.sido}/${comment.postData.regions.sigungu}/${comment.postData.boardCode}/${comment.postId}`
+                          : comment.postData.type === 'school' && comment.postData.schoolId
+                          ? `/community/school/${comment.postData.schoolId}/${comment.postData.boardCode}/${comment.postId}`
+                          : '#'
+                      }>
+                        <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          원글 보기
+                        </Button>
+                      </Link>
+                    )}
                   </div>
 
                   <div className="mb-3">

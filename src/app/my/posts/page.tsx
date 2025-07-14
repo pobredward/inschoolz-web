@@ -11,10 +11,17 @@ import { Post } from '@/types';
 import { formatSmartTime } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+interface ExtendedPost extends Post {
+  boardName?: string;
+  previewContent?: string;
+}
 
 export default function MyPostsPage() {
   const { user } = useAuth();
-  const [posts, setPosts] = useState<Post[]>([]);
+  const router = useRouter();
+  const [posts, setPosts] = useState<ExtendedPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -26,7 +33,7 @@ export default function MyPostsPage() {
       try {
         setIsLoading(true);
         const result = await getUserPosts(user.uid, 1, 20, 'latest');
-        setPosts(result.posts);
+        setPosts(result.posts as ExtendedPost[]);
         setHasMore(result.hasMore);
       } catch (error) {
         console.error('내 게시글 목록 로딩 오류:', error);
@@ -46,7 +53,7 @@ export default function MyPostsPage() {
       setIsLoading(true);
       const nextPage = currentPage + 1;
       const result = await getUserPosts(user.uid, nextPage, 20, 'latest');
-      setPosts(prev => [...prev, ...result.posts]);
+      setPosts(prev => [...prev, ...result.posts as ExtendedPost[]]);
       setHasMore(result.hasMore);
       setCurrentPage(nextPage);
     } catch (error) {
@@ -66,129 +73,133 @@ export default function MyPostsPage() {
     }
   };
 
-  const getPostUrl = (post: Post) => {
-    switch (post.type) {
-      case 'national':
-        return `/community/national/${post.boardCode}/${post.id}`;
-      case 'regional':
-        return `/community/region/${post.regions?.sido}/${post.regions?.sigungu}/${post.boardCode}/${post.id}`;
-      case 'school':
-        return `/community/school/${post.schoolId}/${post.boardCode}/${post.id}`;
-      default:
-        return `/community/${post.type}/${post.boardCode}/${post.id}`;
+  const getPostUrl = (post: ExtendedPost) => {
+    if (post.type === 'national') {
+      return `/community/national/${post.boardCode}/${post.id}`;
+    } else if (post.type === 'regional' && post.regions) {
+      return `/community/region/${encodeURIComponent(post.regions.sido)}/${encodeURIComponent(post.regions.sigungu)}/${post.boardCode}/${post.id}`;
+    } else if (post.type === 'school' && post.schoolId) {
+      return `/community/school/${post.schoolId}/${post.boardCode}/${post.id}`;
+    }
+    return '#';
+  };
+
+  const handlePostClick = (post: ExtendedPost) => {
+    const url = getPostUrl(post);
+    if (url !== '#') {
+      router.push(url);
     }
   };
 
-  if (!user) {
+  if (isLoading && posts.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-gray-500">로그인이 필요합니다.</p>
-          </CardContent>
-        </Card>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-500">게시글을 불러오는 중...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Edit className="h-6 w-6 text-green-600" />
-            <h1 className="text-2xl font-bold">내가 쓴 글</h1>
-          </div>
-          <p className="text-gray-600">작성한 게시글을 확인하세요.</p>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">내가 쓴 글</h1>
+        <div className="text-sm text-gray-500">
+          총 {posts.length}개
         </div>
-
-        {isLoading && posts.length === 0 ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : posts.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Edit className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                작성한 글이 없습니다
-              </h3>
-              <p className="text-gray-500 mb-4">
-                첫 번째 글을 작성해보세요.
-              </p>
-              <Link href="/community">
-                <Button variant="outline">글 작성하러 가기</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {posts.map((post) => (
-              <Card key={post.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Badge variant="secondary" className="text-xs">
-                        {getBoardTypeLabel(post.type)}
-                      </Badge>
-                      <span>•</span>
-                      <Calendar className="h-3 w-3" />
-                      <span>{formatSmartTime(post.createdAt)}</span>
-                    </div>
-                  </div>
-
-                  <Link href={getPostUrl(post)}>
-                    <h3 className="text-lg font-semibold mb-2 hover:text-green-600 transition-colors cursor-pointer">
-                      {post.title}
-                    </h3>
-                  </Link>
-
-                  {post.content && (
-                    <p className="text-gray-600 mb-3 line-clamp-2">
-                      {post.content.replace(/<[^>]*>/g, '').substring(0, 100)}
-                      {post.content.length > 100 && '...'}
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Eye className="h-4 w-4" />
-                      <span>{post.stats.viewCount || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" />
-                      <span>{post.stats.likeCount || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" />
-                      <span>{post.stats.commentCount || 0}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {hasMore && (
-              <div className="text-center py-4">
-                <Button 
-                  onClick={loadMorePosts} 
-                  disabled={isLoading}
-                  variant="outline"
-                >
-                  {isLoading ? '로딩 중...' : '더 보기'}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      {posts.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">📝</div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">작성한 게시글이 없습니다</h3>
+          <p className="text-gray-500 mb-6">첫 번째 게시글을 작성해보세요!</p>
+          <Button onClick={() => router.push('/community')}>
+            게시글 작성하기
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {posts.map((post) => (
+            <Card 
+              key={post.id} 
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => handlePostClick(post)}
+            >
+              <CardContent className="p-6">
+                {/* 게시판 정보 */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {getBoardTypeLabel(post.type)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {post.boardName || '게시판'}
+                    </Badge>
+                  </div>
+                  {post.attachments && post.attachments.length > 0 && (
+                    <Badge variant="outline" className="text-xs">
+                      📷 {post.attachments.length}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* 제목 */}
+                <h3 className="font-semibold text-lg text-gray-900 mb-2 line-clamp-2">
+                  {post.title}
+                </h3>
+
+                {/* 내용 미리보기 */}
+                {post.previewContent && (
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {post.previewContent}
+                  </p>
+                )}
+
+                {/* 메타 정보 */}
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <span>{formatSmartTime(post.createdAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1">
+                      <MessageSquare className="h-4 w-4" />
+                      {post.stats.commentCount}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Heart className="h-4 w-4" />
+                      {post.stats.likeCount}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Eye className="h-4 w-4" />
+                      {post.stats.viewCount}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* 더 보기 버튼 */}
+          {hasMore && (
+            <div className="flex justify-center pt-6">
+              <Button
+                variant="outline"
+                onClick={loadMorePosts}
+                disabled={isLoading}
+                className="w-full max-w-md"
+              >
+                {isLoading ? '로딩 중...' : '더 보기'}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 } 

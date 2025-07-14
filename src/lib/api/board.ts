@@ -255,7 +255,7 @@ export const getCommentsByPost = async (postId: string) => {
     const q = query(
       commentsRef,
       where('parentId', '==', null),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'asc')
     );
     
     const querySnapshot = await getDocs(q);

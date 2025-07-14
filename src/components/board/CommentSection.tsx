@@ -189,15 +189,7 @@ function CommentItem({
   };
 
   return (
-    <div className={`flex gap-3 ${isReply ? 'ml-8 mt-3' : ''}`}>
-      {/* 대댓글 연결선 */}
-      {isReply && (
-        <div className="flex flex-col items-center">
-          <div className="w-6 h-6 border-l-2 border-b-2 border-slate-200 rounded-bl-lg"></div>
-          <div className="w-0.5 bg-slate-200 flex-1"></div>
-        </div>
-      )}
-      
+    <div className={`flex gap-3 ${isReply ? 'ml-8 mt-3 p-3 bg-slate-50 rounded-lg' : ''}`}>
       <Avatar className="w-8 h-8 flex-shrink-0">
         <AvatarImage src={comment.author?.profileImageUrl} />
         <AvatarFallback className="text-xs bg-slate-100">

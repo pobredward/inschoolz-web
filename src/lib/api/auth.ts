@@ -75,6 +75,7 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       uid: userId,
       email: userData.email,
       role: 'student',
+      status: 'active', // 기본 상태를 'active'로 설정
       isVerified: true, // 이메일 인증 없이 바로 인증된 상태로 처리
       
       // 프로필 정보
@@ -96,6 +97,8 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
         level: 1,
         experience: 0,
         totalExperience: 0,
+        currentExp: 0,
+        currentLevelRequiredXp: 40,
         postCount: 0,
         commentCount: 0,
         likeCount: 0,

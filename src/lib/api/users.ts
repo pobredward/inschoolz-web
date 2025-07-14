@@ -18,6 +18,8 @@ import {
 import { db, storage } from '@/lib/firebase';
 import { User, Post, Comment } from '@/types';
 import { getDownloadURL, ref, uploadBytes, deleteObject } from 'firebase/storage';
+import { getBoardsByType } from '@/lib/api/board';
+import { generatePreviewContent } from '@/lib/utils';
 
 /**
  * 사용자 정보 조회
@@ -112,9 +114,41 @@ export const getUserPosts = async (
     const querySnapshot = await getDocs(q);
     const posts: Post[] = [];
     
-    querySnapshot.forEach((doc) => {
-      posts.push({ id: doc.id, ...doc.data() } as Post);
-    });
+    // 게시판 정보 캐시
+    const boardCache: { [key: string]: { name: string } } = {};
+    
+    for (const doc of querySnapshot.docs) {
+      const postData = doc.data();
+      
+      // 게시판 이름 조회
+      let boardName = '게시판';
+      if (postData.boardCode && postData.type) {
+        const cacheKey = `${postData.type}-${postData.boardCode}`;
+        if (boardCache[cacheKey]) {
+          boardName = boardCache[cacheKey].name;
+        } else {
+          try {
+            const boards = await getBoardsByType(postData.type);
+            const board = boards.find(b => b.code === postData.boardCode);
+            boardName = board?.name || `게시판 (${postData.boardCode})`;
+            boardCache[cacheKey] = { name: boardName };
+          } catch (error) {
+            console.error('게시판 정보 조회 실패:', error);
+            boardName = `게시판 (${postData.boardCode})`;
+          }
+        }
+      }
+      
+      // 미리보기 콘텐츠 생성
+      const previewContent = generatePreviewContent(postData.content);
+      
+      posts.push({ 
+        id: doc.id, 
+        ...doc.data(),
+        boardName,
+        previewContent
+      } as Post & { boardName: string; previewContent: string });
+    }
     
     // 전체 게시글 수 가져오기
     const countQuery = query(
@@ -182,15 +216,23 @@ export const getUserComments = async (
       const commentsSnapshot = await getDocs(commentsQuery);
       
       commentsSnapshot.forEach((commentDoc) => {
+        const postData = postDoc.data();
         allComments.push({ 
           id: commentDoc.id, 
           ...commentDoc.data(),
-          postId: postDoc.id  // 명시적으로 postId 추가
+          postId: postDoc.id,  // 명시적으로 postId 추가
+          postData: {
+            title: postData.title,
+            type: postData.type,
+            boardCode: postData.boardCode,
+            schoolId: postData.schoolId,
+            regions: postData.regions
+          }
         } as Comment);
       });
     }
     
-    // 생성일 기준 정렬
+    // 생성일 기준 정렬 (최신 댓글이 위에)
     allComments.sort((a, b) => b.createdAt - a.createdAt);
     
     // 페이징 처리

@@ -56,11 +56,13 @@ export const registerWithEmail = async (
         isAdmin: false
       },
       role: 'student',
+      status: 'active', // 기본 상태를 'active'로 설정
       isVerified: true, // 이메일 인증 없이 바로 인증된 상태로 처리
       stats: {
         level: 1,
-        experience: 0,
+        currentExp: 0,
         totalExperience: 0,
+        currentLevelRequiredXp: 40,
         postCount: 0,
         commentCount: 0,
         likeCount: 0,
