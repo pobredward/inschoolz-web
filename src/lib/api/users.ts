@@ -20,6 +20,7 @@ import { User, Post, Comment } from '@/types';
 import { getDownloadURL, ref, uploadBytes, deleteObject } from 'firebase/storage';
 import { getBoardsByType } from '@/lib/api/board';
 import { generatePreviewContent } from '@/lib/utils';
+import { getSchoolById } from '@/lib/api/schools';
 
 /**
  * 사용자 정보 조회
@@ -116,6 +117,8 @@ export const getUserPosts = async (
     
     // 게시판 정보 캐시
     const boardCache: { [key: string]: { name: string } } = {};
+    // 학교 정보 캐시
+    const schoolCache: { [key: string]: { name: string } } = {};
     
     for (const doc of querySnapshot.docs) {
       const postData = doc.data();
@@ -139,6 +142,23 @@ export const getUserPosts = async (
         }
       }
       
+      // 학교 이름 조회 (학교 게시글인 경우)
+      let schoolName = undefined;
+      if (postData.type === 'school' && postData.schoolId) {
+        if (schoolCache[postData.schoolId]) {
+          schoolName = schoolCache[postData.schoolId].name;
+        } else {
+          try {
+            const school = await getSchoolById(postData.schoolId);
+            schoolName = school?.name || '학교';
+            schoolCache[postData.schoolId] = { name: schoolName };
+          } catch (error) {
+            console.error('학교 정보 조회 실패:', error);
+            schoolName = '학교';
+          }
+        }
+      }
+      
       // 미리보기 콘텐츠 생성
       const previewContent = generatePreviewContent(postData.content);
       
@@ -146,8 +166,10 @@ export const getUserPosts = async (
         id: doc.id, 
         ...doc.data(),
         boardName,
-        previewContent
-      } as Post & { boardName: string; previewContent: string });
+        previewContent,
+        schoolName,
+        regions: postData.regions
+      } as Post & { boardName: string; previewContent: string; schoolName?: string; regions?: { sido: string; sigungu: string } });
     }
     
     // 전체 게시글 수 가져오기

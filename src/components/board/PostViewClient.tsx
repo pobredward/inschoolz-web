@@ -170,9 +170,10 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         }
         break;
       case 'school':
-        // 학교 게시판의 경우 사용자의 학교 정보 필요
-        if (user.school?.id) {
-          editPath = `/community/school/${user.school.id}/${post.boardCode}/edit/${post.id}`;
+        // 학교 게시판의 경우 게시글에 저장된 schoolId 사용 (타입 단언 필요)
+        const schoolPostId = (post as any)?.schoolId || user.school?.id;
+        if (schoolPostId) {
+          editPath = `/community/school/${schoolPostId}/${post.boardCode}/edit/${post.id}`;
         } else {
           toast.error('학교 정보가 없습니다.');
           return;

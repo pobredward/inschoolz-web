@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Heart, MessageCircle, Eye, Bookmark } from 'lucide-react';
 import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
-import { getBoardsByType, getPostsByBoardType, getAllPostsByType } from '@/lib/api/board';
+import { getBoardsByType, getPostsByBoardType, getAllPostsByType, getAllPostsBySchool, getAllPostsByRegion } from '@/lib/api/board';
 import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
 import { formatSmartTime, generatePreviewContent } from '@/lib/utils';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface CommunityPost extends Post {
   boardName: string;
@@ -32,6 +33,17 @@ const SORT_OPTIONS = [
 export default function CommunityPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
+  
+  // 사용자 상태 디버깅
+  useEffect(() => {
+    console.log('=== 사용자 상태 변경 감지 ===');
+    console.log('user:', user);
+    console.log('user type:', typeof user);
+    console.log('user === null:', user === null);
+    console.log('user === undefined:', user === undefined);
+  }, [user]);
+  
   const [selectedTab, setSelectedTab] = useState<BoardType>('national');
   const [boards, setBoards] = useState<Board[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -39,6 +51,11 @@ export default function CommunityPage() {
   const [sortBy, setSortBy] = useState<SortOption>('latest');
   const [isLoading, setIsLoading] = useState(false);
   const [showBoardSelector, setShowBoardSelector] = useState(false);
+  
+  // showBoardSelector 상태 변화 감지
+  useEffect(() => {
+    console.log('showBoardSelector changed to:', showBoardSelector);
+  }, [showBoardSelector]);
 
   // 페이지 로드 시 URL 파라미터와 세션에서 탭 상태 복원
   useEffect(() => {
@@ -47,9 +64,25 @@ export default function CommunityPage() {
     
     let initialTab: BoardType = 'national';
     
-    // URL 파라미터가 우선, 없으면 세션 스토리지에서 복원
-    if (tabFromUrl && ['school', 'regional', 'national'].includes(tabFromUrl)) {
-      initialTab = tabFromUrl as BoardType;
+    // 새로운 라우팅 구조 파싱
+    if (tabFromUrl) {
+      // tab=school/schoolId 또는 tab=regional/sido/sigungu 형태
+      const tabParts = tabFromUrl.split('/');
+      const baseTab = tabParts[0];
+      
+      if (['school', 'regional', 'national'].includes(baseTab)) {
+        initialTab = baseTab as BoardType;
+        
+        // school 또는 regional 탭의 경우 추가 파라미터 처리
+        if (baseTab === 'school' && tabParts[1]) {
+          // schoolId 정보 저장 (향후 필터링에 사용)
+          sessionStorage.setItem('community-selected-school', tabParts[1]);
+        } else if (baseTab === 'regional' && tabParts[1] && tabParts[2]) {
+          // sido, sigungu 정보 저장
+          sessionStorage.setItem('community-selected-sido', decodeURIComponent(tabParts[1]));
+          sessionStorage.setItem('community-selected-sigungu', decodeURIComponent(tabParts[2]));
+        }
+      }
     } else if (savedTab && ['school', 'regional', 'national'].includes(savedTab)) {
       initialTab = savedTab as BoardType;
     }
@@ -57,7 +90,9 @@ export default function CommunityPage() {
     setSelectedTab(initialTab);
     
     // URL 파라미터 업데이트 (히스토리에 추가하지 않음)
-    if (!tabFromUrl || tabFromUrl !== initialTab) {
+    // school이나 regional 탭의 경우 추가 파라미터가 필요하므로 여기서는 업데이트하지 않음
+    // 사용자 정보 로딩 후 자동 리다이렉트에서 처리
+    if (!tabFromUrl || (!tabFromUrl.startsWith(initialTab) && initialTab === 'national')) {
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('tab', initialTab);
       window.history.replaceState({}, '', newUrl.toString());
@@ -65,16 +100,177 @@ export default function CommunityPage() {
   }, [searchParams]);
 
   // 탭 변경 핸들러
-  const handleTabChange = (newTab: BoardType) => {
+  const handleTabChange = async (newTab: BoardType) => {
+    console.log('=== handleTabChange 시작 ===');
+    console.log('새로운 탭:', newTab);
+    console.log('현재 user 상태:', user);
+    console.log('user === null:', user === null);
+    console.log('user?.uid:', user?.uid);
+    console.log('user?.regions:', user?.regions);
+    
     setSelectedTab(newTab);
     
     // 세션 스토리지와 URL 파라미터 모두 업데이트
     sessionStorage.setItem('community-selected-tab', newTab);
     
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('tab', newTab);
-    window.history.replaceState({}, '', newUrl.toString());
+    // 새로운 라우팅 구조로 리다이렉트
+    if (newTab === 'school') {
+      // 유저 정보가 로딩 중인 경우
+      if (user === null) {
+        // 로딩 중이면 일단 기본 URL로 이동 (자동 리다이렉트가 처리함)
+        console.log('User loading, setting basic school tab...');
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('tab', 'school');
+        window.history.replaceState({}, '', newUrl.toString());
+        return;
+      }
+      
+      // 로그인된 사용자가 있으면 users 컬렉션에서 최신 정보 가져오기
+      if (user?.uid) {
+        try {
+          console.log('Fetching latest user info from users collection...');
+          const { getUserById } = await import('@/lib/api/users');
+          const latestUser = await getUserById(user.uid);
+          
+          if (latestUser?.school?.id) {
+            console.log('Redirecting to school:', latestUser.school.id);
+            router.push(`/community?tab=school/${latestUser.school.id}`);
+          } else {
+            // 로그인은 되어 있지만 학교 정보가 없는 경우
+            console.log('No school info in users collection, redirecting to edit page');
+            router.push('/my/edit');
+          }
+        } catch (error) {
+          console.error('Failed to fetch user info:', error);
+          // API 호출 실패 시 기존 user 정보로 fallback
+          if (user?.school?.id) {
+            console.log('Fallback to cached school:', user.school.id);
+            router.push(`/community?tab=school/${user.school.id}`);
+          } else {
+            console.log('No cached school info, redirecting to edit page');
+            router.push('/my/edit');
+          }
+        }
+      } else {
+        // 로그인되지 않은 경우
+        console.log('Not logged in, redirecting to login');
+        router.push('/auth');
+      }
+    } else if (newTab === 'regional') {
+      console.log('=== 지역 탭 선택됨 ===');
+      // 유저 정보가 로딩 중인 경우
+      if (user === null) {
+        // 로딩 중이면 일단 기본 URL로 이동 (자동 리다이렉트가 처리함)
+        console.log('User loading, setting basic regional tab...');
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('tab', 'regional');
+        window.history.replaceState({}, '', newUrl.toString());
+        return;
+      }
+      
+      // 로그인된 사용자가 있으면 users 컬렉션에서 최신 정보 가져오기
+      if (user?.uid) {
+        console.log('사용자 UID 확인됨:', user.uid);
+        try {
+          console.log('Fetching latest user info from users collection...');
+          const { getUserById } = await import('@/lib/api/users');
+          const latestUser = await getUserById(user.uid);
+          console.log('가져온 사용자 정보:', latestUser);
+          console.log('지역 정보:', latestUser?.regions);
+          
+          if (latestUser?.regions?.sido && latestUser?.regions?.sigungu) {
+            console.log('Redirecting to region:', latestUser.regions.sido, latestUser.regions.sigungu);
+            router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
+          } else {
+            // 로그인은 되어 있지만 지역 정보가 없는 경우
+            console.log('No region info in users collection, redirecting to edit page');
+            router.push('/my/edit');
+          }
+        } catch (error) {
+          console.error('Failed to fetch user info:', error);
+          // API 호출 실패 시 기존 user 정보로 fallback
+          if (user?.regions?.sido && user?.regions?.sigungu) {
+            console.log('Fallback to cached region:', user.regions.sido, user.regions.sigungu);
+            router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
+          } else {
+            console.log('No cached region info, redirecting to edit page');
+            router.push('/my/edit');
+          }
+        }
+      } else {
+        // 로그인되지 않은 경우
+        console.log('Not logged in, redirecting to login');
+        router.push('/auth');
+      }
+    } else {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('tab', newTab);
+      window.history.replaceState({}, '', newUrl.toString());
+    }
   };
+
+  // 사용자 정보 로딩 후 자동 리다이렉트 처리
+  useEffect(() => {
+    const handleAutoRedirect = async () => {
+      if (user !== null && user?.uid) { // 사용자 정보가 로딩 완료되고 로그인된 경우
+        const tabFromUrl = searchParams.get('tab');
+        
+        try {
+          // users 컬렉션에서 최신 정보 가져오기
+          const { getUserById } = await import('@/lib/api/users');
+          const latestUser = await getUserById(user.uid);
+          
+          if (selectedTab === 'school') {
+            // URL이 단순히 'school'인 경우 자동 리다이렉트
+            if (tabFromUrl === 'school') {
+              if (latestUser?.school?.id) {
+                console.log('Auto-redirecting to school with ID:', latestUser.school.id);
+                router.push(`/community?tab=school/${latestUser.school.id}`);
+              } else {
+                // 학교 정보가 없으면 편집 페이지로
+                console.log('No school info in users collection, redirecting to edit');
+                router.push('/my/edit');
+              }
+            }
+          } else if (selectedTab === 'regional') {
+            // URL이 단순히 'regional'인 경우 자동 리다이렉트
+            if (tabFromUrl === 'regional') {
+              if (latestUser?.regions?.sido && latestUser?.regions?.sigungu) {
+                console.log('Auto-redirecting to region:', latestUser.regions.sido, latestUser.regions.sigungu);
+                router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
+              } else {
+                // 지역 정보가 없으면 편집 페이지로
+                console.log('No region info in users collection, redirecting to edit');
+                router.push('/my/edit');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch user info for auto-redirect:', error);
+          // API 호출 실패 시 기존 user 정보로 fallback
+          if (selectedTab === 'school' && tabFromUrl === 'school') {
+            if (user?.school?.id) {
+              console.log('Fallback auto-redirect to cached school:', user.school.id);
+              router.push(`/community?tab=school/${user.school.id}`);
+            } else {
+              console.log('No cached school info, redirecting to edit');
+              router.push('/my/edit');
+            }
+          } else if (selectedTab === 'regional' && tabFromUrl === 'regional') {
+            if (user?.regions?.sido && user?.regions?.sigungu) {
+              console.log('Fallback auto-redirect to cached region:', user.regions.sido, user.regions.sigungu);
+              router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
+            } else {
+              console.log('No cached region info, redirecting to edit');
+              router.push('/my/edit');
+            }
+          }
+        }
+      }
+    };
+
+    handleAutoRedirect();
+  }, [user, selectedTab, searchParams, router]);
 
   useEffect(() => {
     loadBoards();
@@ -106,8 +302,27 @@ export default function CommunityPage() {
       console.log('Loading posts for tab:', selectedTab, 'boards:', boards.length);
 
       if (selectedBoard === 'all') {
-        // 모든 게시판의 게시글 가져오기
-        const boardPosts = await getAllPostsByType(selectedTab);
+        // 모든 게시판의 게시글 가져오기 - 새로운 필터링 로직 적용
+        let boardPosts: Post[] = [];
+        
+        if (selectedTab === 'school') {
+          // 학교 탭: URL 파라미터 또는 사용자의 메인 학교 사용
+          const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
+          if (selectedSchoolId) {
+            boardPosts = await getAllPostsBySchool(selectedSchoolId);
+          }
+        } else if (selectedTab === 'regional') {
+          // 지역 탭: URL 파라미터 또는 사용자의 지역 사용
+          const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
+          const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+          if (selectedSido && selectedSigungu) {
+            boardPosts = await getAllPostsByRegion(selectedSido, selectedSigungu);
+          }
+        } else {
+          // 전국 탭: 기존 로직 유지
+          boardPosts = await getAllPostsByType(selectedTab);
+        }
+        
         const postsWithBoardName = boardPosts.map(post => {
           const board = boards.find(b => b.code === post.boardCode);
           console.log('Post boardCode:', post.boardCode, 'Found board:', board?.name);
@@ -120,10 +335,29 @@ export default function CommunityPage() {
         });
         allPosts = postsWithBoardName;
       } else {
-        // 특정 게시판의 게시글만 가져오기
-        const boardPosts = await getPostsByBoardType(selectedTab, selectedBoard);
+        // 특정 게시판의 게시글만 가져오기 - 새로운 필터링 로직 적용
+        let boardPosts: Post[] = [];
+        
+        if (selectedTab === 'school') {
+          // 학교 탭: 해당 학교의 특정 게시판 게시글만 가져오기
+          const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
+          if (selectedSchoolId) {
+            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, 20, selectedSchoolId);
+          }
+        } else if (selectedTab === 'regional') {
+          // 지역 탭: 해당 지역의 특정 게시판 게시글만 가져오기
+          const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
+          const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+          if (selectedSido && selectedSigungu) {
+            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, 20, undefined, { sido: selectedSido, sigungu: selectedSigungu });
+          }
+        } else {
+          // 전국 탭: 기존 로직 유지
+          boardPosts = await getPostsByBoardType(selectedTab, selectedBoard);
+        }
+        
         const board = boards.find(b => b.code === selectedBoard);
-        console.log('Selected board:', selectedBoard, 'Found board:', board?.name);
+        console.log('Selected board:', selectedBoard, 'Found board:', board?.name, 'Posts count:', boardPosts.length);
         allPosts = boardPosts.map(post => ({
           ...post,
           attachments: post.attachments || [], // 기본값 설정
@@ -161,11 +395,87 @@ export default function CommunityPage() {
   };
 
   const handlePostClick = (post: CommunityPost) => {
-    router.push(`/community/${selectedTab}/${post.boardCode}/${post.id}`);
+    let postUrl = '';
+    
+    switch (selectedTab) {
+      case 'national':
+        postUrl = `/community/national/${post.boardCode}/${post.id}`;
+        break;
+      case 'regional':
+        const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
+        const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+        if (selectedSido && selectedSigungu) {
+          postUrl = `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${post.boardCode}/${post.id}`;
+        }
+        break;
+      case 'school':
+        const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
+        if (selectedSchoolId) {
+          postUrl = `/community/school/${selectedSchoolId}/${post.boardCode}/${post.id}`;
+        }
+        break;
+    }
+    
+    if (postUrl) {
+      router.push(postUrl);
+    }
   };
 
   const handleWriteClick = () => {
-    setShowBoardSelector(true);
+    console.log('Write button clicked!');
+    console.log('Current tab:', selectedTab);
+    console.log('User:', user);
+    console.log('User school:', user?.school);
+    
+    // 현재 선택된 탭에 따라 적절한 write 페이지로 이동하거나 BoardSelector 표시
+    if (selectedTab === 'national') {
+      console.log('Opening board selector for national');
+      setShowBoardSelector(true);
+    } else if (selectedTab === 'school') {
+      console.log('School tab - checking user info...');
+      
+      // 사용자 정보가 아직 로딩 중이면 일단 BoardSelector 표시
+      if (user === null) {
+        console.log('User loading, but showing board selector anyway...');
+        setShowBoardSelector(true);
+        return;
+      }
+      
+      const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
+      console.log('Selected school ID:', selectedSchoolId);
+      
+      if (selectedSchoolId) {
+        console.log('Opening board selector for school');
+        setShowBoardSelector(true);
+      } else {
+        console.log('No school info for writing, redirecting to edit page');
+        router.push('/my/edit'); // 학교 정보 설정 페이지로
+      }
+    } else if (selectedTab === 'regional') {
+      console.log('Regional tab - checking user info...');
+      
+      // 사용자 정보가 아직 로딩 중이면 일단 BoardSelector 표시
+      if (user === null) {
+        console.log('User loading, but showing board selector anyway...');
+        setShowBoardSelector(true);
+        return;
+      }
+      
+      const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
+      const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+      console.log('Selected region:', selectedSido, selectedSigungu);
+      
+      if (selectedSido && selectedSigungu) {
+        console.log('Opening board selector for region');
+        setShowBoardSelector(true);
+      } else {
+        console.log('No region info for writing, redirecting to edit page');
+        router.push('/my/edit'); // 지역 정보 설정 페이지로
+      }
+    } else {
+      console.log('Default case - opening board selector');
+      setShowBoardSelector(true);
+    }
   };
 
   return (
@@ -215,8 +525,16 @@ export default function CommunityPage() {
         <div className="bg-white border-b">
           <div className="container mx-auto px-4 py-3">
             <SchoolSelector 
-              onSchoolChange={async () => {
-                // 학교 변경 시 게시판과 게시글 목록 새로고침
+              onSchoolChange={async (school) => {
+                console.log('School changed to:', school.id, school.name);
+                
+                // URL 업데이트 - 새로운 학교 ID로 리다이렉트
+                router.push(`/community?tab=school/${school.id}`);
+                
+                // 세션 스토리지에도 업데이트
+                sessionStorage.setItem('community-selected-school', school.id);
+                
+                // 게시판과 게시글 목록 새로고침
                 await loadBoards();
                 await loadPosts();
               }}
@@ -377,6 +695,11 @@ export default function CommunityPage() {
         isOpen={showBoardSelector}
         onClose={() => setShowBoardSelector(false)}
         type={selectedTab}
+        schoolId={selectedTab === 'school' ? (sessionStorage?.getItem('community-selected-school') || user?.school?.id) : undefined}
+        regions={selectedTab === 'regional' ? {
+          sido: sessionStorage?.getItem('community-selected-sido') || user?.regions?.sido || '',
+          sigungu: sessionStorage?.getItem('community-selected-sigungu') || user?.regions?.sigungu || ''
+        } : undefined}
       />
     </div>
   );

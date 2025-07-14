@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SchoolBoardWritePage({ params }: WritePageProps) {
-  const { boardCode } = await params;
+  const { schoolId, boardCode } = await params;
   
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -27,6 +27,7 @@ export default async function SchoolBoardWritePage({ params }: WritePageProps) {
         <WritePageClient 
           type={"school" as BoardType} 
           code={boardCode} 
+          schoolId={schoolId}
         />
       </div>
     </div>

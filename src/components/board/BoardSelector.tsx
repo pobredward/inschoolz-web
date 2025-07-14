@@ -29,6 +29,8 @@ export default function BoardSelector({
   schoolId, 
   regions 
 }: BoardSelectorProps) {
+  console.log('BoardSelector rendered with:', { isOpen, type, schoolId, regions });
+  
   const router = useRouter();
   const { user } = useAuth();
   const [boards, setBoards] = useState<Board[]>([]);
@@ -64,13 +66,18 @@ export default function BoardSelector({
         writeUrl = `/community/national/${board.code}/write`;
         break;
       case 'regional':
-        if (user?.regions) {
-          writeUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${board.code}/write`;
+        // props로 전달받은 지역 정보 우선 사용, 없으면 세션 스토리지나 유저 정보에서 가져오기
+        const selectedSido = regions?.sido || sessionStorage?.getItem('community-selected-sido') || user?.regions?.sido;
+        const selectedSigungu = regions?.sigungu || sessionStorage?.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+        if (selectedSido && selectedSigungu) {
+          writeUrl = `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${board.code}/write`;
         }
         break;
       case 'school':
-        if (user?.school?.id) {
-          writeUrl = `/community/school/${user.school.id}/${board.code}/write`;
+        // props로 전달받은 학교 ID 우선 사용, 없으면 세션 스토리지나 유저 정보에서 가져오기
+        const selectedSchoolId = schoolId || sessionStorage?.getItem('community-selected-school') || user?.school?.id;
+        if (selectedSchoolId) {
+          writeUrl = `/community/school/${selectedSchoolId}/${board.code}/write`;
         }
         break;
     }

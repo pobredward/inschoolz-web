@@ -25,9 +25,10 @@ import { ExperienceModal } from "@/components/ui/experience-modal";
 interface WritePageClientProps {
   type: BoardType;
   code: string;
+  schoolId?: string;
 }
 
-export default function WritePageClient({ type, code }: WritePageClientProps) {
+export default function WritePageClient({ type, code, schoolId }: WritePageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -182,6 +183,14 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
           displayName: getUserDisplayName(),
           isAnonymous: isAnonymous,
         },
+        // 학교와 지역 정보 추가 (URL 파라미터로 전달받은 schoolId 우선 사용)
+        ...(type === 'school' && (schoolId || user.school?.id) && { schoolId: schoolId || user.school?.id }),
+        ...(type === 'regional' && user.regions && {
+          regions: {
+            sido: user.regions.sido,
+            sigungu: user.regions.sigungu
+          }
+        }),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         status: {
@@ -238,12 +247,58 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
           setShowExperienceModal(true);
         } else {
           // 경험치 부여 실패 시 즉시 이동
-          router.push(`/community/${type}/${code}/${postId}`);
+          let postUrl = '';
+          
+          switch (type) {
+            case 'national':
+              postUrl = `/community/national/${code}/${postId}`;
+              break;
+            case 'regional':
+              // 사용자의 지역 정보 사용
+              if (user?.regions?.sido && user?.regions?.sigungu) {
+                postUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${code}/${postId}`;
+              }
+              break;
+            case 'school':
+              // URL에서 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
+              const targetSchoolId = schoolId || user?.school?.id;
+              if (targetSchoolId) {
+                postUrl = `/community/school/${targetSchoolId}/${code}/${postId}`;
+              }
+              break;
+          }
+          
+          if (postUrl) {
+            router.push(postUrl);
+          }
         }
       } catch (expError) {
         console.error('경험치 부여 실패:', expError);
         // 경험치 부여 실패는 게시글 작성 성공에 영향을 주지 않음
-        router.push(`/community/${type}/${code}/${postId}`);
+        let postUrl = '';
+        
+        switch (type) {
+          case 'national':
+            postUrl = `/community/national/${code}/${postId}`;
+            break;
+          case 'regional':
+            // 사용자의 지역 정보 사용
+            if (user?.regions?.sido && user?.regions?.sigungu) {
+              postUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${code}/${postId}`;
+            }
+            break;
+          case 'school':
+            // URL에서 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
+            const targetSchoolId = schoolId || user?.school?.id;
+            if (targetSchoolId) {
+              postUrl = `/community/school/${targetSchoolId}/${code}/${postId}`;
+            }
+            break;
+        }
+        
+        if (postUrl) {
+          router.push(postUrl);
+        }
       }
       
       toast.success("게시글이 작성되었습니다.");
@@ -266,7 +321,30 @@ export default function WritePageClient({ type, code }: WritePageClientProps) {
     setShowExperienceModal(false);
     // 모달 닫기 후 게시글 상세 페이지로 이동
     if (pendingPostId) {
-      router.push(`/community/${type}/${code}/${pendingPostId}`);
+      let postUrl = '';
+      
+      switch (type) {
+        case 'national':
+          postUrl = `/community/national/${code}/${pendingPostId}`;
+          break;
+        case 'regional':
+          // 사용자의 지역 정보 사용
+          if (user?.regions?.sido && user?.regions?.sigungu) {
+            postUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${code}/${pendingPostId}`;
+          }
+          break;
+        case 'school':
+          // URL에서 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
+          const targetSchoolId = schoolId || user?.school?.id;
+          if (targetSchoolId) {
+            postUrl = `/community/school/${targetSchoolId}/${code}/${pendingPostId}`;
+          }
+          break;
+      }
+      
+      if (postUrl) {
+        router.push(postUrl);
+      }
       setPendingPostId(null);
     }
     setExperienceData(null);

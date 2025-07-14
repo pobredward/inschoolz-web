@@ -43,6 +43,11 @@ interface PostEditorProps {
     name: string;
     description: string;
   };
+  schoolId?: string;
+  regions?: {
+    sido: string;
+    sigungu: string;
+  };
 }
 
 // 폼 스키마 정의
@@ -65,7 +70,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function PostEditor({ boardCode, boardType, board }: PostEditorProps) {
+export default function PostEditor({ boardCode, boardType, board, schoolId, regions }: PostEditorProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -137,7 +142,32 @@ export default function PostEditor({ boardCode, boardType, board }: PostEditorPr
       });
       
       // 작성된 게시글로 이동
-      router.push(`/community/${boardType}/${boardCode}/${postId}`);
+      let postUrl = '';
+      
+      switch (boardType) {
+        case 'national':
+          postUrl = `/community/national/${boardCode}/${postId}`;
+          break;
+        case 'regional':
+          // props로 받은 지역 정보 우선 사용, 없으면 사용자의 지역 정보 사용
+          const targetSido = regions?.sido || user?.regions?.sido;
+          const targetSigungu = regions?.sigungu || user?.regions?.sigungu;
+          if (targetSido && targetSigungu) {
+            postUrl = `/community/region/${encodeURIComponent(targetSido)}/${encodeURIComponent(targetSigungu)}/${boardCode}/${postId}`;
+          }
+          break;
+        case 'school':
+          // props로 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
+          const targetSchoolId = schoolId || user?.school?.id;
+          if (targetSchoolId) {
+            postUrl = `/community/school/${targetSchoolId}/${boardCode}/${postId}`;
+          }
+          break;
+      }
+      
+      if (postUrl) {
+        router.push(postUrl);
+      }
     } catch (error) {
       console.error('게시글 작성 오류:', error);
       toast({

@@ -169,7 +169,30 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       });
       
       // 수정된 게시글로 이동
-      router.push(`/community/${type}/${boardCode}/${post.id}`);
+      let postUrl = '';
+      
+      switch (type) {
+        case 'national':
+          postUrl = `/community/national/${boardCode}/${post.id}`;
+          break;
+        case 'regional':
+          // 사용자의 지역 정보 사용
+          if (user?.regions?.sido && user?.regions?.sigungu) {
+            postUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${boardCode}/${post.id}`;
+          }
+          break;
+        case 'school':
+          // 게시글에 저장된 schoolId 사용, 없으면 사용자의 학교 ID 사용
+          const schoolPostId = (post as any)?.schoolId || user?.school?.id;
+          if (schoolPostId) {
+            postUrl = `/community/school/${schoolPostId}/${boardCode}/${post.id}`;
+          }
+          break;
+      }
+      
+      if (postUrl) {
+        router.push(postUrl);
+      }
     } catch (error) {
       console.error('게시글 수정 오류:', error);
       toast({

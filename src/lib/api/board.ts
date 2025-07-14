@@ -742,20 +742,38 @@ export const toggleCommentLike = async (postId: string, commentId: string, userI
 export const getPostsByBoardType = async (
   boardType: BoardType,
   boardCode: string,
-  pageSize = 20
+  pageSize = 20,
+  schoolId?: string,
+  regions?: { sido: string; sigungu: string }
 ) => {
   try {
-    const constraints = [
+    const whereConstraints = [
       where('type', '==', boardType),
       where('boardCode', '==', boardCode),
       where('status.isDeleted', '==', false),
-      where('status.isHidden', '==', false),
+      where('status.isHidden', '==', false)
+    ];
+    
+    // 학교 커뮤니티인 경우 schoolId 필터링 추가
+    if (boardType === 'school' && schoolId) {
+      whereConstraints.push(where('schoolId', '==', schoolId));
+    }
+    
+    // 지역 커뮤니티인 경우 지역 필터링 추가
+    if (boardType === 'regional' && regions?.sido && regions?.sigungu) {
+      whereConstraints.push(where('regions.sido', '==', regions.sido));
+      whereConstraints.push(where('regions.sigungu', '==', regions.sigungu));
+    }
+    
+    // 전체 constraints 배열 구성
+    const allConstraints = [
+      ...whereConstraints,
       orderBy('status.isPinned', 'desc'),
       orderBy('createdAt', 'desc'),
       limit(pageSize)
     ];
     
-    return await getDocuments<Post>('posts', constraints);
+    return await getDocuments<Post>('posts', allConstraints);
   } catch (error) {
     console.error('게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -781,6 +799,54 @@ export const getAllPostsByType = async (
   } catch (error) {
     console.error('전체 게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 학교별 게시글 가져오기 (유저의 메인 학교 기준)
+export const getAllPostsBySchool = async (
+  schoolId: string,
+  pageSize = 50
+) => {
+  try {
+    const constraints = [
+      where('type', '==', 'school'),
+      where('schoolId', '==', schoolId),
+      where('status.isDeleted', '==', false),
+      where('status.isHidden', '==', false),
+      orderBy('status.isPinned', 'desc'),
+      orderBy('createdAt', 'desc'),
+      limit(pageSize)
+    ];
+    
+    return await getDocuments<Post>('posts', constraints);
+  } catch (error) {
+    console.error('학교별 게시글 목록 가져오기 오류:', error);
+    throw new Error('학교별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 지역별 게시글 가져오기 (유저의 지역 기준)
+export const getAllPostsByRegion = async (
+  sido: string,
+  sigungu: string,
+  pageSize = 50
+) => {
+  try {
+    const constraints = [
+      where('type', '==', 'regional'),
+      where('regions.sido', '==', sido),
+      where('regions.sigungu', '==', sigungu),
+      where('status.isDeleted', '==', false),
+      where('status.isHidden', '==', false),
+      orderBy('status.isPinned', 'desc'),
+      orderBy('createdAt', 'desc'),
+      limit(pageSize)
+    ];
+    
+    return await getDocuments<Post>('posts', constraints);
+  } catch (error) {
+    console.error('지역별 게시글 목록 가져오기 오류:', error);
+    throw new Error('지역별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
   }
 };
 
