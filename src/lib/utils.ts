@@ -8,6 +8,77 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// ===== 로깅 유틸리티 =====
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+export const logger = {
+  debug: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log(`🔍 [DEBUG] ${message}`, ...args);
+    }
+  },
+  
+  info: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log(`ℹ️ [INFO] ${message}`, ...args);
+    }
+  },
+  
+  warn: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.warn(`⚠️ [WARN] ${message}`, ...args);
+    }
+  },
+  
+  error: (message: string, ...args: unknown[]) => {
+    console.error(`❌ [ERROR] ${message}`, ...args);
+  },
+  
+  // Firebase 인증 관련 로그
+  auth: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log(`🔐 [AUTH] ${message}`, ...args);
+    }
+  },
+  
+  // Firebase 관련 로그
+  firebase: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log(`🔥 [FIREBASE] ${message}`, ...args);
+    }
+  },
+  
+  // API 호출 관련 로그
+  api: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log(`🌐 [API] ${message}`, ...args);
+    }
+  },
+  
+  // 사용자 액션 관련 로그
+  user: (message: string, ...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log(`👤 [USER] ${message}`, ...args);
+    }
+  }
+};
+
+// 성능 측정을 위한 타이머 유틸리티
+export const performanceLogger = {
+  start: (label: string) => {
+    if (isDevelopment) {
+      console.time(`⏱️ [PERF] ${label}`);
+    }
+  },
+  
+  end: (label: string) => {
+    if (isDevelopment) {
+      console.timeEnd(`⏱️ [PERF] ${label}`);
+    }
+  }
+};
+
 // ===== 시간 관련 유틸리티 함수들 =====
 
 /**
@@ -291,13 +362,15 @@ export async function parseHtmlContent(content: string): Promise<string> {
 }
 
 /**
- * HTML 태그를 제거하고 텍스트만 추출
+ * HTML 태그를 제거하고 순수 텍스트만 반환하는 함수
+ * @param html HTML 문자열 또는 일반 텍스트
+ * @returns 순수 텍스트
  */
-export function stripHtmlTags(content: string): string {
-  if (!content) return '';
+export function stripHtmlTags(html: string): string {
+  if (!html) return '';
   
   // <br>, <p> 태그를 줄바꿈으로 변환
-  let text = content
+  let text = html
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<p[^>]*>/gi, '')
@@ -317,8 +390,10 @@ export function stripHtmlTags(content: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'");
   
-  // 앞뒤 공백 제거
-  text = text.trim();
+  // 연속된 줄바꿈을 최대 2개로 제한하고 앞뒤 공백 제거
+  text = text
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim();
   
   return text;
 }
@@ -369,7 +444,7 @@ export function parseContentText(content: string): string {
 }
 
 /**
- * TipTap JSON에서 텍스트를 추출하는 함수 (웹용)
+ * TipTap JSON에서 텍스트를 추출하는 함수
  * @param node TipTap JSON 노드
  * @returns 추출된 텍스트
  */
@@ -402,4 +477,55 @@ function extractTextFromTipTapJson(node: unknown): string {
   }
   
   return text;
+}
+
+/**
+ * 텍스트를 지정된 길이로 자르고 말줄임표를 추가하는 함수
+ * @param text 원본 텍스트
+ * @param maxLength 최대 길이 (기본값: 100)
+ * @returns 잘린 텍스트
+ */
+export function truncateText(text: string, maxLength: number = 100): string {
+  if (!text) return '';
+  
+  // 먼저 HTML 태그 제거 및 텍스트 파싱
+  const cleanText = parseContentText(text);
+  
+  if (cleanText.length <= maxLength) {
+    return cleanText;
+  }
+  
+  return cleanText.substring(0, maxLength) + '...';
+}
+
+/**
+ * 텍스트에서 모든 이미지 URL을 추출하는 함수
+ * @param content 콘텐츠 텍스트
+ * @returns 이미지 URL 배열
+ */
+export function extractAllImageUrls(content: string): string[] {
+  if (!content) return [];
+  
+  const imageUrls: string[] = [];
+  
+  // HTML img 태그에서 src 추출
+  const imgTagMatches = content.matchAll(/<img[^>]+src="([^"]+)"/gi);
+  for (const match of imgTagMatches) {
+    imageUrls.push(match[1]);
+  }
+  
+  // 마크다운 이미지 형태 ![alt](url) 추출
+  const markdownImgMatches = content.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g);
+  for (const match of markdownImgMatches) {
+    imageUrls.push(match[1]);
+  }
+  
+  // URL 형태의 이미지 링크 추출
+  const urlMatches = content.matchAll(/(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp))/gi);
+  for (const match of urlMatches) {
+    imageUrls.push(match[1]);
+  }
+  
+  // 중복 제거
+  return [...new Set(imageUrls)];
 }
