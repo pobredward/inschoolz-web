@@ -37,6 +37,7 @@ import {
 import { useAuth } from '@/providers/AuthProvider';
 import { useExperience } from '@/providers/experience-provider';
 import { User } from '@/types';
+import { getUnreadNotificationCount } from '@/lib/api/notifications';
 
 // 메뉴 아이템 정의 (PRD 요구사항에 맞게 수정)
 const menuItems = [
@@ -77,6 +78,54 @@ function ExperienceDisplay({ user }: { user?: User }) {
         </span>
       </div>
     </div>
+  );
+}
+
+// 알림 버튼 컴포넌트
+function NotificationButton({ user }: { user?: User }) {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnreadCount = async () => {
+      try {
+        const count = await getUnreadNotificationCount(user.uid);
+        setUnreadCount(count);
+      } catch (error) {
+        console.error('읽지 않은 알림 개수 조회 실패:', error);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // 정기적으로 알림 개수 업데이트 (30초마다)
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  if (!user) return null;
+
+  return (
+    <Link href="/notifications">
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="relative hover:bg-pastel-green-100 focus:ring-2 focus:ring-pastel-green-400"
+        aria-label={`알림 확인 ${unreadCount > 0 ? `(${unreadCount}개 안읽음)` : ''}`}
+      >
+        <Bell className="h-5 w-5 text-pastel-green-600" />
+        {unreadCount > 0 && (
+          <span 
+            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
+            aria-label={`${unreadCount}개의 새 알림`}
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </Button>
+    </Link>
   );
 }
 
@@ -223,21 +272,7 @@ export function Header() {
             )}
 
             {/* 알림 버튼 - 로그인 시에만 표시 */}
-            {user && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="relative hover:bg-pastel-green-100 focus:ring-2 focus:ring-pastel-green-400"
-                aria-label="알림 확인"
-                disabled={isLoading}
-              >
-                <Bell className="h-5 w-5 text-pastel-green-600" />
-                <span 
-                  className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"
-                  aria-label="새 알림 있음"
-                ></span>
-              </Button>
-            )}
+            <NotificationButton user={user || undefined} />
 
             {/* 모바일 메뉴 트리거 - md 미만에서만 표시 */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -348,6 +383,12 @@ export function Header() {
                       <Link href={profilePath} className="cursor-pointer">
                         <UserIcon className="mr-2 h-4 w-4" />
                         <span>내 프로필</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/notifications" className="cursor-pointer">
+                        <Bell className="mr-2 h-4 w-4" />
+                        <span>알림</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

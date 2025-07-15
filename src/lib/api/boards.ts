@@ -18,9 +18,16 @@ import { db } from '@/lib/firebase';
 import { 
   Board, 
   Post, 
-  Comment, 
-  Like
+  Comment
 } from '@/types';
+
+// Like 타입 정의
+interface Like {
+  id: string;
+  userId: string;
+  postId: string;
+  createdAt: number;
+}
 import { uploadPostImage, uploadPostAttachment } from '@/lib/storage';
 import { awardExperience } from '@/lib/experience';
 
@@ -546,8 +553,9 @@ export const getComments = async (
     const allComments: Comment[] = [];
     
     querySnapshot.forEach((doc) => {
-      const commentData = doc.data() as Comment;
-      const comment = { id: doc.id, ...commentData };
+      const commentData = doc.data();
+      const { id: _, ...dataWithoutId } = commentData;
+      const comment = { id: doc.id, ...dataWithoutId } as Comment;
       
       // 삭제된 댓글이지만 대댓글이 없는 경우 건너뛰기
       if (comment.status.isDeleted && comment.content !== '삭제된 댓글입니다.') {
@@ -616,6 +624,8 @@ export const createComment = async (
       throw new Error('존재하지 않는 게시글입니다.');
     }
     
+    const postData = postDoc.data() as Post;
+    
     // 새 댓글 정보 생성
     const newComment: Omit<Comment, 'id'> = {
       postId,
@@ -653,6 +663,58 @@ export const createComment = async (
       'stats.commentCount': increment(1),
       updatedAt: Timestamp.now()
     });
+
+    // 알림 발송 로직
+    try {
+      // 댓글 작성자 정보 조회
+      const authorDoc = await getDoc(doc(db, 'users', userId));
+      const authorData = authorDoc.data();
+      const commenterName = isAnonymous 
+        ? '익명' 
+        : (authorData?.profile?.userName || '사용자');
+
+      if (parentId) {
+        // 대댓글인 경우: 원 댓글 작성자에게 알림
+        const parentCommentDoc = await getDoc(doc(db, `posts/${postId}/comments`, parentId));
+        if (parentCommentDoc.exists()) {
+          const parentCommentData = parentCommentDoc.data();
+          const parentAuthorId = parentCommentData.authorId;
+          
+          // 자기 자신에게는 알림 보내지 않음
+          if (parentAuthorId && parentAuthorId !== userId) {
+            const { createCommentReplyNotification } = await import('./notifications');
+            await createCommentReplyNotification(
+              parentAuthorId,
+              postId,
+              postData.title || '게시글',
+              parentId,
+              commenterName,
+              content,
+              commentId
+            );
+          }
+        }
+      } else {
+        // 일반 댓글인 경우: 게시글 작성자에게 알림
+        const postAuthorId = postData.authorId;
+        
+        // 자기 자신에게는 알림 보내지 않음
+        if (postAuthorId && postAuthorId !== userId) {
+          const { createPostCommentNotification } = await import('./notifications');
+          await createPostCommentNotification(
+            postAuthorId,                      // 게시글 작성자 ID
+            userId,                            // 댓글 작성자 ID
+            postId,                            // 게시글 ID
+            commentId,                         // 댓글 ID
+            postData.title || '게시글',         // 게시글 제목
+            content                            // 댓글 내용
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error('댓글 알림 발송 실패:', notificationError);
+      // 알림 발송 실패는 댓글 작성 자체를 실패시키지 않음
+    }
 
     // 경험치 부여 로직 제거 - 프론트엔드에서 처리
     

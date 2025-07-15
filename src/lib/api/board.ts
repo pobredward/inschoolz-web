@@ -38,6 +38,10 @@ import {
   addDocument
 } from '@/lib/firestore';
 import { awardExperience } from '@/lib/experience';
+import { 
+  createPostCommentNotification, 
+  createCommentReplyNotification 
+} from './notifications';
 
 // 게시판 목록 가져오기
 export const getBoardsByType = async (type: BoardType) => {
@@ -547,6 +551,51 @@ export const createComment = async (postId: string, content: string, userId: str
     await updateDocument('users', userId, {
       'stats.commentCount': increment(1)
     });
+
+    // 알림 발송 로직
+    try {
+      // 게시글 정보 조회
+      const postDoc = await getDocument('posts', postId) as any;
+      
+      if (postDoc && postDoc.authorId !== userId) {
+        // 대댓글인 경우
+        if (parentId) {
+          // 부모 댓글 작성자에게 알림
+          const parentCommentDoc = await getDoc(doc(db, 'posts', postId, 'comments', parentId));
+          
+          if (parentCommentDoc.exists()) {
+            const parentCommentData = parentCommentDoc.data();
+            const parentAuthorId = parentCommentData?.authorId;
+            
+            // 부모 댓글 작성자가 자기 자신이 아닌 경우 알림 발송
+            if (parentAuthorId && parentAuthorId !== userId) {
+              await createCommentReplyNotification(
+                parentAuthorId,
+                postId,
+                postDoc.title || '제목 없음',
+                parentId,
+                isAnonymous ? '익명' : (userDoc as any).displayName || '사용자',
+                content,
+                commentDoc.id
+              );
+            }
+          }
+        } else {
+          // 일반 댓글인 경우 - 게시글 작성자에게 알림
+          await createPostCommentNotification(
+            postDoc.authorId,
+            userId,
+            postId,
+            commentDoc.id,
+            postDoc.title || '제목 없음',
+            content
+          );
+        }
+      }
+    } catch (notificationError) {
+      // 알림 발송 실패는 댓글 작성을 방해하지 않음
+      console.error('알림 발송 실패:', notificationError);
+    }
 
     // 경험치 부여 로직 제거 - 프론트엔드에서 처리
     

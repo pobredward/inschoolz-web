@@ -45,6 +45,12 @@ interface ExperienceSettings {
     streakBonus: number;
     weeklyBonusXP: number;
   };
+  
+  referral: {
+    referrerXP: number;    // 추천인(A)이 받는 경험치
+    refereeXP: number;     // 추천받은 사람(B)이 받는 경험치
+    enabled: boolean;      // 추천인 시스템 활성화 여부
+  };
 }
 
 export default function ExperienceManagementPage() {
@@ -83,6 +89,12 @@ export default function ExperienceManagementPage() {
       dailyXP: 10,
       streakBonus: 5,
       weeklyBonusXP: 50,
+    },
+    
+    referral: {
+      referrerXP: 30,     // 추천인이 받는 경험치 (기본값)
+      refereeXP: 20,      // 추천받은 사람이 받는 경험치 (기본값)
+      enabled: true,      // 추천인 시스템 활성화
     },
   });
 
@@ -191,6 +203,26 @@ export default function ExperienceManagementPage() {
           ...prev.games[game],
           thresholds: prev.games[game].thresholds.filter((_, i) => i !== index),
         },
+      },
+    }));
+  };
+
+  const updateAttendanceSettings = (key: keyof ExperienceSettings['attendance'], value: number) => {
+    setSettings(prev => ({
+      ...prev,
+      attendance: {
+        ...prev.attendance,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateReferralSettings = (key: keyof ExperienceSettings['referral'], value: number | boolean) => {
+    setSettings(prev => ({
+      ...prev,
+      referral: {
+        ...prev.referral,
+        [key]: value,
       },
     }));
   };
@@ -457,6 +489,55 @@ export default function ExperienceManagementPage() {
               </div>
             </div>
           </CardContent>
+        </Card>
+
+        {/* 추천인 시스템 설정 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-green-600" />
+                추천인 시스템
+              </div>
+              <Switch
+                checked={settings.referral.enabled}
+                onCheckedChange={(checked) => updateReferralSettings('enabled', checked)}
+              />
+            </CardTitle>
+            <CardDescription>
+              회원가입 시 추천인 아이디 입력 시 지급되는 경험치 설정
+            </CardDescription>
+          </CardHeader>
+          {settings.referral.enabled && (
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="referrerXP">추천인이 받는 경험치</Label>
+                  <Input
+                    id="referrerXP"
+                    type="number"
+                    value={settings.referral.referrerXP}
+                    onChange={(e) => updateReferralSettings('referrerXP', parseInt(e.target.value) || 0)}
+                  />
+                  <p className="text-xs text-gray-500">
+                    A가 추천인으로 설정되었을 때 A가 받는 경험치
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="refereeXP">추천받은 사람이 받는 경험치</Label>
+                  <Input
+                    id="refereeXP"
+                    type="number"
+                    value={settings.referral.refereeXP}
+                    onChange={(e) => updateReferralSettings('refereeXP', parseInt(e.target.value) || 0)}
+                  />
+                  <p className="text-xs text-gray-500">
+                    B가 A를 추천인으로 설정했을 때 B가 받는 경험치
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
       </div>
     </div>
