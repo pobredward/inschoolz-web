@@ -622,58 +622,67 @@ export default function CommunityPage() {
         ) : (
           <div className="space-y-3">
             {posts.map((post) => (
-              <Card 
-                key={post.id} 
-                className="cursor-pointer hover:shadow-md transition-shadow"
+              <div
+                key={post.id}
+                className="block group cursor-pointer"
                 onClick={() => handlePostClick(post)}
               >
-                <CardContent className="p-4">
-                  {/* 게시판 이름 */}
-                  <div className="flex items-center justify-between mb-2">
-                    <Badge variant="secondary" className="text-xs">
+                <div className="bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
+                  {/* 상단 뱃지들 */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-bold text-gray-700 bg-blue-100 px-2 py-1 rounded">
+                      {selectedTab === 'national' ? '전국' : 
+                       selectedTab === 'regional' ? '지역' : '학교'}
+                    </span>
+                    <span className="text-xs font-bold text-gray-700 bg-green-100 px-2 py-1 rounded">
                       {post.boardName}
-                    </Badge>
+                    </span>
                     {(post.attachments?.length || 0) > 0 && (
-                      <Badge variant="outline" className="text-xs">
+                      <span className="text-xs font-bold text-gray-700 bg-orange-100 px-2 py-1 rounded">
                         📷
-                      </Badge>
+                      </span>
                     )}
                   </div>
-
+                  
                   {/* 제목 */}
-                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                  <h3 className="font-semibold text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed mb-2">
                     {post.title}
                   </h3>
-
+                  
                   {/* 내용 미리보기 */}
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                    {post.previewContent}
-                  </p>
-
-                  {/* 메타 정보 */}
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center space-x-1">
+                  {post.previewContent && (
+                    <div className="text-sm text-gray-600 mb-3 line-clamp-2">
+                      {post.previewContent}
+                    </div>
+                  )}
+                  
+                  {/* 하단 정보 */}
+                  <div className="flex items-center justify-between">
+                    {/* 작성자 | 날짜 */}
+                    <div className="text-sm text-gray-500">
                       <span>{post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}</span>
-                      <span>|</span>
+                      <span className="mx-1">|</span>
                       <span>{formatDate(post.createdAt)}</span>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <span className="flex items-center space-x-1">
-                        <MessageCircle className="h-3 w-3" />
-                        <span>{post.stats.commentCount}</span>
+                    
+                    {/* 통계 (조회수, 좋아요, 댓글) */}
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <span className="flex items-center gap-1">
+                        <span>👁</span>
+                        {post.stats?.viewCount || 0}
                       </span>
-                      <span className="flex items-center space-x-1">
-                        <Heart className="h-3 w-3" />
-                        <span>{post.stats.likeCount}</span>
+                      <span className="flex items-center gap-1">
+                        <span>👍</span>
+                        {post.stats?.likeCount || 0}
                       </span>
-                      <span className="flex items-center space-x-1">
-                        <Eye className="h-3 w-3" />
-                        <span>{post.stats.viewCount}</span>
+                      <span className="flex items-center gap-1">
+                        <span>💬</span>
+                        {post.stats?.commentCount || 0}
                       </span>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         )}

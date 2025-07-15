@@ -145,51 +145,65 @@ export default async function RegionalBoardPage({ params }: PageProps) {
           </div>
 
           {/* 게시글 목록 */}
-          <div className="space-y-4">
-            {posts.map((post) => (
-              <Link key={post.id} href={`/community/region/${sido}/${sigungu}/${boardCode}/${post.id}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {post.isHot && (
-                          <Badge variant="destructive" className="text-xs">
-                            <TrendingUp className="w-3 h-3 mr-1" />
-                            HOT
-                          </Badge>
-                        )}
-                        <h3 className="font-semibold text-lg hover:text-primary transition-colors">
-                          {post.title}
-                        </h3>
-                      </div>
-                      <p className="text-muted-foreground text-sm mb-3 line-clamp-2 whitespace-pre-wrap">
-                        {stripHtmlTags(post.content)}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span>{post.author} | {post.timeAgo}</span>
-                        <span>조회 {post.views}</span>
-                      </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="space-y-3">
+              {posts.map((post) => (
+                <Link key={post.id} href={`/community/region/${sido}/${sigungu}/${boardCode}/${post.id}`} className="block group">
+                  <div className="bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
+                    {/* 상단 뱃지들 */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-bold text-gray-700 bg-blue-100 px-2 py-1 rounded">
+                        지역
+                      </span>
+                      <span className="text-xs font-bold text-gray-700 bg-green-100 px-2 py-1 rounded">
+                        {boardCode}
+                      </span>
+                      {post.isHot && (
+                        <span className="text-xs font-bold text-white bg-red-500 px-2 py-1 rounded">
+                          🔥 HOT
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 ml-4">
-                      <div className="text-center">
-                        <div className="flex items-center gap-1 text-sm">
-                          <span>👍</span>
-                          <span>{post.likes}</span>
-                        </div>
+                    
+                    {/* 제목 */}
+                    <h3 className="font-semibold text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed mb-2">
+                      {post.title}
+                    </h3>
+                    
+                    {/* 내용 미리보기 */}
+                    <div className="text-sm text-gray-600 mb-3 line-clamp-2">
+                      {stripHtmlTags(post.content)}
+                    </div>
+                    
+                    {/* 하단 정보 */}
+                    <div className="flex items-center justify-between">
+                      {/* 작성자 | 날짜 */}
+                      <div className="text-sm text-gray-500">
+                        <span>{post.author}</span>
+                        <span className="mx-1">|</span>
+                        <span>{post.timeAgo}</span>
                       </div>
-                      <div className="text-center">
-                        <div className="flex items-center gap-1 text-sm">
-                          <MessageSquare className="w-4 h-4" />
-                          <span>{post.comments}</span>
-                        </div>
+                      
+                      {/* 통계 (조회수, 좋아요, 댓글) */}
+                      <div className="flex items-center gap-3 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <span>👁</span>
+                          {post.views || 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span>👍</span>
+                          {post.likes || 0}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span>💬</span>
+                          {post.comments || 0}
+                        </span>
                       </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </div>
           </div>
 
           {/* 페이지네이션 */}
