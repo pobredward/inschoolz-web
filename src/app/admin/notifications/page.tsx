@@ -29,6 +29,13 @@ interface SelectedSchool {
   type?: string;
 }
 
+const notificationTypes: { value: NotificationType; label: string; description: string }[] = [
+  { value: 'system', label: '시스템 알림', description: '시스템 공지사항 및 중요 알림' },
+  { value: 'warning', label: '경고 알림', description: '사용자에게 경고 메시지 발송' },
+  { value: 'general', label: '일반 알림', description: '일반적인 안내사항' },
+  { value: 'event', label: '이벤트 알림', description: '특별 이벤트나 프로모션 알림' },
+];
+
 export default function AdminNotificationsPage() {
   const [notificationType, setNotificationType] = useState<NotificationType>('system');
   const [title, setTitle] = useState('');
@@ -224,10 +231,14 @@ export default function AdminNotificationsPage() {
                 <SelectValue placeholder="알림 타입을 선택하세요" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="system">시스템 알림</SelectItem>
-                <SelectItem value="warning">경고 알림</SelectItem>
-                <SelectItem value="general">일반 알림</SelectItem>
-                <SelectItem value="event">이벤트 알림</SelectItem>
+                {notificationTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    <div className="flex flex-col">
+                      <span>{type.label}</span>
+                      <p className="text-xs text-gray-500">{type.description}</p>
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </CardContent>

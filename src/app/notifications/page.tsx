@@ -29,6 +29,7 @@ import {
   Shield,
   Users,
   Calendar,
+  Info,
   Loader2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -50,7 +51,11 @@ const getNotificationIcon = (type: NotificationType) => {
     case 'referral':
       return <Users className="h-4 w-4 text-indigo-500" />;
     case 'system':
-      return <Bell className="h-4 w-4 text-gray-500" />;
+      return <Bell className="h-4 w-4 text-blue-600" />;
+    case 'general':
+      return <Info className="h-4 w-4 text-gray-600" />;
+    case 'event':
+      return <Calendar className="h-4 w-4 text-green-600" />;
     case 'report_received':
     case 'report_resolved':
       return <AlertTriangle className="h-4 w-4 text-orange-500" />;
@@ -76,7 +81,11 @@ const getNotificationBadgeColor = (type: NotificationType) => {
     case 'referral':
       return 'bg-indigo-100 text-indigo-800';
     case 'system':
+      return 'bg-blue-100 text-blue-800';
+    case 'general':
       return 'bg-gray-100 text-gray-800';
+    case 'event':
+      return 'bg-green-100 text-green-800';
     case 'report_received':
     case 'report_resolved':
       return 'bg-orange-100 text-orange-800';
