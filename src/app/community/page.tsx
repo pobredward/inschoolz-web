@@ -498,10 +498,10 @@ export default function CommunityPage() {
           <Tabs value={selectedTab} onValueChange={(value) => handleTabChange(value as BoardType)}>
             <TabsList className="grid w-full grid-cols-3 bg-transparent h-12">
               <TabsTrigger 
-                value="school" 
+                value="national" 
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:text-green-600 rounded-none"
               >
-                학교
+                전국
               </TabsTrigger>
               <TabsTrigger 
                 value="regional" 
@@ -510,10 +510,10 @@ export default function CommunityPage() {
                 지역
               </TabsTrigger>
               <TabsTrigger 
-                value="national" 
+                value="school" 
                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-green-500 data-[state=active]:text-green-600 rounded-none"
               >
-                전국
+                학교
               </TabsTrigger>
             </TabsList>
           </Tabs>

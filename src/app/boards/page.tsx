@@ -292,8 +292,8 @@ export default function BoardsPage() {
       <Tabs defaultValue="national" onValueChange={(value) => setActiveTab(value as BoardType)}>
         <TabsList className="grid w-full grid-cols-3 mb-8">
           <TabsTrigger value="national">전국 게시판</TabsTrigger>
-          <TabsTrigger value="school">학교 게시판</TabsTrigger>
           <TabsTrigger value="regional">지역 게시판</TabsTrigger>
+          <TabsTrigger value="school">학교 게시판</TabsTrigger>
         </TabsList>
         
         {/* 전국 게시판 */}

@@ -419,15 +419,15 @@ export default function BoardsAdminPage() {
                 <span>전국 게시판</span>
                 <Badge variant="outline" className="ml-1">{boards.national.length}</Badge>
               </TabsTrigger>
-              <TabsTrigger value="school" className="flex items-center gap-1">
-                <School size={16} />
-                <span>학교 게시판</span>
-                <Badge variant="outline" className="ml-1">{boards.school.length}</Badge>
-              </TabsTrigger>
               <TabsTrigger value="regional" className="flex items-center gap-1">
                 <Map size={16} />
                 <span>지역 게시판</span>
                 <Badge variant="outline" className="ml-1">{boards.regional.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="school" className="flex items-center gap-1">
+                <School size={16} />
+                <span>학교 게시판</span>
+                <Badge variant="outline" className="ml-1">{boards.school.length}</Badge>
               </TabsTrigger>
             </TabsList>
           </div>
