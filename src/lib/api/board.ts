@@ -118,15 +118,38 @@ export const getPopularPostsForHome = async (count = 10) => {
       .sort((a, b) => (b.stats?.viewCount || 0) - (a.stats?.viewCount || 0))
       .slice(0, count);
     
-    // 게시판 정보 추가
+    // 게시판 정보 추가 - code 필드로 검색
     const postsWithBoardInfo = await Promise.all(
       sortedPosts.map(async (post) => {
-        const board = await getDocument<Board>('boards', post.boardCode);
-        return {
-          ...post,
-          boardName: board?.name || post.boardCode,
-          previewContent: post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''
-        };
+        try {
+          // boardCode로 게시판 찾기
+          const boardQuery = query(
+            collection(db, 'boards'),
+            where('code', '==', post.boardCode),
+            where('type', '==', 'national'),
+            limit(1)
+          );
+          const boardSnapshot = await getDocs(boardQuery);
+          
+          let boardName = post.boardCode; // fallback
+          if (!boardSnapshot.empty) {
+            const boardData = boardSnapshot.docs[0].data();
+            boardName = boardData.name || post.boardCode;
+          }
+          
+          return {
+            ...post,
+            boardName,
+            previewContent: post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''
+          };
+        } catch (error) {
+          console.warn(`게시판 정보 조회 실패: ${post.boardCode}`, error);
+          return {
+            ...post,
+            boardName: post.boardCode,
+            previewContent: post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''
+          };
+        }
       })
     );
     

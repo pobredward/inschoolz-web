@@ -155,37 +155,59 @@ export default function Home() {
                     ))}
                   </div>
                 ) : popularPosts.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {popularPosts.map((post, index) => (
                       <Link
                         key={post.id}
                         href={`/community/national/${post.boardCode}/${post.id}`}
                         className="block group"
                       >
-                        <div className="flex items-start gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors">
-                          <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-gray-600">{index + 1}</span>
+                        <div className="bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
+                          {/* 상단 뱃지들 */}
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs font-bold text-gray-700 bg-blue-100 px-2 py-1 rounded">
+                              전국
+                            </span>
+                            <span className="text-xs font-bold text-gray-700 bg-green-100 px-2 py-1 rounded">
+                              {post.boardName || post.boardCode}
+                            </span>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed">
-                              {post.title}
-                            </h3>
-                            <div className="text-sm text-gray-600 mt-2 mb-2 line-clamp-2">
+                          
+                          {/* 제목 */}
+                          <h3 className="font-semibold text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed mb-2">
+                            {post.title}
+                          </h3>
+                          
+                          {/* 내용 미리보기 */}
+                          {(post.previewContent || post.content) && (
+                            <div className="text-sm text-gray-600 mb-3 line-clamp-2">
                               {post.previewContent || post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''}
                             </div>
-                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                          )}
+                          
+                          {/* 하단 정보 */}
+                          <div className="flex items-center justify-between">
+                            {/* 작성자 | 날짜 */}
+                            <div className="text-sm text-gray-500">
+                              <span>{post.authorInfo.isAnonymous ? '익명' : post.authorInfo.displayName}</span>
+                              <span className="mx-1">|</span>
+                              <span>{formatRelativeTime(post.createdAt)}</span>
+                            </div>
+                            
+                            {/* 통계 (조회수, 좋아요, 댓글) */}
+                            <div className="flex items-center gap-3 text-sm text-gray-500">
                               <span className="flex items-center gap-1">
-                                <span className="text-red-500">❤️</span>
+                                <span>👁</span>
+                                {post.stats.viewCount}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <span>👍</span>
                                 {post.stats.likeCount}
                               </span>
                               <span className="flex items-center gap-1">
-                                <span className="text-blue-500">💬</span>
+                                <span>💬</span>
                                 {post.stats.commentCount}
                               </span>
-                              <span className="text-gray-400">•</span>
-                              <span>{post.authorInfo.isAnonymous ? '익명' : post.authorInfo.displayName}</span>
-                              <span className="text-gray-400">•</span>
-                              <span>{formatRelativeTime(post.createdAt)}</span>
                             </div>
                           </div>
                         </div>

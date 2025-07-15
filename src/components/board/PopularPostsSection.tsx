@@ -1,107 +1,17 @@
 import React from "react";
 import Link from "next/link";
-import { MessageSquare, ThumbsUp, Eye } from "lucide-react";
-import { formatRelativeTime, now } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/utils";
 import { BoardType } from "@/types/board";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import { getPopularPostsForHome } from "@/lib/api/board";
 
 interface PopularPostsSectionProps {
   type: BoardType;
 }
 
 export default async function PopularPostsSection({ type }: PopularPostsSectionProps) {
-  // 인기 게시글 가져오기 (임시 데이터로 대체)
-  // const popularPosts = await getPopularPosts(type);
-  
-  // 임시 데이터
-  const popularPosts = [
-    {
-      id: "post1",
-      title: "수능 영어 공부법 공유합니다",
-      boardCode: "study",
-      boardType: type,
-      author: {
-        displayName: "영어좋아하는학생",
-        isAnonymous: false,
-        profileImageUrl: undefined
-      },
-      stats: {
-        viewCount: 2450,
-        likeCount: 132,
-        commentCount: 48
-      },
-      createdAt: now() - 1000 * 60 * 60 * 3 // 3시간 전
-    },
-    {
-      id: "post2",
-      title: "학교 급식 맛있게 먹는 방법.txt",
-      boardCode: "free",
-      boardType: type,
-      author: {
-        displayName: "급식러",
-        isAnonymous: true,
-        profileImageUrl: undefined
-      },
-      stats: {
-        viewCount: 1823,
-        likeCount: 215,
-        commentCount: 63
-      },
-      createdAt: now() - 1000 * 60 * 60 * 8 // 8시간 전
-    },
-    {
-      id: "post3",
-      title: "수행평가 만점 받은 PPT 양식 공유",
-      boardCode: "share",
-      boardType: type,
-      author: {
-        displayName: "학생회장",
-        isAnonymous: false,
-        profileImageUrl: undefined
-      },
-      stats: {
-        viewCount: 2156,
-        likeCount: 184,
-        commentCount: 32
-      },
-      createdAt: now() - 1000 * 60 * 60 * 24 // 1일 전
-    },
-    {
-      id: "post4",
-      title: "방학 때 봉사활동 추천 정보",
-      boardCode: "info",
-      boardType: type,
-      author: {
-        displayName: "선행이",
-        isAnonymous: false,
-        profileImageUrl: undefined
-      },
-      stats: {
-        viewCount: 1450,
-        likeCount: 96,
-        commentCount: 28
-      },
-      createdAt: now() - 1000 * 60 * 60 * 36 // 1.5일 전
-    },
-    {
-      id: "post5",
-      title: "교복 세탁 꿀팁 (선생님도 모르는)",
-      boardCode: "free",
-      boardType: type,
-      author: {
-        displayName: "백의의천사",
-        isAnonymous: false,
-        profileImageUrl: undefined
-      },
-      stats: {
-        viewCount: 1270,
-        likeCount: 87,
-        commentCount: 24
-      },
-      createdAt: now() - 1000 * 60 * 60 * 48 // 2일 전
-    },
-  ];
+  // 실제 인기 게시글 가져오기
+  const popularPosts = await getPopularPostsForHome(5);
 
   return (
     <section className="space-y-4">
@@ -114,44 +24,52 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
       
       <div className="space-y-3">
         {popularPosts.map((post) => (
-          <Link key={post.id} href={`/board/${post.boardType}/${post.boardCode}/${post.id}`}>
-            <Card className="hover:bg-muted/30 transition-colors">
-              <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-base font-medium line-clamp-1">
+          <Link key={post.id} href={`/community/national/${post.boardCode}/${post.id}`}>
+            <Card className="hover:shadow-md transition-all duration-200">
+              <CardContent className="p-4">
+                {/* 상단 뱃지들 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold text-gray-700 bg-blue-100 px-2 py-1 rounded">
+                    전국
+                  </span>
+                  <span className="text-xs font-bold text-gray-700 bg-green-100 px-2 py-1 rounded">
+                    {post.boardName || post.boardCode}
+                  </span>
+                </div>
+                
+                {/* 제목 */}
+                <h3 className="font-semibold text-gray-900 hover:text-primary line-clamp-2 leading-relaxed mb-2">
                   {post.title}
-                </CardTitle>
-              </CardHeader>
-              
-              <CardContent className="p-4 pt-0">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarImage 
-                        src={post.author.profileImageUrl} 
-                        alt={post.author.displayName || '사용자'} 
-                      />
-                      <AvatarFallback className="text-xs">
-                        {post.author.isAnonymous ? '익명' : post.author.displayName.substring(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-muted-foreground">
-                      {post.author.isAnonymous ? '익명' : post.author.displayName} | {formatRelativeTime(post.createdAt)}
-                    </span>
+                </h3>
+                
+                {/* 내용 미리보기 */}
+                <div className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                  {post.previewContent || '게시글 내용을 확인해보세요.'}
+                </div>
+                
+                {/* 하단 정보 */}
+                <div className="flex items-center justify-between">
+                  {/* 작성자 | 날짜 */}
+                  <div className="text-sm text-muted-foreground">
+                    <span>{post.authorInfo.isAnonymous ? '익명' : post.authorInfo.displayName}</span>
+                    <span className="mx-1">|</span>
+                    <span>{formatRelativeTime(post.createdAt)}</span>
                   </div>
                   
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <div className="flex items-center">
-                      <ThumbsUp className="h-3 w-3 mr-1" />
-                      <span>{post.stats.likeCount}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <MessageSquare className="h-3 w-3 mr-1" />
-                      <span>{post.stats.commentCount}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Eye className="h-3 w-3 mr-1" />
-                      <span>{post.stats.viewCount}</span>
-                    </div>
+                  {/* 통계 (조회수, 좋아요, 댓글) */}
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span>👁</span>
+                      {post.stats.viewCount}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span>👍</span>
+                      {post.stats.likeCount}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span>💬</span>
+                      {post.stats.commentCount}
+                    </span>
                   </div>
                 </div>
               </CardContent>
