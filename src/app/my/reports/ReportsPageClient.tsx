@@ -5,30 +5,44 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Clock, CheckCircle, XCircle, Edit, Trash2 } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, XCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
 import { getUserReports, cancelReport } from '@/lib/api/reports';
-import { useAuthStore } from '@/store/authStore';
+import { useAuth } from '@/providers/AuthProvider';
 import { Report, ReportReason, ReportStatus, UserReportRecord } from '@/types';
 import { toast } from 'sonner';
 import { ReportModal } from '@/components/ui/report-modal';
+import { stripHtmlTags } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 export function ReportsPageClient() {
   const [reportRecord, setReportRecord] = useState<UserReportRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingReport, setEditingReport] = useState<Report | null>(null);
-  const { user } = useAuthStore();
+  const { user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
+    console.log('ReportsPageClient useEffect 실행:', { user, userUid: user?.uid });
+    
     const fetchReports = async () => {
-      if (!user) return;
+      console.log('fetchReports 함수 시작, user:', user);
+      
+      if (!user?.uid) {
+        console.log('사용자 정보가 없음, 로딩 완료');
+        setLoading(false);
+        return;
+      }
 
       try {
+        console.log('getUserReports 호출 시작, userId:', user.uid);
         const record = await getUserReports(user.uid);
+        console.log('getUserReports 결과:', record);
         setReportRecord(record);
       } catch (error) {
         console.error('신고 기록 조회 실패:', error);
         toast.error('신고 기록을 불러오는데 실패했습니다.');
       } finally {
+        console.log('fetchReports 완료, 로딩 상태 해제');
         setLoading(false);
       }
     };
@@ -123,6 +137,68 @@ export function ReportsPageClient() {
     });
   };
 
+  // 게시글 URL 생성 함수
+  const getPostUrl = (report: Report) => {
+    if (!report.boardCode) return null;
+    
+    if (report.targetType === 'post') {
+      // 게시글 URL 생성
+      if (report.schoolId) {
+        return `/community/school/${report.schoolId}/${report.boardCode}/${report.targetId}`;
+      } else if (report.regions) {
+        return `/community/region/${report.regions.sido}/${report.regions.sigungu}/${report.boardCode}/${report.targetId}`;
+      } else {
+        return `/community/national/${report.boardCode}/${report.targetId}`;
+      }
+    } else if (report.targetType === 'comment' && report.postId) {
+      // 댓글이 있는 게시글 URL 생성
+      if (report.schoolId) {
+        return `/community/school/${report.schoolId}/${report.boardCode}/${report.postId}`;
+      } else if (report.regions) {
+        return `/community/region/${report.regions.sido}/${report.regions.sigungu}/${report.boardCode}/${report.postId}`;
+      } else {
+        return `/community/national/${report.boardCode}/${report.postId}`;
+      }
+    }
+    return null;
+  };
+
+  // 신고 대상 내용에서 HTML 태그 제거 및 2줄 제한
+  const getCleanContent = (content: string) => {
+    if (!content) return '';
+    return stripHtmlTags(content);
+  };
+
+  // 게시글 신고 시 제목과 내용 분리하는 함수
+  const parsePostContent = (targetContent: string | undefined, targetType: string) => {
+    if (!targetContent || targetType !== 'post') {
+      return { title: null, content: targetContent || '' };
+    }
+
+    try {
+      // JSON 형태로 저장된 경우 파싱 시도
+      const parsed = JSON.parse(targetContent);
+      if (parsed.title && parsed.content) {
+        return {
+          title: parsed.title,
+          content: parsed.content
+        };
+      }
+    } catch {
+      // JSON이 아닌 경우 구분자로 분리 시도
+      if (targetContent.includes('|||')) {
+        const [title, content] = targetContent.split('|||');
+        return {
+          title: title?.trim() || null,
+          content: content?.trim() || targetContent
+        };
+      }
+    }
+
+    // 분리할 수 없는 경우 모든 내용을 content로 처리
+    return { title: null, content: targetContent };
+  };
+
   if (loading) {
     return <div className="flex justify-center py-8">로딩 중...</div>;
   }
@@ -164,33 +240,55 @@ export function ReportsPageClient() {
       {/* 신고 내역 탭 */}
       <Tabs defaultValue="made" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="made">내가 신고한 내역 ({reportRecord.reportsMade.length})</TabsTrigger>
-          <TabsTrigger value="received">나를 신고한 내역 ({reportRecord.reportsReceived.length})</TabsTrigger>
+          <TabsTrigger value="made" className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            내가 신고한 내역
+            <Badge variant="secondary" className="ml-1">
+              {reportRecord.reportsMade.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="received" className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            나를 신고한 내역
+            <Badge variant="secondary" className="ml-1">
+              {reportRecord.reportsReceived.length}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="made" className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">내가 신고한 내역</h3>
+            <Badge variant="outline">{reportRecord.reportsMade.length}개</Badge>
+          </div>
           {reportRecord.reportsMade.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-gray-500">신고한 내역이 없습니다.</p>
+                <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg mb-2">신고한 내역이 없습니다</p>
+                <p className="text-gray-400 text-sm">부적절한 내용을 발견하시면 신고해주세요.</p>
               </CardContent>
             </Card>
           ) : (
             reportRecord.reportsMade.map((report) => (
-              <Card key={report.id}>
+              <Card key={report.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+                const url = getPostUrl(report);
+                if (url) router.push(url);
+              }}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="text-lg flex items-center gap-2">
                         {getTargetTypeLabel(report.targetType)} 신고
                         {getStatusBadge(report.status)}
+                        <ExternalLink className="w-4 h-4 text-gray-400" />
                       </CardTitle>
                       <p className="text-sm text-gray-500 mt-1">
                         {formatDate(report.createdAt)}
                       </p>
                     </div>
                     {report.status === 'pending' && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="outline"
                           size="sm"
@@ -222,6 +320,14 @@ export function ReportsPageClient() {
                       )}
                     </div>
                     
+                    {/* 신고한 유저 아이디 표시 */}
+                    {report.targetType === 'user' && report.targetId && (
+                      <div>
+                        <span className="font-medium">신고한 유저: </span>
+                        <span className="text-blue-600">@{report.targetId}</span>
+                      </div>
+                    )}
+                    
                     {report.description && (
                       <div>
                         <span className="font-medium">상세 설명: </span>
@@ -233,7 +339,23 @@ export function ReportsPageClient() {
                       <div>
                         <span className="font-medium">신고 대상 내용: </span>
                         <div className="mt-1 p-2 bg-gray-50 rounded border">
-                          <p className="text-sm text-gray-700 line-clamp-2">{report.targetContent}</p>
+                          {(() => {
+                            const { title, content } = parsePostContent(report.targetContent, report.targetType);
+                            return (
+                              <div className="space-y-2">
+                                {title && (
+                                  <div>
+                                    <span className="text-xs font-medium text-gray-500">제목:</span>
+                                    <p className="text-sm text-gray-700 font-medium line-clamp-1">{getCleanContent(title)}</p>
+                                  </div>
+                                )}
+                                <div>
+                                  {title && <span className="text-xs font-medium text-gray-500">내용:</span>}
+                                  <p className="text-sm text-gray-700 line-clamp-2">{getCleanContent(content)}</p>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}
@@ -259,21 +381,31 @@ export function ReportsPageClient() {
         </TabsContent>
 
         <TabsContent value="received" className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">나를 신고한 내역</h3>
+            <Badge variant="outline">{reportRecord.reportsReceived.length}개</Badge>
+          </div>
           {reportRecord.reportsReceived.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-gray-500">나를 신고한 내역이 없습니다.</p>
+                <CheckCircle className="w-12 h-12 text-green-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg mb-2">신고받은 내역이 없습니다</p>
+                <p className="text-gray-400 text-sm">깨끗한 활동을 유지하고 계시네요!</p>
               </CardContent>
             </Card>
           ) : (
             reportRecord.reportsReceived.map((report) => (
-              <Card key={report.id}>
+              <Card key={report.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+                const url = getPostUrl(report);
+                if (url) router.push(url);
+              }}>
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="text-lg flex items-center gap-2">
-                        {getTargetTypeLabel(report.targetType)} 신고받음
+                        {getTargetTypeLabel(report.targetType)} 신고
                         {getStatusBadge(report.status)}
+                        <ExternalLink className="w-4 h-4 text-gray-400" />
                       </CardTitle>
                       <p className="text-sm text-gray-500 mt-1">
                         {formatDate(report.createdAt)}
@@ -291,11 +423,34 @@ export function ReportsPageClient() {
                       )}
                     </div>
 
+                    {report.description && (
+                      <div>
+                        <span className="font-medium">신고 상세 설명: </span>
+                        <span className="text-gray-600">{report.description}</span>
+                      </div>
+                    )}
+
                     {report.targetContent && (
                       <div>
                         <span className="font-medium">신고된 내용: </span>
                         <div className="mt-1 p-2 bg-gray-50 rounded border">
-                          <p className="text-sm text-gray-700 line-clamp-2">{report.targetContent}</p>
+                          {(() => {
+                            const { title, content } = parsePostContent(report.targetContent, report.targetType);
+                            return (
+                              <div className="space-y-2">
+                                {title && (
+                                  <div>
+                                    <span className="text-xs font-medium text-gray-500">제목:</span>
+                                    <p className="text-sm text-gray-700 font-medium line-clamp-1">{getCleanContent(title)}</p>
+                                  </div>
+                                )}
+                                <div>
+                                  {title && <span className="text-xs font-medium text-gray-500">내용:</span>}
+                                  <p className="text-sm text-gray-700 line-clamp-2">{getCleanContent(content)}</p>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     )}

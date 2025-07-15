@@ -405,7 +405,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         onClose={() => setShowReportModal(false)}
         targetId={post.id}
         targetType="post"
-        targetContent={post.content}
+        targetContent={JSON.stringify({ title: post.title, content: post.content })}
         onSuccess={() => {
           setShowReportModal(false);
           toast.success('신고가 접수되었습니다.');

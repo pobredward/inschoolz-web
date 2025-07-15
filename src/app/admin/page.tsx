@@ -127,11 +127,13 @@ export default function AdminDashboardPage() {
               </Button>
             </Link>
 
-            <Button variant="outline" className="w-full h-20 flex flex-col gap-2" disabled>
-              <Shield className="h-6 w-6 text-red-600" />
-              <span className="font-medium">신고 관리</span>
-              <span className="text-xs text-gray-500">신고 처리 및 제재</span>
-            </Button>
+            <Link href="/admin/reports">
+              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <Shield className="h-6 w-6 text-red-600" />
+                <span className="font-medium">신고 관리</span>
+                <span className="text-xs text-gray-500">신고 처리 및 제재</span>
+              </Button>
+            </Link>
 
             <Link href="/admin/users">
               <Button variant="outline" className="w-full h-20 flex flex-col gap-2">

@@ -181,15 +181,7 @@ export function ReportModal({
             <p className="text-xs text-gray-500">{description.length}/500</p>
           </div>
 
-          {/* 신고 대상 내용 미리보기 */}
-          {targetContent && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">신고 대상 내용</Label>
-              <div className="p-3 bg-gray-50 rounded-lg border max-h-32 overflow-y-auto">
-                <p className="text-sm text-gray-700">{targetContent}</p>
-              </div>
-            </div>
-          )}
+
 
           {/* 안내 메시지 */}
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">

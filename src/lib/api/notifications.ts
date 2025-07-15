@@ -42,10 +42,21 @@ export async function createNotification(data: {
       type: data.type,
       title: data.title,
       message: data.message,
-      data: data.data,
       isRead: false,
       createdAt: Date.now(),
     };
+
+    // data 필드가 있고 비어있지 않을 때만 추가
+    if (data.data && Object.keys(data.data).length > 0) {
+      // undefined 값들을 제거한 깨끗한 data 객체 생성
+      const cleanData = Object.fromEntries(
+        Object.entries(data.data).filter(([_, value]) => value !== undefined)
+      );
+      
+      if (Object.keys(cleanData).length > 0) {
+        notificationData.data = cleanData;
+      }
+    }
 
     const docRef = await addDoc(collection(db, 'notifications'), notificationData);
     

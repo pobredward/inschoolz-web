@@ -12,18 +12,23 @@ import {
   Clock, 
   CheckCircle, 
   XCircle, 
-  Eye,
-  Shield
+  ExternalLink,
+  Shield,
+  Bell,
+  AlertCircle
 } from 'lucide-react';
 import { 
   getReports, 
   getReportStats, 
   processReport 
 } from '@/lib/api/reports';
-import { useAuthStore } from '@/store/authStore';
+import { createNotification } from '@/lib/api/notifications';
+import { useAuth } from '@/providers/AuthProvider';
 import { Report, ReportStatus, ReportType, ReportReason, ReportStats } from '@/types';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export function AdminReportsClient() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -34,7 +39,15 @@ export function AdminReportsClient() {
   const [processingReport, setProcessingReport] = useState<Report | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [actionTaken, setActionTaken] = useState('');
-  const { user } = useAuthStore();
+  const [newStatus, setNewStatus] = useState<ReportStatus>('pending');
+  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+  const [notificationData, setNotificationData] = useState({
+    targetUserId: '',
+    type: 'general' as 'general' | 'warning',
+    title: '',
+    message: ''
+  });
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchData();
@@ -60,25 +73,114 @@ export function AdminReportsClient() {
     }
   };
 
-  const handleProcessReport = async (
-    reportId: string,
-    status: ReportStatus,
-    adminNote?: string,
-    actionTaken?: string
-  ) => {
-    if (!user) return;
+  const handleProcessReport = async () => {
+    console.log('handleProcessReport 호출됨');
+    console.log('현재 상태:', { 
+      user: user ? { uid: user.uid, email: user.email } : null, 
+      processingReport: processingReport ? { id: processingReport.id, status: processingReport.status } : null,
+      newStatus,
+      actionNote,
+      actionTaken
+    });
+
+    if (!user) {
+      console.error('사용자 정보가 없습니다:', user);
+      toast.error('사용자 정보가 없습니다. 다시 로그인해주세요.');
+      return;
+    }
+
+    if (!processingReport) {
+      console.error('처리할 신고 정보가 없습니다:', processingReport);
+      toast.error('처리할 신고 정보가 없습니다.');
+      return;
+    }
+
+    if (!newStatus) {
+      console.error('새로운 상태가 설정되지 않았습니다:', newStatus);
+      toast.error('처리 상태를 선택해주세요.');
+      return;
+    }
+
+    console.log('신고 처리 시작:', { 
+      reportId: processingReport.id, 
+      currentStatus: processingReport.status,
+      newStatus, 
+      adminNote: actionNote || undefined, 
+      actionTaken: actionTaken || undefined,
+      adminId: user.uid
+    });
 
     try {
-      await processReport(reportId, status, user.uid, adminNote, actionTaken);
+      // Firestore 직접 업데이트
+      const docRef = doc(db, 'reports', processingReport.id);
+      
+      const updateData: any = {
+        status: newStatus,
+        adminId: user.uid,
+        updatedAt: Date.now(),
+      };
+
+      if (actionNote.trim()) {
+        updateData.adminNote = actionNote.trim();
+      }
+      
+      if (actionTaken.trim()) {
+        updateData.actionTaken = actionTaken.trim();
+      }
+      
+      if (newStatus === 'resolved') {
+        updateData.resolvedAt = Date.now();
+      }
+
+      console.log('Firestore 업데이트 시도:', updateData);
+      
+      await updateDoc(docRef, updateData);
+      
+      console.log('Firestore 업데이트 성공');
       toast.success('신고가 처리되었습니다.');
-      setProcessingReport(null);
-      setActionNote('');
-      setActionTaken('');
-      fetchData();
+      
+      // 모든 상태 초기화
+      closeProcessingModal();
+      
+      // 데이터 새로고침
+      await fetchData();
     } catch (error) {
       console.error('신고 처리 실패:', error);
-      toast.error('신고 처리에 실패했습니다.');
+      toast.error('신고 처리에 실패했습니다: ' + (error as Error).message);
     }
+  };
+
+  const handleSendNotification = async () => {
+    try {
+      await createNotification({
+        userId: notificationData.targetUserId,
+        type: notificationData.type,
+        title: notificationData.title,
+        message: notificationData.message,
+      });
+      
+      toast.success('알림이 발송되었습니다.');
+      setShowNotificationDialog(false);
+      setNotificationData({
+        targetUserId: '',
+        type: 'general',
+        title: '',
+        message: ''
+      });
+    } catch (error) {
+      console.error('알림 발송 실패:', error);
+      toast.error('알림 발송에 실패했습니다.');
+    }
+  };
+
+  const openNotificationDialog = (userId: string, isReporter: boolean) => {
+    setNotificationData({
+      targetUserId: userId,
+      type: 'general',
+      title: isReporter ? '신고자 알림' : '사용자 알림',
+      message: ''
+    });
+    setShowNotificationDialog(true);
   };
 
   const getStatusBadge = (status: ReportStatus) => {
@@ -160,6 +262,38 @@ export function AdminReportsClient() {
     return null;
   };
 
+  // 신고 내용 파싱 함수 (기존 개선사항 적용)
+  const parsePostContent = (targetContent: string) => {
+    try {
+      const parsed = JSON.parse(targetContent);
+      if (parsed.title && parsed.content) {
+        return { title: parsed.title, content: parsed.content };
+      }
+    } catch (e) {
+      // JSON 파싱 실패 시 구분자로 시도
+      if (targetContent.includes('제목: ') && targetContent.includes(', 내용: ')) {
+        const titleMatch = targetContent.match(/제목: (.*?), 내용: /);
+        const contentMatch = targetContent.match(/, 내용: (.*)/);
+        if (titleMatch && contentMatch) {
+          return { title: titleMatch[1], content: contentMatch[1] };
+        }
+      }
+    }
+    // 파싱 실패 시 모든 내용을 content로 처리
+    return { title: null, content: targetContent };
+  };
+
+  const stripHtmlTags = (html: string) => {
+    return html.replace(/<[^>]*>/g, '').trim();
+  };
+
+  const closeProcessingModal = () => {
+    setProcessingReport(null);
+    setActionNote('');
+    setActionTaken('');
+    // newStatus 초기화를 제거하여 상태 유지
+  };
+
   if (loading) {
     return <div className="flex justify-center py-8">로딩 중...</div>;
   }
@@ -236,188 +370,148 @@ export function AdminReportsClient() {
             </CardContent>
           </Card>
         ) : (
-          reports.map((report) => (
-            <Card key={report.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      {getTargetTypeLabel(report.targetType)} 신고
-                      {getStatusBadge(report.status)}
-                    </CardTitle>
-                    <div className="text-sm text-gray-500 mt-1 space-y-1">
-                      <p>신고자: {report.reporterInfo.displayName}</p>
-                      <p>신고일: {formatDate(report.createdAt)}</p>
-                      {report.resolvedAt && (
-                        <p>처리일: {formatDate(report.resolvedAt)}</p>
-                      )}
+          reports.map((report) => {
+            const postUrl = getPostUrl(report);
+            const { title, content } = report.targetContent 
+              ? parsePostContent(report.targetContent) 
+              : { title: null, content: null };
+            
+            return (
+              <Card key={report.id}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        {getTargetTypeLabel(report.targetType)} 신고
+                        {getStatusBadge(report.status)}
+                      </CardTitle>
+                      <div className="text-sm text-gray-500 mt-1 space-y-1">
+                        <p>신고자: {report.reporterInfo.displayName}</p>
+                        <p>신고일: {formatDate(report.createdAt)}</p>
+                        {report.resolvedAt && (
+                          <p>처리일: {formatDate(report.resolvedAt)}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-1" />
-                          상세보기
+                    <div className="flex gap-2 flex-wrap">
+                      {/* 원문보기 버튼 */}
+                      {postUrl && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => window.open(postUrl, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" />
+                          원문보기
                         </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[600px]">
-                        <DialogHeader>
-                          <DialogTitle>신고 상세 정보</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label className="font-medium">신고 사유</Label>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {getReasonLabel(report.reason)}
-                              {report.customReason && ` - ${report.customReason}`}
-                            </p>
-                          </div>
+                      )}
 
-                          {report.description && (
-                            <div>
-                              <Label className="font-medium">상세 설명</Label>
-                              <p className="text-sm text-gray-600 mt-1">{report.description}</p>
-                            </div>
-                          )}
+                      {/* 사용자 프로필 보기 */}
+                      {report.targetType === 'user' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            window.open(`/users/${report.targetId}`, '_blank');
+                          }}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" />
+                          프로필 보기
+                        </Button>
+                      )}
 
-                          {report.targetContent && (
-                            <div>
-                              <Label className="font-medium">신고 대상 내용</Label>
-                              <div className="bg-gray-50 p-3 rounded-md mt-1">
-                                <p className="text-sm text-gray-700">{report.targetContent}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 원본 게시글/댓글로 이동 링크 */}
-                          <div>
-                            <Label className="font-medium">원본 보기</Label>
-                            <div className="mt-1">
-                              {report.targetType === 'post' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const postUrl = getPostUrl(report);
-                                    if (postUrl) {
-                                      window.open(postUrl, '_blank');
-                                    }
-                                  }}
-                                >
-                                  게시글 보기
-                                </Button>
-                              )}
-                              {report.targetType === 'comment' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const postUrl = getPostUrl(report);
-                                    if (postUrl) {
-                                      window.open(postUrl, '_blank');
-                                    }
-                                  }}
-                                >
-                                  댓글이 있는 게시글 보기
-                                </Button>
-                              )}
-                              {report.targetType === 'user' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    window.open(`/users/${report.targetId}`, '_blank');
-                                  }}
-                                >
-                                  사용자 프로필 보기
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          {report.boardCode && (
-                            <div>
-                              <Label className="font-medium">게시판</Label>
-                              <p className="text-sm text-gray-600 mt-1">{report.boardCode}</p>
-                            </div>
-                          )}
-
-                          {report.schoolId && (
-                            <div>
-                              <Label className="font-medium">학교 ID</Label>
-                              <p className="text-sm text-gray-600 mt-1">{report.schoolId}</p>
-                            </div>
-                          )}
-
-                          {report.regions && (
-                            <div>
-                              <Label className="font-medium">지역</Label>
-                              <p className="text-sm text-gray-600 mt-1">
-                                {report.regions.sido} {report.regions.sigungu}
-                              </p>
-                            </div>
-                          )}
-
-                          {report.adminNote && (
-                            <div>
-                              <Label className="font-medium">관리자 메모</Label>
-                              <p className="text-sm text-gray-600 mt-1">{report.adminNote}</p>
-                            </div>
-                          )}
-
-                          {report.actionTaken && (
-                            <div>
-                              <Label className="font-medium">조치 내용</Label>
-                              <p className="text-sm text-gray-600 mt-1">{report.actionTaken}</p>
-                            </div>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-
-                    {(report.status === 'pending' || report.status === 'reviewing') && (
+                      {/* 신고자에게 알림 발송 */}
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => setProcessingReport(report)}
+                        onClick={() => openNotificationDialog(report.reporterId, true)}
+                      >
+                        <Bell className="w-4 h-4 mr-1" />
+                        신고자
+                      </Button>
+
+                      {/* 신고받은 사용자에게 알림 발송 */}
+                      {report.targetAuthorId && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => openNotificationDialog(report.targetAuthorId!, false)}
+                        >
+                          <AlertCircle className="w-4 h-4 mr-1" />
+                          신고받은 사용자
+                        </Button>
+                      )}
+
+                      {/* 처리 버튼 */}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          console.log('처리 버튼 클릭됨:', report);
+                          setNewStatus(report.status);
+                          setProcessingReport(report);
+                        }}
                       >
                         <Shield className="w-4 h-4 mr-1" />
                         처리
                       </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div>
-                    <span className="font-medium">신고 사유: </span>
-                    <span>{getReasonLabel(report.reason)}</span>
-                    {report.customReason && (
-                      <span className="text-gray-600"> - {report.customReason}</span>
-                    )}
-                  </div>
-                  
-                  {report.targetContent && (
-                    <div>
-                      <span className="font-medium">신고 대상: </span>
-                      <p className="text-sm text-gray-600 line-clamp-2 mt-1">{report.targetContent}</p>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-medium">신고 사유: </span>
+                      <span>{getReasonLabel(report.reason)}</span>
+                      {report.customReason && (
+                        <span className="text-gray-600"> - {report.customReason}</span>
+                      )}
+                    </div>
+                    
+                    {report.description && (
+                      <div>
+                        <span className="font-medium">상세 설명: </span>
+                        <p className="text-sm text-gray-600 line-clamp-2 mt-1">{report.description}</p>
+                      </div>
+                    )}
+
+                    {/* 개선된 신고 대상 내용 표시 */}
+                    {report.targetContent && (
+                      <div>
+                        <span className="font-medium">신고 대상: </span>
+                        {title ? (
+                          <div className="mt-1 space-y-1">
+                            <div>
+                              <span className="text-xs text-gray-500">제목:</span>
+                              <p className="text-sm text-gray-700 line-clamp-1">{stripHtmlTags(title)}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-gray-500">내용:</span>
+                              <p className="text-sm text-gray-600 line-clamp-2">{stripHtmlTags(content)}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-600 line-clamp-2 mt-1">{stripHtmlTags(content)}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 
       {/* 신고 처리 모달 */}
       {processingReport && (
-        <Dialog open={true} onOpenChange={() => setProcessingReport(null)}>
+        <Dialog open={true} onOpenChange={closeProcessingModal}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>신고 처리</DialogTitle>
+              <DialogDescription>
+                신고된 내용을 검토하고 적절한 조치를 취해주세요.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -426,6 +520,22 @@ export function AdminReportsClient() {
                   {getReasonLabel(processingReport.reason)}
                   {processingReport.customReason && ` - ${processingReport.customReason}`}
                 </p>
+              </div>
+
+              {/* 상태 선택 */}
+              <div className="space-y-2">
+                <Label htmlFor="status">처리 상태</Label>
+                <Select value={newStatus} onValueChange={(value: ReportStatus) => setNewStatus(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">대기중</SelectItem>
+                    <SelectItem value="reviewing">검토중</SelectItem>
+                    <SelectItem value="resolved">처리완료</SelectItem>
+                    <SelectItem value="rejected">반려</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -450,35 +560,82 @@ export function AdminReportsClient() {
                 />
               </div>
 
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setProcessingReport(null)}
-                >
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closeProcessingModal}>
                   취소
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleProcessReport(
-                    processingReport.id,
-                    'rejected',
-                    actionNote || undefined
-                  )}
-                  className="text-red-600 hover:text-red-700"
+                <Button 
+                  onClick={handleProcessReport}
+                  disabled={!newStatus}
                 >
-                  반려
+                  처리 완료
                 </Button>
-                <Button
-                  onClick={() => handleProcessReport(
-                    processingReport.id,
-                    'resolved',
-                    actionNote || undefined,
-                    actionTaken || undefined
-                  )}
-                  disabled={!actionTaken.trim()}
-                  className="bg-green-600 hover:bg-green-700"
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 알림 발송 모달 */}
+      {showNotificationDialog && (
+        <Dialog open={true} onOpenChange={() => setShowNotificationDialog(false)}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>알림 발송</DialogTitle>
+              <DialogDescription>
+                해당 사용자에게 알림 메시지를 발송합니다.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="notificationType">알림 유형</Label>
+                <Select 
+                  value={notificationData.type} 
+                  onValueChange={(value: 'general' | 'warning') => 
+                    setNotificationData(prev => ({ ...prev, type: value }))
+                  }
                 >
-                  처리완료
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">일반 알림</SelectItem>
+                    <SelectItem value="warning">경고 알림</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notificationTitle">제목</Label>
+                <input
+                  id="notificationTitle"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  value={notificationData.title}
+                  onChange={(e) => setNotificationData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="알림 제목을 입력하세요"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notificationMessage">메시지</Label>
+                <Textarea
+                  id="notificationMessage"
+                  value={notificationData.message}
+                  onChange={(e) => setNotificationData(prev => ({ ...prev, message: e.target.value }))}
+                  placeholder="알림 메시지를 입력하세요"
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowNotificationDialog(false)}>
+                  취소
+                </Button>
+                <Button 
+                  onClick={handleSendNotification}
+                  disabled={!notificationData.title || !notificationData.message}
+                >
+                  알림 발송
                 </Button>
               </div>
             </div>
