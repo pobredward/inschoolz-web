@@ -63,8 +63,9 @@ export default function GamesPage() {
     }
     
     if (!user) {
-      alert('게임을 플레이하려면 로그인이 필요합니다.');
-      router.push('/auth/login');
+      if (confirm('게임을 플레이하려면 로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?')) {
+        router.push('/auth?tab=login');
+      }
       return;
     }
     
@@ -78,6 +79,13 @@ export default function GamesPage() {
         <p className="text-muted-foreground">
           게임을 플레이하고 경험치를 획득하세요!
         </p>
+        {!user && (
+          <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg max-w-2xl mx-auto">
+            <p className="text-amber-800 text-sm">
+              🎯 게임 목록은 누구나 볼 수 있지만, 실제 게임을 플레이하려면 로그인이 필요합니다.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
@@ -117,7 +125,12 @@ export default function GamesPage() {
                   variant={game.isActive ? "default" : "outline"}
                   disabled={!game.isActive}
                 >
-                  {game.isActive ? '플레이하기' : '준비 중'}
+                  {!game.isActive 
+                    ? '준비 중' 
+                    : !user 
+                      ? '로그인하고 플레이하기' 
+                      : '플레이하기'
+                  }
                 </Button>
               </CardContent>
             </Card>
