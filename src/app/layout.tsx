@@ -18,23 +18,49 @@ export const metadata: Metadata = {
     template: "%s | 인스쿨즈",
     default: "인스쿨즈 - 학교 커뮤니티 플랫폼",
   },
-  description: "학교 생활의 모든 것, 인스쿨즈에서 함께하세요.",
-  keywords: ["학교", "커뮤니티", "교육", "학생", "교사", "인스쿨즈"],
+  description: "초·중·고 학생과 졸업생을 위한 3계층 커뮤니티 플랫폼. 학교, 지역, 전국 단위로 소통하고 정보를 공유하세요.",
+  keywords: [
+    "인스쿨즈", "학교 커뮤니티", "학생 커뮤니티", "초등학교", "중학교", "고등학교", 
+    "학교 게시판", "지역 커뮤니티", "학생 소통", "교육", "학교 정보", "졸업생"
+  ],
   authors: [{ name: "인스쿨즈 팀" }],
   creator: "인스쿨즈",
   publisher: "인스쿨즈",
+  robots: "index, follow",
+  alternates: {
+    canonical: "https://inschoolz.com",
+  },
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
+  },
+  verification: {
+    google: "google-site-verification-code", // 나중에 실제 코드로 교체
   },
   openGraph: {
     type: "website",
     locale: "ko_KR",
     url: "https://inschoolz.com",
     siteName: "Inschoolz",
-    title: "Inschoolz - 학생들을 위한 커뮤니티",
+    title: "인스쿨즈 - 초·중·고 학생들을 위한 커뮤니티",
+    description: "초·중·고 학생과 졸업생을 위한 3계층 커뮤니티 플랫폼. 학교, 지역, 전국 단위로 소통하고 정보를 공유하세요.",
+    images: [
+      {
+        url: "https://inschoolz.com/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "인스쿨즈 - 학교 커뮤니티 플랫폼",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@inschoolz",
+    creator: "@inschoolz",
+    title: "인스쿨즈 - 초·중·고 학생들을 위한 커뮤니티",
     description: "초·중·고 학생과 졸업생을 위한 3계층 커뮤니티 플랫폼",
+    images: ["https://inschoolz.com/og-image.jpg"],
   },
 };
 

@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, TrendingUp, MessageSquare, Globe } from 'lucide-react';
+import { ArrowLeft, Plus, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { stripHtmlTags } from '@/lib/utils';
 import { getBoardsByType } from '@/lib/api/board';
@@ -62,17 +62,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       return {
         title: '게시판을 찾을 수 없습니다 - Inschoolz',
         description: '요청하신 게시판을 찾을 수 없습니다.',
+        robots: 'noindex, nofollow',
       };
     }
 
+    const description = `전국 ${boardInfo.name}에서 다양한 정보를 공유하고 소통해보세요. ${boardInfo.description || '학생들을 위한 커뮤니티 공간입니다.'}`;
+
     return {
       title: `${boardInfo.name} - 전국 - Inschoolz`,
-      description: `전국 ${boardInfo.name}에서 다양한 정보를 공유하고 소통해보세요. ${boardInfo.description}`,
+      description,
+      keywords: [boardInfo.name, '전국', '커뮤니티', '학생', '인스쿨즈', '게시판'],
+      alternates: {
+        canonical: `https://inschoolz.com/community/national/${boardCode}`,
+      },
       openGraph: {
         title: `${boardInfo.name} - 전국`,
-        description: boardInfo.description,
+        description,
         type: 'website',
         siteName: 'Inschoolz',
+        url: `https://inschoolz.com/community/national/${boardCode}`,
+      },
+      twitter: {
+        card: 'summary',
+        title: `${boardInfo.name} - 전국`,
+        description,
       },
     };
   } catch (error) {
@@ -80,6 +93,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: '게시판을 찾을 수 없습니다 - Inschoolz',
       description: '요청하신 게시판을 찾을 수 없습니다.',
+      robots: 'noindex, nofollow',
     };
   }
 }

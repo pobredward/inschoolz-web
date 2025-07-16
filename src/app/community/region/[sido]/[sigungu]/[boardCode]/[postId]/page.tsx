@@ -39,17 +39,52 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
       return {
         title: '게시글을 찾을 수 없습니다 - Inschoolz',
         description: '요청하신 게시글을 찾을 수 없습니다.',
+        robots: 'noindex, nofollow',
       };
     }
 
+    // 익명 게시글은 검색엔진에서 제외
+    const isAnonymous = post.authorInfo?.isAnonymous;
+    
+    // 게시글 내용 정리 및 작성 정보 추가
+    const cleanContent = stripHtmlTags(post.content);
+    const contentPreview = cleanContent.slice(0, 120);
+    const authorName = isAnonymous ? '익명' : (post.authorInfo?.displayName || '사용자');
+    const createdDate = new Date(post.createdAt).toLocaleDateString('ko-KR');
+    
+    // 첨부 이미지 추출
+    const images = post.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
+    const firstImage = images.length > 0 ? images[0] : undefined;
+    
+    const description = `${contentPreview}... - ${authorName} | ${createdDate}`;
+
     return {
       title: `${post.title} - ${regionInfo.fullName} ${boardInfo.name} - Inschoolz`,
-      description: stripHtmlTags(post.content).slice(0, 150) + '...',
+      description,
+      keywords: [post.title, regionInfo.fullName, sido, sigungu, boardInfo.name, '지역 커뮤니티', '인스쿨즈', ...post.tags || []],
+      authors: [{ name: authorName }],
+      robots: isAnonymous ? 'noindex, nofollow' : 'index, follow',
+      alternates: {
+        canonical: `https://inschoolz.com/community/region/${encodeURIComponent(sido)}/${encodeURIComponent(sigungu)}/${boardCode}/${postId}`,
+      },
       openGraph: {
         title: `${post.title} - ${regionInfo.fullName} ${boardInfo.name}`,
-        description: stripHtmlTags(post.content).slice(0, 150) + '...',
+        description: contentPreview + '...',
         type: 'article',
         siteName: 'Inschoolz',
+        url: `https://inschoolz.com/community/region/${encodeURIComponent(sido)}/${encodeURIComponent(sigungu)}/${boardCode}/${postId}`,
+        publishedTime: new Date(post.createdAt).toISOString(),
+        modifiedTime: new Date(post.updatedAt || post.createdAt).toISOString(),
+        authors: [authorName],
+        section: `${regionInfo.fullName} ${boardInfo.name}`,
+        tags: post.tags || [],
+        ...(firstImage && { images: [{ url: firstImage, alt: post.title }] }),
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${post.title} - ${regionInfo.fullName} ${boardInfo.name}`,
+        description: contentPreview + '...',
+        ...(firstImage && { images: [firstImage] }),
       },
     };
   } catch (error) {
@@ -57,6 +92,7 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
     return {
       title: '게시글을 찾을 수 없습니다 - Inschoolz',
       description: '요청하신 게시글을 찾을 수 없습니다.',
+      robots: 'noindex, nofollow',
     };
   }
 }
