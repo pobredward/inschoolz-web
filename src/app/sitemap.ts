@@ -1,6 +1,11 @@
 import { MetadataRoute } from 'next';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-const SITE_URL = 'https://inschoolz.com';
+const SITE_URL = 'https://www.inschoolz.com';
+
+// sitemap을 24시간마다 재생성 (게시글이 매일 올라오므로)
+export const revalidate = 86400; // 24시간 = 86400초
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const sitemap: MetadataRoute.Sitemap = [];
@@ -90,13 +95,52 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   sitemap.push(...staticPages);
 
   try {
-    // 현재는 정적 페이지만 반환 (Firebase 연결 안정화 후 동적 페이지 추가 예정)
-    // TODO: 프로덕션에서 Firestore 연결 안정화 후 게시글 동적 추가
+    // Firebase에서 공개 게시글들을 가져와서 sitemap에 추가
+    const postsRef = collection(db, 'posts');
     
-    console.log(`Generated static sitemap with ${sitemap.length} entries`);
+    // 공개되고 활성화된 게시글만 가져오기 (익명 제외)
+    const publicPostsQuery = query(
+      postsRef,
+      where('status', '==', 'active'),
+      where('isPublic', '==', true),
+      where('isAnonymous', '==', false),
+      orderBy('createdAt', 'desc'),
+      limit(1000) // 최신 1000개 게시글만 sitemap에 포함
+    );
+
+    const postsSnapshot = await getDocs(publicPostsQuery);
+    
+    for (const postDoc of postsSnapshot.docs) {
+      const postData = postDoc.data();
+      const postId = postDoc.id;
+      
+      // 게시판 타입별로 URL 생성
+      let postUrl = '';
+      
+      if (postData.boardType === 'national') {
+        postUrl = `${SITE_URL}/community/national/${postData.boardCode}/${postId}`;
+      } else if (postData.boardType === 'school' && postData.schoolId) {
+        postUrl = `${SITE_URL}/community/school/${postData.schoolId}/${postData.boardCode}/${postId}`;
+      } else if (postData.boardType === 'regional' && postData.sido && postData.sigungu) {
+        postUrl = `${SITE_URL}/community/region/${encodeURIComponent(postData.sido)}/${encodeURIComponent(postData.sigungu)}/${postData.boardCode}/${postId}`;
+      }
+      
+      if (postUrl) {
+        sitemap.push({
+          url: postUrl,
+          lastModified: postData.updatedAt?.toDate() || postData.createdAt?.toDate() || new Date(),
+          changeFrequency: 'weekly' as const,
+          priority: 0.6,
+        });
+      }
+    }
+
+    console.log(`Generated dynamic sitemap with ${sitemap.length} entries (${sitemap.length - staticPages.length} posts)`);
     
   } catch (error) {
     console.error('Sitemap generation error:', error);
+    // 에러가 발생하더라도 정적 페이지는 반환
+    console.log(`Fallback: Generated static sitemap with ${staticPages.length} entries`);
   }
 
   return sitemap;

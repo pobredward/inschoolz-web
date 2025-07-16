@@ -34,8 +34,10 @@ Disallow: /verify-school
 Disallow: /favorite-schools
 Disallow: /*?*redirect=*
 
-# Sitemap 위치
+# Sitemap 위치 (메인 + 인덱스 + 게시글 전용)
 Sitemap: https://www.inschoolz.com/sitemap.xml
+Sitemap: https://www.inschoolz.com/sitemap-index.xml
+Sitemap: https://www.inschoolz.com/sitemap-posts.xml
 
 # 크롤링 지연 설정 (초)
 Crawl-delay: 1 
