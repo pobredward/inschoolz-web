@@ -14,35 +14,45 @@ const publicRoutes = [
   '/youth-protection',
   '/help',
   '/support',
+  '/community', // 커뮤니티 메인 페이지는 공개 접근 허용
 ];
 
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
+  console.log(`🚀 Middleware: ${path} - 요청 시작`);
+  
   // 기존 /login 및 /signup 경로를 /auth로 리디렉션
   if (path === '/login') {
+    console.log(`🔄 Middleware: ${path} -> /auth?tab=login 리다이렉트`);
     return NextResponse.redirect(new URL('/auth?tab=login', request.url));
   }
   
   if (path === '/signup') {
+    console.log(`🔄 Middleware: ${path} -> /auth?tab=signup 리다이렉트`);
     return NextResponse.redirect(new URL('/auth?tab=signup', request.url));
   }
   
   // SEO용 커뮤니티 게시글 경로는 공개 접근 허용
   if (path.match(/^\/community\/(national|school|region)\/.*\/[a-zA-Z0-9]+$/)) {
+    console.log(`✅ Middleware: ${path} - SEO 커뮤니티 경로 허용`);
     return NextResponse.next();
   }
   
   // 인증이 필요 없는 경로는 통과
-  if (publicRoutes.some(route => path === route || path.startsWith(`${route}/`))) {
+  const isPublicRoute = publicRoutes.some(route => path === route || path.startsWith(`${route}/`));
+  if (isPublicRoute) {
+    console.log(`✅ Middleware: ${path} - 공개 경로 허용`);
     return NextResponse.next();
   }
   
   // 클라이언트 측 인증 쿠키 확인
   const authCookie = request.cookies.get('authToken');
+  console.log(`🔐 Middleware: ${path} - 인증 쿠키 확인: ${authCookie ? '있음' : '없음'}`);
   
   // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
   if (!authCookie) {
+    console.log(`🚫 Middleware: ${path} -> /auth?tab=login 리다이렉트 (인증 필요)`);
     return NextResponse.redirect(new URL('/auth?tab=login', request.url));
   }
   
@@ -52,10 +62,12 @@ export function middleware(request: NextRequest) {
     
     // 관리자가 아닌 경우 홈페이지로 리디렉션
     if (userRoleCookie?.value !== 'admin') {
+      console.log(`🚫 Middleware: ${path} -> / 리다이렉트 (관리자 아님)`);
       return NextResponse.redirect(new URL('/', request.url));
     }
   }
   
+  console.log(`✅ Middleware: ${path} - 통과`);
   return NextResponse.next();
 }
 

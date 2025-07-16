@@ -125,36 +125,39 @@ export default function CommunityPage() {
         return;
       }
       
+      // 로그인되지 않은 경우
+      if (!user?.uid) {
+        console.log('Not logged in, staying on page to show login prompt');
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('tab', 'school');
+        window.history.replaceState({}, '', newUrl.toString());
+        return;
+      }
+      
       // 로그인된 사용자가 있으면 users 컬렉션에서 최신 정보 가져오기
-      if (user?.uid) {
-        try {
-          console.log('Fetching latest user info from users collection...');
-          const { getUserById } = await import('@/lib/api/users');
-          const latestUser = await getUserById(user.uid);
-          
-          if (latestUser?.school?.id) {
-            console.log('Redirecting to school:', latestUser.school.id);
-            router.push(`/community?tab=school/${latestUser.school.id}`);
-          } else {
-            // 로그인은 되어 있지만 학교 정보가 없는 경우
-            console.log('No school info in users collection, redirecting to edit page');
-            router.push('/my/edit');
-          }
-        } catch (error) {
-          console.error('Failed to fetch user info:', error);
-          // API 호출 실패 시 기존 user 정보로 fallback
-          if (user?.school?.id) {
-            console.log('Fallback to cached school:', user.school.id);
-            router.push(`/community?tab=school/${user.school.id}`);
-          } else {
-            console.log('No cached school info, redirecting to edit page');
-            router.push('/my/edit');
-          }
+      try {
+        console.log('Fetching latest user info from users collection...');
+        const { getUserById } = await import('@/lib/api/users');
+        const latestUser = await getUserById(user.uid);
+        
+        if (latestUser?.school?.id) {
+          console.log('Redirecting to school:', latestUser.school.id);
+          router.push(`/community?tab=school/${latestUser.school.id}`);
+        } else {
+          // 로그인은 되어 있지만 학교 정보가 없는 경우
+          console.log('No school info in users collection, redirecting to edit page');
+          router.push('/my/edit');
         }
-      } else {
-        // 로그인되지 않은 경우
-        console.log('Not logged in, redirecting to login');
-        router.push('/auth');
+      } catch (error) {
+        console.error('Failed to fetch user info:', error);
+        // API 호출 실패 시 기존 user 정보로 fallback
+        if (user?.school?.id) {
+          console.log('Fallback to cached school:', user.school.id);
+          router.push(`/community?tab=school/${user.school.id}`);
+        } else {
+          console.log('No cached school info, redirecting to edit page');
+          router.push('/my/edit');
+        }
       }
     } else if (newTab === 'regional') {
       console.log('=== 지역 탭 선택됨 ===');
@@ -168,39 +171,41 @@ export default function CommunityPage() {
         return;
       }
       
+      // 로그인되지 않은 경우
+      if (!user?.uid) {
+        console.log('Not logged in, staying on page to show login prompt');
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('tab', 'regional');
+        window.history.replaceState({}, '', newUrl.toString());
+        return;
+      }
+      
       // 로그인된 사용자가 있으면 users 컬렉션에서 최신 정보 가져오기
-      if (user?.uid) {
-        console.log('사용자 UID 확인됨:', user.uid);
-        try {
-          console.log('Fetching latest user info from users collection...');
-          const { getUserById } = await import('@/lib/api/users');
-          const latestUser = await getUserById(user.uid);
-          console.log('가져온 사용자 정보:', latestUser);
-          console.log('지역 정보:', latestUser?.regions);
-          
-          if (latestUser?.regions?.sido && latestUser?.regions?.sigungu) {
-            console.log('Redirecting to region:', latestUser.regions.sido, latestUser.regions.sigungu);
-            router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
-          } else {
-            // 로그인은 되어 있지만 지역 정보가 없는 경우
-            console.log('No region info in users collection, redirecting to edit page');
-            router.push('/my/edit');
-          }
-        } catch (error) {
-          console.error('Failed to fetch user info:', error);
-          // API 호출 실패 시 기존 user 정보로 fallback
-          if (user?.regions?.sido && user?.regions?.sigungu) {
-            console.log('Fallback to cached region:', user.regions.sido, user.regions.sigungu);
-            router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
-          } else {
-            console.log('No cached region info, redirecting to edit page');
-            router.push('/my/edit');
-          }
+      try {
+        console.log('Fetching latest user info from users collection...');
+        const { getUserById } = await import('@/lib/api/users');
+        const latestUser = await getUserById(user.uid);
+        console.log('가져온 사용자 정보:', latestUser);
+        console.log('지역 정보:', latestUser?.regions);
+        
+        if (latestUser?.regions?.sido && latestUser?.regions?.sigungu) {
+          console.log('Redirecting to region:', latestUser.regions.sido, latestUser.regions.sigungu);
+          router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
+        } else {
+          // 로그인은 되어 있지만 지역 정보가 없는 경우
+          console.log('No region info in users collection, redirecting to edit page');
+          router.push('/my/edit');
         }
-      } else {
-        // 로그인되지 않은 경우
-        console.log('Not logged in, redirecting to login');
-        router.push('/auth');
+      } catch (error) {
+        console.error('Failed to fetch user info:', error);
+        // API 호출 실패 시 기존 user 정보로 fallback
+        if (user?.regions?.sido && user?.regions?.sigungu) {
+          console.log('Fallback to cached region:', user.regions.sido, user.regions.sigungu);
+          router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
+        } else {
+          console.log('No cached region info, redirecting to edit page');
+          router.push('/my/edit');
+        }
       }
     } else {
       const newUrl = new URL(window.location.href);
@@ -390,8 +395,6 @@ export default function CommunityPage() {
     }
   };
 
-
-
   const handleWriteClick = () => {
     console.log('Write button clicked!');
     console.log('Current tab:', selectedTab);
@@ -449,6 +452,28 @@ export default function CommunityPage() {
     }
   };
 
+  // 로그인이 필요한 탭인지 확인
+  const isLoginRequired = (selectedTab === 'school' || selectedTab === 'regional') && !user;
+
+  // 로그인 안내 화면 렌더링
+  const renderLoginRequired = () => (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+        <div className="text-4xl mb-4">🔒</div>
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">로그인이 필요합니다</h2>
+        <p className="text-gray-600 mb-6">
+          {selectedTab === 'school' ? '학교' : '지역'} 게시판을 보려면 로그인해주세요.
+        </p>
+        <Button 
+          onClick={() => router.push('/auth')}
+          className="w-full bg-green-500 hover:bg-green-600 text-white"
+        >
+          로그인하기
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
@@ -491,163 +516,172 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      {/* 학교 선택 (학교 탭일 때만 표시) */}
-      {selectedTab === 'school' && (
-        <div className="bg-white border-b">
-          <div className="container mx-auto px-4 py-3">
-            <SchoolSelector 
-              onSchoolChange={async (school) => {
-                console.log('School changed to:', school.id, school.name);
-                
-                // URL 업데이트 - 새로운 학교 ID로 리다이렉트
-                router.push(`/community?tab=school/${school.id}`);
-                
-                // 세션 스토리지에도 업데이트
-                sessionStorage.setItem('community-selected-school', school.id);
-                
-                // 게시판과 게시글 목록 새로고침
-                await loadBoards();
-                await loadPosts();
-              }}
-              className="max-w-sm"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* 카테고리 필터 */}
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center space-x-2 overflow-x-auto">
-            <Button
-              variant={selectedBoard === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedBoard('all')}
-              className="whitespace-nowrap"
-            >
-              전체
-            </Button>
-            {boards.map((board) => (
-              <Button
-                key={board.code}
-                variant={selectedBoard === board.code ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedBoard(board.code)}
-                className="whitespace-nowrap"
-              >
-                {board.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 정렬 옵션 */}
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">
-              총 {posts.length}개
-            </span>
-            <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-              <SelectTrigger className="w-24 h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      {/* 게시글 리스트 */}
-      <div className="container mx-auto px-4 py-4">
-        {isLoading ? (
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-4">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-full mb-1"></div>
-                  <div className="h-3 bg-gray-200 rounded w-2/3 mb-3"></div>
-                  <div className="flex items-center space-x-4">
-                    <div className="h-3 bg-gray-200 rounded w-16"></div>
-                    <div className="h-3 bg-gray-200 rounded w-12"></div>
-                    <div className="h-3 bg-gray-200 rounded w-12"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : posts.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-2">📝</div>
-            <p className="text-gray-500">게시글이 없습니다.</p>
-            <p className="text-sm text-gray-400 mt-1">첫 번째 게시글을 작성해보세요!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {posts.map((post) => {
-              const getPostUrl = () => {
-                switch (selectedTab) {
-                  case 'national':
-                    return `/community/national/${post.boardCode}/${post.id}`;
-                  case 'regional':
-                    const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
-                    const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
-                    if (selectedSido && selectedSigungu) {
-                      return `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${post.boardCode}/${post.id}`;
-                    }
-                    return '#';
-                  case 'school':
-                    const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
-                    if (selectedSchoolId) {
-                      return `/community/school/${selectedSchoolId}/${post.boardCode}/${post.id}`;
-                    }
-                    return '#';
-                  default:
-                    return '#';
-                }
-              };
-
-              const getTabName = () => {
-                switch (selectedTab) {
-                  case 'national': return '전국';
-                  case 'regional': return '지역';
-                  case 'school': return '학교';
-                  default: return '전국';
-                }
-              };
-
-              return (
-                <PostListItem
-                  key={post.id}
-                  post={post}
-                  href={getPostUrl()}
-                  typeBadgeText={getTabName()}
-                  boardBadgeText={post.boardName}
+      {/* 로그인이 필요한 탭에서는 로그인 안내 화면 표시 */}
+      {isLoginRequired ? (
+        renderLoginRequired()
+      ) : (
+        <>
+          {/* 학교 선택 (학교 탭일 때만 표시) */}
+          {selectedTab === 'school' && (
+            <div className="bg-white border-b">
+              <div className="container mx-auto px-4 py-3">
+                <SchoolSelector 
+                  onSchoolChange={async (school) => {
+                    console.log('School changed to:', school.id, school.name);
+                    
+                    // URL 업데이트 - 새로운 학교 ID로 리다이렉트
+                    router.push(`/community?tab=school/${school.id}`);
+                    
+                    // 세션 스토리지에도 업데이트
+                    sessionStorage.setItem('community-selected-school', school.id);
+                    
+                    // 게시판과 게시글 목록 새로고침
+                    await loadBoards();
+                    await loadPosts();
+                  }}
+                  className="max-w-sm"
                 />
-              );
-            })}
-          </div>
-        )}
-      </div>
+              </div>
+            </div>
+          )}
 
-      {/* 글쓰기 버튼 */}
-      <div className="fixed bottom-20 right-4 z-10">
-        <Button 
-          size="lg" 
-          className="rounded-full h-14 w-14 shadow-lg"
-          onClick={handleWriteClick}
-        >
-          <span className="text-xl">+</span>
-        </Button>
-      </div>
+          {/* 카테고리 필터 */}
+          <div className="bg-white border-b">
+            <div className="container mx-auto px-4 py-3">
+              <div className="flex items-center space-x-2 overflow-x-auto">
+                <Button
+                  variant={selectedBoard === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedBoard('all')}
+                  className="whitespace-nowrap"
+                >
+                  전체
+                </Button>
+                {boards.map((board) => (
+                  <Button
+                    key={board.code}
+                    variant={selectedBoard === board.code ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedBoard(board.code)}
+                    className="whitespace-nowrap"
+                  >
+                    {board.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 정렬 옵션 */}
+          <div className="bg-white border-b">
+            <div className="container mx-auto px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">
+                  총 {posts.length}개
+                </span>
+                <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                  <SelectTrigger className="w-24 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* 게시글 리스트 */}
+          <div className="container mx-auto px-4 py-4">
+            {isLoading ? (
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-4">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full mb-1"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3 mb-3"></div>
+                      <div className="flex items-center space-x-4">
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        <div className="h-3 bg-gray-200 rounded w-12"></div>
+                        <div className="h-3 bg-gray-200 rounded w-12"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 mb-2">📝</div>
+                <p className="text-gray-500">게시글이 없습니다.</p>
+                <p className="text-sm text-gray-400 mt-1">첫 번째 게시글을 작성해보세요!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {posts.map((post) => {
+                  const getPostUrl = () => {
+                    switch (selectedTab) {
+                      case 'national':
+                        return `/community/national/${post.boardCode}/${post.id}`;
+                      case 'regional':
+                        const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
+                        const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+                        if (selectedSido && selectedSigungu) {
+                          return `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${post.boardCode}/${post.id}`;
+                        }
+                        return '#';
+                      case 'school':
+                        const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
+                        if (selectedSchoolId) {
+                          return `/community/school/${selectedSchoolId}/${post.boardCode}/${post.id}`;
+                        }
+                        return '#';
+                      default:
+                        return '#';
+                    }
+                  };
+
+                  const getTabName = () => {
+                    switch (selectedTab) {
+                      case 'national': return '전국';
+                      case 'regional': return '지역';
+                      case 'school': return '학교';
+                      default: return '전국';
+                    }
+                  };
+
+                  return (
+                    <PostListItem
+                      key={post.id}
+                      post={post}
+                      href={getPostUrl()}
+                      typeBadgeText={getTabName()}
+                      boardBadgeText={post.boardName}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 글쓰기 버튼 - 로그인된 경우에만 표시 */}
+          {user && (
+            <div className="fixed bottom-20 right-4 z-10">
+              <Button 
+                size="lg" 
+                className="rounded-full h-14 w-14 shadow-lg"
+                onClick={handleWriteClick}
+              >
+                <span className="text-xl">+</span>
+              </Button>
+            </div>
+          )}
+        </>
+      )}
 
       {/* 게시판 선택 모달 */}
       <BoardSelector

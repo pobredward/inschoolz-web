@@ -13,7 +13,8 @@ import {
   Edit2, 
   Trash2,
   Send,
-  Flag
+  Flag,
+  UserX
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,6 +25,8 @@ import {
 import { useAuth } from '@/providers/AuthProvider';
 import { Comment } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
+import AnonymousCommentForm from '@/components/ui/anonymous-comment-form';
+import AnonymousPasswordModal from '@/components/ui/anonymous-password-modal';
 import { formatRelativeTime } from '@/lib/utils';
 import { 
   getCommentsByPost, 
@@ -32,6 +35,13 @@ import {
   deleteComment,
   toggleCommentLike
 } from '@/lib/api/board';
+import {
+  createAnonymousComment,
+  updateAnonymousComment,
+  deleteAnonymousComment,
+  getClientIP,
+  verifyAnonymousCommentPassword
+} from '@/lib/api/comments';
 import { toast } from 'react-hot-toast';
 import { awardCommentExperience } from '@/lib/experience-service';
 import { ExperienceModal } from '@/components/ui/experience-modal';
@@ -147,6 +157,12 @@ function CommentItem({
   onEdit, 
   onDelete, 
   onLike,
+  onAnonymousEdit,
+  onAnonymousDelete,
+  editingComment,
+  onEditingCommentChange,
+  onEditingCommentSave,
+  onEditingCommentCancel,
   level = 0
 }: {
   comment: CommentWithReplies;
@@ -155,6 +171,12 @@ function CommentItem({
   onEdit: (commentId: string, content: string) => void;
   onDelete: (commentId: string) => void;
   onLike: (commentId: string) => void;
+  onAnonymousEdit: (commentId: string) => void;
+  onAnonymousDelete: (commentId: string) => void;
+  editingComment: { id: string; content: string; password?: string } | null;
+  onEditingCommentChange: (content: string) => void;
+  onEditingCommentSave: () => void;
+  onEditingCommentCancel: () => void;
   level?: number;
 }) {
   const { user } = useAuth();
@@ -165,9 +187,22 @@ function CommentItem({
   
   const maxLevel = 1; // 최대 1단계 대댓글까지만 허용
   const isAuthor = user?.uid === comment.authorId;
+  const isAnonymous = comment.isAnonymous && !comment.authorId;
   const isDeleted = comment.status.isDeleted;
   const isReply = level > 0;
-  const authorName = comment.isAnonymous ? '익명' : comment.author?.displayName || '사용자';
+  
+  // 작성자 표시 로직
+  const getAuthorName = () => {
+    if (isAnonymous && comment.anonymousAuthor) {
+      return comment.anonymousAuthor.nickname;
+    }
+    if (comment.isAnonymous && comment.authorId) {
+      return '익명';
+    }
+    return comment.author?.displayName || '사용자';
+  };
+
+  const authorName = getAuthorName();
 
   const formatTime = (timestamp: unknown) => {
     return formatRelativeTime(timestamp);
@@ -191,23 +226,24 @@ function CommentItem({
   return (
     <div className={`flex gap-3 ${isReply ? 'ml-8 mt-3 p-3 bg-slate-50 rounded-lg' : ''}`}>
       <Avatar className="w-8 h-8 flex-shrink-0">
-        <AvatarImage src={comment.author?.profileImageUrl} />
+        <AvatarImage src={!isAnonymous ? comment.author?.profileImageUrl : undefined} />
         <AvatarFallback className="text-xs bg-slate-100">
-          {authorName.charAt(0)}
+          {isAnonymous ? <UserX className="w-4 h-4" /> : authorName.charAt(0)}
         </AvatarFallback>
       </Avatar>
       
       <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-            <span className="font-medium text-sm text-slate-900">
-              {authorName}
-            </span>
-            <span className="text-xs text-slate-500">
-              {formatTime(comment.createdAt)}
-            </span>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="font-medium text-sm text-slate-900">
+            {authorName}
+            {isAnonymous && <span className="text-xs text-slate-500 ml-1">(비회원)</span>}
+          </span>
+          <span className="text-xs text-slate-500">
+            {formatTime(comment.createdAt)}
+          </span>
           
           {/* 메뉴 버튼 */}
-          {user && !isDeleted && (
+          {!isDeleted && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-6 h-6 p-0 ml-auto">
@@ -227,6 +263,20 @@ function CommentItem({
                     >
                       <Trash2 className="mr-2 h-3 w-3" />
                       삭제
+                    </DropdownMenuItem>
+                  </>
+                ) : isAnonymous && comment.anonymousAuthor ? (
+                  <>
+                    <DropdownMenuItem onClick={() => onAnonymousEdit(comment.id)}>
+                      <Edit2 className="mr-2 h-3 w-3" />
+                      수정 (비밀번호 필요)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => onAnonymousDelete(comment.id)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-3 w-3" />
+                      삭제 (비밀번호 필요)
                     </DropdownMenuItem>
                   </>
                 ) : (
@@ -262,6 +312,30 @@ function CommentItem({
                   setIsEditing(false);
                   setEditContent(comment.content);
                 }}
+              >
+                취소
+              </Button>
+            </div>
+          </div>
+        ) : editingComment && editingComment.id === comment.id ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editingComment.content}
+              onChange={(e) => onEditingCommentChange(e.target.value)}
+              className="min-h-[60px] text-sm"
+              placeholder="댓글 내용을 입력하세요..."
+            />
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                onClick={onEditingCommentSave}
+              >
+                수정 완료
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={onEditingCommentCancel}
               >
                 취소
               </Button>
@@ -332,6 +406,13 @@ export default function CommentSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; author: string } | null>(null);
   const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [showAnonymousForm, setShowAnonymousForm] = useState(false);
+  const [passwordModal, setPasswordModal] = useState<{
+    isOpen: boolean;
+    commentId: string;
+    action: 'edit' | 'delete';
+  }>({ isOpen: false, commentId: '', action: 'edit' });
+  const [editingComment, setEditingComment] = useState<{ id: string; content: string; password?: string } | null>(null);
   const [experienceData, setExperienceData] = useState<{
     expGained: number;
     activityType: 'post' | 'comment' | 'like';
@@ -368,7 +449,7 @@ export default function CommentSection({
     }
   }, [postId, refreshComments, initialComments.length]);
 
-  // 댓글 작성
+  // 일반 댓글 작성 (로그인 사용자)
   const handleCreateComment = async (content: string, isAnonymous: boolean, parentId?: string) => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
@@ -406,6 +487,37 @@ export default function CommentSection({
     }
   };
 
+  // 익명 댓글 작성 (비로그인 사용자)
+  const handleCreateAnonymousComment = async (data: {
+    nickname: string;
+    password: string;
+    content: string;
+  }) => {
+    setIsSubmitting(true);
+    try {
+      const ipAddress = await getClientIP();
+      
+      await createAnonymousComment({
+        postId,
+        content: data.content,
+        nickname: data.nickname,
+        password: data.password,
+        parentId: replyingTo?.id || null,
+        ipAddress: ipAddress || undefined,
+      });
+
+      toast.success('익명 댓글이 작성되었습니다.');
+      setShowAnonymousForm(false);
+      setReplyingTo(null);
+      refreshComments();
+    } catch (error) {
+      console.error('익명 댓글 작성 오류:', error);
+      toast.error('댓글 작성에 실패했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // 댓글 수정
   const handleEditComment = async (commentId: string, content: string) => {
     try {
@@ -429,6 +541,56 @@ export default function CommentSection({
     } catch (error) {
       console.error('댓글 삭제 오류:', error);
       toast.error('댓글 삭제에 실패했습니다.');
+    }
+  };
+
+  // 익명 댓글 수정
+  const handleAnonymousEdit = (commentId: string) => {
+    const comment = comments.find(c => c.id === commentId);
+    if (comment) {
+      setEditingComment({ id: commentId, content: comment.content });
+      setPasswordModal({ isOpen: true, commentId, action: 'edit' });
+    }
+  };
+
+  // 익명 댓글 삭제
+  const handleAnonymousDelete = (commentId: string) => {
+    setPasswordModal({ isOpen: true, commentId, action: 'delete' });
+  };
+
+  // 비밀번호 확인 후 익명 댓글 수정/삭제
+  const handlePasswordConfirm = async (password: string): Promise<boolean> => {
+    try {
+      const { commentId, action } = passwordModal;
+      
+      if (action === 'edit') {
+        // 비밀번호 검증만 하고 실제 수정은 나중에
+        const isValidPassword = await verifyAnonymousCommentPassword(postId, commentId, password);
+        if (!isValidPassword) {
+          return false;
+        }
+        
+        // 수정 모드 활성화 (비밀번호도 함께 저장)
+        const comment = comments.find(c => c.id === commentId);
+        if (comment) {
+          setEditingComment({ id: commentId, content: comment.content, password });
+        }
+        return true;
+      } else if (action === 'delete') {
+        await deleteAnonymousComment(postId, commentId, password);
+        toast.success('댓글이 삭제되었습니다.');
+        refreshComments();
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('익명 댓글 작업 오류:', error);
+      if (error instanceof Error && error.message.includes('비밀번호')) {
+        return false; // 비밀번호 오류는 모달에서 처리
+      }
+      toast.error('작업에 실패했습니다.');
+      return false;
     }
   };
 
@@ -463,18 +625,62 @@ export default function CommentSection({
     setExperienceData(null);
   };
 
-  // API에서 이미 계층 구조로 가져오므로 조직화 불필요
+  // 익명 댓글 수정 내용 변경
+  const handleEditingCommentChange = (content: string) => {
+    setEditingComment(prev => prev ? { ...prev, content } : null);
+  };
+
+  // 익명 댓글 수정 저장
+  const handleEditingCommentSave = async () => {
+    if (!editingComment?.password) return;
+    
+    try {
+      await updateAnonymousComment(postId, editingComment.id, editingComment.content, editingComment.password);
+      toast.success('댓글이 수정되었습니다.');
+      setEditingComment(null);
+      refreshComments();
+    } catch (error) {
+      console.error('익명 댓글 수정 오류:', error);
+      toast.error('댓글 수정에 실패했습니다.');
+    }
+  };
+
+  // 익명 댓글 수정 취소
+  const handleEditingCommentCancel = () => {
+    setEditingComment(null);
+  };
 
   return (
     <Card className="border-0 shadow-sm">
       <CardContent className="p-6">
         <div className="space-y-6">
           {/* 댓글 작성 폼 */}
-          {user && (
+          {user ? (
             <CommentForm
               onSubmit={(content, isAnonymous) => 
                 handleCreateComment(content, isAnonymous)
               }
+              isSubmitting={isSubmitting}
+            />
+          ) : !showAnonymousForm ? (
+            <div className="space-y-3">
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-3">
+                  로그인하지 않아도 익명으로 댓글을 작성할 수 있습니다.
+                </p>
+                <Button
+                  onClick={() => setShowAnonymousForm(true)}
+                  className="bg-green-500 hover:bg-green-600"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  익명 댓글 작성
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <AnonymousCommentForm
+              onSubmit={handleCreateAnonymousComment}
+              onCancel={() => setShowAnonymousForm(false)}
               isSubmitting={isSubmitting}
             />
           )}
@@ -501,6 +707,12 @@ export default function CommentSection({
                     onEdit={handleEditComment}
                     onDelete={handleDeleteComment}
                     onLike={handleLikeComment}
+                    onAnonymousEdit={handleAnonymousEdit}
+                    onAnonymousDelete={handleAnonymousDelete}
+                    editingComment={editingComment}
+                    onEditingCommentChange={handleEditingCommentChange}
+                    onEditingCommentSave={handleEditingCommentSave}
+                    onEditingCommentCancel={handleEditingCommentCancel}
                   />
                   
                   {/* 대댓글 렌더링 */}
@@ -515,6 +727,12 @@ export default function CommentSection({
                             onEdit={handleEditComment}
                             onDelete={handleDeleteComment}
                             onLike={handleLikeComment}
+                            onAnonymousEdit={handleAnonymousEdit}
+                            onAnonymousDelete={handleAnonymousDelete}
+                            editingComment={editingComment}
+                            onEditingCommentChange={handleEditingCommentChange}
+                            onEditingCommentSave={handleEditingCommentSave}
+                            onEditingCommentCancel={handleEditingCommentCancel}
                             level={1}
                           />
                         </div>
@@ -523,25 +741,51 @@ export default function CommentSection({
                   )}
                   
                   {/* 답글 작성 폼 */}
-                  {replyingTo && replyingTo.id === comment.id && user && (
+                  {replyingTo && replyingTo.id === comment.id && (
                     <div className="mt-4 ml-8">
-                      <CommentForm
-                        parentId={comment.id}
-                        parentAuthor={replyingTo.author}
-                        placeholder="답글을 입력하세요..."
-                        buttonText="답글 작성"
-                        onSubmit={(content, isAnonymous) => 
-                          handleCreateComment(content, isAnonymous, comment.id)
-                        }
-                        onCancel={() => setReplyingTo(null)}
-                        isSubmitting={isSubmitting}
-                      />
+                      {user ? (
+                        <CommentForm
+                          parentId={comment.id}
+                          parentAuthor={replyingTo.author}
+                          placeholder="답글을 입력하세요..."
+                          buttonText="답글 작성"
+                          onSubmit={(content, isAnonymous) => 
+                            handleCreateComment(content, isAnonymous, comment.id)
+                          }
+                          onCancel={() => setReplyingTo(null)}
+                          isSubmitting={isSubmitting}
+                        />
+                      ) : (
+                        <AnonymousCommentForm
+                          onSubmit={handleCreateAnonymousComment}
+                          onCancel={() => setReplyingTo(null)}
+                          isSubmitting={isSubmitting}
+                          placeholder={`@${replyingTo.author}님에게 답글을 입력하세요...`}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
               ))}
             </div>
           )}
+
+          {/* 익명 댓글 비밀번호 확인 모달 */}
+          <AnonymousPasswordModal
+            isOpen={passwordModal.isOpen}
+            onClose={() => {
+              setPasswordModal({ isOpen: false, commentId: '', action: 'edit' });
+              setEditingComment(null);
+            }}
+            onConfirm={handlePasswordConfirm}
+            title={passwordModal.action === 'edit' ? '댓글 수정' : '댓글 삭제'}
+            description={
+              passwordModal.action === 'edit' 
+                ? '댓글을 수정하려면 작성 시 입력한 비밀번호를 입력해주세요.'
+                : '댓글을 삭제하려면 작성 시 입력한 비밀번호를 입력해주세요.'
+            }
+            isLoading={isSubmitting}
+          />
 
           {/* 경험치 획득 모달 */}
           {experienceData && (
