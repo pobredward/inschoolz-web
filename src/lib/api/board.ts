@@ -305,7 +305,15 @@ export const getCommentsByPost = async (postId: string) => {
         isAnonymous: comment.isAnonymous
       };
       
-      if (!comment.isAnonymous && comment.authorId && !comment.status.isDeleted) {
+      // 익명 댓글 처리
+      if (comment.isAnonymous || !comment.authorId) {
+        if (comment.anonymousAuthor?.nickname) {
+          authorInfo.displayName = comment.anonymousAuthor.nickname;
+        } else {
+          authorInfo.displayName = '익명';
+        }
+        authorInfo.isAnonymous = true;
+      } else if (!comment.status.isDeleted) {
         try {
           const userDocRef = doc(db, 'users', comment.authorId);
           const userDocSnap = await getDoc(userDocRef);
@@ -351,7 +359,15 @@ export const getCommentsByPost = async (postId: string) => {
           isAnonymous: reply.isAnonymous
         };
         
-        if (!reply.isAnonymous && reply.authorId && !reply.status.isDeleted) {
+        // 익명 대댓글 처리
+        if (reply.isAnonymous || !reply.authorId) {
+          if (reply.anonymousAuthor?.nickname) {
+            replyAuthorInfo.displayName = reply.anonymousAuthor.nickname;
+          } else {
+            replyAuthorInfo.displayName = '익명';
+          }
+          replyAuthorInfo.isAnonymous = true;
+        } else if (!reply.status.isDeleted) {
           try {
             const replyUserDocRef = doc(db, 'users', reply.authorId);
             const replyUserDocSnap = await getDoc(replyUserDocRef);
@@ -379,6 +395,9 @@ export const getCommentsByPost = async (postId: string) => {
         });
       }
       
+      // 대댓글도 시간순으로 정렬
+      replies.sort((a, b) => a.createdAt - b.createdAt);
+      
       comments.push({
         ...comment,
         author: authorInfo,
@@ -388,6 +407,9 @@ export const getCommentsByPost = async (postId: string) => {
         updatedAt: comment.updatedAt?.toMillis ? comment.updatedAt.toMillis() : comment.updatedAt,
       });
     }
+    
+    // 모든 댓글을 시간순으로 확실히 정렬 (익명 댓글 포함)
+    comments.sort((a, b) => a.createdAt - b.createdAt);
     
     return comments;
   } catch (error) {

@@ -578,6 +578,13 @@ export const getComments = async (
       }
       totalCount++;
     });
+
+    // 댓글을 시간순으로 명시적으로 정렬 (익명 댓글 포함)
+    allComments.sort((a, b) => {
+      const aTime = (a.createdAt as any)?.toMillis ? (a.createdAt as any).toMillis() : a.createdAt;
+      const bTime = (b.createdAt as any)?.toMillis ? (b.createdAt as any).toMillis() : b.createdAt;
+      return aTime - bTime;
+    });
     
     // 페이징 처리
     const startIndex = (page - 1) * pageSize;
