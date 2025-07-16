@@ -4,17 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Heart, MessageCircle, Eye, Bookmark } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
 import { getBoardsByType, getPostsByBoardType, getAllPostsByType, getAllPostsBySchool, getAllPostsByRegion } from '@/lib/api/board';
 import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
-import { formatSmartTime, generatePreviewContent, getPostPreviewImages } from '@/lib/utils';
+import { generatePreviewContent } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
+import PostListItem from '@/components/board/PostListItem';
 
 interface CommunityPost extends Post {
   boardName: string;
@@ -390,36 +390,7 @@ export default function CommunityPage() {
     }
   };
 
-  const formatDate = (timestamp: unknown) => {
-    return formatSmartTime(timestamp);
-  };
 
-  const handlePostClick = (post: CommunityPost) => {
-    let postUrl = '';
-    
-    switch (selectedTab) {
-      case 'national':
-        postUrl = `/community/national/${post.boardCode}/${post.id}`;
-        break;
-      case 'regional':
-        const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
-        const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
-        if (selectedSido && selectedSigungu) {
-          postUrl = `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${post.boardCode}/${post.id}`;
-        }
-        break;
-      case 'school':
-        const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
-        if (selectedSchoolId) {
-          postUrl = `/community/school/${selectedSchoolId}/${post.boardCode}/${post.id}`;
-        }
-        break;
-    }
-    
-    if (postUrl) {
-      router.push(postUrl);
-    }
-  };
 
   const handleWriteClick = () => {
     console.log('Write button clicked!');
@@ -621,102 +592,48 @@ export default function CommunityPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {posts.map((post) => (
-              <div
-                key={post.id}
-                className="block group cursor-pointer"
-                onClick={() => handlePostClick(post)}
-              >
-                <div className="bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
-                  {/* 상단 뱃지들 */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-bold text-gray-700 bg-blue-100 px-2 py-1 rounded">
-                      {selectedTab === 'national' ? '전국' : 
-                       selectedTab === 'regional' ? '지역' : '학교'}
-                    </span>
-                    <span className="text-xs font-bold text-gray-700 bg-green-100 px-2 py-1 rounded">
-                      {post.boardName}
-                    </span>
-                    {(post.attachments?.length || 0) > 0 && (
-                      <span className="text-xs font-bold text-gray-700 bg-orange-100 px-2 py-1 rounded">
-                        📷
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* 제목과 이미지 미리보기를 포함한 컨테이너 */}
-                  <div className="flex items-start gap-3 mb-2">
-                    <div className="flex-1 min-w-0">
-                      {/* 제목 */}
-                      <h3 className="font-semibold text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed mb-2">
-                        {post.title}
-                      </h3>
-                      
-                      {/* 내용 미리보기 */}
-                      {post.previewContent && (
-                        <div className="text-sm text-gray-600 mb-3 line-clamp-2">
-                          {post.previewContent}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* 이미지 미리보기 (오른쪽) */}
-                    {(() => {
-                      const previewImages = getPostPreviewImages(post);
-                      if (previewImages.length === 0) return null;
-                      
-                      return (
-                        <div className="flex gap-1 flex-shrink-0">
-                          {previewImages.map((imageUrl, index) => (
-                            <div
-                              key={index}
-                              className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
-                            >
-                              <img
-                                src={imageUrl}
-                                alt={`미리보기 ${index + 1}`}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                                onError={(e) => {
-                                  // 이미지 로드 실패 시 숨김 처리
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  
-                  {/* 하단 정보 */}
-                  <div className="flex items-center justify-between">
-                    {/* 작성자 | 날짜 */}
-                    <div className="text-sm text-gray-500">
-                      <span>{post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}</span>
-                      <span className="mx-1">|</span>
-                      <span>{formatDate(post.createdAt)}</span>
-                    </div>
-                    
-                    {/* 통계 (조회수, 좋아요, 댓글) */}
-                    <div className="flex items-center gap-3 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <span>👁</span>
-                        {post.stats?.viewCount || 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span>👍</span>
-                        {post.stats?.likeCount || 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span>💬</span>
-                        {post.stats?.commentCount || 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {posts.map((post) => {
+              const getPostUrl = () => {
+                switch (selectedTab) {
+                  case 'national':
+                    return `/community/national/${post.boardCode}/${post.id}`;
+                  case 'regional':
+                    const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
+                    const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+                    if (selectedSido && selectedSigungu) {
+                      return `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${post.boardCode}/${post.id}`;
+                    }
+                    return '#';
+                  case 'school':
+                    const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
+                    if (selectedSchoolId) {
+                      return `/community/school/${selectedSchoolId}/${post.boardCode}/${post.id}`;
+                    }
+                    return '#';
+                  default:
+                    return '#';
+                }
+              };
+
+              const getTabName = () => {
+                switch (selectedTab) {
+                  case 'national': return '전국';
+                  case 'regional': return '지역';
+                  case 'school': return '학교';
+                  default: return '전국';
+                }
+              };
+
+              return (
+                <PostListItem
+                  key={post.id}
+                  post={post}
+                  href={getPostUrl()}
+                  typeBadgeText={getTabName()}
+                  boardBadgeText={post.boardName}
+                />
+              );
+            })}
           </div>
         )}
       </div>

@@ -15,7 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/providers/AuthProvider';
 import { getPopularPostsForHome } from '@/lib/api/board';
 import { getRankingPreview } from '@/lib/api/ranking';
-import { formatRelativeTime, getPostPreviewImages } from '@/lib/utils';
+
+import PostListItem from '@/components/board/PostListItem';
 
 interface PopularPost {
   id: string;
@@ -155,95 +156,14 @@ export default function Home() {
                 </div>
               ) : popularPosts.length > 0 ? (
                 <div className="space-y-3">
-                  {popularPosts.map((post, index) => (
-                    <Link
+                  {popularPosts.map((post) => (
+                    <PostListItem
                       key={post.id}
+                      post={post}
                       href={`/community/national/${post.boardCode}/${post.id}`}
-                      className="block group"
-                    >
-                      <div className="bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
-                        {/* 상단 뱃지들 */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-xs font-bold text-gray-700 bg-blue-100 px-2 py-1 rounded">
-                            전국
-                          </span>
-                          <span className="text-xs font-bold text-gray-700 bg-green-100 px-2 py-1 rounded">
-                            {post.boardName || post.boardCode}
-                          </span>
-                        </div>
-                        
-                        {/* 제목과 이미지 미리보기를 포함한 컨테이너 */}
-                        <div className="flex items-start gap-3 mb-2">
-                          <div className="flex-1 min-w-0">
-                            {/* 제목 */}
-                            <h3 className="font-semibold text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed mb-2">
-                              {post.title}
-                            </h3>
-                            
-                            {/* 내용 미리보기 */}
-                            {(post.previewContent || post.content) && (
-                              <div className="text-sm text-gray-600 mb-3 line-clamp-2">
-                                {post.previewContent || post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* 이미지 미리보기 (오른쪽) */}
-                          {(() => {
-                            const previewImages = getPostPreviewImages(post);
-                            if (previewImages.length === 0) return null;
-                            
-                            return (
-                              <div className="flex gap-1 flex-shrink-0">
-                                {previewImages.map((imageUrl, index) => (
-                                  <div
-                                    key={index}
-                                    className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
-                                  >
-                                    <img
-                                      src={imageUrl}
-                                      alt={`미리보기 ${index + 1}`}
-                                      className="w-full h-full object-cover"
-                                      loading="lazy"
-                                      onError={(e) => {
-                                        // 이미지 로드 실패 시 숨김 처리
-                                        e.currentTarget.style.display = 'none';
-                                      }}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        
-                        {/* 하단 정보 */}
-                        <div className="flex items-center justify-between">
-                          {/* 작성자 | 날짜 */}
-                          <div className="text-sm text-gray-500">
-                            <span>{post.authorInfo.isAnonymous ? '익명' : post.authorInfo.displayName}</span>
-                            <span className="mx-1">|</span>
-                            <span>{formatRelativeTime(post.createdAt)}</span>
-                          </div>
-                          
-                          {/* 통계 (조회수, 좋아요, 댓글) */}
-                          <div className="flex items-center gap-3 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <span>👁</span>
-                              {post.stats.viewCount}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <span>👍</span>
-                              {post.stats.likeCount}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <span>💬</span>
-                              {post.stats.commentCount}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
+                      typeBadgeText="전국"
+                      boardBadgeText={post.boardName || post.boardCode}
+                    />
                   ))}
                 </div>
               ) : (
