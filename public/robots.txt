@@ -11,6 +11,11 @@ Allow: /privacy
 Allow: /youth-protection
 Allow: /help
 Allow: /support
+Allow: /manifest.json
+Allow: /favicon.ico
+Allow: /*.png
+Allow: /*.svg
+Allow: /*.xml
 
 # 차단할 페이지들 (개인정보, 관리자, 글쓰기 등)
 Disallow: /auth
@@ -30,7 +35,7 @@ Disallow: /favorite-schools
 Disallow: /*?*redirect=*
 
 # Sitemap 위치
-Sitemap: https://inschoolz.com/sitemap.xml
+Sitemap: https://www.inschoolz.com/sitemap.xml
 
 # 크롤링 지연 설정 (초)
 Crawl-delay: 1 

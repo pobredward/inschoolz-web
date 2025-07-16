@@ -5,6 +5,12 @@ import { PostViewClient } from "@/components/board/PostViewClient";
 import { getPostDetail, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 import { stripHtmlTags } from "@/lib/utils";
+import { 
+  generateSeoTitle, 
+  generateSeoDescription, 
+  generateSeoKeywords,
+  categorizePost
+} from "@/lib/seo-utils";
 
 interface PostViewPageProps {
   params: Promise<{
@@ -15,15 +21,7 @@ interface PostViewPageProps {
   }>;
 }
 
-// 지역 정보 가져오기 (샘플 - 실제로는 Firebase에서 가져와야 함)
-const getRegionInfo = (sido: string, sigungu: string) => {
-  // 실제로는 Firebase regions 컬렉션에서 가져와야 함
-  return {
-    sido: decodeURIComponent(sido),
-    sigungu: decodeURIComponent(sigungu),
-    fullName: `${decodeURIComponent(sido)} ${decodeURIComponent(sigungu)}`
-  };
-};
+
 
 export async function generateMetadata({ params }: PostViewPageProps): Promise<Metadata> {
   const { sido, sigungu, boardCode, postId } = await params;
@@ -33,11 +31,10 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
     const { post } = await getPostDetail(postId);
     const boards = await getBoardsByType('regional');
     const boardInfo = boards.find(board => board.code === boardCode);
-    const regionInfo = getRegionInfo(sido, sigungu);
     
     if (!boardInfo || !post) {
       return {
-        title: '게시글을 찾을 수 없습니다 - Inschoolz',
+        title: '게시글을 찾을 수 없습니다 - 인스쿨즈',
         description: '요청하신 게시글을 찾을 수 없습니다.',
         robots: 'noindex, nofollow',
       };
@@ -48,7 +45,6 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
     
     // 게시글 내용 정리 및 작성 정보 추가
     const cleanContent = stripHtmlTags(post.content);
-    const contentPreview = cleanContent.slice(0, 120);
     const authorName = isAnonymous ? '익명' : (post.authorInfo?.displayName || '사용자');
     const createdDate = new Date(post.createdAt).toLocaleDateString('ko-KR');
     
@@ -56,41 +52,72 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
     const images = post.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
     const firstImage = images.length > 0 ? images[0] : undefined;
     
-    const description = `${contentPreview}... - ${authorName} | ${createdDate}`;
+    // 지역 정보 구성
+    const decodedSido = decodeURIComponent(sido);
+    const decodedSigungu = decodeURIComponent(sigungu);
+    const fullAddress = `${decodedSido} ${decodedSigungu}`;
+    
+    // SEO 최적화된 메타데이터 생성
+    const locationInfo = { name: decodedSigungu, address: fullAddress };
+    const seoTitle = generateSeoTitle(post, boardInfo.name, 'regional', locationInfo);
+    const seoDescription = generateSeoDescription(
+      post, 
+      cleanContent, 
+      authorName, 
+      createdDate, 
+      'regional',
+      locationInfo
+    );
+    const seoKeywords = generateSeoKeywords(post, boardInfo.name, 'regional', locationInfo);
+    
+    // 게시글 카테고리 분류
+    const categories = categorizePost(post.title, post.content);
 
     return {
-      title: `${post.title} - ${regionInfo.fullName} ${boardInfo.name} - Inschoolz`,
-      description,
-      keywords: [post.title, regionInfo.fullName, sido, sigungu, boardInfo.name, '지역 커뮤니티', '인스쿨즈', ...post.tags || []],
+      title: seoTitle,
+      description: seoDescription,
+      keywords: seoKeywords,
       authors: [{ name: authorName }],
       robots: isAnonymous ? 'noindex, nofollow' : 'index, follow',
       alternates: {
-        canonical: `https://inschoolz.com/community/region/${encodeURIComponent(sido)}/${encodeURIComponent(sigungu)}/${boardCode}/${postId}`,
+        canonical: `https://inschoolz.com/community/region/${sido}/${sigungu}/${boardCode}/${postId}`,
       },
       openGraph: {
-        title: `${post.title} - ${regionInfo.fullName} ${boardInfo.name}`,
-        description: contentPreview + '...',
+        title: seoTitle,
+        description: seoDescription,
         type: 'article',
-        siteName: 'Inschoolz',
-        url: `https://inschoolz.com/community/region/${encodeURIComponent(sido)}/${encodeURIComponent(sigungu)}/${boardCode}/${postId}`,
+        siteName: 'Inschoolz - 인스쿨즈',
+        url: `https://inschoolz.com/community/region/${sido}/${sigungu}/${boardCode}/${postId}`,
         publishedTime: new Date(post.createdAt).toISOString(),
         modifiedTime: new Date(post.updatedAt || post.createdAt).toISOString(),
         authors: [authorName],
-        section: `${regionInfo.fullName} ${boardInfo.name}`,
-        tags: post.tags || [],
+        section: `${fullAddress} ${boardInfo.name}`,
+        tags: [...categories, ...seoKeywords.slice(0, 10)],
         ...(firstImage && { images: [{ url: firstImage, alt: post.title }] }),
       },
       twitter: {
-        card: 'summary_large_image',
-        title: `${post.title} - ${regionInfo.fullName} ${boardInfo.name}`,
-        description: contentPreview + '...',
+        card: firstImage ? 'summary_large_image' : 'summary',
+        title: seoTitle,
+        description: seoDescription,
+        site: '@inschoolz',
+        creator: `@${authorName}`,
         ...(firstImage && { images: [firstImage] }),
+      },
+      other: {
+        'article:section': `${fullAddress} ${boardInfo.name}`,
+        'article:tag': categories.join(','),
+        'article:author': authorName,
+        'article:published_time': new Date(post.createdAt).toISOString(),
+        'article:modified_time': new Date(post.updatedAt || post.createdAt).toISOString(),
+        'region:sido': decodedSido,
+        'region:sigungu': decodedSigungu,
+        'region:address': fullAddress,
       },
     };
   } catch (error) {
     console.error('메타데이터 생성 오류:', error);
     return {
-      title: '게시글을 찾을 수 없습니다 - Inschoolz',
+      title: '게시글을 찾을 수 없습니다 - 인스쿨즈',
       description: '요청하신 게시글을 찾을 수 없습니다.',
       robots: 'noindex, nofollow',
     };
