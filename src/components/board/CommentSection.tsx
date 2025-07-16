@@ -546,11 +546,8 @@ export default function CommentSection({
 
   // 익명 댓글 수정
   const handleAnonymousEdit = (commentId: string) => {
-    const comment = comments.find(c => c.id === commentId);
-    if (comment) {
-      setEditingComment({ id: commentId, content: comment.content });
-      setPasswordModal({ isOpen: true, commentId, action: 'edit' });
-    }
+    // 비밀번호 확인 모달만 열고, 편집 상태는 비밀번호 확인 후에 설정
+    setPasswordModal({ isOpen: true, commentId, action: 'edit' });
   };
 
   // 익명 댓글 삭제
@@ -775,7 +772,10 @@ export default function CommentSection({
             isOpen={passwordModal.isOpen}
             onClose={() => {
               setPasswordModal({ isOpen: false, commentId: '', action: 'edit' });
-              setEditingComment(null);
+              // 삭제 작업일 때만 편집 상태 초기화, 수정 작업일 때는 유지
+              if (passwordModal.action === 'delete') {
+                setEditingComment(null);
+              }
             }}
             onConfirm={handlePasswordConfirm}
             title={passwordModal.action === 'edit' ? '댓글 수정' : '댓글 삭제'}

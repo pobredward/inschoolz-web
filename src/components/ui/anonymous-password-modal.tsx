@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +34,7 @@ export default function AnonymousPasswordModal({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,10 +53,16 @@ export default function AnonymousPasswordModal({
         onClose();
       } else {
         setError('비밀번호가 일치하지 않습니다.');
+        setPassword(''); // 비밀번호 입력 필드 초기화
+        // 입력 필드에 다시 포커스
+        setTimeout(() => {
+          passwordInputRef.current?.focus();
+        }, 100);
       }
     } catch (error) {
       console.error('비밀번호 확인 실패:', error);
       setError('비밀번호 확인 중 오류가 발생했습니다.');
+      setPassword(''); // 오류 시에도 입력 필드 초기화
     }
   };
 
@@ -83,6 +90,7 @@ export default function AnonymousPasswordModal({
             <Label htmlFor="password">비밀번호 (4자리 숫자)</Label>
             <div className="relative">
               <Input
+                ref={passwordInputRef}
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
