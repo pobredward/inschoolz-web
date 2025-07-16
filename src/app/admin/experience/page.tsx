@@ -104,7 +104,77 @@ export default function ExperienceManagementPage() {
     try {
       setIsLoading(true);
       const response = await getExperienceSettings();
-      setSettings(response);
+      
+      // 기본값과 API 응답을 안전하게 병합
+      const defaultSettings: ExperienceSettings = {
+        community: {
+          postXP: 10,
+          commentXP: 5,
+          likeXP: 1,
+          dailyPostLimit: 3,
+          dailyCommentLimit: 5,
+          dailyLikeLimit: 50,
+        },
+        games: {
+          reactionGame: {
+            enabled: true,
+            dailyLimit: 5,
+            thresholds: [
+              { minScore: 100, xpReward: 15 },
+              { minScore: 200, xpReward: 10 },
+              { minScore: 300, xpReward: 5 },
+            ],
+          },
+          tileGame: {
+            enabled: true,
+            dailyLimit: 5,
+            thresholds: [
+              { minScore: 50, xpReward: 5 },
+              { minScore: 100, xpReward: 10 },
+              { minScore: 150, xpReward: 15 },
+            ],
+          },
+        },
+        attendance: {
+          dailyXP: 10,
+          streakBonus: 5,
+          weeklyBonusXP: 50,
+        },
+        referral: {
+          referrerXP: 30,
+          refereeXP: 20,
+          enabled: true,
+        },
+      };
+
+      const safeSettings: ExperienceSettings = {
+        ...defaultSettings,
+        ...response,
+        community: {
+          ...defaultSettings.community,
+          ...response?.community,
+        },
+        games: {
+          reactionGame: {
+            ...defaultSettings.games.reactionGame,
+            ...response?.games?.reactionGame,
+          },
+          tileGame: {
+            ...defaultSettings.games.tileGame,
+            ...response?.games?.tileGame,
+          },
+        },
+        attendance: {
+          ...defaultSettings.attendance,
+          ...response?.attendance,
+        },
+        referral: {
+          ...defaultSettings.referral,
+          ...response?.referral,
+        },
+      };
+      
+      setSettings(safeSettings);
     } catch (error) {
       console.error('설정 로드 실패:', error);
       toast.error('설정을 불러오는데 실패했습니다.');
@@ -218,13 +288,21 @@ export default function ExperienceManagementPage() {
   };
 
   const updateReferralSettings = (key: keyof ExperienceSettings['referral'], value: number | boolean) => {
-    setSettings(prev => ({
-      ...prev,
-      referral: {
-        ...prev.referral,
-        [key]: value,
-      },
-    }));
+    setSettings(prev => {
+      const currentReferral = prev.referral || {
+        referrerXP: 30,
+        refereeXP: 20,
+        enabled: true,
+      };
+      
+      return {
+        ...prev,
+        referral: {
+          ...currentReferral,
+          [key]: value,
+        },
+      };
+    });
   };
 
   useEffect(() => {
@@ -500,7 +578,7 @@ export default function ExperienceManagementPage() {
                 추천인 시스템
               </div>
               <Switch
-                checked={settings.referral.enabled}
+                checked={settings.referral?.enabled ?? false}
                 onCheckedChange={(checked) => updateReferralSettings('enabled', checked)}
               />
             </CardTitle>
@@ -508,7 +586,7 @@ export default function ExperienceManagementPage() {
               회원가입 시 추천인 아이디 입력 시 지급되는 경험치 설정
             </CardDescription>
           </CardHeader>
-          {settings.referral.enabled && (
+          {settings.referral?.enabled && (
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -516,7 +594,7 @@ export default function ExperienceManagementPage() {
                   <Input
                     id="referrerXP"
                     type="number"
-                    value={settings.referral.referrerXP}
+                    value={settings.referral?.referrerXP ?? 30}
                     onChange={(e) => updateReferralSettings('referrerXP', parseInt(e.target.value) || 0)}
                   />
                   <p className="text-xs text-gray-500">
@@ -528,7 +606,7 @@ export default function ExperienceManagementPage() {
                   <Input
                     id="refereeXP"
                     type="number"
-                    value={settings.referral.refereeXP}
+                    value={settings.referral?.refereeXP ?? 20}
                     onChange={(e) => updateReferralSettings('refereeXP', parseInt(e.target.value) || 0)}
                   />
                   <p className="text-xs text-gray-500">
