@@ -15,7 +15,6 @@ import { getUserById } from '@/lib/api/users';
 import { useAuth } from "@/providers/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { selectSchool, getUserFavoriteSchools, toggleFavoriteSchool, searchSchools } from '@/lib/api/schools';
-import { getBookmarkedPostsCount } from '@/lib/api/board';
 import { toast } from "sonner";
 import {
   Dialog,
@@ -73,7 +72,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
   const [searchLoading, setSearchLoading] = useState(false);
   const [isFavoriteSchoolsModalOpen, setIsFavoriteSchoolsModalOpen] = useState(false);
   const [favoriteSchoolsTab, setFavoriteSchoolsTab] = useState<'manage' | 'search'>('manage');
-  const [bookmarkCount, setBookmarkCount] = useState(0);
   
   const router = useRouter();
 
@@ -90,17 +88,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
     }
   }, [user]);
 
-  // 북마크 개수 가져오기
-  const fetchBookmarkCount = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      const count = await getBookmarkedPostsCount(user.uid);
-      setBookmarkCount(count);
-    } catch (error) {
-      console.error('북마크 개수 조회 오류:', error);
-    }
-  }, [user]);
+
 
   // 학교 검색 함수
   const handleSearchSchool = async () => {
@@ -213,13 +201,12 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
     // user가 존재할 때만 fetchUserData 실행
     if (user) {
       fetchUserData();
-      fetchBookmarkCount();
     } else if (user === null) {
       // user가 명시적으로 null인 경우 (로그아웃 상태)
       setLoading(false);
     }
     // user가 undefined인 경우는 아직 로딩 중이므로 아무것도 하지 않음
-  }, [user, fetchFavoriteSchools, fetchBookmarkCount]);
+  }, [user, fetchFavoriteSchools]);
 
   if (loading) {
     return <div className="p-4 text-center">정보를 불러오는 중...</div>;
@@ -433,26 +420,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   >
                     <span className="mr-3">🚨</span>
                     신고 기록
-                    <span className="ml-auto">›</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => router.push('/help')}
-                  >
-                    <span className="mr-3">❓</span>
-                    도움말
-                    <span className="ml-auto">›</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => router.push('/support')}
-                  >
-                    <span className="mr-3">📞</span>
-                    고객센터
                     <span className="ml-auto">›</span>
                   </Button>
                 </div>
