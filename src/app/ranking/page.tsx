@@ -293,22 +293,18 @@ export default function RankingPage() {
     }));
   };
 
-  if (!user) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">랭킹</h1>
-          <p className="text-gray-600">랭킹을 확인하려면 로그인해주세요.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">랭킹</h1>
         <p className="text-gray-600">경험치 기준 사용자 랭킹을 확인해보세요!</p>
+        {!user && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              💡 전국 랭킹은 누구나 볼 수 있지만, 학교와 지역 랭킹은 로그인이 필요합니다.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 랭킹 탭 */}
@@ -318,11 +314,19 @@ export default function RankingPage() {
             <Users className="h-4 w-4" />
             전국
           </TabsTrigger>
-          <TabsTrigger value="regional" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="regional" 
+            className="flex items-center gap-2"
+            disabled={!user}
+          >
             <MapPin className="h-4 w-4" />
             지역
           </TabsTrigger>
-          <TabsTrigger value="school" className="flex items-center gap-2">
+          <TabsTrigger 
+            value="school" 
+            className="flex items-center gap-2"
+            disabled={!user}
+          >
             <School className="h-4 w-4" />
             학교
           </TabsTrigger>
@@ -344,7 +348,7 @@ export default function RankingPage() {
                 type="national"
                 searchQuery={searchQueries.national}
                 onSearchChange={(query) => handleSearchChange('national', query)}
-                currentUserId={user.uid}
+                currentUserId={user?.uid}
               />
             </CardContent>
           </Card>
@@ -358,14 +362,21 @@ export default function RankingPage() {
                 지역 랭킹
               </CardTitle>
               <CardDescription>
-                {user.regions?.sido && user.regions?.sigungu 
+                {user?.regions?.sido && user?.regions?.sigungu 
                   ? `${user.regions.sido} ${user.regions.sigungu} 지역 순위`
-                  : '지역 정보가 없습니다'
+                  : user ? '지역 정보가 없습니다' : '로그인이 필요합니다'
                 }
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {user.regions?.sido && user.regions?.sigungu ? (
+              {!user ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="mb-4">지역 랭킹을 보려면 로그인이 필요합니다.</p>
+                  <Button asChild>
+                    <a href="/auth?tab=login">로그인하기</a>
+                  </Button>
+                </div>
+              ) : user.regions?.sido && user.regions?.sigungu ? (
                 <RankingList
                   type="regional"
                   sido={user.regions.sido}
@@ -391,14 +402,21 @@ export default function RankingPage() {
                 학교 랭킹
               </CardTitle>
               <CardDescription>
-                {user.school?.name 
+                {user?.school?.name 
                   ? `${user.school.name} 학교 순위`
-                  : '학교 정보가 없습니다'
+                  : user ? '학교 정보가 없습니다' : '로그인이 필요합니다'
                 }
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {user.school?.id ? (
+              {!user ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="mb-4">학교 랭킹을 보려면 로그인이 필요합니다.</p>
+                  <Button asChild>
+                    <a href="/auth?tab=login">로그인하기</a>
+                  </Button>
+                </div>
+              ) : user.school?.id ? (
                 <RankingList
                   type="school"
                   schoolId={user.school.id}

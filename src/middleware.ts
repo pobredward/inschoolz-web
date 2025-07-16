@@ -15,6 +15,7 @@ const publicRoutes = [
   '/help',
   '/support',
   '/community', // 커뮤니티 메인 페이지는 공개 접근 허용
+  '/ranking', // 랭킹 페이지는 공개 접근 허용 (전국 랭킹은 누구나 볼 수 있음)
 ];
 
 export function middleware(request: NextRequest) {
