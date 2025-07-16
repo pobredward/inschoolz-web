@@ -70,34 +70,6 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // sitemap.xml에 대한 명시적 헤더 설정
-      {
-        source: '/sitemap.xml',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'application/xml; charset=utf-8',
-          },
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, stale-while-revalidate=86400',
-          },
-        ],
-      },
-      // robots.txt에 대한 헤더 설정
-      {
-        source: '/robots.txt',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'text/plain; charset=utf-8',
-          },
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=86400',
-          },
-        ],
-      },
     ];
   },
 };
