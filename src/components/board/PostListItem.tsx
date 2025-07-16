@@ -83,7 +83,7 @@ const PostListItem: React.FC<PostListItemProps> = ({
             
             {/* 내용 미리보기 */}
             {(post.previewContent || post.content) && (
-              <div className="text-sm text-gray-600 mb-3 line-clamp-2">
+              <div className="text-sm text-gray-600 mb-3 line-clamp-2 whitespace-pre-line break-words">
                 {post.previewContent || post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''}
               </div>
             )}
