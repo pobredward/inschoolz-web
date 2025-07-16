@@ -71,6 +71,12 @@ export interface PostFormData {
   isAnonymous: boolean;
   tags: string[];
   category?: string;
+  attachments?: {
+    type: 'image' | 'file';
+    url: string;
+    name: string;
+    size: number;
+  }[];
   poll?: {
     question: string;
     options: {

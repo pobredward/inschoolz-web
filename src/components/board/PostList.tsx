@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTime, getPostPreviewImages } from "@/lib/utils";
 import { MessageSquare, ThumbsUp, Eye, Pin, PenSquare, Loader2 } from "lucide-react";
 import { BoardType, BoardFilterOptions } from "@/types/board";
 import { Card } from "@/components/ui/card";
@@ -44,7 +44,10 @@ interface PostWithOptionalFields {
     likeCount?: number;
     commentCount?: number;
   };
-  attachments?: string[];
+  attachments?: Array<{
+    type: string;
+    url: string;
+  }>;
   tags?: string[];
   poll?: {
     isActive: boolean;
@@ -205,41 +208,71 @@ export default function PostList({
                   </div>
                 )}
                 
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-medium line-clamp-1 group-hover:text-primary">
-                    {post.title}
-                  </h3>
-                  
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1 min-w-0">
-                      <Avatar className="h-5 w-5">
-                        <AvatarImage 
-                          src={post.authorInfo?.profileImageUrl} 
-                          alt={post.authorInfo?.displayName || '사용자'} 
-                        />
-                        <AvatarFallback className="text-xs">
-                          {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'NA'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="truncate">
-                        {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '알 수 없음'}
-                      </span>
-                      <span className="text-xs">|</span>
-                      <span className="text-xs">
-                        {formatDate(post.createdAt)}
-                      </span>
-                    </div>
+                <div className="flex-1 min-w-0 flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-medium line-clamp-1 group-hover:text-primary">
+                      {post.title}
+                    </h3>
                     
-                    {post.tags && post.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {post.tags.map((tag: string) => (
-                          <Badge key={tag} variant="outline" className="px-1.5 py-0 h-5 text-xs">
-                            {tag}
-                          </Badge>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage 
+                            src={post.authorInfo?.profileImageUrl} 
+                            alt={post.authorInfo?.displayName || '사용자'} 
+                          />
+                          <AvatarFallback className="text-xs">
+                            {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'NA'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">
+                          {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '알 수 없음'}
+                        </span>
+                        <span className="text-xs">|</span>
+                        <span className="text-xs">
+                          {formatDate(post.createdAt)}
+                        </span>
+                      </div>
+                      
+                      {post.tags && post.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {post.tags.map((tag: string) => (
+                            <Badge key={tag} variant="outline" className="px-1.5 py-0 h-5 text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* 이미지 미리보기 */}
+                  {(() => {
+                    const previewImages = getPostPreviewImages(post);
+                    if (previewImages.length === 0) return null;
+                    
+                    return (
+                      <div className="flex gap-1 flex-shrink-0">
+                        {previewImages.map((imageUrl, index) => (
+                          <div
+                            key={index}
+                            className="w-12 h-12 rounded-md overflow-hidden bg-gray-100 border border-gray-200"
+                          >
+                            <img
+                              src={imageUrl}
+                              alt={`미리보기 ${index + 1}`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              onError={(e) => {
+                                // 이미지 로드 실패 시 숨김 처리
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
                         ))}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
                 
                 <div className="flex items-center gap-3 text-sm">

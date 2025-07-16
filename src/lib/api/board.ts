@@ -16,7 +16,8 @@ import {
   QueryDocumentSnapshot,
   DocumentData,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  deleteField
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { 
@@ -969,8 +970,8 @@ export const updatePost = async (postId: string, data: PostFormData) => {
         multipleChoice: data.poll.multipleChoice
       };
     } else {
-      // 투표 정보 제거
-      updateData.poll = undefined;
+      // 투표 정보 제거 - undefined 대신 deleteField() 사용
+      updateData.poll = deleteField();
     }
     
     // 게시글 업데이트

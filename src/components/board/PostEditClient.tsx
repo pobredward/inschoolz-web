@@ -10,7 +10,6 @@ import { BoardType, PostFormData } from "@/types/board";
 import { updatePost } from "@/lib/api/board";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Form,
@@ -32,6 +31,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/components/ui/use-toast";
+import RichTextEditor from "@/components/editor/RichTextEditor";
 
 interface PostEditClientProps {
   post: {
@@ -84,7 +84,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function PostEditClient({ post, board, type, boardCode }: PostEditClientProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState("");
   const [isPollActive, setIsPollActive] = useState(!!post.poll);
@@ -92,6 +92,7 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
   const [pollOptions, setPollOptions] = useState<{ text: string; imageUrl?: string }[]>(
     post.poll?.options || [{ text: "" }, { text: "" }]
   );
+  const [attachments, setAttachments] = useState<{ type: 'image'; url: string; name: string; size: number }[]>([]);
 
   // 폼 초기화
   const form = useForm<FormValues>({
@@ -109,8 +110,14 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
     },
   });
 
-  // 권한 확인
+  // 권한 확인 및 초기 첨부파일 설정
   useEffect(() => {
+    // 사용자 정보가 아직 로딩 중인 경우 대기
+    if (isLoading) {
+      return;
+    }
+    
+    // 로딩이 완료되었는데 사용자가 없거나 작성자가 아닌 경우
     if (!user || user.uid !== post.authorId) {
       toast({
         title: "접근 권한이 없습니다",
@@ -118,8 +125,15 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
         variant: "destructive",
       });
       router.back();
+      return;
     }
-  }, [user, post.authorId, router, toast]);
+    
+    // 게시글의 기존 첨부파일 설정 (이미지만)
+    if ((post as any).attachments && Array.isArray((post as any).attachments)) {
+      const imageAttachments = (post as any).attachments.filter((att: any) => att.type === 'image');
+      setAttachments(imageAttachments);
+    }
+  }, [user, isLoading, post.authorId, router, toast]);
   
   // 폼 제출 핸들러
   const onSubmit = async (values: FormValues) => {
@@ -157,7 +171,8 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
         content: values.content,
         isAnonymous: values.isAnonymous,
         tags: values.tags,
-        poll: pollData
+        poll: pollData,
+        attachments: attachments // 업데이트된 첨부파일 정보 포함
       };
       
       // 실제 수정 함수 호출
@@ -249,6 +264,27 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
     }
   };
 
+  // 이미지 업로드 핸들러
+  const handleImageUpload = (attachment: { type: 'image'; url: string; name: string; size: number }) => {
+    setAttachments(prev => [...prev, attachment]);
+  };
+
+  // 이미지 삭제 핸들러
+  const handleImageRemove = (imageUrl: string) => {
+    console.log('이미지 삭제:', imageUrl);
+    setAttachments(prev => prev.filter(attachment => attachment.url !== imageUrl));
+  };
+
+  // 로딩 중인 경우
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-semibold mb-4">로딩 중...</h2>
+        <p className="text-muted-foreground">사용자 정보를 확인하고 있습니다.</p>
+      </div>
+    );
+  }
+
   // 사용자가 로그인하지 않은 경우
   if (!user) {
     return (
@@ -305,10 +341,12 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
                 <FormItem>
                   <FormLabel>내용</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="내용을 입력하세요" 
-                      {...field} 
-                      className="min-h-[300px]"
+                    <RichTextEditor
+                      content={field.value}
+                      onChange={field.onChange}
+                      placeholder="내용을 입력하세요"
+                      onImageUpload={handleImageUpload}
+                      onImageRemove={handleImageRemove}
                     />
                   </FormControl>
                   <FormMessage />

@@ -44,19 +44,33 @@ interface RichTextEditorProps {
   onChange: (content: string) => void
   placeholder?: string
   onImageUpload?: (attachment: { type: 'image'; url: string; name: string; size: number }) => void
+  onImageRemove?: (imageUrl: string) => void
 }
 
 export default function RichTextEditor({ 
   content, 
   onChange, 
   placeholder = '내용을 입력하세요...',
-  onImageUpload
+  onImageUpload,
+  onImageRemove
 }: RichTextEditorProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  const [previousImages, setPreviousImages] = useState<string[]>([])
+
+  // HTML에서 이미지 URL 추출하는 함수
+  const extractImageUrls = (html: string): string[] => {
+    const imgRegex = /<img[^>]+src="([^"]+)"/g
+    const urls: string[] = []
+    let match
+    while ((match = imgRegex.exec(html)) !== null) {
+      urls.push(match[1])
+    }
+    return urls
+  }
 
   const editor = useEditor({
     extensions: [
@@ -79,7 +93,21 @@ export default function RichTextEditor({
     ],
     content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML())
+      const newContent = editor.getHTML()
+      onChange(newContent)
+      
+      // 이미지 삭제 감지
+      if (onImageRemove) {
+        const currentImages = extractImageUrls(newContent)
+        const removedImages = previousImages.filter(url => !currentImages.includes(url))
+        
+        removedImages.forEach(imageUrl => {
+          console.log('웹 에디터에서 이미지 삭제 감지:', imageUrl)
+          onImageRemove(imageUrl)
+        })
+        
+        setPreviousImages(currentImages)
+      }
     },
     editorProps: {
       attributes: {
@@ -92,6 +120,9 @@ export default function RichTextEditor({
     // 에디터 초기화 완료 후 컨텐츠 설정
     if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content)
+      // 초기 이미지 목록 설정
+      const initialImages = extractImageUrls(content)
+      setPreviousImages(initialImages)
     }
   }, [editor, content])
 

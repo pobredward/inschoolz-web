@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/providers/AuthProvider';
 import { getPopularPostsForHome } from '@/lib/api/board';
 import { getRankingPreview } from '@/lib/api/ranking';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, getPostPreviewImages } from '@/lib/utils';
 
 interface PopularPost {
   id: string;
@@ -172,17 +172,50 @@ export default function Home() {
                           </span>
                         </div>
                         
-                        {/* 제목 */}
-                        <h3 className="font-semibold text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed mb-2">
-                          {post.title}
-                        </h3>
-                        
-                        {/* 내용 미리보기 */}
-                        {(post.previewContent || post.content) && (
-                          <div className="text-sm text-gray-600 mb-3 line-clamp-2">
-                            {post.previewContent || post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''}
+                        {/* 제목과 이미지 미리보기를 포함한 컨테이너 */}
+                        <div className="flex items-start gap-3 mb-2">
+                          <div className="flex-1 min-w-0">
+                            {/* 제목 */}
+                            <h3 className="font-semibold text-gray-900 group-hover:text-green-600 line-clamp-2 leading-relaxed mb-2">
+                              {post.title}
+                            </h3>
+                            
+                            {/* 내용 미리보기 */}
+                            {(post.previewContent || post.content) && (
+                              <div className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                {post.previewContent || post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          
+                          {/* 이미지 미리보기 (오른쪽) */}
+                          {(() => {
+                            const previewImages = getPostPreviewImages(post);
+                            if (previewImages.length === 0) return null;
+                            
+                            return (
+                              <div className="flex gap-1 flex-shrink-0">
+                                {previewImages.map((imageUrl, index) => (
+                                  <div
+                                    key={index}
+                                    className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
+                                  >
+                                    <img
+                                      src={imageUrl}
+                                      alt={`미리보기 ${index + 1}`}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                      onError={(e) => {
+                                        // 이미지 로드 실패 시 숨김 처리
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </div>
                         
                         {/* 하단 정보 */}
                         <div className="flex items-center justify-between">

@@ -316,6 +316,12 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
     setAttachments(prev => [...prev, attachment]);
   };
 
+  // 이미지 삭제 핸들러 (웹용 - 현재는 직접 삭제만 지원)
+  const handleImageRemove = (imageUrl: string) => {
+    console.log('이미지 삭제:', imageUrl);
+    setAttachments(prev => prev.filter(attachment => attachment.url !== imageUrl));
+  };
+
   // 경험치 모달 닫기 핸들러
   const handleExperienceModalClose = () => {
     setShowExperienceModal(false);
@@ -427,6 +433,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
                   onChange={setContent}
                   placeholder="내용을 입력하세요"
                   onImageUpload={handleImageUpload}
+                  onImageRemove={handleImageRemove}
                 />
               </div>
 
