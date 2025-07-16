@@ -9,6 +9,11 @@ const publicRoutes = [
   '/about',
   '/terms',
   '/privacy',
+  '/sitemap.xml',
+  '/robots.txt',
+  '/youth-protection',
+  '/help',
+  '/support',
 ];
 
 export function middleware(request: NextRequest) {
@@ -21,6 +26,11 @@ export function middleware(request: NextRequest) {
   
   if (path === '/signup') {
     return NextResponse.redirect(new URL('/auth?tab=signup', request.url));
+  }
+  
+  // SEO용 커뮤니티 게시글 경로는 공개 접근 허용
+  if (path.match(/^\/community\/(national|school|region)\/.*\/[a-zA-Z0-9]+$/)) {
+    return NextResponse.next();
   }
   
   // 인증이 필요 없는 경로는 통과
