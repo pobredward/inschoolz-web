@@ -18,7 +18,8 @@ import { db } from '@/lib/firebase';
 import { 
   Board, 
   Post, 
-  Comment
+  Comment,
+  FirebaseTimestamp
 } from '@/types';
 
 // Like 타입 정의
@@ -26,10 +27,11 @@ interface Like {
   id: string;
   userId: string;
   postId: string;
-  createdAt: number;
+  createdAt: FirebaseTimestamp;
 }
 import { uploadPostImage, uploadPostAttachment } from '@/lib/storage';
 import { awardExperience } from '@/lib/experience';
+import { toTimestamp } from '@/lib/utils';
 
 // 게시판 목록 가져오기
 export const getBoards = async (type: 'national' | 'regional' | 'school', schoolId?: string, regions?: { sido: string; sigungu: string }): Promise<Board[]> => {
@@ -276,8 +278,8 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
       },
       attachments: [],
       tags: tags || [],
-      createdAt: Timestamp.now().toMillis(),
-      updatedAt: Timestamp.now().toMillis()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
 
     // 투표 정보 추가
@@ -327,7 +329,7 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
           fileSize: file.size,
           postId,
           userId,
-          createdAt: Timestamp.now().toMillis()
+          createdAt: serverTimestamp()
         });
       }
       
@@ -493,7 +495,7 @@ export const toggleLikePost = async (postId: string, userId: string): Promise<{ 
         id: '',
         userId,
         postId,
-        createdAt: Timestamp.now().toMillis()
+        createdAt: serverTimestamp()
       };
       
       const likeRef = await addDoc(likesRef, newLike);
@@ -581,8 +583,8 @@ export const getComments = async (
 
     // 댓글을 시간순으로 명시적으로 정렬 (익명 댓글 포함)
     allComments.sort((a, b) => {
-      const aTime = (a.createdAt as any)?.toMillis ? (a.createdAt as any).toMillis() : a.createdAt;
-      const bTime = (b.createdAt as any)?.toMillis ? (b.createdAt as any).toMillis() : b.createdAt;
+              const aTime = toTimestamp(a.createdAt);
+        const bTime = toTimestamp(b.createdAt);
       return aTime - bTime;
     });
     
@@ -593,8 +595,8 @@ export const getComments = async (
     // Timestamp 직렬화
     const serializedComments = paginatedComments.map(comment => ({
       ...comment,
-      createdAt: (comment.createdAt as any)?.toMillis ? (comment.createdAt as any).toMillis() : comment.createdAt,
-      updatedAt: (comment.updatedAt as any)?.toMillis ? (comment.updatedAt as any).toMillis() : comment.updatedAt,
+              createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
     }));
     
     return {
@@ -647,8 +649,8 @@ export const createComment = async (
         isDeleted: false,
         isBlocked: false
       },
-      createdAt: Timestamp.now().toMillis(),
-      updatedAt: Timestamp.now().toMillis()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
     
     // Firestore에 댓글 추가

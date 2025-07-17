@@ -30,8 +30,9 @@ import {
   bulkUpdateUsers,
   AdminUserListParams,
 } from '@/lib/api/users';
-import { User } from '@/types'; // 통일된 타입 사용
+import { User, FirebaseTimestamp } from '@/types'; // 통일된 타입 사용
 import { toast } from 'sonner';
+import { toDate } from '@/lib/utils';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -206,31 +207,10 @@ export default function AdminUsersPage() {
     }
   };
 
-  const formatDate = (timestamp?: number | { seconds?: number; nanoseconds?: number } | any) => {
+  const formatDate = (timestamp?: FirebaseTimestamp | { seconds?: number; nanoseconds?: number } | any) => {
     if (!timestamp) return '-';
     try {
-      let date: Date;
-      
-      // Firestore Timestamp 객체인 경우
-      if (timestamp && typeof timestamp === 'object' && timestamp.seconds) {
-        date = new Date(timestamp.seconds * 1000);
-      }
-      // toDate 메소드가 있는 Firestore Timestamp인 경우
-      else if (timestamp && typeof timestamp.toDate === 'function') {
-        date = timestamp.toDate();
-      }
-      // 숫자 타임스탬프인 경우
-      else if (typeof timestamp === 'number') {
-        date = new Date(timestamp);
-      }
-      // 문자열인 경우
-      else if (typeof timestamp === 'string') {
-        date = new Date(timestamp);
-      }
-      else {
-        return '-';
-      }
-      
+      const date = toDate(timestamp);
       if (isNaN(date.getTime())) return '-';
       return date.toLocaleDateString('ko-KR');
     } catch (error) {

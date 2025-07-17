@@ -3,7 +3,8 @@ import {
   getDoc,
   updateDoc,
   setDoc,
-  Timestamp
+  Timestamp,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserAttendance, AttendanceLog } from '@/types';
@@ -106,7 +107,7 @@ export const checkAttendance = async (
             [todayStr]: true
           },
           streak: 1,
-          lastAttendance: Timestamp.now().toMillis(),
+          lastAttendance: serverTimestamp(),
           monthlyLog: newMonthlyLog
         };
         
@@ -122,7 +123,7 @@ export const checkAttendance = async (
           streak: 1,
           totalCount: 1,
           monthCount: 1,
-          lastAttendance: Timestamp.now().toMillis(),
+          lastAttendance: serverTimestamp(),
           monthlyLog: newMonthlyLog,
           expGained: attendanceXP,
           leveledUp: expResult.leveledUp,
@@ -184,7 +185,7 @@ export const checkAttendance = async (
       await updateDoc(attendanceRef, {
         attendances: updatedAttendances,
         streak,
-        lastAttendance: Timestamp.now().toMillis(),
+        lastAttendance: serverTimestamp(),
         monthlyLog: updatedMonthlyLog
       });
       
@@ -213,7 +214,7 @@ export const checkAttendance = async (
         streak,
         totalCount,
         monthCount,
-        lastAttendance: Timestamp.now().toMillis(),
+        lastAttendance: serverTimestamp(),
         monthlyLog: updatedMonthlyLog,
         expGained: totalXp,
         leveledUp: expResult.leveledUp,

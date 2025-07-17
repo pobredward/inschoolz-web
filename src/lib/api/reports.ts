@@ -13,7 +13,8 @@ import {
   startAfter,
   QueryDocumentSnapshot,
   DocumentData,
-  Timestamp
+  Timestamp,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Report, ReportType, ReportReason, ReportStatus, ReportStats, UserReportRecord } from '@/types';
@@ -77,7 +78,7 @@ export async function createReport(data: {
       reporterId: data.reporterId,
       reporterInfo: data.reporterInfo,
       status: 'pending',
-      createdAt: Timestamp.now().toMillis(),
+      createdAt: serverTimestamp(),
       // 조건부로 필드 추가 (undefined 값 제외)
       ...(data.customReason && { customReason: data.customReason }),
       ...(data.description && { description: data.description }),
@@ -254,7 +255,7 @@ export async function updateReport(reportId: string, data: {
     const docRef = doc(db, 'reports', reportId);
     await updateDoc(docRef, {
       ...data,
-      updatedAt: Timestamp.now().toMillis(),
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('신고 수정 실패:', error);
@@ -335,12 +336,12 @@ export async function processReport(
     const updateData: Partial<Report> = {
       status,
       adminId,
-      updatedAt: Timestamp.now().toMillis(),
+      updatedAt: serverTimestamp(),
     };
 
     if (adminNote) updateData.adminNote = adminNote;
     if (actionTaken) updateData.actionTaken = actionTaken;
-    if (status === 'resolved') updateData.resolvedAt = Timestamp.now().toMillis();
+    if (status === 'resolved') updateData.resolvedAt = serverTimestamp();
 
     await updateDoc(docRef, updateData);
 

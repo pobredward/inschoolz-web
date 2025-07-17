@@ -101,7 +101,7 @@ export const getPopularPosts = async (type: BoardType, count = 5) => {
 export const getPopularPostsForHome = async (count = 10) => {
   try {
     // 14일 전 Timestamp 계산
-    const fourteenDaysAgo = Timestamp.fromDate(new Date(Timestamp.now().toMillis() - (14 * 24 * 60 * 60 * 1000)));
+    const fourteenDaysAgo = Timestamp.fromDate(new Date(Date.now() - (14 * 24 * 60 * 60 * 1000)));
     
     const constraints = [
       where('createdAt', '>=', fourteenDaysAgo),
@@ -262,8 +262,8 @@ export const getPostDetail = async (postId: string) => {
     // 게시글 Timestamp 직렬화
     const serializedPost = {
       ...post,
-      createdAt: (post as any).createdAt?.toMillis ? (post as any).createdAt.toMillis() : (post as any).createdAt,
-      updatedAt: (post as any).updatedAt?.toMillis ? (post as any).updatedAt.toMillis() : (post as any).updatedAt,
+              createdAt: (post as any).createdAt,
+        updatedAt: (post as any).updatedAt,
     };
     
     // 댓글 가져오기 (이미 직렬화됨)
@@ -390,8 +390,8 @@ export const getCommentsByPost = async (postId: string) => {
           ...reply,
           author: replyAuthorInfo,
           // Timestamp 직렬화
-          createdAt: reply.createdAt?.toMillis ? reply.createdAt.toMillis() : reply.createdAt,
-          updatedAt: reply.updatedAt?.toMillis ? reply.updatedAt.toMillis() : reply.updatedAt,
+                  createdAt: reply.createdAt,
+        updatedAt: reply.updatedAt,
         });
       }
       
@@ -403,8 +403,8 @@ export const getCommentsByPost = async (postId: string) => {
         author: authorInfo,
         replies,
         // Timestamp 직렬화
-        createdAt: comment.createdAt?.toMillis ? comment.createdAt.toMillis() : comment.createdAt,
-        updatedAt: comment.updatedAt?.toMillis ? comment.updatedAt.toMillis() : comment.updatedAt,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
       });
     }
     

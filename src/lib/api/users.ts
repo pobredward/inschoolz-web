@@ -567,14 +567,14 @@ export const toggleFollow = async (
         // 활성 상태면 비활성화 (언팔로우)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'inactive',
-          updatedAt: Timestamp.now().toMillis()
+          updatedAt: serverTimestamp()
         });
         return { isFollowing: false };
       } else {
         // 비활성 상태면 활성화 (다시 팔로우)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'active',
-          updatedAt: Timestamp.now().toMillis()
+          updatedAt: serverTimestamp()
         });
         return { isFollowing: true };
       }
@@ -586,8 +586,8 @@ export const toggleFollow = async (
         targetId,
         type: 'follow',
         status: 'active',
-        createdAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
       const relationshipRef = await addDoc(relationshipsRef, newRelationship);
@@ -669,14 +669,14 @@ export const toggleBlock = async (
         // 활성 상태면 비활성화 (차단 해제)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'inactive',
-          updatedAt: Timestamp.now().toMillis()
+          updatedAt: serverTimestamp()
         });
         return { isBlocked: false };
       } else {
         // 비활성 상태면 활성화 (다시 차단)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'active',
-          updatedAt: Timestamp.now().toMillis()
+          updatedAt: serverTimestamp()
         });
         return { isBlocked: true };
       }
@@ -688,8 +688,8 @@ export const toggleBlock = async (
         targetId,
         type: 'block',
         status: 'active',
-        createdAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
       const relationshipRef = await addDoc(relationshipsRef, newRelationship);
@@ -714,7 +714,7 @@ export const toggleBlock = async (
         const followDoc = followSnapshot.docs[0];
         await updateDoc(doc(db, 'userRelationships', followDoc.id), {
           status: 'inactive',
-          updatedAt: Timestamp.now().toMillis()
+          updatedAt: serverTimestamp()
         });
       }
       
@@ -922,7 +922,7 @@ export const updateProfileImage = async (
     
     // Firebase Storage 경로 설정
     const fileExtension = imageFile.name.split('.').pop();
-    const fileName = `${userId}_${Timestamp.now().toMillis()}.${fileExtension}`;
+    const fileName = `${userId}_${Date.now()}.${fileExtension}`;
     const storageRef = ref(storage, `profile_images/${fileName}`);
     
     // 이미지 업로드

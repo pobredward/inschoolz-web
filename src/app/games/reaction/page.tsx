@@ -369,7 +369,7 @@ export default function ReactionGamePage() {
                 .map((threshold, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span className="text-sm font-medium">
-                      {threshold.minReactionTime}ms 이하 (더 빠름)
+                      {threshold.minReactionTime}ms 이하
                     </span>
                     <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                       +{threshold.xpReward} XP
@@ -378,7 +378,7 @@ export default function ReactionGamePage() {
                 ))}
             </div>
             <div className="text-xs text-gray-500 mt-3">
-              💡 팁: 100ms 이하로 반응하면 최대 경험치를 획득할 수 있어요!
+              💡 200ms 이하로 반응하면 최대 경험치를 획득할 수 있어요!
             </div>
           </div>
         )}
@@ -412,7 +412,7 @@ export default function ReactionGamePage() {
                         )}
                       </div>
                     </div>
-                    <div className="text-sm font-bold">{user.bestReactionTime}ms</div>
+                    <div className="text-sm font-bold">{user.bestReactionTime.toFixed(2)}ms</div>
                   </div>
                 ))
               ) : (

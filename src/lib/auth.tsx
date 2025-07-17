@@ -8,7 +8,7 @@ import {
   GoogleAuthProvider, 
   signInWithPopup
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { useRouter } from 'next/navigation';
 
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             birthDay: 0,
             phoneNumber: '',
             profileImageUrl: user.photoURL || '',
-            createdAt: Timestamp.now().toMillis(),
+            createdAt: serverTimestamp(),
             isAdmin: false
           },
           role: 'user',

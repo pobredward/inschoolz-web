@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
   collection, query, where, getDocs, 
-  doc, setDoc, Timestamp
+  doc, setDoc, Timestamp, serverTimestamp
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
@@ -96,7 +96,7 @@ export default function VerifySchoolPage() {
 
     try {
       // 이미지 업로드
-      const storageRef = ref(storage, `verification/${user.uid}/${Timestamp.now().toMillis()}_${proofImage.name}`);
+              const storageRef = ref(storage, `verification/${user.uid}/${Date.now()}_${proofImage.name}`);
       const uploadResult = await uploadBytes(storageRef, proofImage);
       const downloadURL = await getDownloadURL(uploadResult.ref);
 
@@ -108,8 +108,8 @@ export default function VerifySchoolPage() {
         schoolId: selectedSchool.id,
         status: 'pending',
         proofImageUrl: downloadURL,
-        createdAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis(),
+                  createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
       });
 
       router.push('/dashboard?verification=requested');

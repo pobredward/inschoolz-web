@@ -10,7 +10,8 @@ import {
   orderBy, 
   limit, 
   startAfter, 
-  Timestamp
+  Timestamp,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Appeal, AppealStatus } from '@/types';
@@ -42,7 +43,7 @@ export async function createAppeal(data: {
       reason: data.reason,
       description: data.description,
       status: 'pending',
-      createdAt: Timestamp.now().toMillis(),
+      createdAt: serverTimestamp(),
     };
 
     const docRef = await addDoc(collection(db, 'appeals'), appealData);
@@ -139,13 +140,13 @@ export async function processAppeal(
     const updateData: Partial<Appeal> = {
       status,
       adminId,
-      updatedAt: Timestamp.now().toMillis(),
+      updatedAt: serverTimestamp(),
     };
 
     if (adminNote) updateData.adminNote = adminNote;
     if (adminDecision) updateData.adminDecision = adminDecision;
     if (status === 'approved' || status === 'rejected') {
-      updateData.resolvedAt = Timestamp.now().toMillis();
+      updateData.resolvedAt = serverTimestamp();
     }
 
     await updateDoc(docRef, updateData);
@@ -159,7 +160,7 @@ export async function processAppeal(
         await updateDoc(reportRef, {
           status: 'rejected',
           adminNote: `이의제기 승인: ${adminDecision || '이의제기가 승인되었습니다.'}`,
-          updatedAt: Timestamp.now().toMillis(),
+          updatedAt: serverTimestamp(),
         });
       }
     }

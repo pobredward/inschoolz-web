@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { getPostsByBoard } from "@/lib/api/board";
 import { toast } from "sonner";
 import { Timestamp } from "firebase/firestore";
+import { FirebaseTimestamp } from "@/types";
 
 // Firebase 문서에서 가져온 게시글 타입 확장
 interface PostWithOptionalFields {
@@ -33,7 +34,7 @@ interface PostWithOptionalFields {
     isAnonymous?: boolean;
     profileImageUrl?: string; // 추가된 필드
   };
-  createdAt: Date | Timestamp | number;
+  createdAt: Date | Timestamp | FirebaseTimestamp;
   status?: {
     isPinned?: boolean;
     isDeleted?: boolean;

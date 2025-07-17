@@ -23,6 +23,9 @@ import {
   processReport 
 } from '@/lib/api/reports';
 import { createNotification } from '@/lib/api/notifications';
+import { FirebaseTimestamp } from '@/types';
+import { serverTimestamp } from 'firebase/firestore';
+import { toDate } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import { Report, ReportStatus, ReportType, ReportReason, ReportStats } from '@/types';
 import { toast } from 'sonner';
@@ -118,7 +121,7 @@ export function AdminReportsClient() {
       const updateData: any = {
         status: newStatus,
         adminId: user.uid,
-        updatedAt: Timestamp.now().toMillis(),
+        updatedAt: serverTimestamp(),
       };
 
       if (actionNote.trim()) {
@@ -130,7 +133,7 @@ export function AdminReportsClient() {
       }
       
       if (newStatus === 'resolved') {
-        updateData.resolvedAt = Timestamp.now().toMillis();
+        updateData.resolvedAt = serverTimestamp();
       }
 
       console.log('Firestore 업데이트 시도:', updateData);
@@ -228,8 +231,9 @@ export function AdminReportsClient() {
     }
   };
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('ko-KR', {
+  const formatDate = (timestamp: FirebaseTimestamp) => {
+    const date = toDate(timestamp);
+    return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

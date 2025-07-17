@@ -26,7 +26,7 @@ export default function PollEditor({ pollData, onChange }: PollEditorProps) {
   // 새 옵션 추가
   const handleAddOption = () => {
     const newOption: PollOption = {
-      id: `option-${Timestamp.now().toMillis()}`,
+      id: `option-${Date.now()}`,
       text: ''
     }
     

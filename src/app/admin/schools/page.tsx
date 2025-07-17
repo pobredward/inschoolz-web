@@ -33,7 +33,7 @@ import {
   adminUpdateSchool, 
   adminDeleteSchool 
 } from '@/lib/api/admin';
-import { School as SchoolType } from '@/types';
+import { School as SchoolType, FirebaseTimestamp } from '@/types';
 import { toTimestamp } from '@/lib/utils';
 
 // 로컬 School 인터페이스 (실제 API 응답에 맞춤)
@@ -47,7 +47,7 @@ interface LocalSchool {
   logoUrl?: string;
   memberCount?: number;
   favoriteCount?: number;
-  createdAt: number;
+  createdAt: FirebaseTimestamp;
 }
 
 interface SchoolFormData {

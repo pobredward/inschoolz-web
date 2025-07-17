@@ -1,7 +1,7 @@
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, FieldValue } from 'firebase/firestore';
 
 // Firebase Timestamp와 number 타입을 모두 지원하는 타입
-export type FirebaseTimestamp = Timestamp | number;
+export type FirebaseTimestamp = Timestamp | number | FieldValue;
 
 // 학교 정보 타입
 export interface School {
@@ -378,7 +378,7 @@ export interface UserAttendance {
   streak: number;
   totalCount: number;
   monthCount: number;
-  lastAttendance?: number;
+  lastAttendance?: FirebaseTimestamp;
   monthlyLog?: AttendanceLog;
   // 경험치 관련 정보 (출석체크 수행 시에만 포함)
   expGained?: number;

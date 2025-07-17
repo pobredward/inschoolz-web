@@ -15,7 +15,7 @@ import {
   reauthenticateWithCredential,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, Timestamp, serverTimestamp, FieldValue } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User } from '@/types';
 
@@ -54,14 +54,14 @@ export const registerWithEmail = async (
         birthDay: 0,
         phoneNumber: '',
         profileImageUrl: firebaseUser.photoURL || '',
-        createdAt: Timestamp.now().toMillis(),
+        createdAt: Timestamp.now(),
         isAdmin: false
       },
       stats: {
         level: 1,
         currentExp: 0,
         totalExperience: 0,
-        currentLevelRequiredXp: 40,
+        currentLevelRequiredXp: 10,
         postCount: 0,
         commentCount: 0,
         likeCount: 0,
@@ -73,8 +73,8 @@ export const registerWithEmail = async (
         location: false,
         marketing: false
       },
-      createdAt: Timestamp.now().toMillis(),
-      updatedAt: Timestamp.now().toMillis()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
     
     await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
@@ -107,8 +107,8 @@ export const loginWithEmail = async (
     if (userDoc.exists()) {
       // 마지막 로그인 시간 업데이트
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        lastLoginAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis()
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
       
       return userDoc.data() as User;
@@ -137,8 +137,8 @@ export const loginWithGoogle = async (): Promise<User> => {
     if (userDoc.exists()) {
       // 기존 사용자: 마지막 로그인 시간 업데이트
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        lastLoginAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis()
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
       
       return userDoc.data() as User;
@@ -156,7 +156,7 @@ export const loginWithGoogle = async (): Promise<User> => {
           birthDay: 0,
           phoneNumber: '',
           profileImageUrl: firebaseUser.photoURL || '',
-          createdAt: Timestamp.now().toMillis(),
+          createdAt: serverTimestamp(),
           isAdmin: false
         },
         role: 'student',
@@ -165,7 +165,7 @@ export const loginWithGoogle = async (): Promise<User> => {
           level: 1,
           currentExp: 0,
           totalExperience: 0,
-          currentLevelRequiredXp: 40,
+          currentLevelRequiredXp: 10,
           postCount: 0,
           commentCount: 0,
           likeCount: 0,
@@ -177,8 +177,8 @@ export const loginWithGoogle = async (): Promise<User> => {
           location: false,
           marketing: false
         },
-        createdAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
@@ -207,8 +207,8 @@ export const loginWithFacebook = async (): Promise<User> => {
     if (userDoc.exists()) {
       // 기존 사용자: 마지막 로그인 시간 업데이트
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        lastLoginAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis()
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
       
       return userDoc.data() as User;
@@ -226,7 +226,7 @@ export const loginWithFacebook = async (): Promise<User> => {
           birthDay: 0,
           phoneNumber: '',
           profileImageUrl: firebaseUser.photoURL || '',
-          createdAt: Timestamp.now().toMillis(),
+          createdAt: serverTimestamp(),
           isAdmin: false
         },
         role: 'student',
@@ -235,7 +235,7 @@ export const loginWithFacebook = async (): Promise<User> => {
           level: 1,
           currentExp: 0,
           totalExperience: 0,
-          currentLevelRequiredXp: 40,
+          currentLevelRequiredXp: 10,
           postCount: 0,
           commentCount: 0,
           likeCount: 0,
@@ -247,8 +247,8 @@ export const loginWithFacebook = async (): Promise<User> => {
           location: false,
           marketing: false
         },
-        createdAt: Timestamp.now().toMillis(),
-        updatedAt: Timestamp.now().toMillis()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
@@ -323,7 +323,7 @@ export const changeEmail = async (
     // Firestore 사용자 정보 업데이트
     await updateDoc(doc(db, 'users', user.uid), {
       email: newEmail,
-      updatedAt: Timestamp.now().toMillis()
+      updatedAt: serverTimestamp()
     });
   } catch (error) {
     console.error('이메일 변경 오류:', error);
@@ -374,8 +374,8 @@ export const deleteAccount = async (
     // 사용자 문서 삭제 (또는 비활성화 상태로 표시)
     await updateDoc(doc(db, 'users', user.uid), {
       isDeleted: true,
-      deletedAt: Timestamp.now().toMillis(),
-      updatedAt: Timestamp.now().toMillis()
+      deletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
     
     // Firebase 인증 계정 삭제

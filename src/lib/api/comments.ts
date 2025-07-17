@@ -90,7 +90,7 @@ export const createAnonymousComment = async ({
         isDeleted: false,
         isBlocked: false,
       },
-      createdAt: Timestamp.now().toMillis(),
+      createdAt: serverTimestamp(),
     };
 
     // Firestore에 댓글 추가
@@ -163,7 +163,7 @@ export const updateAnonymousComment = async (
     const commentRef = doc(db, 'posts', postId, 'comments', commentId);
     await updateDoc(commentRef, {
       content,
-      updatedAt: Timestamp.now().toMillis(),
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('익명 댓글 수정 실패:', error);
@@ -196,7 +196,7 @@ export const deleteAnonymousComment = async (
       transaction.update(commentRef, {
         'status.isDeleted': true,
         content: '삭제된 댓글입니다.',
-        deletedAt: Timestamp.now().toMillis(),
+        deletedAt: serverTimestamp(),
       });
       
       // 게시글의 댓글 수 감소

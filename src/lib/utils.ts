@@ -140,11 +140,11 @@ export function toTimestamp(timestamp: unknown): number {
 }
 
 /**
- * 현재 시간을 number(milliseconds)로 반환
- * @returns Unix timestamp (milliseconds)
+ * 현재 시간을 Timestamp로 반환
+ * @returns Firebase Timestamp
  */
-export function now(): number {
-  return Timestamp.now().toMillis();
+export function now(): Timestamp {
+  return Timestamp.now();
 }
 
 /**
