@@ -8,6 +8,7 @@ import { signUp } from '@/lib/api/auth';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { FormDataType } from '@/types';
 
 
 import { EmailPasswordStep } from './signup-steps/email-password';
@@ -26,7 +27,7 @@ export function SignupForm() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     // 1단계: 이메일, 비밀번호
     email: '',
     password: '',
@@ -37,10 +38,10 @@ export function SignupForm() {
     school: {
       id: '',
       name: '',
-      grade: '',
-      classNumber: '',
-      studentNumber: '',
-      isGraduate: false,
+      grade: null,
+      classNumber: null,
+      studentNumber: null,
+      isGraduate: null,
     },
     favoriteSchools: [] as string[],
     
@@ -74,8 +75,8 @@ export function SignupForm() {
     interests: [] as string[],
   });
 
-  const updateFormData = (data: Partial<typeof formData>) => {
-    setFormData(prev => ({ ...prev, ...data }));
+  const updateFormData = (data: Partial<FormDataType>) => {
+    setFormData((prev: FormDataType) => ({ ...prev, ...data }));
   };
 
   const handleNext = () => {
@@ -116,8 +117,10 @@ export function SignupForm() {
         description: "회원가입이 완료되었습니다. 환영합니다!"
       });
       
-      // 메인 페이지로 이동
-      router.push('/');
+      // 잠시 후 메인 페이지로 이동 (사용자가 메시지를 볼 수 있도록)
+      setTimeout(() => {
+        router.push('/');
+      }, 1500);
     } catch (error) {
       console.error('회원가입 오류:', error);
       

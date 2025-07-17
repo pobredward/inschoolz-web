@@ -170,11 +170,30 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       updatedAt: Date.now()
     } as User;
     
-    // 학교 정보가 있는 경우에만 추가 (앱과 동일한 로직)
+    // 학교 정보가 있는 경우에만 추가 (추가 필드들도 저장)
     if (userData.school && userData.school.id && userData.school.id.trim() !== '') {
       userDoc.school = {
         id: userData.school.id,
-        name: userData.school.name || ''
+        name: userData.school.name || '',
+        grade: userData.school.grade,
+        classNumber: userData.school.classNumber,
+        studentNumber: userData.school.studentNumber,
+        isGraduate: userData.school.isGraduate,
+      };
+    }
+    
+    // 즐겨찾기 학교 정보 추가 (favoriteSchools 배열 또는 favorites 객체 사용)
+    const favoriteSchoolIds = userData.favorites?.schools || userData.favoriteSchools || [];
+    
+    // 선택한 메인 학교가 즐겨찾기에 없으면 추가
+    if (userData.school?.id && !favoriteSchoolIds.includes(userData.school.id)) {
+      favoriteSchoolIds.unshift(userData.school.id); // 메인 학교를 첫 번째로
+    }
+    
+    if (favoriteSchoolIds.length > 0) {
+      userDoc.favorites = {
+        schools: favoriteSchoolIds.slice(0, 5), // 최대 5개로 제한
+        boards: userData.favorites?.boards || []
       };
     }
     

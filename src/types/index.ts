@@ -66,6 +66,10 @@ export interface User {
   school?: {
     id: string;
     name: string;
+    grade?: string | null;
+    classNumber?: string | null;
+    studentNumber?: string | null;
+    isGraduate?: boolean | null;
   };
   
   // 지역 정보
@@ -97,6 +101,12 @@ export interface User {
     privacy: boolean; // 개인정보
     location: boolean; // 위치정보
     marketing: boolean; // 마케팅
+  };
+  
+  // 즐겨찾기 정보
+  favorites?: {
+    schools: string[]; // 즐겨찾는 학교 ID 리스트 (최대 5개)
+    boards: string[]; // 즐겨찾는 게시판 코드 리스트
   };
   
   // 시스템 정보
@@ -168,12 +178,19 @@ export interface FormDataType {
   school: {
     id: string;
     name: string;
-    grade: string;
-    classNumber: string;
-    studentNumber: string;
-    isGraduate: boolean;
+    grade: string | null;
+    classNumber: string | null;
+    studentNumber: string | null;
+    isGraduate: boolean | null;
   };
+  schoolName?: string; // 호환성을 위해 추가
   favoriteSchools: string[];
+  
+  // 즐겨찾기 정보
+  favorites?: {
+    schools: string[];
+    boards: string[];
+  };
   
   // 지역 정보
   regions: {

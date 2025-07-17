@@ -1,27 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Search, MapPin, Star, Users, School as SchoolIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Card,
   CardContent,
@@ -54,7 +39,7 @@ export function SchoolSelectionStep({ formData, updateFormData, nextStep }: Sign
   const form = useForm<SchoolSelectionValues>({
     resolver: zodResolver(schoolSelectionSchema),
     defaultValues: {
-      school: formData.school || '',
+      school: formData.school?.id || '',
       favoriteSchools: formData.favoriteSchools || [],
     },
   });
@@ -94,8 +79,27 @@ export function SchoolSelectionStep({ formData, updateFormData, nextStep }: Sign
 
   const handleSchoolSelect = (school: School) => {
     setSelectedSchool(school);
-    form.setValue('school', school.id);
-    updateFormData({ school: school.id, schoolName: school.name });
+    // form.setValue는 제거 (이미 updateFormData에서 처리)
+    
+    // 학교 정보를 올바른 구조로 업데이트 (불필요한 필드는 null로 저장)
+    updateFormData({ 
+      school: {
+        id: school.id,
+        name: school.name,
+        grade: null, // 나중에 사용할 수 있도록 null로 저장
+        classNumber: null, // 나중에 사용할 수 있도록 null로 저장
+        studentNumber: null, // 나중에 사용할 수 있도록 null로 저장
+        isGraduate: null, // 나중에 사용할 수 있도록 null로 저장
+      },
+      schoolName: school.name, // 호환성을 위해 유지
+      // favorites.schools 배열에 해당 학교 ID 추가 (중복 방지)
+      favoriteSchools: [school.id],
+      favorites: {
+        schools: [school.id],
+        boards: []
+      }
+    });
+    
     nextStep();
   };
 
@@ -113,7 +117,16 @@ export function SchoolSelectionStep({ formData, updateFormData, nextStep }: Sign
     setFavoriteSchools(updatedFavorites);
     const favoriteSchoolIds = updatedFavorites.map(s => s.id);
     form.setValue('favoriteSchools', favoriteSchoolIds);
-    updateFormData({ favoriteSchools: favoriteSchoolIds });
+    
+    // formData 업데이트 시 올바른 구조로 저장
+    updateFormData({ 
+      favoriteSchools: favoriteSchoolIds,
+      // favorites 객체도 업데이트
+      favorites: {
+        schools: favoriteSchoolIds,
+        boards: []
+      }
+    });
   };
 
   const isSchoolFavorited = (schoolId: string) => {
