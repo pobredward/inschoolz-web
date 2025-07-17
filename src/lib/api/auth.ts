@@ -13,7 +13,8 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  Timestamp
 } from 'firebase/firestore';
 import { auth, db, storage } from '@/lib/firebase';
 import { FormDataType, User } from '@/types';
@@ -97,7 +98,7 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       try {
         // 파일 확장자 추출
         const fileExtension = userData.profileImage.name.split('.').pop();
-        const fileName = `${userId}_${Date.now()}.${fileExtension}`;
+        const fileName = `${userId}_${Timestamp.now().toMillis()}.${fileExtension}`;
         const storageRef = ref(storage, `profile_images/${fileName}`);
         
         // 이미지 업로드
@@ -140,7 +141,7 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
         birthDay: Number(userData.birthDay),
         phoneNumber: userData.phoneNumber,
         profileImageUrl: profileImageUrl,
-        createdAt: Date.now(), // number 타입으로 변경
+        createdAt: Timestamp.now().toMillis(), // Timestamp를 밀리초로 변환
         isAdmin: false
       },
       
@@ -165,8 +166,8 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       },
       
       // 시스템 정보 (Timestamp 사용)
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: Timestamp.now().toMillis(),
+      updatedAt: Timestamp.now().toMillis()
     } as User;
     
     // 학교 정보가 있는 경우에만 추가 (추가 필드들도 저장)

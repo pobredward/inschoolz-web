@@ -12,7 +12,7 @@ import { Post } from '@/types';
 import { getBoardsByType, getPostsByBoardType, getAllPostsByType, getAllPostsBySchool, getAllPostsByRegion } from '@/lib/api/board';
 import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
-import { generatePreviewContent } from '@/lib/utils';
+import { generatePreviewContent, toTimestamp } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import PostListItem from '@/components/board/PostListItem';
 
@@ -375,7 +375,7 @@ export default function CommunityPage() {
       allPosts.sort((a, b) => {
         switch (sortBy) {
           case 'latest':
-            return b.createdAt - a.createdAt;
+            return toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
           case 'popular':
             return b.stats.likeCount - a.stats.likeCount;
           case 'views':
@@ -383,7 +383,7 @@ export default function CommunityPage() {
           case 'comments':
             return b.stats.commentCount - a.stats.commentCount;
           default:
-            return b.createdAt - a.createdAt;
+            return toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
         }
       });
 

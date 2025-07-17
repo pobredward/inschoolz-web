@@ -29,7 +29,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Board } from '@/types';
-import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, setDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -229,7 +229,7 @@ export default function BoardsAdminPage() {
     try {
       const boardData = {
         ...values,
-        updatedAt: Date.now()
+        updatedAt: Timestamp.now().toMillis()
       };
       
       if (isEditMode && values.id) {
@@ -243,7 +243,7 @@ export default function BoardsAdminPage() {
         await setDoc(newBoardRef, {
           ...boardData,
           id: newBoardRef.id,
-          createdAt: Date.now(),
+          createdAt: Timestamp.now().toMillis(),
           stats: {
             postCount: 0,
             viewCount: 0,

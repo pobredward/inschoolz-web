@@ -12,11 +12,13 @@ import {
   limit, 
   startAfter,
   QueryDocumentSnapshot,
-  DocumentData
+  DocumentData,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Report, ReportType, ReportReason, ReportStatus, ReportStats, UserReportRecord } from '@/types';
 import { createReportReceivedNotification } from './notifications';
+import { toTimestamp } from '@/lib/utils';
 
 // 신고 생성
 export async function createReport(data: {
@@ -75,7 +77,7 @@ export async function createReport(data: {
       reporterId: data.reporterId,
       reporterInfo: data.reporterInfo,
       status: 'pending',
-      createdAt: Date.now(),
+      createdAt: Timestamp.now().toMillis(),
       // 조건부로 필드 추가 (undefined 값 제외)
       ...(data.customReason && { customReason: data.customReason }),
       ...(data.description && { description: data.description }),
@@ -157,7 +159,7 @@ export async function getUserReports(userId: string): Promise<UserReportRecord> 
     console.log('내가 신고한 내역 개수:', reportsMade.length);
     
     // 클라이언트에서 정렬
-    reportsMade.sort((a, b) => b.createdAt - a.createdAt);
+    reportsMade.sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt));
 
     // 나를 신고한 내역 - targetAuthorId 필드 사용
     console.log('나를 신고한 내역 조회 시작');
@@ -199,7 +201,7 @@ export async function getUserReports(userId: string): Promise<UserReportRecord> 
     }
 
     // 정렬
-    reportsReceived.sort((a, b) => b.createdAt - a.createdAt);
+    reportsReceived.sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt));
 
     // 통계 계산
     const stats = {
@@ -252,7 +254,7 @@ export async function updateReport(reportId: string, data: {
     const docRef = doc(db, 'reports', reportId);
     await updateDoc(docRef, {
       ...data,
-      updatedAt: Date.now(),
+      updatedAt: Timestamp.now().toMillis(),
     });
   } catch (error) {
     console.error('신고 수정 실패:', error);
@@ -333,12 +335,12 @@ export async function processReport(
     const updateData: Partial<Report> = {
       status,
       adminId,
-      updatedAt: Date.now(),
+      updatedAt: Timestamp.now().toMillis(),
     };
 
     if (adminNote) updateData.adminNote = adminNote;
     if (actionTaken) updateData.actionTaken = actionTaken;
-    if (status === 'resolved') updateData.resolvedAt = Date.now();
+    if (status === 'resolved') updateData.resolvedAt = Timestamp.now().toMillis();
 
     await updateDoc(docRef, updateData);
 

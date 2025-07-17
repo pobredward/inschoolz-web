@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/providers/AuthProvider';
 import { getPopularPostsForHome } from '@/lib/api/board';
 import { getRankingPreview } from '@/lib/api/ranking';
+import { FirebaseTimestamp } from '@/types';
 
 import PostListItem from '@/components/board/PostListItem';
 
@@ -34,7 +35,7 @@ interface PopularPost {
     likeCount: number;
     commentCount: number;
   };
-  createdAt: number;
+  createdAt: FirebaseTimestamp;
 }
 
 interface RankingPreview {

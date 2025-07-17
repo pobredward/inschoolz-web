@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Clock, CheckCircle, XCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
 import { getUserReports, cancelReport } from '@/lib/api/reports';
 import { useAuth } from '@/providers/AuthProvider';
-import { Report, ReportReason, ReportStatus, UserReportRecord } from '@/types';
+import { Report, ReportStatus, ReportReason, UserReportRecord, FirebaseTimestamp } from '@/types';
 import { toast } from 'sonner';
 import { ReportModal } from '@/components/ui/report-modal';
 import { stripHtmlTags } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { formatRelativeTime } from '@/lib/utils';
 
 export function ReportsPageClient() {
   const [reportRecord, setReportRecord] = useState<UserReportRecord | null>(null);
@@ -127,14 +128,8 @@ export function ReportsPageClient() {
     }
   };
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatDate = (timestamp: FirebaseTimestamp) => {
+    return formatRelativeTime(timestamp);
   };
 
   // 게시글 URL 생성 함수

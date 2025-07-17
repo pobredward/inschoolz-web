@@ -32,6 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/components/ui/use-toast";
 import RichTextEditor from "@/components/editor/RichTextEditor";
+import { FirebaseTimestamp } from '@/types';
 
 interface PostEditClientProps {
   post: {
@@ -43,9 +44,15 @@ interface PostEditClientProps {
     };
     tags: string[];
     poll?: {
+      isActive: boolean;
       question: string;
-      options: { text: string; imageUrl?: string }[];
-      expiresAt?: Date;
+      options: { 
+        text: string; 
+        imageUrl?: string;
+        voteCount: number;
+        index: number;
+      }[];
+      expiresAt?: FirebaseTimestamp;
       multipleChoice: boolean;
     };
     authorId: string;

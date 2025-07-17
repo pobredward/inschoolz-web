@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUserPosts, getUserComments } from '@/lib/api/users';
 import { Post, Comment } from '@/types';
 import { BookmarkIcon, MessageSquareIcon } from 'lucide-react';
-import { stripHtmlTags } from '@/lib/utils';
+import { stripHtmlTags, toDate } from '@/lib/utils';
 
 interface ContentTabsProps {
   userId: string;
@@ -138,7 +138,7 @@ export default function ContentTabs({ userId, isOwnProfile = false }: ContentTab
             <div className="flex justify-between">
               <h3 className="font-medium line-clamp-1">{post.title}</h3>
               <span className="text-xs text-muted-foreground">
-                {new Date(post.createdAt).toLocaleString()}
+                {new Date(toDate(post.createdAt)).toLocaleString()}
               </span>
             </div>
             <p className="mt-2 text-sm text-muted-foreground line-clamp-2 whitespace-pre-wrap">
@@ -180,7 +180,7 @@ export default function ContentTabs({ userId, isOwnProfile = false }: ContentTab
             <div className="flex justify-between">
               <h3 className="font-medium line-clamp-2">{comment.content}</h3>
               <span className="text-xs text-muted-foreground">
-                {new Date(comment.createdAt).toLocaleString()}
+                {new Date(toDate(comment.createdAt)).toLocaleString()}
               </span>
             </div>
             <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">

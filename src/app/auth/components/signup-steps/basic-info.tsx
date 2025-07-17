@@ -81,15 +81,15 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
       birthYear: formData.birthYear || '',
       birthMonth: formData.birthMonth || '',
       birthDay: formData.birthDay || '',
-      phone: formData.phone || '',
+      phoneNumber: formData.phoneNumber || '',
       referral: formData.referral || '',
     },
   });
 
   const sendVerificationCode = () => {
-    const phone = form.getValues('phone');
+    const phone = form.getValues('phoneNumber');
     if (phone.length < 10) {
-      form.setError('phone', { message: '올바른 휴대폰 번호를 입력해주세요.' });
+      form.setError('phoneNumber', { message: '올바른 휴대폰 번호를 입력해주세요.' });
       return;
     }
     
@@ -371,7 +371,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
 
           <FormField
             control={form.control}
-            name="phone"
+            name="phoneNumber"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>휴대폰번호</FormLabel>
@@ -382,7 +382,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
                       {...field} 
                       onChange={(e) => {
                         field.onChange(e);
-                        handleFieldChange('phone', e.target.value);
+                        handleFieldChange('phoneNumber', e.target.value);
                       }}
                     />
                   </FormControl>

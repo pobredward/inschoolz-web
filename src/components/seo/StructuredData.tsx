@@ -1,6 +1,7 @@
 'use client';
 
 import { Post } from "@/types";
+import { toDate } from '@/lib/utils';
 
 interface ArticleStructuredDataProps {
   post: Post;
@@ -57,8 +58,8 @@ export function ArticleStructuredData({
         "url": "https://inschoolz.com/logo.png"
       }
     },
-    "datePublished": new Date(post.createdAt).toISOString(),
-    "dateModified": new Date(post.updatedAt || post.createdAt).toISOString(),
+    "datePublished": new Date(toDate(post.createdAt)).toISOString(),
+    "dateModified": new Date(toDate(post.updatedAt || post.createdAt)).toISOString(),
     "articleSection": sectionName,
     "keywords": keywords.join(", "),
     "genre": categories.join(", "),

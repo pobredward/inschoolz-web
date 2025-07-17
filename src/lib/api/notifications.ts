@@ -11,8 +11,7 @@ import {
   limit,
   Timestamp,
   getDoc,
-  startAt,
-  endAt
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Notification, NotificationType } from '@/types';
@@ -37,24 +36,24 @@ export async function createNotification(data: {
   };
 }): Promise<Notification> {
   try {
-    const notificationData: Omit<Notification, 'id'> = {
+    const notificationData = {
       userId: data.userId,
       type: data.type,
       title: data.title,
       message: data.message,
       isRead: false,
-      createdAt: Date.now(),
+      createdAt: serverTimestamp(),
     };
 
     // data 필드가 있고 비어있지 않을 때만 추가
     if (data.data && Object.keys(data.data).length > 0) {
       // undefined 값들을 제거한 깨끗한 data 객체 생성
       const cleanData = Object.fromEntries(
-        Object.entries(data.data).filter(([_, value]) => value !== undefined)
+        Object.entries(data.data).filter(([, value]) => value !== undefined)
       );
       
       if (Object.keys(cleanData).length > 0) {
-        notificationData.data = cleanData;
+        (notificationData as Record<string, unknown>).data = cleanData;
       }
     }
 
@@ -62,7 +61,13 @@ export async function createNotification(data: {
     
     return {
       id: docRef.id,
-      ...notificationData,
+      userId: data.userId,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      isRead: false,
+      createdAt: Timestamp.now().toMillis(), // 클라이언트에서 즉시 사용하기 위해 현재 시간 반환
+      ...(data.data && Object.keys(data.data).length > 0 && { data: data.data })
     };
   } catch (error) {
     console.error('알림 생성 실패:', error);
@@ -658,7 +663,7 @@ export async function sendBroadcastNotification(data: {
             message: data.message,
             data: data.data || {},
             isRead: false,
-            createdAt: Date.now(),
+            createdAt: Timestamp.now().toMillis(),
           };
 
           batchPromises.push(

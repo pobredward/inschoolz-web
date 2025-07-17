@@ -1,21 +1,21 @@
 import {
-  createUserWithEmailAndPassword,
+  User as FirebaseUser,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+  onAuthStateChanged,
+  FacebookAuthProvider,
+  signOut,
+  deleteUser,
   updateProfile,
   updatePassword,
   updateEmail,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  User as FirebaseUser,
-  onAuthStateChanged,
-  signInWithPopup,
-  GoogleAuthProvider,
-  FacebookAuthProvider,
-  signOut,
-  deleteUser
+  sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User } from '@/types';
 
@@ -43,6 +43,8 @@ export const registerWithEmail = async (
     const newUser: User = {
       uid: firebaseUser.uid,
       email: firebaseUser.email || '',
+      role: 'student',
+      isVerified: true,
       profile: {
         userName: userName,
         realName: '',
@@ -52,12 +54,9 @@ export const registerWithEmail = async (
         birthDay: 0,
         phoneNumber: '',
         profileImageUrl: firebaseUser.photoURL || '',
-        createdAt: Date.now(),
+        createdAt: Timestamp.now().toMillis(),
         isAdmin: false
       },
-      role: 'student',
-      status: 'active', // 기본 상태를 'active'로 설정
-      isVerified: true, // 이메일 인증 없이 바로 인증된 상태로 처리
       stats: {
         level: 1,
         currentExp: 0,
@@ -68,8 +67,14 @@ export const registerWithEmail = async (
         likeCount: 0,
         streak: 0
       },
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      agreements: {
+        terms: true,
+        privacy: true,
+        location: false,
+        marketing: false
+      },
+      createdAt: Timestamp.now().toMillis(),
+      updatedAt: Timestamp.now().toMillis()
     };
     
     await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
@@ -102,8 +107,8 @@ export const loginWithEmail = async (
     if (userDoc.exists()) {
       // 마지막 로그인 시간 업데이트
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        lastLoginAt: Date.now(),
-        updatedAt: Date.now()
+        lastLoginAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis()
       });
       
       return userDoc.data() as User;
@@ -132,8 +137,8 @@ export const loginWithGoogle = async (): Promise<User> => {
     if (userDoc.exists()) {
       // 기존 사용자: 마지막 로그인 시간 업데이트
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        lastLoginAt: Date.now(),
-        updatedAt: Date.now()
+        lastLoginAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis()
       });
       
       return userDoc.data() as User;
@@ -144,7 +149,6 @@ export const loginWithGoogle = async (): Promise<User> => {
         email: firebaseUser.email || '',
         profile: {
           userName: firebaseUser.displayName || '사용자',
-          email: firebaseUser.email || '',
           realName: '',
           gender: '',
           birthYear: 0,
@@ -152,23 +156,29 @@ export const loginWithGoogle = async (): Promise<User> => {
           birthDay: 0,
           phoneNumber: '',
           profileImageUrl: firebaseUser.photoURL || '',
-          createdAt: Date.now(),
+          createdAt: Timestamp.now().toMillis(),
           isAdmin: false
         },
         role: 'student',
         isVerified: false,
         stats: {
           level: 1,
-          totalExperience: 0,
           currentExp: 0,
-          currentLevelRequiredXp: 10,
+          totalExperience: 0,
+          currentLevelRequiredXp: 40,
           postCount: 0,
           commentCount: 0,
           likeCount: 0,
           streak: 0
         },
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        agreements: {
+          terms: false,
+          privacy: false,
+          location: false,
+          marketing: false
+        },
+        createdAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis()
       };
       
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
@@ -197,8 +207,8 @@ export const loginWithFacebook = async (): Promise<User> => {
     if (userDoc.exists()) {
       // 기존 사용자: 마지막 로그인 시간 업데이트
       await updateDoc(doc(db, 'users', firebaseUser.uid), {
-        lastLoginAt: Date.now(),
-        updatedAt: Date.now()
+        lastLoginAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis()
       });
       
       return userDoc.data() as User;
@@ -209,7 +219,6 @@ export const loginWithFacebook = async (): Promise<User> => {
         email: firebaseUser.email || '',
         profile: {
           userName: firebaseUser.displayName || '사용자',
-          email: firebaseUser.email || '',
           realName: '',
           gender: '',
           birthYear: 0,
@@ -217,23 +226,29 @@ export const loginWithFacebook = async (): Promise<User> => {
           birthDay: 0,
           phoneNumber: '',
           profileImageUrl: firebaseUser.photoURL || '',
-          createdAt: Date.now(),
+          createdAt: Timestamp.now().toMillis(),
           isAdmin: false
         },
         role: 'student',
         isVerified: false,
         stats: {
           level: 1,
-          totalExperience: 0,
           currentExp: 0,
-          currentLevelRequiredXp: 10,
+          totalExperience: 0,
+          currentLevelRequiredXp: 40,
           postCount: 0,
           commentCount: 0,
           likeCount: 0,
           streak: 0
         },
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        agreements: {
+          terms: false,
+          privacy: false,
+          location: false,
+          marketing: false
+        },
+        createdAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis()
       };
       
       await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
@@ -308,7 +323,7 @@ export const changeEmail = async (
     // Firestore 사용자 정보 업데이트
     await updateDoc(doc(db, 'users', user.uid), {
       email: newEmail,
-      updatedAt: Date.now()
+      updatedAt: Timestamp.now().toMillis()
     });
   } catch (error) {
     console.error('이메일 변경 오류:', error);
@@ -359,8 +374,8 @@ export const deleteAccount = async (
     // 사용자 문서 삭제 (또는 비활성화 상태로 표시)
     await updateDoc(doc(db, 'users', user.uid), {
       isDeleted: true,
-      deletedAt: Date.now(),
-      updatedAt: Date.now()
+      deletedAt: Timestamp.now().toMillis(),
+      updatedAt: Timestamp.now().toMillis()
     });
     
     // Firebase 인증 계정 삭제

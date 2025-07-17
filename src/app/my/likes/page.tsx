@@ -12,6 +12,7 @@ import { getUserLikedPosts } from '@/lib/api/users';
 import { Post } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { toTimestamp } from '@/lib/utils';
 
 export default function LikedPostsPage() {
   const { user } = useAuth();
@@ -191,7 +192,7 @@ export default function LikedPostsPage() {
                           <Calendar className="h-3 w-3" />
                           <span>
                             {post.createdAt && formatDistanceToNow(
-                              new Date(typeof post.createdAt === 'number' ? post.createdAt : post.createdAt * 1000),
+                              new Date(toTimestamp(post.createdAt)),
                               { addSuffix: true, locale: ko }
                             )}
                           </span>

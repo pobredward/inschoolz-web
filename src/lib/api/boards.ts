@@ -276,8 +276,8 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
       },
       attachments: [],
       tags: tags || [],
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: Timestamp.now().toMillis(),
+      updatedAt: Timestamp.now().toMillis()
     };
 
     // 투표 정보 추가
@@ -307,7 +307,7 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
         // 이미지 URL을 게시글 내용에 추가 (마크다운 형식)
         await updateDoc(postRef, {
           content: content + `\n\n![이미지](${imageUrl})`,
-          updatedAt: Timestamp.now()
+          updatedAt: serverTimestamp()
         });
       }
     }
@@ -327,21 +327,21 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
           fileSize: file.size,
           postId,
           userId,
-          createdAt: Date.now()
+          createdAt: Timestamp.now().toMillis()
         });
       }
       
       // 첨부 파일 정보 업데이트
       await updateDoc(postRef, {
         attachments: uploadedAttachments,
-        updatedAt: Timestamp.now()
+        updatedAt: serverTimestamp()
       });
     }
 
     // 사용자 게시글 작성 수 증가
     await updateDoc(doc(db, 'users', userId), {
       'stats.postCount': increment(1),
-      updatedAt: Timestamp.now()
+      updatedAt: serverTimestamp()
     });
 
     // 경험치 부여 로직 제거 - 프론트엔드에서 처리
@@ -493,7 +493,7 @@ export const toggleLikePost = async (postId: string, userId: string): Promise<{ 
         id: '',
         userId,
         postId,
-        createdAt: Date.now()
+        createdAt: Timestamp.now().toMillis()
       };
       
       const likeRef = await addDoc(likesRef, newLike);
@@ -647,8 +647,8 @@ export const createComment = async (
         isDeleted: false,
         isBlocked: false
       },
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: Timestamp.now().toMillis(),
+      updatedAt: Timestamp.now().toMillis()
     };
     
     // Firestore에 댓글 추가

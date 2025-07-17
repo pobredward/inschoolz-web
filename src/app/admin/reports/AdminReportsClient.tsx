@@ -27,8 +27,9 @@ import { useAuth } from '@/providers/AuthProvider';
 import { Report, ReportStatus, ReportType, ReportReason, ReportStats } from '@/types';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { toTimestamp } from '@/lib/utils';
 
 export function AdminReportsClient() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -117,7 +118,7 @@ export function AdminReportsClient() {
       const updateData: any = {
         status: newStatus,
         adminId: user.uid,
-        updatedAt: Date.now(),
+        updatedAt: Timestamp.now().toMillis(),
       };
 
       if (actionNote.trim()) {
@@ -129,7 +130,7 @@ export function AdminReportsClient() {
       }
       
       if (newStatus === 'resolved') {
-        updateData.resolvedAt = Date.now();
+        updateData.resolvedAt = Timestamp.now().toMillis();
       }
 
       console.log('Firestore 업데이트 시도:', updateData);
@@ -387,9 +388,9 @@ export function AdminReportsClient() {
                       </CardTitle>
                       <div className="text-sm text-gray-500 mt-1 space-y-1">
                         <p>신고자: {report.reporterInfo.displayName}</p>
-                        <p>신고일: {formatDate(report.createdAt)}</p>
+                        <p>신고일: {formatDate(toTimestamp(report.createdAt))}</p>
                         {report.resolvedAt && (
-                          <p>처리일: {formatDate(report.resolvedAt)}</p>
+                          <p>처리일: {formatDate(toTimestamp(report.resolvedAt))}</p>
                         )}
                       </div>
                     </div>

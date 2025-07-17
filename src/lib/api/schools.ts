@@ -9,7 +9,9 @@ import {
   limit,
   QueryDocumentSnapshot,
   updateDoc,
-  increment
+  increment,
+  addDoc,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { School } from '@/types';
@@ -84,8 +86,8 @@ export const searchSchools = async (
           sido: schoolData.REGION,
           sigungu: getDistrict(schoolData.ADDRESS)
         },
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis(),
         memberCount: schoolData.memberCount || 0,
         favoriteCount: schoolData.favoriteCount || 0
       } as School);
@@ -131,8 +133,8 @@ export const getSchoolById = async (schoolId: string): Promise<School | null> =>
           sido: schoolData.REGION,
           sigungu: getDistrict(schoolData.ADDRESS)
         },
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis(),
         memberCount: schoolData.memberCount || 0,
         favoriteCount: schoolData.favoriteCount || 0
       } as School;
@@ -236,8 +238,8 @@ export const getAllSchools = async (): Promise<School[]> => {
           sido: schoolData.REGION,
           sigungu: getDistrict(schoolData.ADDRESS)
         },
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis(),
         memberCount: schoolData.memberCount || 0,
         favoriteCount: schoolData.favoriteCount || 0
       } as School);
@@ -303,7 +305,7 @@ export const toggleFavoriteSchool = async (
     // 사용자 문서 업데이트
     await updateDoc(userRef, {
       'favorites.schools': updatedFavoriteSchools,
-      updatedAt: Date.now()
+      updatedAt: Timestamp.now().toMillis()
     });
     
     // 학교 문서의 즐겨찾기 카운트 업데이트
@@ -382,7 +384,7 @@ export const selectSchool = async (
         studentNumber: schoolInfo.isGraduate ? null : schoolInfo.studentNumber || null,
         isGraduate: schoolInfo.isGraduate || false
       },
-      updatedAt: Date.now()
+      updatedAt: Timestamp.now().toMillis()
     };
     
     await updateDoc(userRef, schoolUpdate);
@@ -399,7 +401,7 @@ export const selectSchool = async (
         
         await updateDoc(prevSchoolRef, {
           memberCount: Math.max(0, currentMemberCount - 1),
-          updatedAt: Date.now()
+          updatedAt: Timestamp.now().toMillis()
         });
       }
       
@@ -407,14 +409,14 @@ export const selectSchool = async (
       const newSchoolRef = doc(db, 'schools', schoolId);
       await updateDoc(newSchoolRef, {
         memberCount: increment(1),
-        updatedAt: Date.now()
+        updatedAt: Timestamp.now().toMillis()
       });
     } else if (!previousSchool) {
       // 처음으로 학교를 선택하는 경우, 해당 학교의 회원 수만 증가
       const schoolRef = doc(db, 'schools', schoolId);
       await updateDoc(schoolRef, {
         memberCount: increment(1),
-        updatedAt: Date.now()
+        updatedAt: Timestamp.now().toMillis()
       });
     }
     
@@ -513,7 +515,7 @@ export const validateReferralAndReward = async (
     // 신규 사용자에게 추천인 정보 저장
     await updateDoc(doc(db, 'users', newUserId), {
       referrerId: referrerId,
-      updatedAt: Date.now()
+      updatedAt: Timestamp.now().toMillis()
     });
 
     return { 

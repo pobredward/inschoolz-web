@@ -1,26 +1,59 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
   addDoc,
-  updateDoc,
+  updateDoc, 
+  deleteDoc, 
   serverTimestamp,
-  deleteDoc,
   increment,
   getCountFromServer,
-  limit as firestoreLimit
+  Timestamp,
+  FieldValue
 } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
-import { User, Post, Comment } from '@/types';
 import { getDownloadURL, ref, uploadBytes, deleteObject } from 'firebase/storage';
-import { getBoardsByType } from '@/lib/api/board';
+import { db, storage } from '@/lib/firebase';
+import { User, Post, Comment, FirebaseTimestamp } from '@/types';
+import { getBoardsByType } from '@/lib/api/boards';
 import { generatePreviewContent } from '@/lib/utils';
 import { getSchoolById } from '@/lib/api/schools';
+import { toTimestamp } from '@/lib/utils';
+
+// UserRelationship 타입 정의  
+interface UserRelationship {
+  id: string;
+  userId: string;
+  targetId: string;
+  type: 'friend' | 'follow' | 'block';
+  status: 'pending' | 'accepted' | 'blocked' | 'active';
+  createdAt: FirebaseTimestamp;
+  updatedAt?: FirebaseTimestamp;
+}
+
+// Post 데이터 타입 정의
+interface PostData {
+  boardCode?: string;
+  type?: 'national' | 'regional' | 'school';
+  schoolId?: string;
+  content?: string;
+  regions?: {
+    sido: string;
+    sigungu: string;
+  };
+  [key: string]: unknown;
+}
+
+// 확장된 Post 타입
+interface ExtendedPost extends Post {
+  boardName?: string;
+  schoolName?: string;
+  previewContent?: string;
+}
 
 /**
  * 사용자 정보 조회
@@ -113,28 +146,31 @@ export const getUserPosts = async (
     }
     
     const querySnapshot = await getDocs(q);
-    const posts: Post[] = [];
+    const posts: ExtendedPost[] = [];
     
     // 게시판 정보 캐시
-    const boardCache: { [key: string]: { name: string } } = {};
+    const boardCache: { [key: string]: string } = {};
     // 학교 정보 캐시
     const schoolCache: { [key: string]: { name: string } } = {};
     
+    // 게시글 정보 처리
     for (const doc of querySnapshot.docs) {
-      const postData = doc.data();
+      const postData = doc.data() as PostData; // PostData 타입 사용
+      let boardName = '알 수 없는 게시판';
+      let schoolName = undefined;
       
-      // 게시판 이름 조회
-      let boardName = '게시판';
+      // 게시판 정보 조회 (캐싱 사용)
       if (postData.boardCode && postData.type) {
         const cacheKey = `${postData.type}-${postData.boardCode}`;
+        
         if (boardCache[cacheKey]) {
-          boardName = boardCache[cacheKey].name;
+          boardName = boardCache[cacheKey];
         } else {
           try {
-            const boards = await getBoardsByType(postData.type);
+            const boards = await getBoardsByType(postData.type as 'national' | 'regional' | 'school');
             const board = boards.find(b => b.code === postData.boardCode);
             boardName = board?.name || `게시판 (${postData.boardCode})`;
-            boardCache[cacheKey] = { name: boardName };
+            boardCache[cacheKey] = boardName;
           } catch (error) {
             console.error('게시판 정보 조회 실패:', error);
             boardName = `게시판 (${postData.boardCode})`;
@@ -142,34 +178,33 @@ export const getUserPosts = async (
         }
       }
       
-      // 학교 이름 조회 (학교 게시글인 경우)
-      let schoolName = undefined;
+      // 학교 정보 조회 (캐싱 사용)
       if (postData.type === 'school' && postData.schoolId) {
         if (schoolCache[postData.schoolId]) {
           schoolName = schoolCache[postData.schoolId].name;
         } else {
           try {
             const school = await getSchoolById(postData.schoolId);
-            schoolName = school?.name || '학교';
+            schoolName = school?.name || '알 수 없는 학교';
             schoolCache[postData.schoolId] = { name: schoolName };
           } catch (error) {
             console.error('학교 정보 조회 실패:', error);
-            schoolName = '학교';
+            schoolName = '알 수 없는 학교';
           }
         }
       }
       
-      // 미리보기 콘텐츠 생성
-      const previewContent = generatePreviewContent(postData.content);
+      // 미리보기 내용 생성
+      const previewContent = generatePreviewContent(postData.content || '');
       
-      posts.push({ 
-        id: doc.id, 
-        ...doc.data(),
+      posts.push({
+        id: doc.id,
+        ...postData,
         boardName,
-        previewContent,
         schoolName,
+        previewContent,
         regions: postData.regions
-      } as Post & { boardName: string; previewContent: string; schoolName?: string; regions?: { sido: string; sigungu: string } });
+      } as ExtendedPost);
     }
     
     // 전체 게시글 수 가져오기
@@ -255,7 +290,7 @@ export const getUserComments = async (
     }
     
     // 생성일 기준 정렬 (최신 댓글이 위에)
-    allComments.sort((a, b) => b.createdAt - a.createdAt);
+    allComments.sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt));
     
     // 페이징 처리
     const totalCount = allComments.length;
@@ -266,8 +301,8 @@ export const getUserComments = async (
     // Timestamp 직렬화
     const serializedComments = paginatedComments.map(comment => ({
       ...comment,
-      createdAt: (comment.createdAt as any)?.toMillis ? (comment.createdAt as any).toMillis() : comment.createdAt,
-      updatedAt: (comment.updatedAt as any)?.toMillis ? (comment.updatedAt as any).toMillis() : comment.updatedAt,
+      createdAt: toTimestamp(comment.createdAt),
+      updatedAt: comment.updatedAt ? toTimestamp(comment.updatedAt) : undefined,
     }));
     
     return {
@@ -291,7 +326,6 @@ export const getUserLikedPosts = async (
 ): Promise<Post[]> => {
   try {
     // 사용자가 좋아요한 게시글 ID 목록 조회
-    const likesRef = collection(db, 'posts');
     const likesQuery = query(
       collection(db, 'posts'),
       where('stats.likeCount', '>', 0),
@@ -533,14 +567,14 @@ export const toggleFollow = async (
         // 활성 상태면 비활성화 (언팔로우)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'inactive',
-          updatedAt: Date.now()
+          updatedAt: Timestamp.now().toMillis()
         });
         return { isFollowing: false };
       } else {
         // 비활성 상태면 활성화 (다시 팔로우)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'active',
-          updatedAt: Date.now()
+          updatedAt: Timestamp.now().toMillis()
         });
         return { isFollowing: true };
       }
@@ -552,8 +586,8 @@ export const toggleFollow = async (
         targetId,
         type: 'follow',
         status: 'active',
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        createdAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis()
       };
       
       const relationshipRef = await addDoc(relationshipsRef, newRelationship);
@@ -635,14 +669,14 @@ export const toggleBlock = async (
         // 활성 상태면 비활성화 (차단 해제)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'inactive',
-          updatedAt: Date.now()
+          updatedAt: Timestamp.now().toMillis()
         });
         return { isBlocked: false };
       } else {
         // 비활성 상태면 활성화 (다시 차단)
         await updateDoc(doc(db, 'userRelationships', relationshipDoc.id), {
           status: 'active',
-          updatedAt: Date.now()
+          updatedAt: Timestamp.now().toMillis()
         });
         return { isBlocked: true };
       }
@@ -654,8 +688,8 @@ export const toggleBlock = async (
         targetId,
         type: 'block',
         status: 'active',
-        createdAt: Date.now(),
-        updatedAt: Date.now()
+        createdAt: Timestamp.now().toMillis(),
+        updatedAt: Timestamp.now().toMillis()
       };
       
       const relationshipRef = await addDoc(relationshipsRef, newRelationship);
@@ -680,7 +714,7 @@ export const toggleBlock = async (
         const followDoc = followSnapshot.docs[0];
         await updateDoc(doc(db, 'userRelationships', followDoc.id), {
           status: 'inactive',
-          updatedAt: Date.now()
+          updatedAt: Timestamp.now().toMillis()
         });
       }
       
@@ -780,7 +814,7 @@ export const updateUserProfile = async (
       throw new Error('사용자를 찾을 수 없습니다.');
     }
     
-    const updates: Record<string, any> = {};
+    const updates: Record<string, FieldValue | string | number | boolean | object | null> = {};
     
     // 프로필 필드 업데이트
     if (profileData.userName) {
@@ -888,7 +922,7 @@ export const updateProfileImage = async (
     
     // Firebase Storage 경로 설정
     const fileExtension = imageFile.name.split('.').pop();
-    const fileName = `${userId}_${Date.now()}.${fileExtension}`;
+    const fileName = `${userId}_${Timestamp.now().toMillis()}.${fileExtension}`;
     const storageRef = ref(storage, `profile_images/${fileName}`);
     
     // 이미지 업로드
@@ -1086,8 +1120,7 @@ export const getUserDetail = async (userId: string): Promise<User & {
         warningCount
       },
       recentActivity: {
-        lastLoginAt: (userData as any).lastLoginAt,
-        lastActiveAt: (userData as any).lastActiveAt,
+        lastLoginAt: userData.lastLoginAt ? toTimestamp(userData.lastLoginAt) : undefined,
         recentPosts,
         recentComments: [] // 간단화
       }
@@ -1120,7 +1153,7 @@ export const updateUserRole = async (userId: string, newRole: 'admin' | 'user'):
 export const updateUserStatus = async (userId: string, newStatus: 'active' | 'inactive' | 'suspended', reason?: string): Promise<void> => {
   try {
     const userRef = doc(db, 'users', userId);
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, FieldValue | string | number | boolean | object | null> = {
       status: newStatus,
       updatedAt: serverTimestamp()
     };
@@ -1227,7 +1260,7 @@ export const bulkUpdateUsers = async (userIds: string[], updates: {
     
     for (const userId of userIds) {
       const userRef = doc(db, 'users', userId);
-      const updateData: Record<string, any> = {
+      const updateData: Record<string, FieldValue | string | number | boolean | object | null> = {
         ...updates,
         updatedAt: serverTimestamp()
       };

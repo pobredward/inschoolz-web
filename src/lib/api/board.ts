@@ -101,7 +101,7 @@ export const getPopularPosts = async (type: BoardType, count = 5) => {
 export const getPopularPostsForHome = async (count = 10) => {
   try {
     // 14일 전 Timestamp 계산
-    const fourteenDaysAgo = Timestamp.fromDate(new Date(Date.now() - (14 * 24 * 60 * 60 * 1000)));
+    const fourteenDaysAgo = Timestamp.fromDate(new Date(Timestamp.now().toMillis() - (14 * 24 * 60 * 60 * 1000)));
     
     const constraints = [
       where('createdAt', '>=', fourteenDaysAgo),

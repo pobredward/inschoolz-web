@@ -1,4 +1,4 @@
-import { Board as BaseBoard, Post as BasePost, Comment as BaseComment } from ".";
+import { Board as BaseBoard, Post as BasePost, Comment as BaseComment, FirebaseTimestamp } from ".";
 
 export type BoardType = 'national' | 'regional' | 'school';
 
@@ -48,7 +48,7 @@ export interface PopularPost {
     likeCount: number;
     commentCount: number;
   };
-  createdAt: number;
+  createdAt: FirebaseTimestamp;
 }
 
 export interface BoardFilterOptions {

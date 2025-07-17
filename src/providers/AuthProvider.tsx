@@ -12,7 +12,7 @@ import {
   sendPasswordResetEmail,
   updateProfile
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
 import Cookies from 'js-cookie';
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 birthDay: 0,
                 phoneNumber: '',
                 profileImageUrl: photoURL || '',
-                createdAt: Date.now(),
+                createdAt: Timestamp.now().toMillis(),
                 isAdmin: false
               },
               stats: firestoreUserData.stats || {
@@ -126,8 +126,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 location: false,
                 marketing: false
               },
-              createdAt: firestoreUserData.createdAt || Date.now(),
-              updatedAt: firestoreUserData.updatedAt || Date.now(),
+              createdAt: firestoreUserData.createdAt || Timestamp.now().toMillis(),
+              updatedAt: firestoreUserData.updatedAt || Timestamp.now().toMillis(),
               lastLoginAt: firestoreUserData.lastLoginAt,
               referrerId: firestoreUserData.referrerId,
               emailVerified
@@ -166,7 +166,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 birthDay: 0,
                 phoneNumber: '',
                 profileImageUrl: photoURL || '',
-                createdAt: Date.now(),
+                createdAt: Timestamp.now().toMillis(),
                 isAdmin: false
               },
               stats: {
@@ -185,8 +185,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 location: false,
                 marketing: false
               },
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
+              createdAt: Timestamp.now().toMillis(),
+              updatedAt: Timestamp.now().toMillis(),
               emailVerified
             });
           }
@@ -215,7 +215,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               birthDay: 0,
               phoneNumber: '',
               profileImageUrl: photoURL || '',
-              createdAt: Date.now(),
+              createdAt: Timestamp.now().toMillis(),
               isAdmin: false
             },
             stats: {
@@ -234,8 +234,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               location: false,
               marketing: false
             },
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            createdAt: Timestamp.now().toMillis(),
+            updatedAt: Timestamp.now().toMillis(),
             emailVerified
           });
         }
@@ -283,7 +283,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             birthDay: 0,
             phoneNumber: '',
             profileImageUrl: user.photoURL || '',
-            createdAt: Date.now(),
+            createdAt: Timestamp.now().toMillis(),
             isAdmin: false
           },
         createdAt: new Date(),
@@ -381,7 +381,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             birthDay: 0,
             phoneNumber: '',
             profileImageUrl: user.photoURL || '',
-            createdAt: Date.now(),
+            createdAt: Timestamp.now().toMillis(),
             isAdmin: false
           },
           createdAt: new Date(),
@@ -454,7 +454,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             birthDay: 0,
             phoneNumber: '',
             profileImageUrl: photoURL || '',
-            createdAt: firestoreUserData.createdAt || Date.now(),
+            createdAt: firestoreUserData.createdAt || Timestamp.now().toMillis(),
             isAdmin: false
           },
           stats: firestoreUserData.stats || {
@@ -475,8 +475,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             location: false,
             marketing: false
           },
-          createdAt: firestoreUserData.createdAt || Date.now(),
-          updatedAt: firestoreUserData.updatedAt || Date.now(),
+          createdAt: firestoreUserData.createdAt || Timestamp.now().toMillis(),
+          updatedAt: firestoreUserData.updatedAt || Timestamp.now().toMillis(),
           emailVerified
         });
         

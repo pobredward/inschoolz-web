@@ -3,7 +3,15 @@ import {
   doc, 
   addDoc, 
   updateDoc, 
-  getDoc,
+  deleteDoc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  serverTimestamp, 
+  Timestamp,
   increment,
   runTransaction
 } from 'firebase/firestore';
@@ -82,7 +90,7 @@ export const createAnonymousComment = async ({
         isDeleted: false,
         isBlocked: false,
       },
-      createdAt: Date.now(),
+      createdAt: Timestamp.now().toMillis(),
     };
 
     // Firestore에 댓글 추가
@@ -155,7 +163,7 @@ export const updateAnonymousComment = async (
     const commentRef = doc(db, 'posts', postId, 'comments', commentId);
     await updateDoc(commentRef, {
       content,
-      updatedAt: Date.now(),
+      updatedAt: Timestamp.now().toMillis(),
     });
   } catch (error) {
     console.error('익명 댓글 수정 실패:', error);
@@ -188,7 +196,7 @@ export const deleteAnonymousComment = async (
       transaction.update(commentRef, {
         'status.isDeleted': true,
         content: '삭제된 댓글입니다.',
-        deletedAt: Date.now(),
+        deletedAt: Timestamp.now().toMillis(),
       });
       
       // 게시글의 댓글 수 감소

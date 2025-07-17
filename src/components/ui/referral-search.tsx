@@ -32,7 +32,7 @@ export const ReferralSearch: React.FC<ReferralSearchProps> = ({
   const [selectedUser, setSelectedUser] = useState<ReferralUser | null>(null);
   
   const searchRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // 외부 클릭 감지
   useEffect(() => {

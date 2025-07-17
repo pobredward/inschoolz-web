@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PlusCircle, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Timestamp } from 'firebase/firestore'
 
 export interface PollOption {
   id: string
@@ -25,7 +26,7 @@ export default function PollEditor({ pollData, onChange }: PollEditorProps) {
   // 새 옵션 추가
   const handleAddOption = () => {
     const newOption: PollOption = {
-      id: `option-${Date.now()}`,
+      id: `option-${Timestamp.now().toMillis()}`,
       text: ''
     }
     

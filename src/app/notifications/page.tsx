@@ -36,6 +36,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { toDate } from '@/lib/utils';
 
 // 알림 타입별 아이콘 및 색상
 const getNotificationIcon = (type: NotificationType) => {
@@ -380,7 +381,7 @@ export default function NotificationsPage() {
                           
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-xs text-gray-400">
-                              {formatDistanceToNow(new Date(notification.createdAt), {
+                              {formatDistanceToNow(new Date(toDate(notification.createdAt)), {
                                 addSuffix: true,
                                 locale: ko
                               })}

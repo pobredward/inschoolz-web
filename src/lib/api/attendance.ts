@@ -3,11 +3,11 @@ import {
   getDoc,
   updateDoc,
   setDoc,
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserAttendance, AttendanceLog } from '@/types';
 import { getSystemSettings, updateUserExperience } from '@/lib/experience';
-import { now } from '@/lib/utils';
 
 // 경험치 관련 상수는 시스템 설정에서 동적으로 가져옴
 // const ATTENDANCE_XP = 10; // 제거됨 - 시스템 설정에서 가져옴
@@ -106,7 +106,7 @@ export const checkAttendance = async (
             [todayStr]: true
           },
           streak: 1,
-          lastAttendance: now(),
+          lastAttendance: Timestamp.now().toMillis(),
           monthlyLog: newMonthlyLog
         };
         
@@ -122,7 +122,7 @@ export const checkAttendance = async (
           streak: 1,
           totalCount: 1,
           monthCount: 1,
-          lastAttendance: Date.now(),
+          lastAttendance: Timestamp.now().toMillis(),
           monthlyLog: newMonthlyLog,
           expGained: attendanceXP,
           leveledUp: expResult.leveledUp,
@@ -184,7 +184,7 @@ export const checkAttendance = async (
       await updateDoc(attendanceRef, {
         attendances: updatedAttendances,
         streak,
-        lastAttendance: Date.now(),
+        lastAttendance: Timestamp.now().toMillis(),
         monthlyLog: updatedMonthlyLog
       });
       
@@ -213,7 +213,7 @@ export const checkAttendance = async (
         streak,
         totalCount,
         monthCount,
-        lastAttendance: Date.now(),
+        lastAttendance: Timestamp.now().toMillis(),
         monthlyLog: updatedMonthlyLog,
         expGained: totalXp,
         leveledUp: expResult.leveledUp,

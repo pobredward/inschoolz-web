@@ -62,7 +62,7 @@ export default function TileGamePage() {
   const startGame = () => {
     initializeGame();
     setGameState('playing');
-    setGameStartTime(Date.now());
+    setGameStartTime(performance.now());
   };
 
   // 타일 클릭 처리
@@ -119,7 +119,7 @@ export default function TileGamePage() {
 
   // 게임 종료
   const finishGame = async () => {
-    const endTime = Date.now();
+    const endTime = performance.now();
     const totalTime = Math.floor((endTime - gameStartTime) / 1000);
     setTimeElapsed(totalTime);
     
@@ -150,7 +150,7 @@ export default function TileGamePage() {
     
     if (gameState === 'playing') {
       interval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+        const elapsed = Math.floor((performance.now() - gameStartTime) / 1000);
         setTimeElapsed(elapsed);
         
         if (elapsed >= maxTime) {

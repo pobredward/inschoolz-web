@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer, orderBy, limit } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Board } from '@/types/board';
 import { School } from '@/types';
@@ -118,7 +118,7 @@ export const updateExperienceSettings = async (settings: ExperienceSettings): Pr
     // setDoc을 사용하여 문서가 없으면 생성, 있으면 업데이트
     await setDoc(doc(db, 'system', 'experienceSettings'), {
       ...settings,
-      updatedAt: Date.now(),
+      updatedAt: Timestamp.now().toMillis(),
     });
     await invalidateSystemSettingsCache(); // 캐시 무효화
   } catch (error) {
@@ -151,8 +151,8 @@ export const getAllBoards = async (): Promise<Board[]> => {
         order: boardData.order || 0,
         isActive: boardData.isActive !== undefined ? boardData.isActive : true,
         isPublic: boardData.isPublic !== undefined ? boardData.isPublic : true,
-        createdAt: boardData.createdAt || Date.now(),
-        updatedAt: boardData.updatedAt || Date.now(),
+        createdAt: boardData.createdAt || Timestamp.now().toMillis(),
+        updatedAt: boardData.updatedAt || Timestamp.now().toMillis(),
         stats: {
           postCount: boardData.stats?.postCount || 0,
           viewCount: boardData.stats?.viewCount || 0,
@@ -201,8 +201,8 @@ export const createBoard = async (boardData: Omit<Board, 'id' | 'createdAt' | 'u
       allowAnonymous: boardData.allowAnonymous,
       allowPolls: boardData.allowPolls,
       icon: boardData.icon,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: Timestamp.now().toMillis(),
+      updatedAt: Timestamp.now().toMillis(),
       stats: boardData.stats || { postCount: 0, viewCount: 0, activeUserCount: 0 }
     };
     
@@ -232,7 +232,7 @@ export const updateBoard = async (boardId: string, boardData: Partial<Board>): P
     const boardRef = doc(db, 'boards', boardId);
     await updateDoc(boardRef, {
       ...boardData,
-      updatedAt: Date.now(),
+      updatedAt: Timestamp.now().toMillis(),
     });
   } catch (error) {
     console.error('게시판 수정 오류:', error);
@@ -261,7 +261,7 @@ export const toggleBoardStatus = async (boardId: string, isActive: boolean): Pro
     const boardRef = doc(db, 'boards', boardId);
     await updateDoc(boardRef, {
       isActive,
-      updatedAt: Date.now(),
+      updatedAt: Timestamp.now().toMillis(),
     });
   } catch (error) {
     console.error('게시판 상태 변경 오류:', error);
@@ -286,7 +286,7 @@ export const getAdminStats = async (): Promise<{
     const totalUsers = usersSnapshot.data().count;
 
     // 활성 사용자 수 계산 (최근 30일 내 활동)
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = Timestamp.now().toMillis() - (30 * 24 * 60 * 60 * 1000);
     const activeUsersQuery = query(
       collection(db, 'users'),
       where('lastActiveAt', '>=', thirtyDaysAgo)
@@ -366,7 +366,7 @@ export const getHomeStats = async (): Promise<{
     const todayPosts = todayPostsSnapshot.data().count;
 
     // 온라인 사용자 수 계산 (최근 5분 내 활동)
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    const fiveMinutesAgo = Timestamp.now().toMillis() - (5 * 60 * 1000);
     const onlineUsersQuery = query(
       collection(db, 'users'),
       where('lastActiveAt', '>=', fiveMinutesAgo)
@@ -425,8 +425,8 @@ export const adminGetAllSchools = async (): Promise<School[]> => {
             sigungu: getDistrict(schoolData.ADDRESS || schoolData.address)
           },
           gameStats: schoolData.gameStats,
-          createdAt: schoolData.createdAt || Date.now(),
-          updatedAt: schoolData.updatedAt || Date.now(),
+          createdAt: schoolData.createdAt || Timestamp.now().toMillis(),
+          updatedAt: schoolData.updatedAt || Timestamp.now().toMillis(),
           memberCount,
           favoriteCount
         });
@@ -478,8 +478,8 @@ export const adminSearchSchools = async (searchTerm: string): Promise<School[]> 
           sigungu: getDistrict(schoolData.ADDRESS || schoolData.address || '')
         },
         gameStats: schoolData.gameStats || {},
-        createdAt: schoolData.createdAt || Date.now(),
-        updatedAt: schoolData.updatedAt || Date.now(),
+        createdAt: schoolData.createdAt || Timestamp.now().toMillis(),
+        updatedAt: schoolData.updatedAt || Timestamp.now().toMillis(),
         memberCount: schoolData.memberCount || 0,
         favoriteCount: schoolData.favoriteCount || 0
       });
@@ -523,8 +523,8 @@ export const adminCreateSchool = async (schoolData: Omit<School, 'id' | 'created
       memberCount: schoolData.memberCount || 0,
       favoriteCount: schoolData.favoriteCount || 0,
       gameStats: schoolData.gameStats || {},
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: Timestamp.now().toMillis(),
+      updatedAt: Timestamp.now().toMillis()
     };
     
     await setDoc(newSchoolRef, createData);
@@ -540,7 +540,7 @@ export const adminUpdateSchool = async (schoolId: string, schoolData: Partial<Sc
     const schoolRef = doc(db, 'schools', schoolId);
     
     const updateData: Record<string, string | number | object> = {
-      updatedAt: Date.now()
+      updatedAt: Timestamp.now().toMillis()
     };
     
     if (schoolData.name !== undefined) updateData.KOR_NAME = schoolData.name;

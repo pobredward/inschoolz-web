@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { formatRelativeTime, getPostPreviewImages } from "@/lib/utils";
+import { FirebaseTimestamp } from "@/types";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ interface PostListItemProps {
       isAnonymous?: boolean;
       profileImageUrl?: string;
     };
-    createdAt: Date | number;
+    createdAt: FirebaseTimestamp;
     stats?: {
       viewCount?: number;
       likeCount?: number;

@@ -83,32 +83,50 @@ export const performanceLogger = {
 
 /**
  * 다양한 형태의 timestamp를 Date 객체로 변환
- * @param timestamp Firebase Timestamp, Date, number, 또는 기타 형태
+ * @param timestamp Firebase Timestamp, Date, number, string 등
  * @returns Date 객체
  */
 export function toDate(timestamp: unknown): Date {
+  // Date 객체인 경우
   if (timestamp instanceof Date) {
     return timestamp;
   }
   
+  // number 타입인 경우 (Unix timestamp)
   if (typeof timestamp === 'number') {
     return new Date(timestamp);
   }
   
+  // string 타입인 경우
+  if (typeof timestamp === 'string') {
+    const date = new Date(timestamp);
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+  }
+  
+  // Firebase Timestamp 객체인 경우
   if (timestamp && typeof timestamp === 'object') {
-    // Firebase Timestamp 객체
+    // Timestamp 객체의 toDate 메소드 사용
     if ('toDate' in timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
       return (timestamp as Timestamp).toDate();
     }
     
-    // Firestore Timestamp 직렬화된 형태 (seconds, nanoseconds)
-    if ('seconds' in timestamp && 'nanoseconds' in timestamp) {
-      const { seconds, nanoseconds } = timestamp as { seconds: number; nanoseconds: number };
+    // Firestore에서 직렬화된 Timestamp 형태 (seconds, nanoseconds)
+    if ('seconds' in timestamp && typeof (timestamp as { seconds: unknown }).seconds === 'number') {
+      const { seconds, nanoseconds = 0 } = timestamp as { seconds: number; nanoseconds?: number };
       return new Date(seconds * 1000 + nanoseconds / 1000000);
+    }
+    
+    // serverTimestamp() 후 아직 서버에서 처리되지 않은 경우 (null)
+    if (timestamp === null) {
+      console.warn('serverTimestamp()가 아직 처리되지 않았습니다. 현재 시간을 사용합니다.');
+      return new Date();
     }
   }
   
   // 기본값: 현재 시간
+  console.warn('알 수 없는 timestamp 형태:', timestamp, typeof timestamp);
   return new Date();
 }
 
@@ -126,7 +144,7 @@ export function toTimestamp(timestamp: unknown): number {
  * @returns Unix timestamp (milliseconds)
  */
 export function now(): number {
-  return Date.now();
+  return Timestamp.now().toMillis();
 }
 
 /**

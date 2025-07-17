@@ -33,29 +33,21 @@ import {
   adminUpdateSchool, 
   adminDeleteSchool 
 } from '@/lib/api/admin';
+import { School as SchoolType } from '@/types';
+import { toTimestamp } from '@/lib/utils';
 
-// School 타입 직접 정의 (빌드 오류 해결용)
-interface School {
+// 로컬 School 인터페이스 (실제 API 응답에 맞춤)
+interface LocalSchool {
   id: string;
   name: string;
   address: string;
   district: string;
-  type: '초등학교' | '중학교' | '고등학교' | '대학교';
-  logoUrl?: string;
+  type: "초등학교" | "중학교" | "고등학교" | "대학교";
   websiteUrl?: string;
-  regions?: {
-    sido: string;
-    sigungu: string;
-  };
-  gameStats?: {
-    flappyBird?: { totalScore: number };
-    reactionGame?: { totalScore: number };
-    tileGame?: { totalScore: number };
-  };
-  createdAt: number;
-  updatedAt: number;
+  logoUrl?: string;
   memberCount?: number;
   favoriteCount?: number;
+  createdAt: number;
 }
 
 interface SchoolFormData {
@@ -80,14 +72,28 @@ const initialFormData: SchoolFormData = {
   favoriteCount: 0
 };
 
+// API 타입을 로컬 타입으로 변환
+const convertSchool = (apiSchool: SchoolType): LocalSchool => ({
+  id: apiSchool.id,
+  name: apiSchool.name,
+  address: apiSchool.address || '',
+  district: apiSchool.district || '',
+  type: apiSchool.type,
+  websiteUrl: apiSchool.websiteUrl,
+  logoUrl: apiSchool.logoUrl,
+  memberCount: apiSchool.memberCount,
+  favoriteCount: apiSchool.favoriteCount,
+  createdAt: toTimestamp(apiSchool.createdAt)
+});
+
 export default function AdminSchoolsPage() {
   const { user } = useAuth();
-  const [schools, setSchools] = useState<School[]>([]);
+  const [schools, setSchools] = useState<LocalSchool[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingSchool, setEditingSchool] = useState<School | null>(null);
+  const [editingSchool, setEditingSchool] = useState<LocalSchool | null>(null);
   const [formData, setFormData] = useState<SchoolFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -96,7 +102,7 @@ export default function AdminSchoolsPage() {
     try {
       setLoading(true);
       const schoolList = await adminGetAllSchools();
-      setSchools(schoolList);
+      setSchools(schoolList.map(convertSchool));
     } catch (error) {
       console.error('학교 목록 로드 오류:', error);
       toast({
@@ -119,7 +125,7 @@ export default function AdminSchoolsPage() {
     try {
       setLoading(true);
       const searchResults = await adminSearchSchools(searchTerm);
-      setSchools(searchResults);
+      setSchools(searchResults.map(convertSchool));
     } catch (error) {
       console.error('학교 검색 오류:', error);
       toast({
@@ -222,12 +228,12 @@ export default function AdminSchoolsPage() {
   };
 
   // 수정 대화상자 열기
-  const openEditDialog = (school: School) => {
+  const openEditDialog = (school: LocalSchool) => {
     setEditingSchool(school);
     setFormData({
       name: school.name,
-      address: school.address,
-      district: school.district,
+      address: school.address || '',
+      district: school.district || '',
       type: school.type,
       websiteUrl: school.websiteUrl || '',
       logoUrl: school.logoUrl || '',

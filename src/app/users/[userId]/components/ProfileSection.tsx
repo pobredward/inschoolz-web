@@ -12,6 +12,7 @@ import { ko } from 'date-fns/locale';
 import { toggleFollow } from '@/lib/api/users';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toDate } from '@/lib/utils';
 
 interface ProfileSectionProps {
   user: User;
@@ -40,7 +41,7 @@ export default function ProfileSection({
   const formatJoinDate = () => {
     if (!user.createdAt) return '알 수 없음';
     
-    const date = new Date(user.createdAt);
+    const date = new Date(toDate(user.createdAt));
     return format(date, 'yyyy년 MM월 dd일', { locale: ko });
   };
   
@@ -48,7 +49,7 @@ export default function ProfileSection({
   const getActivityDuration = () => {
     if (!user.createdAt) return '';
     
-    const joinDate = new Date(user.createdAt);
+    const joinDate = new Date(toDate(user.createdAt));
     return formatDistanceToNow(joinDate, { locale: ko, addSuffix: true });
   };
   
