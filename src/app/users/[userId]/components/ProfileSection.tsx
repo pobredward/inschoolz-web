@@ -127,9 +127,9 @@ export default function ProfileSection({
               <div className="mb-3">
                 <p className="text-sm">
                   <span className="font-medium">Lv.{user.stats.level}</span>
-                  {user.stats.experience && (
+                  {user.stats.totalExperience && (
                     <span className="text-muted-foreground ml-1">
-                      (경험치: {user.stats.experience})
+                      (경험치: {user.stats.totalExperience})
                     </span>
                   )}
                 </p>

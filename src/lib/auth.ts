@@ -159,8 +159,9 @@ export const loginWithGoogle = async (): Promise<User> => {
         isVerified: false,
         stats: {
           level: 1,
-          experience: 0,
+          totalExperience: 0,
           currentExp: 0,
+          currentLevelRequiredXp: 10,
           postCount: 0,
           commentCount: 0,
           likeCount: 0,
@@ -223,8 +224,9 @@ export const loginWithFacebook = async (): Promise<User> => {
         isVerified: false,
         stats: {
           level: 1,
-          experience: 0,
+          totalExperience: 0,
           currentExp: 0,
+          currentLevelRequiredXp: 10,
           postCount: 0,
           commentCount: 0,
           likeCount: 0,

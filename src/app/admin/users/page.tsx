@@ -45,7 +45,7 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
-  const [sortBy, setSortBy] = useState<'createdAt' | 'lastActiveAt' | 'experience' | 'userName'>('createdAt');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'lastActiveAt' | 'totalExperience' | 'userName'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // 다이얼로그 상태
@@ -54,7 +54,7 @@ export default function AdminUsersPage() {
   
   // 폼 상태
   const [warningForm, setWarningForm] = useState({ reason: '', severity: 'medium' as 'low' | 'medium' | 'high' });
-  const [experienceForm, setExperienceForm] = useState({ experience: 0, reason: '' });
+  const [experienceForm, setExperienceForm] = useState({ totalExperience: 0, reason: '' });
   const [bulkAction, setBulkAction] = useState<{ type: string; value: string }>({ type: '', value: '' });
 
   const loadUsers = async (params: AdminUserListParams = {}) => {
@@ -145,10 +145,10 @@ export default function AdminUsersPage() {
     if (!experienceDialog.user) return;
     
     try {
-      await updateUserExperienceAdmin(experienceDialog.user.uid, experienceForm.experience, experienceForm.reason);
+              await updateUserExperienceAdmin(experienceDialog.user.uid, experienceForm.totalExperience, experienceForm.reason);
       toast.success('경험치가 수정되었습니다.');
       setExperienceDialog({ isOpen: false, user: null });
-      setExperienceForm({ experience: 0, reason: '' });
+      setExperienceForm({ totalExperience: 0, reason: '' });
       loadUsers();
     } catch (error) {
       toast.error('경험치 수정 중 오류가 발생했습니다.');
@@ -501,7 +501,7 @@ export default function AdminUsersPage() {
                             size="sm"
                             onClick={() => {
                               setExperienceDialog({ isOpen: true, user });
-                              setExperienceForm({ experience: user.stats?.totalExperience || 0, reason: '' });
+                              setExperienceForm({ totalExperience: user.stats?.totalExperience || 0, reason: '' });
                             }}
                           >
                             <Edit className="h-3 w-3" />
@@ -621,8 +621,8 @@ export default function AdminUsersPage() {
               <Input
                 id="experience-amount"
                 type="number"
-                value={experienceForm.experience}
-                onChange={(e) => setExperienceForm({ ...experienceForm, experience: Number(e.target.value) })}
+                                      value={experienceForm.totalExperience}
+                      onChange={(e) => setExperienceForm({ ...experienceForm, totalExperience: Number(e.target.value) })}
               />
             </div>
             <div>

@@ -8,6 +8,10 @@ import { StatCard } from '@/components/admin/StatCard';
 import { Users, MessageSquare, FileText, AlertCircle, Star, MessageCircle, Settings, Shield, Gamepad2, BarChart3, RefreshCw, Bell } from 'lucide-react';
 import { getAdminStats } from '@/lib/api/admin';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { fixUserExperienceData } from '@/lib/experience';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface AdminStats {
   totalUsers: number;
@@ -19,6 +23,48 @@ interface AdminStats {
 }
 
 export default function AdminDashboardPage() {
+  const { user } = useAuth();
+  const [userId, setUserId] = useState('');
+  const [isFixing, setIsFixing] = useState(false);
+
+  const handleFixExperience = async () => {
+    if (!userId.trim()) {
+      toast.error('사용자 ID를 입력해주세요.');
+      return;
+    }
+
+    setIsFixing(true);
+    try {
+      await fixUserExperienceData(userId.trim());
+      toast.success('경험치 데이터가 수정되었습니다.');
+    } catch (error) {
+      console.error('경험치 수정 오류:', error);
+      toast.error('경험치 데이터 수정에 실패했습니다.');
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
+  const handleFixCurrentUser = async () => {
+    if (!user?.uid) {
+      toast.error('로그인된 사용자가 없습니다.');
+      return;
+    }
+
+    setIsFixing(true);
+    try {
+      await fixUserExperienceData(user.uid);
+      toast.success('현재 사용자의 경험치 데이터가 수정되었습니다.');
+      // 페이지 새로고침하여 업데이트된 데이터 반영
+      window.location.reload();
+    } catch (error) {
+      console.error('경험치 수정 오류:', error);
+      toast.error('경험치 데이터 수정에 실패했습니다.');
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -156,6 +202,51 @@ export default function AdminDashboardPage() {
                 <span className="text-xs text-gray-500">학교 정보 및 설정 관리</span>
               </Button>
             </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>경험치 데이터 수정</CardTitle>
+          <CardDescription>
+            잘못된 경험치 데이터를 총 경험치 기준으로 재계산하여 수정합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="userId">사용자 ID</Label>
+            <Input
+              id="userId"
+              type="text"
+              placeholder="사용자 ID를 입력하세요"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleFixExperience}
+              disabled={isFixing}
+              className="flex-1"
+            >
+              {isFixing ? '수정 중...' : '경험치 데이터 수정'}
+            </Button>
+            
+            <Button 
+              onClick={handleFixCurrentUser}
+              disabled={isFixing}
+              variant="outline"
+              className="flex-1"
+            >
+              {isFixing ? '수정 중...' : '현재 사용자 수정'}
+            </Button>
+          </div>
+          
+          <div className="text-sm text-gray-500">
+            <p>• 총 경험치를 기준으로 레벨과 현재 경험치를 재계산합니다.</p>
+            <p>• 현재 사용자 UID: {user?.uid || '로그인되지 않음'}</p>
           </div>
         </CardContent>
       </Card>

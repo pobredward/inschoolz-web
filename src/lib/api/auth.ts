@@ -147,7 +147,6 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       // 경험치/통계
       stats: {
         level: 1,
-        experience: 0,
         totalExperience: 0,
         currentExp: 0,
         currentLevelRequiredXp: 40,
@@ -246,7 +245,6 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
         
         if (!querySnapshot.empty) {
           const referrerDoc = querySnapshot.docs[0];
-          const referrerData = referrerDoc.data();
           const referrerId = referrerDoc.id;
           
           // 시스템 설정에서 추천인 경험치 값 가져오기
@@ -256,19 +254,12 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
           const referrerExp = expSettings.referral?.referrerXP || 30; // 추천인이 받는 경험치
           const refereeExp = expSettings.referral?.refereeXP || 20;   // 추천받은 사람이 받는 경험치
           
-          // 추천인 경험치 업데이트
-          await updateDoc(referrerDoc.ref, {
-            'stats.experience': (referrerData.stats?.experience || 0) + referrerExp,
-            'stats.totalExperience': (referrerData.stats?.totalExperience || 0) + referrerExp,
-            updatedAt: Date.now()
-          });
+          // 추천인 경험치 업데이트 (레벨업 계산 포함)
+          const { updateUserExperience } = await import('../experience');
+          await updateUserExperience(referrerId, referrerExp);
           
-          // 신규 사용자 경험치 업데이트
-          await updateDoc(doc(db, 'users', userId), {
-            'stats.experience': refereeExp,
-            'stats.totalExperience': refereeExp,
-            updatedAt: Date.now()
-          });
+          // 신규 사용자 경험치 업데이트 (레벨업 계산 포함)
+          await updateUserExperience(userId, refereeExp);
 
           // 추천인에게 알림 발송
           try {

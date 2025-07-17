@@ -496,27 +496,29 @@ export const validateReferralAndReward = async (
       return { success: false, message: '자기 자신을 추천할 수 없습니다.' };
     }
 
-    // 추천인과 신규 사용자 모두에게 경험치 지급
-    const referralExpReward = 50; // 추천 보상 경험치
+    // 시스템 설정에서 추천인 경험치 값 가져오기
+    const { getExperienceSettings } = await import('./admin');
+    const expSettings = await getExperienceSettings();
+    
+    const referrerExp = expSettings.referral?.referrerXP || 30; // 추천인이 받는 경험치
+    const refereeExp = expSettings.referral?.refereeXP || 20;   // 추천받은 사람이 받는 경험치
 
-    // 추천인 경험치 지급
-    await updateDoc(doc(db, 'users', referrerId), {
-      'stats.experience': increment(referralExpReward),
-      'stats.currentExp': increment(referralExpReward),
-      updatedAt: Date.now()
-    });
+    // 추천인 경험치 업데이트 (레벨업 계산 포함)
+    const { updateUserExperience } = await import('../experience');
+    await updateUserExperience(referrerId, referrerExp);
 
-    // 신규 사용자 경험치 지급
+    // 신규 사용자 경험치 업데이트 (레벨업 계산 포함)
+    await updateUserExperience(newUserId, refereeExp);
+
+    // 신규 사용자에게 추천인 정보 저장
     await updateDoc(doc(db, 'users', newUserId), {
-      'stats.experience': increment(referralExpReward),
-      'stats.currentExp': increment(referralExpReward),
       referrerId: referrerId,
       updatedAt: Date.now()
     });
 
     return { 
       success: true, 
-      message: `${referrerData.profile.userName}님을 추천했습니다! 서로 ${referralExpReward} 경험치를 받았습니다.`,
+      message: `${referrerData.profile.userName}님을 추천했습니다! ${referrerData.profile.userName}님은 ${referrerExp}XP, 회원님은 ${refereeExp}XP를 받았습니다.`,
       referrerId: referrerId
     };
   } catch (error) {
