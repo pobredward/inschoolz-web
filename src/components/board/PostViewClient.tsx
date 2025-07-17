@@ -24,16 +24,19 @@ import { Post, Comment, Board } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
 import { useAuth } from '@/providers/AuthProvider';
 import { 
-  togglePostLike,
-  togglePostBookmark
+  togglePostBookmark,
+  checkLikeStatus,
+  checkBookmarkStatus,
+  incrementPostViewCount
 } from '@/lib/api/board';
 import {
-  deletePost
+  deletePost,
+  toggleLikePost
 } from '@/lib/api/boards';
 import { getBoardsByType } from '@/lib/api/board';
 import { toast } from 'react-hot-toast';
 import CommentSection from './CommentSection';
-import { formatSmartTime } from '@/lib/utils';
+import { formatAbsoluteTime } from '@/lib/utils';
 import { HtmlContent } from '@/components/ui/html-content';
 import { PollVoting } from '@/components/ui/poll-voting';
 import { 
@@ -72,9 +75,24 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
-    // 좋아요 상태 확인 (실제로는 API 호출 필요)
-    // checkLikeStatus();
-    // checkBookmarkStatus();
+    // 조회수 증가 (한 번만)
+    incrementPostViewCount(post.id);
+    
+    // 좋아요/북마크 상태 확인
+    const checkStatuses = async () => {
+      if (user) {
+        try {
+          const [likeStatus, bookmarkStatus] = await Promise.all([
+            checkLikeStatus(post.id, user.uid),
+            checkBookmarkStatus(post.id, user.uid)
+          ]);
+          setIsLiked(likeStatus);
+          setIsBookmarked(bookmarkStatus);
+        } catch (error) {
+          console.error('상태 확인 실패:', error);
+        }
+      }
+    };
     
     // board 정보 가져오기
     const fetchBoardInfo = async () => {
@@ -87,6 +105,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
       }
     };
     
+    checkStatuses();
     fetchBoardInfo();
   }, [user, post.id, post.type, post.boardCode]);
 
@@ -97,11 +116,11 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     }
 
     try {
-      const newIsLiked = await togglePostLike(post.id, user.uid);
-      setIsLiked(newIsLiked);
-      setLikeCount(prev => newIsLiked ? prev + 1 : prev - 1);
+      const result = await toggleLikePost(post.id, user.uid);
+      setIsLiked(result.liked);
+      setLikeCount(result.likeCount);
       
-      toast.success(newIsLiked ? '좋아요를 눌렀습니다.' : '좋아요를 취소했습니다.');
+      toast.success(result.liked ? '좋아요를 눌렀습니다.' : '좋아요를 취소했습니다.');
     } catch (error) {
       console.error('좋아요 처리 실패:', error);
       toast.error('좋아요 처리에 실패했습니다.');
@@ -128,10 +147,12 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
 
   const handleShare = async () => {
     try {
+      const shareText = post.content.replace(/<[^>]*>/g, '').substring(0, 100);
+      
       if (navigator.share) {
         await navigator.share({
-          title: post.title,
-          text: post.content,
+          title: `${post.title} - Inschoolz`,
+          text: shareText,
           url: window.location.href,
         });
       } else {
@@ -141,7 +162,13 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
       }
     } catch (error) {
       console.error('공유 실패:', error);
-      toast.error('공유에 실패했습니다.');
+      // 공유 API 실패 시 클립보드로 대체
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success('링크가 클립보드에 복사되었습니다.');
+      } catch (clipboardError) {
+        toast.error('공유에 실패했습니다.');
+      }
     }
   };
 
@@ -263,10 +290,10 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         <CardContent className="p-6">
           {/* 게시판 정보 배지 - 맨 위 왼쪽 */}
           <div className="flex items-center gap-1 mb-4">
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
               {getBoardTypeLabel(post.type)}
             </Badge>
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
               {boardInfo?.name || post.boardCode}
             </Badge>
           </div>
@@ -286,15 +313,9 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
                     {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-slate-500" />
-                    <span className="text-sm text-slate-500">{post.stats.viewCount}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-slate-500" />
-                    <span className="text-sm text-slate-500">{formatSmartTime(post.createdAt)}</span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
                 </div>
               </div>
             </div>
@@ -371,21 +392,26 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
 
           {/* 액션 버튼들 */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{post.stats.viewCount + 1}</span>
+              </div>
+              
               <Button
-                variant="ghost"
+                variant="ghost" 
                 size="sm"
                 onClick={handleLike}
-                className={`flex items-center gap-2 ${isLiked ? 'text-red-500' : ''}`}
+                className={`flex items-center gap-2 px-3 py-2 ${isLiked ? 'text-red-500' : ''}`}
               >
                 <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span>{likeCount}</span>
+                <span className="text-sm">{likeCount}</span>
               </Button>
               
-              <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                <span>{commentCount}</span>
-              </Button>
+              <div className="flex items-center gap-2 px-3 py-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{commentCount}</span>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">

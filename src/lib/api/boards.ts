@@ -22,9 +22,8 @@ import {
   FirebaseTimestamp
 } from '@/types';
 
-// Like 타입 정의
+// Like 타입 정의 (App과 통일)
 interface Like {
-  id: string;
   userId: string;
   postId: string;
   createdAt: FirebaseTimestamp;
@@ -176,19 +175,13 @@ export const getPosts = async (
   }
 };
 
-// 게시글 상세 정보 가져오기
+// 게시글 상세 정보 가져오기 (조회수 증가 없이)
 export const getPost = async (postId: string): Promise<Post | null> => {
   try {
     const postRef = doc(db, 'posts', postId);
     const postDoc = await getDoc(postRef);
     
     if (postDoc.exists()) {
-      // 조회수 증가
-      await updateDoc(postRef, {
-        'stats.viewCount': increment(1),
-        updatedAt: serverTimestamp()
-      });
-      
       return { id: postDoc.id, ...postDoc.data() } as Post;
     } else {
       return null;
@@ -196,6 +189,20 @@ export const getPost = async (postId: string): Promise<Post | null> => {
   } catch (error) {
     console.error('게시글 상세 정보 가져오기 오류:', error);
     throw new Error('게시글 상세 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 조회수 증가 (별도 함수)
+export const incrementPostViewCount = async (postId: string): Promise<void> => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    await updateDoc(postRef, {
+      'stats.viewCount': increment(1),
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('조회수 증가 오류:', error);
+    // 조회수 증가 실패는 중요하지 않으므로 에러를 던지지 않음
   }
 };
 
@@ -491,17 +498,11 @@ export const toggleLikePost = async (postId: string, userId: string): Promise<{ 
       };
     } else {
       // 좋아요 추가
-      const newLike: Like = {
-        id: '',
+      await addDoc(likesRef, {
         userId,
         postId,
         createdAt: serverTimestamp()
-      };
-      
-      const likeRef = await addDoc(likesRef, newLike);
-      
-      // Like 객체에 ID 추가
-      await updateDoc(likeRef, { id: likeRef.id });
+      });
       
       // 게시글 좋아요 수 증가
       await updateDoc(postRef, {

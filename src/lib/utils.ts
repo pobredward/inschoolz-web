@@ -1,8 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Timestamp } from 'firebase/firestore'
-import { formatDistanceToNow } from 'date-fns'
-import { ko } from 'date-fns/locale'
 
 // ===== Timestamp 직렬화 유틸리티 =====
 
@@ -212,10 +210,20 @@ export function formatRelativeTime(timestamp: unknown): string {
       return '방금 전';
     }
     
-    return formatDistanceToNow(date, { 
-      addSuffix: true,
-      locale: ko 
-    });
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return '방금 전';
+    } else if (diffInSeconds < 3600) {
+      return `${Math.floor(diffInSeconds / 60)}분 전`;
+    } else if (diffInSeconds < 86400) {
+      return `${Math.floor(diffInSeconds / 3600)}시간 전`;
+    } else if (diffInSeconds < 604800) {
+      return `${Math.floor(diffInSeconds / 86400)}일 전`;
+    } else {
+      return formatAbsoluteTime(timestamp, 'short');
+    }
   } catch (error) {
     console.error('시간 포맷팅 오류:', error);
     return '방금 전';
@@ -228,7 +236,7 @@ export function formatRelativeTime(timestamp: unknown): string {
  * @param format 포맷 형태 ('full' | 'short' | 'time')
  * @returns 포맷된 절대 시간 문자열
  */
-export function formatAbsoluteTime(timestamp: unknown, format: 'full' | 'short' | 'time' = 'short'): string {
+export function formatAbsoluteTime(timestamp: unknown, format: 'full' | 'short' | 'time' | 'datetime' = 'short'): string {
   try {
     const date = toDate(timestamp);
     
@@ -253,6 +261,13 @@ export function formatAbsoluteTime(timestamp: unknown, format: 'full' | 'short' 
           hour: '2-digit',
           minute: '2-digit'
         });
+      case 'datetime':
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hour = String(date.getHours()).padStart(2, '0');
+        const minute = String(date.getMinutes()).padStart(2, '0');
+        return `${year}.${month}.${day} ${hour}:${minute}`;
       default:
         return date.toLocaleDateString('ko-KR');
     }

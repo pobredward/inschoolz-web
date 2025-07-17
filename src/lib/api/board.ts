@@ -249,7 +249,7 @@ export const getPostsByBoard = async (
   }
 };
 
-// 게시글 상세 정보 가져오기
+// 게시글 상세 정보 가져오기 (조회수 증가 없이)
 export const getPostDetail = async (postId: string) => {
   try {
     const post = await getDocument<Post>('posts', postId);
@@ -257,11 +257,6 @@ export const getPostDetail = async (postId: string) => {
     if (!post) {
       throw new Error('게시글을 찾을 수 없습니다.');
     }
-    
-    // 게시글 조회수 업데이트
-    await updateDocument('posts', postId, {
-      'stats.viewCount': increment(1)
-    });
     
     // 게시글 Timestamp 직렬화 - serializeObject 사용
     const serializedPost = serializeObject<Post>(post, ['createdAt', 'updatedAt', 'deletedAt']);
@@ -273,6 +268,18 @@ export const getPostDetail = async (postId: string) => {
   } catch (error) {
     console.error('게시글 상세 정보 가져오기 오류:', error);
     throw new Error('게시글 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 게시글 조회수 증가 (별도 함수)
+export const incrementPostViewCount = async (postId: string): Promise<void> => {
+  try {
+    await updateDocument('posts', postId, {
+      'stats.viewCount': increment(1)
+    });
+  } catch (error) {
+    console.error('조회수 증가 오류:', error);
+    // 조회수 증가 실패는 중요하지 않으므로 에러를 던지지 않음
   }
 };
 
@@ -1031,75 +1038,112 @@ export const updatePost = async (postId: string, data: PostFormData) => {
 };
 
 // 게시글 북마크/스크랩 토글
-export const togglePostBookmark = async (postId: string, userId: string) => {
+export const togglePostBookmark = async (postId: string, userId: string): Promise<boolean> => {
   try {
-    // 사용자 문서에서 스크랩 목록 가져오기
-    const userDoc = await getDocument('users', userId);
-    if (!userDoc) {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
       throw new Error('사용자를 찾을 수 없습니다.');
     }
     
-    const userData = userDoc as User & { scraps?: string[] };
-    const scraps = userData.scraps || [];
-    const isBookmarked = scraps.includes(postId);
+    const userData = userDoc.data();
+    const bookmarks = userData.bookmarks || [];
+    const isBookmarked = bookmarks.includes(postId);
     
-    let updatedScraps: string[];
-    
+    let updatedBookmarks;
     if (isBookmarked) {
       // 북마크 제거
-      updatedScraps = scraps.filter((id: string) => id !== postId);
+      updatedBookmarks = bookmarks.filter((id: string) => id !== postId);
     } else {
       // 북마크 추가
-      updatedScraps = [...scraps, postId];
+      updatedBookmarks = [...bookmarks, postId];
     }
     
-    // 사용자 문서 업데이트
-    await updateDocument('users', userId, {
-      scraps: updatedScraps,
+    await updateDoc(userRef, {
+      bookmarks: updatedBookmarks,
       updatedAt: serverTimestamp()
     });
     
-    return !isBookmarked; // 새로운 북마크 상태 반환
+    return !isBookmarked;
   } catch (error) {
-    console.error('게시글 북마크 토글 오류:', error);
-    throw new Error('북마크 처리 중 오류가 발생했습니다.');
+    console.error('북마크 토글 오류:', error);
+    throw new Error('북마크 처리에 실패했습니다.');
   }
 };
 
-// 사용자가 북마크한 게시글 목록 가져오기
-export const getBookmarkedPosts = async (userId: string) => {
+// 좋아요 상태 확인
+export const checkLikeStatus = async (postId: string, userId: string): Promise<boolean> => {
   try {
-    // 사용자 문서에서 스크랩 목록 가져오기
-    const userDoc = await getDocument('users', userId);
-    if (!userDoc) {
+    const likesRef = collection(db, 'posts', postId, 'likes');
+    const q = query(likesRef, where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    
+    return !querySnapshot.empty;
+  } catch (error) {
+    console.error('좋아요 상태 확인 오류:', error);
+    return false;
+  }
+};
+
+// 북마크 상태 확인
+export const checkBookmarkStatus = async (postId: string, userId: string): Promise<boolean> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const bookmarks = userData.bookmarks || [];
+      return bookmarks.includes(postId);
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('북마크 상태 확인 오류:', error);
+    return false;
+  }
+};
+
+// 북마크된 게시글 목록 가져오기
+export const getBookmarkedPosts = async (userId: string, page = 1, pageSize = 20): Promise<Post[]> => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
       return [];
     }
     
-    const userData = userDoc as User & { scraps?: string[] };
-    const scraps = userData.scraps || [];
+    const userData = userDoc.data();
+    const bookmarks = userData.bookmarks || [];
     
-    if (scraps.length === 0) {
+    if (bookmarks.length === 0) {
       return [];
     }
     
-    // 스크랩한 게시글들 가져오기
-    const posts = [];
-    for (const postId of scraps) {
+    // 페이징 적용
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedBookmarks = bookmarks.slice(startIndex, endIndex);
+    
+    // 게시글 정보 가져오기
+    const posts: Post[] = [];
+    for (const postId of paginatedBookmarks) {
       try {
-        const post = await getDocument('posts', postId);
-        if (post && !(post as any).status?.isDeleted) {
-          posts.push(post);
+        const post = await getDocument<Post>('posts', postId);
+        if (post && !post.status.isDeleted) {
+          posts.push(serializeObject<Post>(post, ['createdAt', 'updatedAt', 'deletedAt']));
         }
       } catch (error) {
-        console.warn(`게시글 ${postId} 조회 실패:`, error);
+        console.error(`게시글 ${postId} 조회 실패:`, error);
       }
     }
     
-    // 최신순으로 정렬
-    return posts.sort((a: any, b: any) => b.createdAt - a.createdAt);
+    return posts;
   } catch (error) {
-    console.error('북마크 목록 조회 오류:', error);
-    throw new Error('북마크 목록을 가져오는 중 오류가 발생했습니다.');
+    console.error('북마크된 게시글 조회 오류:', error);
+    throw new Error('북마크된 게시글을 가져오는 중 오류가 발생했습니다.');
   }
 };
 
