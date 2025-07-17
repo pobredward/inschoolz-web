@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatRelativeTime, getPostPreviewImages } from "@/lib/utils";
-import { MessageSquare, ThumbsUp, Eye, Pin, PenSquare, Loader2 } from "lucide-react";
+import { MessageSquare, ThumbsUp, Eye, Pin, PenSquare, Loader2, BarChart3 } from "lucide-react";
 import { BoardType, BoardFilterOptions } from "@/types/board";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -277,26 +277,26 @@ export default function PostList({
                 </div>
                 
                 <div className="flex items-center gap-3 text-sm">
-                  {post.imageUrls && post.imageUrls.length > 0 && (
-                    <span className="flex items-center text-muted-foreground">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                        <circle cx="9" cy="9" r="2" />
-                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                      </svg>
-                      {post.imageUrls.length}
-                    </span>
-                  )}
-                  
-                  {post.poll && (
-                    <span className="flex items-center text-muted-foreground">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                        <path d="M12 22V8" />
-                        <path d="M20 22V4" />
-                        <path d="M4 22v-8" />
-                      </svg>
-                    </span>
-                  )}
+                  {/* 뱃지 컨테이너 */}
+                  <div className="flex items-center gap-1">
+                    {post.imageUrls && post.imageUrls.length > 0 && (
+                      <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                          <circle cx="9" cy="9" r="2" />
+                          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                        </svg>
+                        사진 {post.imageUrls.length}
+                      </Badge>
+                    )}
+                    
+                    {post.poll && (
+                      <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                        <BarChart3 className="h-3 w-3" />
+                        투표
+                      </Badge>
+                    )}
+                  </div>
                   
                   <div className="flex items-center gap-0.5">
                     <Eye className="h-4 w-4 text-muted-foreground" />

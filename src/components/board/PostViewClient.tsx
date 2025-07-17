@@ -35,6 +35,7 @@ import { toast } from 'react-hot-toast';
 import CommentSection from './CommentSection';
 import { formatSmartTime } from '@/lib/utils';
 import { HtmlContent } from '@/components/ui/html-content';
+import { PollVoting } from '@/components/ui/poll-voting';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -341,6 +342,19 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
           <div className="mb-6">
             <HtmlContent content={post.content} />
           </div>
+
+          {/* 투표 */}
+          {post.poll && (
+            <div className="mb-6">
+              <PollVoting 
+                postId={post.id} 
+                poll={post.poll}
+                onVoteUpdate={(updatedPoll) => {
+                  // 투표 업데이트 시 필요한 로직
+                }}
+              />
+            </div>
+          )}
 
           {/* 태그 */}
           {post.tags && post.tags.length > 0 && (
