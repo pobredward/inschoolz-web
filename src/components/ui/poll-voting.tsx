@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Check, Users, Clock } from 'lucide-react';
@@ -205,27 +204,24 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
   const showResults = hasVoted || !localPoll.isActive;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{localPoll.question}</CardTitle>
-          <div className="flex items-center gap-2">
-            {!localPoll.isActive && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                종료
-              </Badge>
-            )}
-            {showResults && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {totalVotes}표
-              </Badge>
-            )}
-          </div>
+    <div className="w-full">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {!localPoll.isActive && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              종료
+            </Badge>
+          )}
+          {showResults && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {totalVotes}표
+            </Badge>
+          )}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+      </div>
+      <div className="space-y-3">
         {localPoll.options.map((option, index) => {
           const percentage = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
           const isSelected = selectedOption === index;
@@ -235,7 +231,7 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
               <Button
                 variant={showResults ? "outline" : "outline"}
                 className={cn(
-                  "w-full justify-start text-left h-auto p-4 relative overflow-hidden border-2",
+                  "w-full justify-start text-left h-auto p-0 relative overflow-hidden border-2 min-h-[150px]",
                   !showResults && "bg-slate-50 hover:bg-muted hover:border-primary/50 border-slate-200",
                   showResults && "cursor-default bg-muted/30 border-muted-foreground/20",
                   isSelected && showResults && "ring-2 ring-primary border-primary",
@@ -256,25 +252,31 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
                   />
                 )}
                 
-                <div className="relative flex items-center justify-between w-full">
-                  <div className="flex items-center gap-3">
-                    {option.imageUrl && (
-                      <img 
-                        src={option.imageUrl} 
-                        alt={option.text}
-                        className="w-8 h-8 rounded object-cover"
-                      />
-                    )}
-                    <span className="font-medium">{option.text}</span>
-                    {isSelected && showResults && (
-                      <Check className="h-4 w-4 text-primary" />
-                    )}
+                <div className="relative flex items-center w-full h-full">
+                  <div className="flex items-center flex-1 px-4 py-4">
+                    <div className="flex-1">
+                      <span className="font-medium text-base">{option.text}</span>
+                      {isSelected && showResults && (
+                        <Check className="h-4 w-4 text-primary inline-block ml-2" />
+                      )}
+                    </div>
                   </div>
                   
                   {showResults && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{option.voteCount}표</span>
-                      <span>({percentage.toFixed(1)}%)</span>
+                    <div className="flex flex-col items-center justify-center gap-1 text-sm text-muted-foreground px-4">
+                      <span className="font-medium">{option.voteCount}표</span>
+                      <span className="text-xs">({percentage.toFixed(1)}%)</span>
+                    </div>
+                  )}
+                  
+                  {option.imageUrl && (
+                    <div className="h-full">
+                      <img 
+                        src={option.imageUrl} 
+                        alt={option.text}
+                        className="h-full w-[150px] object-cover rounded-r-lg"
+                        style={{ minHeight: '150px' }}
+                      />
                     </div>
                   )}
                 </div>
@@ -313,7 +315,7 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
             </Button>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }; 

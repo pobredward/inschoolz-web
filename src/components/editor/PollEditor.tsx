@@ -3,13 +3,17 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PlusCircle, Trash2 } from 'lucide-react'
+import { PlusCircle, Trash2, ImagePlus, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Timestamp } from 'firebase/firestore'
+import { useState, useRef } from 'react'
+import Image from 'next/image'
+import ImageCropModal from '@/components/ui/image-crop-modal'
 
 export interface PollOption {
   id: string
   text: string
+  imageUrl?: string
 }
 
 export interface PollData {
@@ -20,9 +24,16 @@ export interface PollData {
 interface PollEditorProps {
   pollData: PollData
   onChange: (data: PollData) => void
+  onImageUpload?: (file: File) => Promise<string>
 }
 
-export default function PollEditor({ pollData, onChange }: PollEditorProps) {
+export default function PollEditor({ pollData, onChange, onImageUpload }: PollEditorProps) {
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [uploadingOptionId, setUploadingOptionId] = useState<string | null>(null)
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [currentOptionId, setCurrentOptionId] = useState<string | null>(null)
+
   // 새 옵션 추가
   const handleAddOption = () => {
     const newOption: PollOption = {
@@ -61,6 +72,96 @@ export default function PollEditor({ pollData, onChange }: PollEditorProps) {
       )
     })
   }
+
+  // 옵션 이미지 업로드
+  const handleImageUpload = async (optionId: string, file: File) => {
+    if (!onImageUpload) return
+
+    try {
+      setUploadingOptionId(optionId)
+      const imageUrl = await onImageUpload(file)
+      
+      onChange({
+        ...pollData,
+        options: pollData.options.map(option => 
+          option.id === optionId ? { ...option, imageUrl } : option
+        )
+      })
+    } catch (error) {
+      console.error('이미지 업로드 실패:', error)
+    } finally {
+      setUploadingOptionId(null)
+    }
+  }
+
+  // 옵션 이미지 제거
+  const handleImageRemove = (optionId: string) => {
+    onChange({
+      ...pollData,
+      options: pollData.options.map(option => {
+        if (option.id === optionId) {
+          const { imageUrl, ...optionWithoutImage } = option
+          return optionWithoutImage
+        }
+        return option
+      })
+    })
+  }
+
+  // 파일 선택 핸들러
+  const handleFileSelect = (optionId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // 이미지 파일인지 확인
+      if (!file.type.startsWith('image/')) {
+        alert('이미지 파일만 업로드할 수 있습니다.')
+        return
+      }
+      
+      // 파일 크기 확인 (5MB 제한)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('파일 크기는 5MB 이하여야 합니다.')
+        return
+      }
+
+      // 이미지를 Data URL로 변환하여 크롭 모달에 전달
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setSelectedImage(event.target.result as string)
+          setCurrentOptionId(optionId)
+          setCropModalOpen(true)
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // 크롭 완료 핸들러
+  const handleCropComplete = async (croppedFile: File) => {
+    if (!currentOptionId) return
+
+    try {
+      await handleImageUpload(currentOptionId, croppedFile)
+    } catch (error) {
+      console.error('크롭된 이미지 업로드 실패:', error)
+    } finally {
+      setSelectedImage(null)
+      setCurrentOptionId(null)
+    }
+  }
+
+  // 크롭 모달 닫기 핸들러
+  const handleCropModalClose = () => {
+    setCropModalOpen(false)
+    setSelectedImage(null)
+    setCurrentOptionId(null)
+    
+    // 파일 입력 초기화
+    if (currentOptionId && fileInputRefs.current[currentOptionId]) {
+      fileInputRefs.current[currentOptionId]!.value = ''
+    }
+  }
   
   return (
     <Card className="shadow-sm border">
@@ -68,16 +169,6 @@ export default function PollEditor({ pollData, onChange }: PollEditorProps) {
         <CardTitle className="text-base font-medium">투표 만들기</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="poll-question">투표 질문</Label>
-          <Input
-            id="poll-question"
-            value={pollData.question}
-            onChange={handleQuestionChange}
-            placeholder="투표 질문을 입력하세요"
-          />
-        </div>
-        
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <Label>선택지</Label>
@@ -95,24 +186,87 @@ export default function PollEditor({ pollData, onChange }: PollEditorProps) {
           </div>
           
           {pollData.options.map((option, index) => (
-            <div key={option.id} className="flex items-center gap-2">
-              <div className="flex-1">
-                <Input
-                  value={option.text}
-                  onChange={(e) => handleOptionChange(option.id, e.target.value)}
-                  placeholder={`선택지 ${index + 1}`}
-                />
+            <div key={option.id} className="border rounded-lg p-4 space-y-3 min-h-[150px]">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 space-y-2">
+                  <Input
+                    value={option.text}
+                    onChange={(e) => handleOptionChange(option.id, e.target.value)}
+                    placeholder={`선택지 ${index + 1}`}
+                    className="text-base"
+                  />
+                  
+                  {/* 이미지 업로드 버튼 */}
+                  <div className="flex items-center gap-2">
+                                         <input
+                       ref={(el) => { fileInputRefs.current[option.id] = el; }}
+                       type="file"
+                       accept="image/*"
+                       onChange={(e) => handleFileSelect(option.id, e)}
+                       className="hidden"
+                     />
+                    
+                    {!option.imageUrl ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRefs.current[option.id]?.click()}
+                        disabled={uploadingOptionId === option.id}
+                        className="h-8"
+                      >
+                        <ImagePlus className="h-4 w-4 mr-1" />
+                        {uploadingOptionId === option.id ? '업로드 중...' : '이미지 추가'}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleImageRemove(option.id)}
+                        className="h-8 text-red-600 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        이미지 제거
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* 이미지 미리보기 */}
+                {option.imageUrl && (
+                  <div className="relative w-[150px] h-[150px] flex-shrink-0">
+                    <Image
+                      src={option.imageUrl}
+                      alt={`옵션 ${index + 1} 이미지`}
+                      fill
+                      sizes="150px"
+                      className="object-cover rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleImageRemove(option.id)}
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 hover:bg-red-600 text-white"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                
+                {/* 삭제 버튼 */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemoveOption(option.id)}
+                  disabled={pollData.options.length <= 2}
+                  className="h-8 w-8 flex-shrink-0"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => handleRemoveOption(option.id)}
-                disabled={pollData.options.length <= 2}
-                className="h-8 w-8"
-              >
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
             </div>
           ))}
           
@@ -124,6 +278,17 @@ export default function PollEditor({ pollData, onChange }: PollEditorProps) {
           )}
         </div>
       </CardContent>
+      
+      {/* 이미지 크롭 모달 */}
+      {selectedImage && (
+        <ImageCropModal
+          open={cropModalOpen}
+          onClose={handleCropModalClose}
+          imageSrc={selectedImage}
+          onCropComplete={handleCropComplete}
+          title="투표 옵션 이미지 자르기"
+        />
+      )}
     </Card>
   )
 } 

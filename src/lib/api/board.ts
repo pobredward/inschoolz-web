@@ -48,11 +48,14 @@ import { serializeObject, serializeTimestamp } from '@/lib/utils';
 // 게시판 목록 가져오기
 export const getBoardsByType = async (type: BoardType) => {
   try {
-    return await getDocuments<Board>('boards', [
+    const boards = await getDocuments<Board>('boards', [
       where('type', '==', type),
       where('isActive', '==', true),
       orderBy('order', 'asc')
     ]);
+    
+    // Board 객체들의 Firebase Timestamp 직렬화
+    return boards.map(board => serializeObject<Board>(board, ['createdAt', 'updatedAt']));
   } catch (error) {
     console.error('게시판 목록 가져오기 오류:', error);
     throw new Error('게시판 목록을 가져오는 중 오류가 발생했습니다.');
@@ -971,26 +974,54 @@ export const updatePost = async (postId: string, data: PostFormData) => {
     }
     
     // 투표 정보 업데이트
-    if (data.poll && data.poll.question && data.poll.options.length > 1) {
-      updateData.poll = {
+    if (data.poll && data.poll.question && data.poll.options && data.poll.options.length > 1) {
+      const pollData: any = {
         isActive: true,
         question: data.poll.question,
         options: data.poll.options.map((option, index) => ({
           text: option.text,
-          imageUrl: option.imageUrl,
+          imageUrl: option.imageUrl || '', // undefined 대신 빈 문자열
           voteCount: 0,
           index
         })),
-        expiresAt: data.poll.expiresAt ? data.poll.expiresAt.getTime() : undefined,
-        multipleChoice: data.poll.multipleChoice
+        multipleChoice: data.poll.multipleChoice || false
       };
+      
+      // expiresAt이 있을 때만 추가 (undefined 방지)
+      if (data.poll.expiresAt) {
+        pollData.expiresAt = data.poll.expiresAt.getTime();
+      }
+      
+      updateData.poll = pollData;
     } else {
       // 투표 정보 제거 - undefined 대신 deleteField() 사용
       updateData.poll = deleteField();
     }
     
+    // undefined 값들을 제거하는 함수
+    const removeUndefined = (obj: any): any => {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          if (value && typeof value === 'object' && !Array.isArray(value) && 
+              !(value as any).toDate && typeof (value as any).delete !== 'function') {
+            const cleanedNested = removeUndefined(value);
+            if (Object.keys(cleanedNested).length > 0) {
+              cleaned[key] = cleanedNested;
+            }
+          } else {
+            cleaned[key] = value;
+          }
+        }
+      }
+      return cleaned;
+    };
+    
+    // undefined 값 제거
+    const cleanedUpdateData = removeUndefined(updateData);
+    
     // 게시글 업데이트
-    await updateDocument('posts', postId, updateData);
+    await updateDocument('posts', postId, cleanedUpdateData);
     
     return postId;
   } catch (error) {

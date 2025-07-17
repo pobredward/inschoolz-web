@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BoardType } from "@/types/board";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,65 @@ import { Board } from "@/types";
 import CategorySelector, { CategoryButton } from "./CategorySelector";
 import { awardPostExperience } from "@/lib/experience-service";
 import { ExperienceModal } from "@/components/ui/experience-modal";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
+
+// 이미지 압축 함수
+const compressImage = (file: File, quality: number = 0.8): Promise<File> => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // 파일 크기에 따른 압축 비율 계산
+      const fileSize = file.size;
+      let compressionRatio = 1;
+      
+      if (fileSize > 4 * 1024 * 1024) { // 4MB 이상
+        compressionRatio = 0.25; // 4배 압축 (16배 압축은 너무 심하므로 4배로 조정)
+      } else if (fileSize > 1 * 1024 * 1024) { // 1MB 이상
+        compressionRatio = 0.5; // 2배 압축 (4배 압축은 너무 심하므로 2배로 조정)
+      }
+      
+      canvas.width = img.width * compressionRatio;
+      canvas.height = img.height * compressionRatio;
+      
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        },
+        file.type,
+        quality
+      );
+    };
+    
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+// Firebase Storage에 이미지 업로드
+const uploadImageToStorage = async (file: File, path: string): Promise<string> => {
+  try {
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error('Firebase Storage 업로드 오류:', error);
+    throw error;
+  }
+};
 
 interface WritePageClientProps {
   type: BoardType;
@@ -119,11 +178,10 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
   const isPollValid = () => {
     if (!isPollEnabled) return true;
     
-    const hasValidQuestion = pollData.question.trim().length > 0;
     const hasValidOptions = pollData.options.length >= 2 && 
       pollData.options.every(option => option.text.trim().length > 0);
     
-    return hasValidQuestion && hasValidOptions;
+    return hasValidOptions;
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,7 +215,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
     }
     
     if (isPollEnabled && !isPollValid()) {
-      toast.error("투표 질문과 최소 2개의 선택지를 모두 입력해주세요.");
+      toast.error("투표는 최소 2개의 선택지를 입력해주세요.");
       return;
     }
     
@@ -205,17 +263,24 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
         },
         attachments: attachments, // 첨부파일 포함
         tags: [],
-        ...(isPollEnabled && pollData.question.trim() && {
+        ...(isPollEnabled && pollData.options.filter(option => option.text.trim()).length >= 2 && {
           poll: {
             isActive: true,
-            question: pollData.question.trim(),
+            question: '', // 질문 없이 빈 문자열
             options: pollData.options
               .filter(option => option.text.trim())
-              .map((option, index) => ({
-                text: option.text.trim(),
-                voteCount: 0,
-                index
-              })),
+              .map((option, index) => {
+                const pollOption: any = {
+                  text: option.text.trim(),
+                  voteCount: 0,
+                  index
+                }
+                // imageUrl이 있을 때만 추가
+                if (option.imageUrl) {
+                  pollOption.imageUrl = option.imageUrl
+                }
+                return pollOption
+              }),
             voters: [],
           }
         })
@@ -320,6 +385,21 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
   const handleImageRemove = (imageUrl: string) => {
     console.log('이미지 삭제:', imageUrl);
     setAttachments(prev => prev.filter(attachment => attachment.url !== imageUrl));
+  };
+
+  // 투표 옵션 이미지 업로드 (실제 업로드 구현 필요)
+  const handlePollImageUpload = async (file: File): Promise<string> => {
+    try {
+      // 이미지 압축
+      const compressedFile = await compressImage(file);
+      // Firebase Storage에 업로드
+      const path = `posts/${user?.uid}/${Date.now()}-${compressedFile.name}`;
+      const imageUrl = await uploadImageToStorage(compressedFile, path);
+      return imageUrl;
+    } catch (error) {
+      console.error('투표 이미지 업로드 실패:', error);
+      throw error;
+    }
   };
 
   // 경험치 모달 닫기 핸들러
@@ -455,6 +535,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
                   <PollEditor
                     pollData={pollData}
                     onChange={setPollData}
+                    onImageUpload={handlePollImageUpload}
                   />
                 )}
               </div>

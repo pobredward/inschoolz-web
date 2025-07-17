@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { PlusCircle, X, BarChart, ChevronLeft } from "lucide-react";
+import { PlusCircle, X, BarChart, ChevronLeft, ImagePlus } from "lucide-react";
 import { BoardType, PostFormData } from "@/types/board";
 import { updatePost } from "@/lib/api/board";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,66 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/components/ui/use-toast";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import { FirebaseTimestamp } from '@/types';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
+import PollEditor, { PollData } from '@/components/editor/PollEditor';
+
+// 이미지 압축 함수
+const compressImage = (file: File, quality: number = 0.8): Promise<File> => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const img = new Image();
+    
+    img.onload = () => {
+      // 파일 크기에 따른 압축 비율 계산
+      const fileSize = file.size;
+      let compressionRatio = 1;
+      
+      if (fileSize > 4 * 1024 * 1024) { // 4MB 이상
+        compressionRatio = 0.25; // 4배 압축
+      } else if (fileSize > 1 * 1024 * 1024) { // 1MB 이상
+        compressionRatio = 0.5; // 2배 압축
+      }
+      
+      canvas.width = img.width * compressionRatio;
+      canvas.height = img.height * compressionRatio;
+      
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file);
+          }
+        },
+        file.type,
+        quality
+      );
+    };
+    
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+// Firebase Storage에 이미지 업로드
+const uploadImageToStorage = async (file: File, path: string): Promise<string> => {
+  try {
+    const storageRef = ref(storage, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  } catch (error) {
+    console.error('Firebase Storage 업로드 오류:', error);
+    throw error;
+  }
+};
 
 interface PostEditClientProps {
   post: {
@@ -96,9 +156,17 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
   const [tagInput, setTagInput] = useState("");
   const [isPollActive, setIsPollActive] = useState(!!post.poll);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pollOptions, setPollOptions] = useState<{ text: string; imageUrl?: string }[]>(
-    post.poll?.options || [{ text: "" }, { text: "" }]
-  );
+  const [pollData, setPollData] = useState<PollData>({
+    question: post.poll?.question || "",
+    options: post.poll?.options.map((option, index) => ({
+      id: `option-${index}`,
+      text: option.text,
+      imageUrl: option.imageUrl
+    })) || [
+      { id: "option-1", text: "" },
+      { id: "option-2", text: "" }
+    ]
+  });
   const [attachments, setAttachments] = useState<{ type: 'image'; url: string; name: string; size: number }[]>([]);
 
   // 폼 초기화
@@ -157,18 +225,21 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       setIsSubmitting(true);
       
       // 투표 정보 추가
-      let pollData = undefined;
+      let pollDataForSubmit = undefined;
       
-      if (isPollActive && values.poll?.question && pollOptions.length >= 2) {
+      if (isPollActive && pollData.options.length >= 2) {
         // 빈 옵션 필터링
-        const validOptions = pollOptions.filter(option => option.text.trim() !== "");
+        const validOptions = pollData.options.filter(option => option.text.trim() !== "");
         
         if (validOptions.length >= 2) {
-          pollData = {
-            question: values.poll.question,
-            options: validOptions,
-            expiresAt: values.poll.expiresAt,
-            multipleChoice: values.poll.multipleChoice || false
+          pollDataForSubmit = {
+            question: pollData.question,
+            options: validOptions.map(option => ({
+              text: option.text,
+              imageUrl: option.imageUrl
+            })),
+            expiresAt: values.poll?.expiresAt,
+            multipleChoice: values.poll?.multipleChoice || false
           };
         }
       }
@@ -178,7 +249,7 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
         content: values.content,
         isAnonymous: values.isAnonymous,
         tags: values.tags,
-        poll: pollData,
+        poll: pollDataForSubmit,
         attachments: attachments // 업데이트된 첨부파일 정보 포함
       };
       
@@ -250,24 +321,18 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
     }
   };
   
-  // 투표 옵션 추가
-  const addPollOption = () => {
-    setPollOptions([...pollOptions, { text: "" }]);
-  };
-  
-  // 투표 옵션 변경
-  const updatePollOption = (index: number, text: string) => {
-    const newOptions = [...pollOptions];
-    newOptions[index].text = text;
-    setPollOptions(newOptions);
-  };
-  
-  // 투표 옵션 삭제
-  const removePollOption = (index: number) => {
-    if (pollOptions.length > 2) {
-      const newOptions = [...pollOptions];
-      newOptions.splice(index, 1);
-      setPollOptions(newOptions);
+  // 투표 옵션 이미지 업로드 함수
+  const handlePollImageUpload = async (file: File): Promise<string> => {
+    try {
+      // 이미지 압축
+      const compressedFile = await compressImage(file);
+      // Firebase Storage에 업로드
+      const path = `posts/${post.id}/poll/${Date.now()}-${compressedFile.name}`;
+      const imageUrl = await uploadImageToStorage(compressedFile, path);
+      return imageUrl;
+    } catch (error) {
+      console.error('투표 옵션 이미지 업로드 실패:', error);
+      throw error;
     }
   };
 
@@ -275,6 +340,8 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
   const handleImageUpload = (attachment: { type: 'image'; url: string; name: string; size: number }) => {
     setAttachments(prev => [...prev, attachment]);
   };
+
+
 
   // 이미지 삭제 핸들러
   const handleImageRemove = (imageUrl: string) => {
@@ -423,97 +490,23 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <Card>
-                        <CardContent className="pt-6">
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <FormLabel>투표 활성화</FormLabel>
-                              <Switch
-                                checked={isPollActive}
-                                onCheckedChange={setIsPollActive}
-                              />
-                            </div>
-                            
-                            {isPollActive && (
-                              <div className="space-y-4">
-                                <FormField
-                                  control={form.control}
-                                  name="poll.question"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel>투표 질문</FormLabel>
-                                      <FormControl>
-                                        <Input 
-                                          placeholder="투표 질문을 입력하세요" 
-                                          {...field} 
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                
-                                <div>
-                                  <FormLabel>투표 옵션</FormLabel>
-                                  <div className="space-y-2 mt-2">
-                                    {pollOptions.map((option, index) => (
-                                      <div key={index} className="flex gap-2">
-                                        <Input
-                                          placeholder={`옵션 ${index + 1}`}
-                                          value={option.text}
-                                          onChange={(e) => updatePollOption(index, e.target.value)}
-                                          className="flex-1"
-                                        />
-                                        {pollOptions.length > 2 && (
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => removePollOption(index)}
-                                          >
-                                            <X className="h-4 w-4" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={addPollOption}
-                                    className="mt-2"
-                                  >
-                                    <PlusCircle className="h-4 w-4 mr-2" />
-                                    옵션 추가
-                                  </Button>
-                                </div>
-                                
-                                <FormField
-                                  control={form.control}
-                                  name="poll.multipleChoice"
-                                  render={({ field }) => (
-                                    <FormItem className="flex items-center justify-between">
-                                      <div className="space-y-0.5">
-                                        <FormLabel>복수 선택 허용</FormLabel>
-                                        <FormDescription>
-                                          사용자가 여러 옵션을 선택할 수 있습니다.
-                                        </FormDescription>
-                                      </div>
-                                      <FormControl>
-                                        <Switch
-                                          checked={field.value}
-                                          onCheckedChange={field.onChange}
-                                        />
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <FormLabel>투표 활성화</FormLabel>
+                          <Switch
+                            checked={isPollActive}
+                            onCheckedChange={setIsPollActive}
+                          />
+                        </div>
+                        
+                                                {isPollActive && (
+                          <PollEditor
+                            pollData={pollData}
+                            onChange={setPollData}
+                            onImageUpload={handlePollImageUpload}
+                          />
+                        )}
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
