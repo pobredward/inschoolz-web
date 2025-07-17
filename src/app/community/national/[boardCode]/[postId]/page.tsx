@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
 import { getPostDetail, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
-import { stripHtmlTags } from "@/lib/utils";
+import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { ArticleStructuredData, BreadcrumbStructuredData } from "@/components/seo/StructuredData";
 import { 
   generateSeoTitle, 
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
     // 게시글 내용 정리 및 작성 정보 추가
     const cleanContent = stripHtmlTags(post.content);
     const authorName = isAnonymous ? '익명' : (post.authorInfo?.displayName || '사용자');
-    const createdDate = new Date(post.createdAt).toLocaleDateString('ko-KR');
+    const createdDate = serializeTimestamp(post.createdAt).toLocaleDateString('ko-KR');
     
     // 첨부 이미지 추출
     const images = post.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
@@ -78,8 +78,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
         type: 'article',
         siteName: 'Inschoolz - 인스쿨즈',
         url: `https://inschoolz.com/community/national/${boardCode}/${postId}`,
-        publishedTime: new Date(post.createdAt).toISOString(),
-        modifiedTime: new Date(post.updatedAt || post.createdAt).toISOString(),
+        publishedTime: serializeTimestamp(post.createdAt).toISOString(),
+        modifiedTime: serializeTimestamp(post.updatedAt || post.createdAt).toISOString(),
         authors: [authorName],
         section: `전국 ${boardInfo.name}`,
         tags: [...categories, ...seoKeywords.slice(0, 10)],
@@ -97,8 +97,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
         'article:section': `전국 ${boardInfo.name}`,
         'article:tag': categories.join(','),
         'article:author': authorName,
-        'article:published_time': new Date(post.createdAt).toISOString(),
-        'article:modified_time': new Date(post.updatedAt || post.createdAt).toISOString(),
+        'article:published_time': serializeTimestamp(post.createdAt).toISOString(),
+        'article:modified_time': serializeTimestamp(post.updatedAt || post.createdAt).toISOString(),
       },
     };
   } catch (error) {

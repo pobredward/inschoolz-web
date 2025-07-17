@@ -4,7 +4,7 @@ import { getBoardsByType } from '@/lib/api/board';
 import { PostViewClient } from '@/components/board/PostViewClient';
 import type { BoardType } from '@/types/board';
 import { Post, Comment } from '@/types';
-import { stripHtmlTags } from '@/lib/utils';
+import { stripHtmlTags, serializeTimestamp } from '@/lib/utils';
 
 interface PostDetailPageProps {
   params: Promise<{

@@ -43,6 +43,7 @@ import {
   createPostCommentNotification, 
   createCommentReplyNotification 
 } from './notifications';
+import { serializeObject, serializeTimestamp } from '@/lib/utils';
 
 // 게시판 목록 가져오기
 export const getBoardsByType = async (type: BoardType) => {
@@ -259,12 +260,8 @@ export const getPostDetail = async (postId: string) => {
       'stats.viewCount': increment(1)
     });
     
-    // 게시글 Timestamp 직렬화
-    const serializedPost = {
-      ...post,
-              createdAt: (post as any).createdAt,
-        updatedAt: (post as any).updatedAt,
-    };
+    // 게시글 Timestamp 직렬화 - serializeObject 사용
+    const serializedPost = serializeObject<Post>(post, ['createdAt', 'updatedAt', 'deletedAt']);
     
     // 댓글 가져오기 (이미 직렬화됨)
     const comments = await getCommentsByPost(postId);
@@ -386,25 +383,21 @@ export const getCommentsByPost = async (postId: string) => {
           }
         }
         
+        const serializedReply = serializeObject(reply, ['createdAt', 'updatedAt', 'deletedAt']) as any;
         replies.push({
-          ...reply,
+          ...serializedReply,
           author: replyAuthorInfo,
-          // Timestamp 직렬화
-                  createdAt: reply.createdAt,
-        updatedAt: reply.updatedAt,
         });
       }
       
       // 대댓글도 시간순으로 정렬
       replies.sort((a, b) => a.createdAt - b.createdAt);
       
+      const serializedComment = serializeObject(comment, ['createdAt', 'updatedAt', 'deletedAt']) as any;
       comments.push({
-        ...comment,
+        ...serializedComment,
         author: authorInfo,
         replies,
-        // Timestamp 직렬화
-        createdAt: comment.createdAt,
-        updatedAt: comment.updatedAt,
       });
     }
     

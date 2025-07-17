@@ -4,6 +4,58 @@ import { Timestamp } from 'firebase/firestore'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
+// ===== Timestamp 직렬화 유틸리티 =====
+
+/**
+ * Firestore Timestamp를 JavaScript Date로 변환
+ * @param timestamp Firestore Timestamp 또는 Date 또는 문자열
+ * @returns JavaScript Date 객체
+ */
+export function serializeTimestamp(timestamp: any): Date {
+  if (!timestamp) return new Date();
+  
+  // 이미 Date 객체인 경우
+  if (timestamp instanceof Date) return timestamp;
+  
+  // Firestore Timestamp인 경우
+  if (timestamp && typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+  
+  // 문자열이나 숫자인 경우
+  if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  
+  // seconds와 nanoseconds가 있는 객체인 경우 (직렬화된 Timestamp)
+  if (timestamp && typeof timestamp.seconds === 'number') {
+    return new Date(timestamp.seconds * 1000 + Math.floor(timestamp.nanoseconds / 1000000));
+  }
+  
+  // fallback
+  return new Date();
+}
+
+/**
+ * 객체의 모든 timestamp 필드를 직렬화
+ * @param obj 직렬화할 객체
+ * @param timestampFields timestamp 필드명 배열
+ * @returns 직렬화된 객체
+ */
+export function serializeObject<T>(obj: any, timestampFields: string[] = ['createdAt', 'updatedAt']): T {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  const serialized = { ...obj };
+  
+  timestampFields.forEach(field => {
+    if (serialized[field]) {
+      serialized[field] = serializeTimestamp(serialized[field]);
+    }
+  });
+  
+  return serialized as T;
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
