@@ -141,32 +141,32 @@ export default function PostEditor({ boardCode, boardType, board, schoolId, regi
         description: "게시글이 성공적으로 작성되었습니다.",
       });
       
-      // 작성된 게시글로 이동
-      let postUrl = '';
+      // 커뮤니티 탭으로 이동
+      let communityUrl = '';
       
       switch (boardType) {
         case 'national':
-          postUrl = `/community/national/${boardCode}/${postId}`;
+          communityUrl = `/community?tab=national`;
           break;
         case 'regional':
           // props로 받은 지역 정보 우선 사용, 없으면 사용자의 지역 정보 사용
           const targetSido = regions?.sido || user?.regions?.sido;
           const targetSigungu = regions?.sigungu || user?.regions?.sigungu;
           if (targetSido && targetSigungu) {
-            postUrl = `/community/region/${encodeURIComponent(targetSido)}/${encodeURIComponent(targetSigungu)}/${boardCode}/${postId}`;
+            communityUrl = `/community?tab=regional/${encodeURIComponent(targetSido)}/${encodeURIComponent(targetSigungu)}`;
           }
           break;
         case 'school':
           // props로 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
           const targetSchoolId = schoolId || user?.school?.id;
           if (targetSchoolId) {
-            postUrl = `/community/school/${targetSchoolId}/${boardCode}/${postId}`;
+            communityUrl = `/community?tab=school/${targetSchoolId}`;
           }
           break;
       }
       
-      if (postUrl) {
-        router.push(postUrl);
+      if (communityUrl) {
+        router.push(communityUrl);
       }
     } catch (error) {
       console.error('게시글 작성 오류:', error);

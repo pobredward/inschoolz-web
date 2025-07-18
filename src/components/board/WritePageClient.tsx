@@ -311,58 +311,58 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
           setPendingPostId(postId);
           setShowExperienceModal(true);
         } else {
-          // 경험치 부여 실패 시 즉시 이동
-          let postUrl = '';
+          // 경험치 부여 실패 시 즉시 커뮤니티 탭으로 이동
+          let communityUrl = '';
           
           switch (type) {
             case 'national':
-              postUrl = `/community/national/${code}/${postId}`;
+              communityUrl = `/community?tab=national`;
               break;
             case 'regional':
               // 사용자의 지역 정보 사용
               if (user?.regions?.sido && user?.regions?.sigungu) {
-                postUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${code}/${postId}`;
+                communityUrl = `/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`;
               }
               break;
             case 'school':
               // URL에서 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
               const targetSchoolId = schoolId || user?.school?.id;
               if (targetSchoolId) {
-                postUrl = `/community/school/${targetSchoolId}/${code}/${postId}`;
+                communityUrl = `/community?tab=school/${targetSchoolId}`;
               }
               break;
           }
           
-          if (postUrl) {
-            router.push(postUrl);
+          if (communityUrl) {
+            router.push(communityUrl);
           }
         }
       } catch (expError) {
         console.error('경험치 부여 실패:', expError);
         // 경험치 부여 실패는 게시글 작성 성공에 영향을 주지 않음
-        let postUrl = '';
+        let communityUrl = '';
         
         switch (type) {
           case 'national':
-            postUrl = `/community/national/${code}/${postId}`;
+            communityUrl = `/community?tab=national`;
             break;
           case 'regional':
             // 사용자의 지역 정보 사용
             if (user?.regions?.sido && user?.regions?.sigungu) {
-              postUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${code}/${postId}`;
+              communityUrl = `/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`;
             }
             break;
           case 'school':
             // URL에서 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
             const targetSchoolId = schoolId || user?.school?.id;
             if (targetSchoolId) {
-              postUrl = `/community/school/${targetSchoolId}/${code}/${postId}`;
+              communityUrl = `/community?tab=school/${targetSchoolId}`;
             }
             break;
         }
         
-        if (postUrl) {
-          router.push(postUrl);
+        if (communityUrl) {
+          router.push(communityUrl);
         }
       }
       
@@ -405,31 +405,31 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
   // 경험치 모달 닫기 핸들러
   const handleExperienceModalClose = () => {
     setShowExperienceModal(false);
-    // 모달 닫기 후 게시글 상세 페이지로 이동
+    // 모달 닫기 후 커뮤니티 탭으로 이동
     if (pendingPostId) {
-      let postUrl = '';
+      let communityUrl = '';
       
       switch (type) {
         case 'national':
-          postUrl = `/community/national/${code}/${pendingPostId}`;
+          communityUrl = `/community?tab=national`;
           break;
         case 'regional':
           // 사용자의 지역 정보 사용
           if (user?.regions?.sido && user?.regions?.sigungu) {
-            postUrl = `/community/region/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}/${code}/${pendingPostId}`;
+            communityUrl = `/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`;
           }
           break;
         case 'school':
           // URL에서 받은 schoolId 우선 사용, 없으면 사용자의 학교 ID 사용
           const targetSchoolId = schoolId || user?.school?.id;
           if (targetSchoolId) {
-            postUrl = `/community/school/${targetSchoolId}/${code}/${pendingPostId}`;
+            communityUrl = `/community?tab=school/${targetSchoolId}`;
           }
           break;
       }
       
-      if (postUrl) {
-        router.push(postUrl);
+      if (communityUrl) {
+        router.push(communityUrl);
       }
       setPendingPostId(null);
     }
