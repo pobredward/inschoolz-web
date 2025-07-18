@@ -56,8 +56,8 @@ const faqData: FAQItem[] = [
   {
     id: '5',
     category: '기능',
-    question: '좋아요와 북마크의 차이는 무엇인가요?',
-    answer: '좋아요는 게시글에 대한 공감을 표시하는 기능이고, 북마크(스크랩)는 나중에 다시 보기 위해 저장하는 기능입니다. 마이페이지에서 북마크한 글들을 확인할 수 있습니다.'
+          question: '좋아요와 스크랩의 차이는 무엇인가요?',
+      answer: '좋아요는 게시글에 대한 공감을 표시하는 기능이고, 스크랩은 나중에 다시 보기 위해 저장하는 기능입니다. 마이페이지에서 스크랩한 글들을 확인할 수 있습니다.'
   },
   {
     id: '6',
@@ -131,8 +131,8 @@ export default function HelpPage() {
 
             <Card className="hover:shadow-md transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
-                <Bookmark className="h-8 w-8 text-blue-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">글 북마크하기</h3>
+                            <Bookmark className="h-8 w-8 text-blue-500 mx-auto mb-3" />
+            <h3 className="font-semibold mb-2">글 스크랩하기</h3>
                 <p className="text-sm text-gray-600">나중에 다시 볼 글을 저장해보세요</p>
               </CardContent>
             </Card>

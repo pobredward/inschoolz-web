@@ -86,7 +86,7 @@ Inschoolz는 대한민국 초·중·고 학생 및 졸업생을 위한 3계층 �
 - **불필요/중복 또는 비효율 컬렉션은 미사용**
   - game별 점수(예: flappyBirdScores 등)는 posts의 gameStats 및 schools/boardAggregates에서 통합 집계. 필요 시 랭킹만 별도 유지(gameRankings).
   - userAdActivity, adStats 등 광고 관련 세부 통계는 adStats, system.ads 등 집계형으로만 유지. 개별 사용 기록은 최소화.
-  - userScraps, scrapFolders는 users의 scraps, favorites 필드로 충분히 커버 가능. 별도 컬렉션은 미사용.
+  - userScraps, scrapFolders는 users의 bookmarks, favorites 필드로 충분히 커버 가능. 별도 컬렉션은 미사용.
   - comments(전체): post 하위 subcollection으로 충분. 단, 전체 검색/감시 목적이면 별도 컬렉션 유지.
   - userRelationships, userInvitations는 users.social, favorites, warnings 등으로 통합. 대용량 관계형 네트워크가 필요할 경우에만 별도 컬렉션 운영.
   - searchHistory, popularSearches는 트래픽 많을 경우만 별도 집계. 1차 릴리즈에서는 미포함.
@@ -95,7 +95,7 @@ Inschoolz는 대한민국 초·중·고 학생 및 졸업생을 위한 3계층 �
 ### 8.3 최종 Firestore 핵심 구조(2024.06)
 
 - users/{userId}
-    - profile, regions, school, stats, activityLimits, gameStats, favorites, warnings, social, scraps, preferences
+    - profile, regions, school, stats, activityLimits, gameStats, favorites, warnings, social, bookmarks, preferences
     - subcollections: notifications, warningHistory, reportedItems
 - boards/{boardCode}
     - 게시판 메타데이터(유형/권한/옵션/통계/지역/학교 등)
@@ -244,7 +244,7 @@ Inschoolz는 대한민국 초·중·고 학생 및 졸업생을 위한 3계층 �
 - **불필요/중복 또는 비효율 컬렉션은 미사용**
   - game별 점수(예: flappyBirdScores 등)는 posts의 gameStats 및 schools/boardAggregates에서 통합 집계. 필요 시 랭킹만 별도 유지(gameRankings).
   - userAdActivity, adStats 등 광고 관련 세부 통계는 adStats, system.ads 등 집계형으로만 유지. 개별 사용 기록은 최소화.
-  - userScraps, scrapFolders는 users의 scraps, favorites 필드로 충분히 커버 가능. 별도 컬렉션은 미사용.
+  - userScraps, scrapFolders는 users의 bookmarks, favorites 필드로 충분히 커버 가능. 별도 컬렉션은 미사용.
   - comments(전체): post 하위 subcollection으로 충분. 단, 전체 검색/감시 목적이면 별도 컬렉션 유지.
   - userRelationships, userInvitations는 users.social, favorites, warnings 등으로 통합. 대용량 관계형 네트워크가 필요할 경우에만 별도 컬렉션 운영.
   - searchHistory, popularSearches는 트래픽 많을 경우만 별도 집계. 1차 릴리즈에서는 미포함.
@@ -253,7 +253,7 @@ Inschoolz는 대한민국 초·중·고 학생 및 졸업생을 위한 3계층 �
 #### 최종 Firestore 핵심 구조(2024.06)
 
 - users/{userId}
-    - profile, regions, school, stats, activityLimits, gameStats, favorites, warnings, social, scraps, preferences
+    - profile, regions, school, stats, activityLimits, gameStats, favorites, warnings, social, bookmarks, preferences
     - subcollections: notifications, warningHistory, reportedItems
 - boards/{boardCode}
     - 게시판 메타데이터(유형/권한/옵션/통계/지역/학교 등)

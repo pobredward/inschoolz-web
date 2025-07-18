@@ -24,9 +24,9 @@ import { Post, Comment, Board } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
 import { useAuth } from '@/providers/AuthProvider';
 import { 
-  togglePostBookmark,
+  togglePostScrap,
   checkLikeStatus,
-  checkBookmarkStatus,
+  checkScrapStatus,
   incrementPostViewCount
 } from '@/lib/api/board';
 import {
@@ -66,8 +66,9 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   const router = useRouter();
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isScrapped, setIsScrapped] = useState(false);
   const [likeCount, setLikeCount] = useState(post.stats.likeCount);
+  const [scrapCount, setScrapCount] = useState(post.stats.scrapCount || 0);
   const [commentCount, setCommentCount] = useState(post.stats.commentCount);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -78,16 +79,16 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     // 조회수 증가 (한 번만)
     incrementPostViewCount(post.id);
     
-    // 좋아요/북마크 상태 확인
-    const checkStatuses = async () => {
-      if (user) {
-        try {
-          const [likeStatus, bookmarkStatus] = await Promise.all([
-            checkLikeStatus(post.id, user.uid),
-            checkBookmarkStatus(post.id, user.uid)
-          ]);
-          setIsLiked(likeStatus);
-          setIsBookmarked(bookmarkStatus);
+            // 좋아요/스크랩 상태 확인
+        const checkStatuses = async () => {
+          if (user) {
+            try {
+              const [likeStatus, scrapStatus] = await Promise.all([
+                checkLikeStatus(post.id, user.uid),
+                checkScrapStatus(post.id, user.uid)
+              ]);
+              setIsLiked(likeStatus);
+              setIsScrapped(scrapStatus);
         } catch (error) {
           console.error('상태 확인 실패:', error);
         }
@@ -127,19 +128,20 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     }
   };
 
-  const handleBookmark = async () => {
+  const handleScrap = async () => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
       return;
     }
 
     try {
-      const newBookmarkState = await togglePostBookmark(post.id, user.uid);
-      setIsBookmarked(newBookmarkState);
-      toast.success(newBookmarkState ? '북마크에 추가했습니다.' : '북마크를 해제했습니다.');
+      const result = await togglePostScrap(post.id, user.uid);
+      setIsScrapped(result.scrapped);
+      setScrapCount(result.scrapCount);
+      toast.success(result.scrapped ? '스크랩에 추가했습니다.' : '스크랩을 해제했습니다.');
     } catch (error) {
-      console.error('북마크 처리 실패:', error);
-      toast.error('북마크 처리에 실패했습니다.');
+      console.error('스크랩 처리 실패:', error);
+      toast.error('스크랩 처리에 실패했습니다.');
     }
   };
 
@@ -418,10 +420,11 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleBookmark}
-                className={`${isBookmarked ? 'text-blue-500' : ''}`}
+                onClick={handleScrap}
+                className={`flex items-center gap-2 px-3 py-2 ${isScrapped ? 'text-blue-500' : ''}`}
               >
-                <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
+                <Bookmark className={`h-4 w-4 ${isScrapped ? 'fill-current' : ''}`} />
+                <span className="text-sm">{scrapCount}</span>
               </Button>
               
               <Button variant="ghost" size="sm" onClick={handleShare}>

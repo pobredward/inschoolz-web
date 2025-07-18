@@ -4,15 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Heart, MessageCircle, Eye, Calendar } from 'lucide-react';
+import { ArrowLeft, Heart } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { getUserLikedPosts } from '@/lib/api/users';
 import { Post } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
-import { ko } from 'date-fns/locale';
-import { toTimestamp } from '@/lib/utils';
+import PostListItem from '@/components/board/PostListItem';
 
 export default function LikedPostsPage() {
   const { user } = useAuth();
@@ -72,6 +69,44 @@ export default function LikedPostsPage() {
       default:
         return type;
     }
+  };
+
+  const getBoardName = (post: Post) => {
+    // boardName이 있으면 직접 사용
+    if (post.boardName) {
+      return post.boardName;
+    }
+    
+    // fallback for existing posts without boardName
+    switch (post.boardCode) {
+      case 'free': return '자유게시판';
+      case 'qa': return '질문/답변';
+      case 'study': return '스터디';
+      case 'club': return '동아리';
+      case 'notice': return '공지사항';
+      case 'graduate': return '졸업생';
+      case 'academy': return '학원정보';
+      case 'restaurant': return '맛집추천';
+      case 'local': return '동네소식';
+      case 'together': return '함께해요';
+      case 'job': return '구인구직';
+      case 'exam': return '입시정보';
+      case 'career': return '진로상담';
+      case 'university': return '대학생활';
+      case 'hobby': return '취미생활';
+      default: return post.boardCode || '게시판';
+    }
+  };
+
+  const getPostUrl = (post: Post) => {
+    if (post.type === 'national') {
+      return `/community/national/${post.boardCode}/${post.id}`;
+    } else if (post.type === 'regional') {
+      return `/community/region/${post.regions?.sido}/${post.regions?.sigungu}/${post.boardCode}/${post.id}`;
+    } else if (post.type === 'school') {
+      return `/community/school/${post.schoolId}/${post.boardCode}/${post.id}`;
+    }
+    return '#';
   };
 
   if (!user) {
@@ -157,66 +192,19 @@ export default function LikedPostsPage() {
           ) : (
             <div className="space-y-4">
               {posts.map((post) => (
-                <Card 
-                  key={post.id} 
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handlePostClick(post)}
-                >
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      {/* 게시글 제목 */}
-                      <h3 className="font-medium line-clamp-2 hover:text-primary transition-colors">
-                        {post.title}
-                      </h3>
-
-                      {/* 게시글 정보 */}
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Badge variant="outline" className="text-xs">
-                          {getBoardTypeLabel(post.type || '')}
-                        </Badge>
-                        <Badge variant="secondary" className="text-xs">
-                          {post.boardCode}
-                        </Badge>
-                        {post.schoolId && (
-                          <span className="text-xs">학교 커뮤니티</span>
-                        )}
-                        {post.regions?.sido && post.regions?.sigungu && (
-                          <span className="text-xs">{post.regions.sido} {post.regions.sigungu}</span>
-                        )}
-                      </div>
-
-                      {/* 작성자 및 날짜 */}
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span>{post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName}</span>
-                          <Calendar className="h-3 w-3" />
-                          <span>
-                            {post.createdAt && formatDistanceToNow(
-                              new Date(toTimestamp(post.createdAt)),
-                              { addSuffix: true, locale: ko }
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 통계 정보 */}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Heart className="h-3 w-3 fill-red-500 text-red-500" />
-                          <span>{post.stats?.likeCount || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MessageCircle className="h-3 w-3" />
-                          <span>{post.stats?.commentCount || 0}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Eye className="h-3 w-3" />
-                          <span>{post.stats?.viewCount || 0}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <PostListItem
+                  key={post.id}
+                  post={{
+                    ...post,
+                    authorInfo: post.authorInfo || { displayName: '익명', isAnonymous: true },
+                    boardName: getBoardName(post),
+                  }}
+                  href={getPostUrl(post)}
+                  showBadges={true}
+                  typeBadgeText={getBoardTypeLabel(post.type)}
+                  boardBadgeText={getBoardName(post)}
+                  variant="profile"
+                />
               ))}
             </div>
           )}

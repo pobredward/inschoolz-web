@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Bookmark, Heart, MessageSquare, Eye, Calendar } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 import { getScrappedPosts } from '@/lib/api/board';
 import { Post } from '@/types';
-import { formatSmartTime } from '@/lib/utils';
+import PostListItem from '@/components/board/PostListItem';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -42,6 +41,33 @@ export default function ScrapsPage() {
       case 'regional': return '지역';
       case 'school': return '학교';
       default: return type;
+    }
+  };
+
+  const getBoardName = (post: Post) => {
+    // boardName이 있으면 직접 사용
+    if (post.boardName) {
+      return post.boardName;
+    }
+    
+    // fallback for existing posts without boardName
+    switch (post.boardCode) {
+      case 'free': return '자유게시판';
+      case 'qa': return '질문/답변';
+      case 'study': return '스터디';
+      case 'club': return '동아리';
+      case 'notice': return '공지사항';
+      case 'graduate': return '졸업생';
+      case 'academy': return '학원정보';
+      case 'restaurant': return '맛집추천';
+      case 'local': return '동네소식';
+      case 'together': return '함께해요';
+      case 'job': return '구인구직';
+      case 'exam': return '입시정보';
+      case 'career': return '진로상담';
+      case 'university': return '대학생활';
+      case 'hobby': return '취미생활';
+      default: return post.boardCode || '게시판';
     }
   };
 
@@ -110,48 +136,19 @@ export default function ScrapsPage() {
         ) : (
           <div className="space-y-4">
             {posts.map((post) => (
-              <Card key={post.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Badge variant="secondary" className="text-xs">
-                        {getBoardTypeLabel(post.type)}
-                      </Badge>
-                      <span>•</span>
-                      <Calendar className="h-3 w-3" />
-                      <span>{formatSmartTime(post.createdAt)}</span>
-                    </div>
-                  </div>
-
-                  <Link href={getPostUrl(post)}>
-                    <h3 className="text-lg font-semibold mb-2 hover:text-green-600 transition-colors cursor-pointer">
-                      {post.title}
-                    </h3>
-                  </Link>
-
-                  {post.content && (
-                    <p className="text-gray-600 mb-3 line-clamp-2">
-                      {post.content.replace(/<[^>]*>/g, '').substring(0, 100)}
-                      {post.content.length > 100 && '...'}
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Eye className="h-4 w-4" />
-                      <span>{post.stats.viewCount || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" />
-                      <span>{post.stats.likeCount || 0}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" />
-                      <span>{post.stats.commentCount || 0}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <PostListItem
+                key={post.id}
+                post={{
+                  ...post,
+                  authorInfo: post.authorInfo || { isAnonymous: true },
+                  boardName: getBoardName(post),
+                }}
+                href={getPostUrl(post)}
+                showBadges={true}
+                typeBadgeText={getBoardTypeLabel(post.type)}
+                boardBadgeText={getBoardName(post)}
+                variant="profile"
+              />
             ))}
           </div>
         )}

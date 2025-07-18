@@ -365,7 +365,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   </div>
                   <div 
                     className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => router.push('/my/bookmarks')}
+                    onClick={() => router.push('/my/scraps')}
                   >
                     <div className="text-2xl mb-2">🔖</div>
                     <div className="text-sm text-muted-foreground">스크랩</div>

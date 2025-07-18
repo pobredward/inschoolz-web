@@ -23,6 +23,7 @@ interface PostListItemProps {
       viewCount?: number;
       likeCount?: number;
       commentCount?: number;
+      scrapCount?: number;
     };
     attachments?: Array<{
       type: string;
@@ -169,6 +170,10 @@ const PostListItem: React.FC<PostListItemProps> = ({
             <span className="flex items-center gap-1">
               <span>💬</span>
               {post.stats?.commentCount || 0}
+            </span>
+            <span className="flex items-center gap-1">
+              <span>🔖</span>
+              {post.stats?.scrapCount || 0}
             </span>
           </div>
         </div>

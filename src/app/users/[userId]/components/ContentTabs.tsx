@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUserPosts, getUserComments } from '@/lib/api/users';
 import { Post, Comment } from '@/types';
-import { BookmarkIcon, MessageSquareIcon } from 'lucide-react';
+import { Bookmark as ScrapIcon, MessageSquareIcon } from 'lucide-react';
 import { stripHtmlTags, toDate } from '@/lib/utils';
 
 interface ContentTabsProps {
@@ -146,7 +146,7 @@ export default function ContentTabs({ userId, isOwnProfile = false }: ContentTab
             </p>
             <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
               <span className="flex items-center">
-                <BookmarkIcon className="mr-1 h-3.5 w-3.5" />
+                <ScrapIcon className="mr-1 h-3.5 w-3.5" />
                 {post.stats.likeCount}
               </span>
               <span className="flex items-center">
@@ -185,7 +185,7 @@ export default function ContentTabs({ userId, isOwnProfile = false }: ContentTab
             </div>
             <div className="mt-2 flex items-center space-x-4 text-xs text-muted-foreground">
               <span className="flex items-center">
-                <BookmarkIcon className="mr-1 h-3.5 w-3.5" />
+                <ScrapIcon className="mr-1 h-3.5 w-3.5" />
                 {comment.stats.likeCount}
               </span>
             </div>

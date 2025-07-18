@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Edit, Heart, MessageSquare, Eye, Calendar } from 'lucide-react';
+import { Edit } from 'lucide-react';
 import { getUserPosts } from '@/lib/api/users';
 import { Post } from '@/types';
-import { formatSmartTime } from '@/lib/utils';
+import PostListItem from '@/components/board/PostListItem';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -133,6 +132,32 @@ export default function MyPostsPage() {
     }
   };
 
+  const getBoardTypeLabel = (type: string) => {
+    switch (type) {
+      case 'national': return '전국';
+      case 'regional': return '지역';
+      case 'school': return '학교';
+      default: return type;
+    }
+  };
+
+  const getBoardName = (post: ExtendedPost) => {
+    if (post.boardName) return post.boardName;
+    switch (post.boardCode) {
+      case 'free': return '자유';
+      case 'qna': return '질문';
+      case 'study': return '스터디';
+      case 'club': return '동아리';
+      case 'notice': return '공지';
+      case 'graduate': return '졸업생';
+      case 'academy': return '학원';
+      case 'restaurant': return '맛집';
+      case 'hobby': return '취미';
+      case 'jobs': return '구인구직';
+      default: return '게시판';
+    }
+  };
+
   if (isLoading && posts.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -188,64 +213,19 @@ export default function MyPostsPage() {
       ) : (
         <div className="space-y-4">
           {filteredPosts.map((post) => (
-            <Card 
-              key={post.id} 
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => handlePostClick(post)}
-            >
-              <CardContent className="p-6">
-                {/* 게시판 정보 */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default" className="text-xs bg-green-500 text-white">
-                      {getTypeLabel(post.type as BoardType, post)}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {post.boardName || '게시판'}
-                    </Badge>
-                  </div>
-                  {post.attachments && post.attachments.length > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      📷 {post.attachments.length}
-                    </Badge>
-                  )}
-                </div>
-
-                {/* 제목 */}
-                <h3 className="font-semibold text-lg text-gray-900 mb-2 line-clamp-2">
-                  {post.title}
-                </h3>
-
-                {/* 내용 미리보기 */}
-                {post.previewContent && (
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {post.previewContent}
-                  </p>
-                )}
-
-                {/* 메타 정보 */}
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>{formatSmartTime(post.createdAt)}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" />
-                      {post.stats.commentCount}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" />
-                      {post.stats.likeCount}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-4 w-4" />
-                      {post.stats.viewCount}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <PostListItem
+              key={post.id}
+              post={{
+                ...post,
+                authorInfo: post.authorInfo || { displayName: '나', isAnonymous: false },
+                boardName: getBoardName(post),
+              }}
+              href={getPostUrl(post)}
+              showBadges={true}
+              typeBadgeText={getBoardTypeLabel(post.type)}
+              boardBadgeText={getBoardName(post)}
+              variant="profile"
+            />
           ))}
 
           {/* 더 보기 버튼 */}
