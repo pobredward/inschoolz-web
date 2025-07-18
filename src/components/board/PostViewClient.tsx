@@ -151,26 +151,41 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   const handleShare = async () => {
     try {
       const shareText = post.content.replace(/<[^>]*>/g, '').substring(0, 100);
+      const shareUrl = window.location.href;
       
       if (navigator.share) {
         await navigator.share({
           title: `${post.title} - Inschoolz`,
-          text: shareText,
-          url: window.location.href,
+          text: shareText + '...',
+          url: shareUrl,
         });
+        toast.success('게시글이 공유되었습니다.');
       } else {
         // 클립보드에 복사
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success('링크가 클립보드에 복사되었습니다.');
+        await navigator.clipboard.writeText(shareUrl);
+        toast.success('📋 게시글 링크가 복사되었습니다!\n다른 곳에 붙여넣기해서 공유해보세요.');
       }
     } catch (error) {
       console.error('공유 실패:', error);
       // 공유 API 실패 시 클립보드로 대체
       try {
         await navigator.clipboard.writeText(window.location.href);
-        toast.success('링크가 클립보드에 복사되었습니다.');
+        toast.success('📋 게시글 링크가 복사되었습니다!\n다른 곳에 붙여넣기해서 공유해보세요.');
       } catch (clipboardError) {
-        toast.error('공유에 실패했습니다.');
+        console.error('클립보드 복사 실패:', clipboardError);
+        // 최후의 수단으로 텍스트 선택 방식
+        const textArea = document.createElement('textarea');
+        textArea.value = window.location.href;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          toast.success('📋 게시글 링크가 복사되었습니다!');
+        } catch (execError) {
+          toast.error('❌ 공유 기능이 지원되지 않는 브라우저입니다.\n링크를 수동으로 복사해주세요: ' + window.location.href);
+        } finally {
+          document.body.removeChild(textArea);
+        }
       }
     }
   };
@@ -444,8 +459,15 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
                 <span className="text-sm">{scrapCount}</span>
               </Button>
               
-              <Button variant="ghost" size="sm" onClick={handleShare}>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleShare}
+                className="flex items-center gap-1"
+                title="게시글 공유하기"
+              >
                 <Share2 className="h-4 w-4" />
+                <span className="text-sm hidden sm:inline">공유</span>
               </Button>
             </div>
           </div>
