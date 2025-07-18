@@ -108,52 +108,87 @@ export default function MyCommentsPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {comments.map((comment) => (
-              <Card key={comment.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Calendar className="h-3 w-3" />
-                      <span>{formatSmartTime(comment.createdAt)}</span>
-                    </div>
-                    {comment.postData && (
-                      <Link href={
-                        comment.postData.type === 'national' 
-                          ? `/community/national/${comment.postData.boardCode}/${comment.postId}`
-                          : comment.postData.type === 'regional' && comment.postData.regions
-                          ? `/community/region/${comment.postData.regions.sido}/${comment.postData.regions.sigungu}/${comment.postData.boardCode}/${comment.postId}`
-                          : comment.postData.type === 'school' && comment.postData.schoolId
-                          ? `/community/school/${comment.postData.schoolId}/${comment.postData.boardCode}/${comment.postId}`
-                          : '#'
-                      }>
-                        <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          원글 보기
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
+            {comments.map((comment) => {
+              const getBoardTypeLabel = (type: string) => {
+                switch (type) {
+                  case 'national': return '전국';
+                  case 'regional': return '지역';
+                  case 'school': return '학교';
+                  default: return type;
+                }
+              };
 
-                  <div className="mb-3">
-                    <p className="text-gray-800 leading-relaxed">
-                      {comment.content}
-                    </p>
-                  </div>
+              const getBoardName = (postData: any) => {
+                return postData?.boardName || '게시판';
+              };
 
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" />
-                      <span>{comment.stats.likeCount || 0}</span>
+              return (
+                <Card key={comment.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {comment.postData && (
+                          <>
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                              {getBoardTypeLabel(comment.postData.type)}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {getBoardName(comment.postData)}
+                            </Badge>
+                          </>
+                        )}
+                        <div className="flex items-center gap-1 text-sm text-gray-500">
+                          <Calendar className="h-3 w-3" />
+                          <span>{formatSmartTime(comment.createdAt)}</span>
+                        </div>
+                      </div>
+                      {comment.postData && (
+                        <Link href={
+                          comment.postData.type === 'national' 
+                            ? `/community/national/${comment.postData.boardCode}/${comment.postId}`
+                            : comment.postData.type === 'regional' && comment.postData.regions
+                            ? `/community/region/${comment.postData.regions.sido}/${comment.postData.regions.sigungu}/${comment.postData.boardCode}/${comment.postId}`
+                            : comment.postData.type === 'school' && comment.postData.schoolId
+                            ? `/community/school/${comment.postData.schoolId}/${comment.postData.boardCode}/${comment.postId}`
+                            : '#'
+                        }>
+                          <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700">
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            원글 보기
+                          </Button>
+                        </Link>
+                      )}
                     </div>
-                    {comment.isAnonymous && (
-                      <Badge variant="outline" className="text-xs">
-                        익명
-                      </Badge>
+
+                    <div className="mb-3">
+                      <p className="text-gray-800 leading-relaxed">
+                        {comment.content}
+                      </p>
+                    </div>
+
+                    {comment.postData?.title && (
+                      <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-600 font-medium">
+                          "{comment.postData.title}"
+                        </p>
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Heart className="h-4 w-4" />
+                        <span>{comment.stats.likeCount || 0}</span>
+                      </div>
+                      {comment.isAnonymous && (
+                        <Badge variant="outline" className="text-xs">
+                          익명
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
 
             {hasMore && (
               <div className="text-center py-4">

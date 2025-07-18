@@ -341,7 +341,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div 
                     className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => router.push('/my/posts')}
@@ -358,17 +358,10 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   </div>
                   <div 
                     className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => router.push('/my/likes')}
-                  >
-                    <div className="text-2xl mb-2">❤️</div>
-                    <div className="text-sm text-muted-foreground">좋아요한 글</div>
-                  </div>
-                  <div 
-                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => router.push('/my/scraps')}
                   >
                     <div className="text-2xl mb-2">🔖</div>
-                    <div className="text-sm text-muted-foreground">스크랩</div>
+                    <div className="text-sm text-muted-foreground">스크랩한 글</div>
                   </div>
                 </div>
               </CardContent>

@@ -142,20 +142,7 @@ export default function MyPostsPage() {
   };
 
   const getBoardName = (post: ExtendedPost) => {
-    if (post.boardName) return post.boardName;
-    switch (post.boardCode) {
-      case 'free': return '자유';
-      case 'qna': return '질문';
-      case 'study': return '스터디';
-      case 'club': return '동아리';
-      case 'notice': return '공지';
-      case 'graduate': return '졸업생';
-      case 'academy': return '학원';
-      case 'restaurant': return '맛집';
-      case 'hobby': return '취미';
-      case 'jobs': return '구인구직';
-      default: return '게시판';
-    }
+    return post.boardName || '게시판';
   };
 
   if (isLoading && posts.length === 0) {
@@ -173,76 +160,81 @@ export default function MyPostsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">내가 쓴 글</h1>
-        <div className="text-sm text-gray-500">
-          총 {filteredPosts.length}개
-        </div>
-      </div>
-
-      {/* 토글 필터 */}
-      <div className="flex gap-2 mb-6 overflow-x-auto">
-        {(['all', 'national', 'regional', 'school'] as BoardType[]).map((type) => (
-          <Button
-            key={type}
-            variant={selectedType === type ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleTypeChange(type)}
-            className={`whitespace-nowrap ${selectedType === type ? 'bg-green-500 hover:bg-green-600' : ''}`}
-          >
-            {getTypeLabel(type)}
-          </Button>
-        ))}
-      </div>
-
-      {filteredPosts.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-6xl mb-4">📝</div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">
-            {selectedType === 'all' ? '작성한 게시글이 없습니다' : `${getTypeLabel(selectedType)} 게시글이 없습니다`}
-          </h3>
-          <p className="text-gray-500 mb-6">
-            {selectedType === 'all' ? '첫 번째 게시글을 작성해보세요!' : '다른 카테고리를 선택해보세요.'}
-          </p>
-          {selectedType === 'all' && (
-            <Button onClick={() => router.push('/community')}>
-              게시글 작성하기
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredPosts.map((post) => (
-            <PostListItem
-              key={post.id}
-              post={{
-                ...post,
-                authorInfo: post.authorInfo || { displayName: '나', isAnonymous: false },
-                boardName: getBoardName(post),
-              }}
-              href={getPostUrl(post)}
-              showBadges={true}
-              typeBadgeText={getBoardTypeLabel(post.type)}
-              boardBadgeText={getBoardName(post)}
-              variant="profile"
-            />
-          ))}
-
-          {/* 더 보기 버튼 */}
-          {hasMore && (
-            <div className="flex justify-center pt-6">
-              <Button
-                variant="outline"
-                onClick={loadMorePosts}
-                disabled={isLoading}
-                className="w-full max-w-md"
-              >
-                {isLoading ? '로딩 중...' : '더 보기'}
-              </Button>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl font-bold">내가 쓴 글</h1>
+            <div className="text-sm text-gray-500">
+              총 {filteredPosts.length}개
             </div>
-          )}
+          </div>
+          <p className="text-gray-600">작성한 게시글을 확인하세요.</p>
         </div>
-      )}
+
+        {/* 토글 필터 */}
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          {(['all', 'national', 'regional', 'school'] as BoardType[]).map((type) => (
+            <Button
+              key={type}
+              variant={selectedType === type ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleTypeChange(type)}
+              className={`whitespace-nowrap ${selectedType === type ? 'bg-green-500 hover:bg-green-600' : ''}`}
+            >
+              {getTypeLabel(type)}
+            </Button>
+          ))}
+        </div>
+
+        {filteredPosts.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">📝</div>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              {selectedType === 'all' ? '작성한 게시글이 없습니다' : `${getTypeLabel(selectedType)} 게시글이 없습니다`}
+            </h3>
+            <p className="text-gray-500 mb-6">
+              {selectedType === 'all' ? '첫 번째 게시글을 작성해보세요!' : '다른 카테고리를 선택해보세요.'}
+            </p>
+            {selectedType === 'all' && (
+              <Button onClick={() => router.push('/community')}>
+                게시글 작성하기
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredPosts.map((post) => (
+              <PostListItem
+                key={post.id}
+                post={{
+                  ...post,
+                  authorInfo: post.authorInfo || { displayName: '나', isAnonymous: false },
+                  boardName: getBoardName(post),
+                }}
+                href={getPostUrl(post)}
+                showBadges={true}
+                typeBadgeText={getBoardTypeLabel(post.type)}
+                boardBadgeText={getBoardName(post)}
+                variant="profile"
+              />
+            ))}
+
+            {/* 더 보기 버튼 */}
+            {hasMore && (
+              <div className="flex justify-center pt-6">
+                <Button
+                  variant="outline"
+                  onClick={loadMorePosts}
+                  disabled={isLoading}
+                  className="w-full max-w-md"
+                >
+                  {isLoading ? '로딩 중...' : '더 보기'}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -316,52 +316,7 @@ export const getUserComments = async (
   }
 };
 
-/**
- * 사용자가 좋아요한 게시글 목록 조회
- */
-export const getUserLikedPosts = async (
-  userId: string,
-  page = 1,
-  pageSize = 10
-): Promise<Post[]> => {
-  try {
-    // 사용자가 좋아요한 게시글 ID 목록 조회
-    const likesQuery = query(
-      collection(db, 'posts'),
-      where('stats.likeCount', '>', 0),
-      orderBy('createdAt', 'desc'),
-      limit(100) // 임시로 많은 수를 가져와서 필터링
-    );
-    
-    const likesSnapshot = await getDocs(likesQuery);
-    const likedPosts: Post[] = [];
-    
-    // 각 게시글의 좋아요 목록에서 해당 사용자가 좋아요했는지 확인
-    for (const postDoc of likesSnapshot.docs) {
-      const postData = postDoc.data();
-      const likesSubRef = collection(db, 'posts', postDoc.id, 'likes');
-      const userLikeQuery = query(likesSubRef, where('userId', '==', userId));
-      const userLikeSnapshot = await getDocs(userLikeQuery);
-      
-      if (!userLikeSnapshot.empty) {
-        likedPosts.push({
-          id: postDoc.id,
-          ...postData,
-          createdAt: postData.createdAt?.seconds ? postData.createdAt.seconds : postData.createdAt
-        } as Post);
-      }
-    }
-    
-    // 페이지네이션 적용
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    
-    return likedPosts.slice(startIndex, endIndex);
-  } catch (error) {
-    console.error('좋아요한 게시글 조회 오류:', error);
-    throw new Error('좋아요한 게시글을 가져오는 중 오류가 발생했습니다.');
-  }
-};
+
 
 /**
  * 팔로우 상태 확인
