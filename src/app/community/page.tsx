@@ -287,6 +287,22 @@ export default function CommunityPage() {
     }
   }, [selectedTab, selectedBoard, sortBy, boards]);
 
+  // 브라우저 탭이 포커스될 때마다 게시글 목록 새로고침
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      // 초기 로드가 아닌 경우에만 새로고침 (뒤로가기 등으로 돌아온 경우)
+      if (posts.length > 0) {
+        loadPosts();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [posts.length]);
+
   const loadBoards = async () => {
     try {
       console.log('Loading boards for type:', selectedTab);
