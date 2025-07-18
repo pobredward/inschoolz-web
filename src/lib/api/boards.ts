@@ -258,6 +258,8 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
       throw new Error('존재하지 않는 게시판입니다.');
     }
 
+    const boardData = boardDoc.data();
+
     // 새 게시글 정보 생성
     const newPost: Omit<Post, 'id'> = {
       title,
@@ -268,6 +270,7 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
         isAnonymous: isAnonymous || false
       },
       boardCode: code,
+      boardName: boardData?.name || code, // boardName 추가
       type,
       category: category || undefined,
       schoolId: schoolId || undefined,
@@ -275,7 +278,8 @@ export const createPost = async (userId: string, params: CreatePostParams): Prom
       stats: {
         viewCount: 0,
         likeCount: 0,
-        commentCount: 0
+        commentCount: 0,
+        scrapCount: 0
       },
       status: {
         isDeleted: false,

@@ -232,6 +232,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
       const postData = {
         type: type,
         boardCode: code,
+        boardName: board.name, // boardName 추가
         title: title.trim(),
         content: content.trim(),
         // category가 있을 때만 포함시키기

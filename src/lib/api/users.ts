@@ -49,8 +49,8 @@ interface PostData {
 }
 
 // 확장된 Post 타입
-interface ExtendedPost extends Post {
-  boardName?: string;
+interface ExtendedPost extends Omit<Post, 'boardName'> {
+  boardName: string;
   schoolName?: string;
   previewContent?: string;
 }
@@ -156,11 +156,11 @@ export const getUserPosts = async (
     // 게시글 정보 처리
     for (const doc of querySnapshot.docs) {
       const postData = doc.data() as PostData; // PostData 타입 사용
-      let boardName = '알 수 없는 게시판';
+      let boardName = (postData as any).boardName || '알 수 없는 게시판';
       let schoolName = undefined;
       
-      // 게시판 정보 조회 (캐싱 사용)
-      if (postData.boardCode && postData.type) {
+      // postData에 boardName이 없는 경우에만 게시판 정보 조회 (캐싱 사용)
+      if (!postData.boardName && postData.boardCode && postData.type) {
         const cacheKey = `${postData.type}-${postData.boardCode}`;
         
         if (boardCache[cacheKey]) {
@@ -173,7 +173,7 @@ export const getUserPosts = async (
             boardCache[cacheKey] = boardName;
           } catch (error) {
             console.error('게시판 정보 조회 실패:', error);
-            boardName = `게시판 (${postData.boardCode})`;
+            boardName = postData.boardCode || '알 수 없는 게시판';
           }
         }
       }
@@ -272,21 +272,43 @@ export const getUserComments = async (
       
       const commentsSnapshot = await getDocs(commentsQuery);
       
-      commentsSnapshot.forEach((commentDoc) => {
+      for (const commentDoc of commentsSnapshot.docs) {
         const postData = postDoc.data();
+        const commentData = commentDoc.data();
+        
+        // 게시판 이름 가져오기
+        let boardName = postData.boardName || '게시판';
+        
+        // postData에 boardName이 없는 경우에만 조회
+        if (!postData.boardName && postData.boardCode) {
+          try {
+            const boardRef = doc(db, 'boards', postData.boardCode);
+            const boardDoc = await getDoc(boardRef);
+            if (boardDoc.exists()) {
+              boardName = boardDoc.data()?.name || postData.boardCode;
+            } else {
+              boardName = postData.boardCode;
+            }
+          } catch (error) {
+            console.error('게시판 정보 조회 실패:', error);
+            boardName = postData.boardCode || '게시판';
+          }
+        }
+        
         allComments.push({ 
           id: commentDoc.id, 
-          ...commentDoc.data(),
+          ...commentData,
           postId: postDoc.id,  // 명시적으로 postId 추가
           postData: {
             title: postData.title,
             type: postData.type,
             boardCode: postData.boardCode,
+            boardName: boardName,
             schoolId: postData.schoolId,
             regions: postData.regions
           }
-        } as Comment);
-      });
+        } as any);
+      }
     }
     
     // 생성일 기준 정렬 (최신 댓글이 위에)

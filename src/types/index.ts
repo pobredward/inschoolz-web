@@ -342,6 +342,7 @@ export interface Comment {
     title: string;
     type: string;
     boardCode: string;
+    boardName?: string;
     schoolId?: string;
     regions?: {
       sido: string;

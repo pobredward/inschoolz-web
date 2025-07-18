@@ -114,7 +114,7 @@ export default function ScrapsPage() {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
                         {getBoardTypeLabel(post.type)}
                       </Badge>
                       <span>•</span>

@@ -59,6 +59,7 @@ interface PostWithOptionalFields {
     }>;
   };
   imageUrls?: string[];
+  boardName?: string; // boardName 필드 추가
 }
 
 interface PostListProps {
@@ -119,6 +120,7 @@ export default function PostList({
             stats: post.stats,
             tags: post.tags,
             poll: post.poll,
+            boardName: post.boardName, // boardName 추가
             imageUrls: Array.isArray(post.attachments) ? 
               post.attachments
                 .filter(att => att.type === 'image')
@@ -280,7 +282,7 @@ export default function PostList({
                   {/* 뱃지 컨테이너 */}
                   <div className="flex items-center gap-1">
                     {post.imageUrls && post.imageUrls.length > 0 && (
-                      <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs">
+                      <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-orange-50 text-orange-700 border-orange-200">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                           <circle cx="9" cy="9" r="2" />
@@ -291,7 +293,7 @@ export default function PostList({
                     )}
                     
                     {post.poll && (
-                      <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-purple-50 text-purple-700 border-purple-200">
                         <BarChart3 className="h-3 w-3" />
                         투표
                       </Badge>

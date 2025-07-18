@@ -18,7 +18,8 @@ import {
   Edit,
   Trash2,
   MoreVertical,
-  Flag
+  Flag,
+  BarChart3
 } from 'lucide-react';
 import { Post, Comment, Board } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
@@ -295,9 +296,25 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
               {getBoardTypeLabel(post.type)}
             </Badge>
-            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-              {boardInfo?.name || post.boardCode}
+            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+              {post.boardName || boardInfo?.name || post.boardCode}
             </Badge>
+            {post.attachments && post.attachments.length > 0 && (
+              <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-orange-50 text-orange-700 border-orange-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+                사진 {post.attachments.filter(att => att.type === 'image').length}
+              </Badge>
+            )}
+            {post.poll && (
+              <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                <BarChart3 className="h-3 w-3" />
+                투표
+              </Badge>
+            )}
           </div>
 
           {/* 게시글 헤더 */}

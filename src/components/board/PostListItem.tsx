@@ -58,24 +58,24 @@ const PostListItem: React.FC<PostListItemProps> = ({
         {showBadges && (
           <div className="flex items-center gap-2 mb-3">
             {typeBadgeText && (
-              <span className="text-xs font-bold text-gray-700 bg-blue-100 px-2 py-1 rounded">
+              <span className="text-xs font-bold bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded">
                 {typeBadgeText}
               </span>
             )}
             {boardBadgeText && (
-              <span className="text-xs font-bold text-gray-700 bg-green-100 px-2 py-1 rounded">
+              <span className="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded">
                 {boardBadgeText}
               </span>
             )}
             {/* 콘텐츠 뱃지 */}
             <div className="flex items-center gap-1">
               {previewImages.length > 0 && (
-                <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs">
+                <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-orange-50 text-orange-700 border-orange-200">
                   📷 사진
                 </Badge>
               )}
               {(post as any).poll && (
-                <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-purple-50 text-purple-700 border-purple-200">
                   📊 투표
                 </Badge>
               )}
