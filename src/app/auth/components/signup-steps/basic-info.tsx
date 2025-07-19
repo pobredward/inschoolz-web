@@ -78,9 +78,9 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
       passwordConfirm: formData.passwordConfirm || '',
       realName: formData.realName || '',
       gender: formData.gender || '',
-      birthYear: formData.birthYear || '',
-      birthMonth: formData.birthMonth || '',
-      birthDay: formData.birthDay || '',
+      birthYear: formData.birthYear || new Date().getFullYear() - 15,
+      birthMonth: formData.birthMonth || 1,
+      birthDay: formData.birthDay || 1,
       phoneNumber: formData.phoneNumber || '',
       referral: formData.referral || '',
     },
@@ -313,11 +313,17 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
                   <FormLabel>출생년도</FormLabel>
                   <FormControl>
                     <Input 
+                      type="text"
+                      inputMode="numeric"
                       placeholder="2000" 
-                      {...field} 
+                      maxLength={4}
+                      value={field.value?.toString() || ''}
                       onChange={(e) => {
-                        field.onChange(e);
-                        handleFieldChange('birthYear', e.target.value);
+                        const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                        const numValue = parseInt(value) || 0;
+                        e.target.value = value;
+                        field.onChange(numValue);
+                        handleFieldChange('birthYear', numValue);
                       }}
                     />
                   </FormControl>
@@ -334,11 +340,16 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
                   <FormLabel>월</FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="1" 
-                      {...field} 
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="01" 
+                      maxLength={2}
+                      value={field.value?.toString() || ''}
                       onChange={(e) => {
-                        field.onChange(e);
-                        handleFieldChange('birthMonth', e.target.value);
+                        const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                        const numValue = parseInt(value) || 0;
+                        field.onChange(numValue);
+                        handleFieldChange('birthMonth', numValue);
                       }}
                     />
                   </FormControl>
@@ -355,11 +366,16 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
                   <FormLabel>일</FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="1" 
-                      {...field} 
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="01" 
+                      maxLength={2}
+                      value={field.value?.toString() || ''}
                       onChange={(e) => {
-                        field.onChange(e);
-                        handleFieldChange('birthDay', e.target.value);
+                        const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                        const numValue = parseInt(value) || 0;
+                        field.onChange(numValue);
+                        handleFieldChange('birthDay', numValue);
                       }}
                     />
                   </FormControl>

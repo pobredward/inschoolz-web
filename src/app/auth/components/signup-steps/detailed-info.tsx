@@ -289,13 +289,16 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                     <FormLabel>출생년도</FormLabel>
                     <FormControl>
                       <Input 
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         placeholder="2000" 
+                        maxLength={4}
                         {...field} 
                         onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          field.onChange(value);
-                          handleFieldChange('birthYear', value);
+                          const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                          const numValue = parseInt(value) || 0;
+                          field.onChange(numValue);
+                          handleFieldChange('birthYear', numValue);
                         }}
                       />
                     </FormControl>
@@ -312,15 +315,16 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                     <FormLabel>월</FormLabel>
                     <FormControl>
                       <Input 
-                        type="number"
-                        placeholder="1" 
-                        min="1"
-                        max="12"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="01" 
+                        maxLength={2}
                         {...field} 
                         onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          field.onChange(value);
-                          handleFieldChange('birthMonth', value);
+                          const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                          const numValue = parseInt(value) || 0;
+                          field.onChange(numValue);
+                          handleFieldChange('birthMonth', numValue);
                         }}
                       />
                     </FormControl>
@@ -337,15 +341,16 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                     <FormLabel>일</FormLabel>
                     <FormControl>
                       <Input 
-                        type="number"
-                        placeholder="1" 
-                        min="1"
-                        max="31"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="01" 
+                        maxLength={2}
                         {...field} 
                         onChange={(e) => {
-                          const value = parseInt(e.target.value) || 0;
-                          field.onChange(value);
-                          handleFieldChange('birthDay', value);
+                          const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                          const numValue = parseInt(value) || 0;
+                          field.onChange(numValue);
+                          handleFieldChange('birthDay', numValue);
                         }}
                       />
                     </FormControl>
@@ -363,11 +368,16 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                   <FormLabel>휴대폰번호</FormLabel>
                   <FormControl>
                     <Input 
+                      type="text"
+                      inputMode="numeric"
                       placeholder="01012345678" 
+                      maxLength={11}
                       {...field} 
                       onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
                         field.onChange(e);
-                        handleFieldChange('phoneNumber', e.target.value);
+                        e.target.value = value; // 실제 input 값도 숫자만으로 업데이트
+                        handleFieldChange('phoneNumber', value);
                       }}
                     />
                   </FormControl>

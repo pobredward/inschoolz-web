@@ -364,9 +364,19 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
                 <Input
                   id="phoneNumber"
                   name="phoneNumber"
+                  type="text"
+                  inputMode="numeric"
                   value={formData.phoneNumber}
-                  onChange={handleChange}
-                  placeholder="전화번호를 입력하세요"
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                    if (value.length <= 11) {
+                      handleChange({
+                        target: { name: 'phoneNumber', value }
+                      } as React.ChangeEvent<HTMLInputElement>);
+                    }
+                  }}
+                  placeholder="01012345678"
+                  maxLength={11}
                   className="h-11 sm:h-10 mt-1.5"
                 />
               </div>
@@ -379,12 +389,19 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
                   <Input
                     id="birthYear"
                     name="birthYear"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={formData.birthYear}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
+                      if (value.length <= 4) {
+                        handleChange({
+                          target: { name: 'birthYear', value }
+                        } as React.ChangeEvent<HTMLInputElement>);
+                      }
+                    }}
                     placeholder="YYYY"
-                    min="1900"
-                    max={new Date().getFullYear()}
+                    maxLength={4}
                     className="h-11 sm:h-10"
                   />
                 </div>
