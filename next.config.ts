@@ -25,13 +25,14 @@ const nextConfig: NextConfig = {
     optimizeCss: true,
     // 모듈 최적화
     optimizeServerReact: true,
-    // 모바일 성능을 위한 번들 최적화
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
+  },
+
+  // Turbopack 설정 (experimental.turbo에서 이동)
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
     },
   },
