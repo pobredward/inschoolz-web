@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ImageCropModal from "@/components/ui/image-crop-modal";
 import { Camera, Loader2, ArrowLeft } from 'lucide-react';
 
 interface ProfileEditClientProps {
@@ -41,6 +42,11 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [provinces, setProvinces] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
+  
+  // 이미지 크롭 관련 상태
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [selectedImageSrc, setSelectedImageSrc] = useState<string>('');
+  
   const [formData, setFormData] = useState({
     userName: userData.profile?.userName || '',
     realName: userData.profile?.realName || '',
@@ -124,22 +130,53 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
     router.back();
   };
 
-  // 파일 변경 핸들러
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 파일 변경 핸들러 (크롭 모달 열기)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
 
-    // 미리보기 생성
+    // 이미지 파일인지 확인
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    // 파일 크기 체크 (10MB 제한)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('파일 크기는 10MB 이하여야 합니다.');
+      return;
+    }
+
+    // FileReader로 이미지 미리보기 생성
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageSrc = event.target?.result as string;
+      setSelectedImageSrc(imageSrc);
+      setCropModalOpen(true);
+    };
+    reader.readAsDataURL(file);
+
+    // 파일 입력 초기화
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // 크롭된 이미지 업로드 처리
+  const handleCropComplete = async (croppedImageFile: File) => {
+    if (!user) return;
+
+    // 크롭된 이미지 미리보기 생성
     const reader = new FileReader();
     reader.onload = (event) => {
       setImagePreview(event.target?.result as string);
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(croppedImageFile);
 
     // 이미지 업로드 처리
     setUploadingImage(true);
     try {
-      const result = await updateProfileImage(user.uid, file);
+      const result = await updateProfileImage(user.uid, croppedImageFile);
       if (result.success && result.url) {
         setFormData(prev => ({ 
           ...prev, 
@@ -158,11 +195,13 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
       setImagePreview(null);
     } finally {
       setUploadingImage(false);
-      // 파일 입력 초기화
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
+  };
+
+  // 크롭 모달 닫기
+  const handleCropModalClose = () => {
+    setCropModalOpen(false);
+    setSelectedImageSrc('');
   };
 
   // 프로필 저장 함수
@@ -466,6 +505,15 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
           )}
         </Button>
       </div>
+
+      {/* 이미지 크롭 모달 */}
+      <ImageCropModal
+        open={cropModalOpen}
+        onClose={handleCropModalClose}
+        imageSrc={selectedImageSrc}
+        onCropComplete={handleCropComplete}
+        title="프로필 사진 편집"
+      />
     </div>
   );
 } 
