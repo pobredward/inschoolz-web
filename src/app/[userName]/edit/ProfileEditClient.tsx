@@ -207,117 +207,136 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
+      {/* 헤더 섹션 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button 
             variant="ghost" 
             size="icon"
             onClick={handleGoBack}
+            className="h-9 w-9 sm:h-10 sm:w-10"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">프로필 수정</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">프로필 수정</h1>
         </div>
       </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>기본 정보</CardTitle>
-          <CardDescription>프로필 기본 정보를 수정합니다.</CardDescription>
+      {/* 프로필 이미지 섹션 */}
+      <Card className="border-0 sm:border shadow-none sm:shadow-sm">
+        <CardHeader className="px-4 sm:px-6 pb-4 sm:pb-6">
+          <CardTitle className="text-lg sm:text-xl">프로필 사진</CardTitle>
+          <CardDescription className="text-sm">프로필 사진을 변경할 수 있습니다.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
-            <div className="flex flex-col items-center">
-              <div className="relative group">
-                <Avatar className="w-32 h-32 mb-3">
-                  <AvatarImage 
-                    src={imagePreview || formData.profileImageUrl} 
-                    alt={formData.userName} 
-                  />
-                  <AvatarFallback>{formData.userName?.substring(0, 2) || 'ME'}</AvatarFallback>
-                </Avatar>
-                
-                <button
-                  type="button"
-                  onClick={handleUploadButtonClick}
-                  className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                  disabled={uploadingImage}
-                >
-                  {uploadingImage ? (
-                    <Loader2 className="h-8 w-8 text-white animate-spin" />
-                  ) : (
-                    <Camera className="h-8 w-8 text-white" />
-                  )}
-                </button>
-                
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
+        <CardContent className="px-4 sm:px-6">
+          <div className="flex flex-col items-center">
+            <div className="relative group">
+              <Avatar className="w-24 h-24 sm:w-32 sm:h-32 mb-3">
+                <AvatarImage 
+                  src={imagePreview || formData.profileImageUrl} 
+                  alt={formData.userName} 
+                />
+                <AvatarFallback className="text-lg sm:text-xl">
+                  {formData.userName?.substring(0, 2) || 'ME'}
+                </AvatarFallback>
+              </Avatar>
+              
+              <button
+                type="button"
+                onClick={handleUploadButtonClick}
+                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 active:opacity-100"
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 text-white animate-spin" />
+                ) : (
+                  <Camera className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                )}
+              </button>
+              
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+            
+            <p className="text-sm text-muted-foreground text-center">
+              클릭하여 프로필 사진 변경
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* 기본 정보 섹션 */}
+      <Card className="border-0 sm:border shadow-none sm:shadow-sm">
+        <CardHeader className="px-4 sm:px-6 pb-4 sm:pb-6">
+          <CardTitle className="text-lg sm:text-xl">기본 정보</CardTitle>
+          <CardDescription className="text-sm">프로필 기본 정보를 수정합니다.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6 space-y-4 sm:space-y-6">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="userName" className="text-sm font-medium">사용자명 *</Label>
+                <Input
+                  id="userName"
+                  name="userName"
+                  value={formData.userName}
+                  onChange={handleChange}
+                  placeholder="사용자명을 입력하세요"
+                  className="h-11 sm:h-10 mt-1.5"
                 />
               </div>
               
-              <p className="text-sm text-muted-foreground text-center">
-                클릭하여 프로필 사진 변경
-              </p>
+              <div>
+                <Label htmlFor="realName" className="text-sm font-medium">실명</Label>
+                <Input
+                  id="realName"
+                  name="realName"
+                  value={formData.realName}
+                  onChange={handleChange}
+                  placeholder="실명을 입력하세요"
+                  className="h-11 sm:h-10 mt-1.5"
+                />
+              </div>
             </div>
             
-            <div className="flex-1 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="userName">사용자명 *</Label>
-                  <Input
-                    id="userName"
-                    name="userName"
-                    value={formData.userName}
-                    onChange={handleChange}
-                    placeholder="사용자명을 입력하세요"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="realName">실명</Label>
-                  <Input
-                    id="realName"
-                    name="realName"
-                    value={formData.realName}
-                    onChange={handleChange}
-                    placeholder="실명을 입력하세요"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="gender">성별</Label>
-                  <Select value={formData.gender} onValueChange={(value) => handleSelectChange('gender', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="성별 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">남성</SelectItem>
-                      <SelectItem value="female">여성</SelectItem>
-                      <SelectItem value="other">기타</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="phoneNumber">전화번호</Label>
-                  <Input
-                    id="phoneNumber"
-                    name="phoneNumber"
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
-                    placeholder="전화번호를 입력하세요"
-                  />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="gender" className="text-sm font-medium">성별</Label>
+                <Select value={formData.gender} onValueChange={(value) => handleSelectChange('gender', value)}>
+                  <SelectTrigger className="h-11 sm:h-10 mt-1.5">
+                    <SelectValue placeholder="성별 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">남성</SelectItem>
+                    <SelectItem value="female">여성</SelectItem>
+                    <SelectItem value="other">기타</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="phoneNumber" className="text-sm font-medium">전화번호</Label>
+                <Input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  placeholder="전화번호를 입력하세요"
+                  className="h-11 sm:h-10 mt-1.5"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label className="text-sm font-medium">생년월일</Label>
+              <div className="grid grid-cols-3 gap-3 mt-1.5">
                 <div>
-                  <Label htmlFor="birthYear">출생년도</Label>
                   <Input
                     id="birthYear"
                     name="birthYear"
@@ -327,13 +346,13 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
                     placeholder="YYYY"
                     min="1900"
                     max={new Date().getFullYear()}
+                    className="h-11 sm:h-10"
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="birthMonth">월</Label>
                   <Select value={formData.birthMonth} onValueChange={(value) => handleSelectChange('birthMonth', value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11 sm:h-10">
                       <SelectValue placeholder="월" />
                     </SelectTrigger>
                     <SelectContent>
@@ -347,9 +366,8 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
                 </div>
                 
                 <div>
-                  <Label htmlFor="birthDay">일</Label>
                   <Select value={formData.birthDay} onValueChange={(value) => handleSelectChange('birthDay', value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11 sm:h-10">
                       <SelectValue placeholder="일" />
                     </SelectTrigger>
                     <SelectContent>
@@ -367,21 +385,22 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
         </CardContent>
       </Card>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>지역 정보</CardTitle>
-          <CardDescription>거주 지역 정보를 수정합니다.</CardDescription>
+      {/* 지역 정보 섹션 */}
+      <Card className="border-0 sm:border shadow-none sm:shadow-sm">
+        <CardHeader className="px-4 sm:px-6 pb-4 sm:pb-6">
+          <CardTitle className="text-lg sm:text-xl">지역 정보</CardTitle>
+          <CardDescription className="text-sm">거주 지역 정보를 수정합니다.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardContent className="px-4 sm:px-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="sido">시/도</Label>
+              <Label htmlFor="sido" className="text-sm font-medium">시/도</Label>
               <Select 
                 value={formData.sido} 
                 onValueChange={(value) => handleSelectChange('sido', value)}
                 disabled={regionsLoading}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11 sm:h-10 mt-1.5">
                   <SelectValue placeholder="시/도 선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -395,13 +414,13 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
             </div>
             
             <div>
-              <Label htmlFor="sigungu">시/군/구</Label>
+              <Label htmlFor="sigungu" className="text-sm font-medium">시/군/구</Label>
               <Select 
                 value={formData.sigungu} 
                 onValueChange={(value) => handleSelectChange('sigungu', value)}
                 disabled={regionsLoading || !formData.sido}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11 sm:h-10 mt-1.5">
                   <SelectValue placeholder="시/군/구 선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -416,20 +435,27 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
           </div>
           
           <div>
-            <Label htmlFor="address">상세주소</Label>
+            <Label htmlFor="address" className="text-sm font-medium">상세주소</Label>
             <Input
               id="address"
               name="address"
               value={formData.address}
               onChange={handleChange}
               placeholder="상세주소를 입력하세요 (선택사항)"
+              className="h-11 sm:h-10 mt-1.5"
             />
           </div>
         </CardContent>
       </Card>
       
-      <div className="flex justify-end">
-        <Button onClick={handleSaveProfile} disabled={loading}>
+      {/* 저장 버튼 */}
+      <div className="sticky bottom-4 sm:static sm:bottom-auto flex justify-end pt-4">
+        <Button 
+          onClick={handleSaveProfile} 
+          disabled={loading}
+          className="w-full sm:w-auto h-12 sm:h-10 px-8 font-medium"
+          size="lg"
+        >
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -88,7 +88,7 @@ export default async function ProfileEditPage({ params }: { params: Promise<{ us
 
     // 프로필 수정 컴포넌트 렌더링
     return (
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-20 sm:pb-6">
         <Toaster />
         <ProfileEditClient userData={serializedUserData} />
       </div>
