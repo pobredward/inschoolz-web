@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -289,9 +289,9 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
+    <div className="max-w-4xl mx-auto p-2 md:p-4 space-y-4 md:space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 px-2 md:px-0">
         <Button
           variant="ghost"
           size="sm"
@@ -303,176 +303,169 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         </Button>
       </div>
 
-      {/* 게시글 카드 */}
-      <Card>
-        <CardContent className="p-6">
-          {/* 게시판 정보 배지 - 맨 위 왼쪽 */}
-          <div className="flex items-center gap-1 mb-4">
-            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-              {getBoardTypeLabel(post.type)}
+      {/* 게시글 컨텐츠 - Card 제거하고 직접 렌더링 */}
+      <div className="px-2 md:px-4 py-4 space-y-4">
+        {/* 게시판 정보 배지 - 맨 위 왼쪽 */}
+        <div className="flex items-center gap-1 mb-4">
+          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+            {getBoardTypeLabel(post.type)}
+          </Badge>
+          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+            {post.boardName || boardInfo?.name || post.boardCode}
+          </Badge>
+          {post.attachments && post.attachments.length > 0 && (
+            <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-orange-50 text-orange-700 border-orange-200">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+              사진 {post.attachments.filter(att => att.type === 'image').length}
             </Badge>
-            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-              {post.boardName || boardInfo?.name || post.boardCode}
+          )}
+          {post.poll && (
+            <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-purple-50 text-purple-700 border-purple-200">
+              <BarChart3 className="h-3 w-3" />
+              투표
             </Badge>
-            {post.attachments && post.attachments.length > 0 && (
-              <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-orange-50 text-orange-700 border-orange-200">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                  <circle cx="9" cy="9" r="2" />
-                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                </svg>
-                사진 {post.attachments.filter(att => att.type === 'image').length}
-              </Badge>
-            )}
-            {post.poll && (
-              <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-purple-50 text-purple-700 border-purple-200">
-                <BarChart3 className="h-3 w-3" />
-                투표
-              </Badge>
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* 게시글 헤더 */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={post.authorInfo?.profileImageUrl} />
-                <AvatarFallback>
-                  {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium">
-                    {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-slate-500" />
-                  <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
-                </div>
+        {/* 게시글 헤더 */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={post.authorInfo?.profileImageUrl} />
+              <AvatarFallback>
+                {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-medium">
+                  {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-slate-500" />
+                <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
               </div>
             </div>
-            
-            {/* 게시글 메뉴 - 오른쪽 위 모서리 */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isAuthor ? (
-                  <>
-                    <DropdownMenuItem onClick={handleEdit}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      수정
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={() => setShowDeleteDialog(true)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      삭제
-                    </DropdownMenuItem>
-                  </>
-                ) : (
+          </div>
+          
+          {/* 게시글 메뉴 - 오른쪽 위 모서리 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isAuthor ? (
+                <>
+                  <DropdownMenuItem onClick={handleEdit}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    수정
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem 
-                    onClick={() => setShowReportModal(true)}
+                    onClick={() => setShowDeleteDialog(true)}
                     className="text-red-600"
                   >
-                    <Flag className="h-4 w-4 mr-2" />
-                    신고
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    삭제
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                </>
+              ) : (
+                <DropdownMenuItem 
+                  onClick={() => setShowReportModal(true)}
+                  className="text-red-600"
+                >
+                  <Flag className="h-4 w-4 mr-2" />
+                  신고
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-          {/* 게시글 제목 */}
-          <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
+        {/* 게시글 제목 */}
+        <h1 className="text-xl md:text-2xl font-bold mb-4">{post.title}</h1>
 
-          {/* 게시글 내용 */}
+        {/* 게시글 내용 */}
+        <div className="mb-6">
+          <HtmlContent content={post.content} />
+        </div>
+
+        {/* 투표 */}
+        {post.poll && (
           <div className="mb-6">
-            <HtmlContent content={post.content} />
+            <PollVoting 
+              postId={post.id} 
+              poll={post.poll}
+              onVoteUpdate={(updatedPoll) => {
+                // 투표 업데이트 시 필요한 로직
+              }}
+            />
           </div>
+        )}
 
-          {/* 투표 */}
-          {post.poll && (
-            <div className="mb-6">
-              <PollVoting 
-                postId={post.id} 
-                poll={post.poll}
-                onVoteUpdate={(updatedPoll) => {
-                  // 투표 업데이트 시 필요한 로직
-                }}
-              />
-            </div>
-          )}
-
-          {/* 태그 */}
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
+        {/* 태그 */}
+        {post.tags && post.tags.length > 0 && (
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-2">
               {post.tags.map((tag, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
+                <Badge key={index} variant="secondary" className="text-xs">
                   #{tag}
                 </Badge>
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          <Separator className="my-4" />
-
-          {/* 액션 버튼들 */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-2">
-                <Eye className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{post.stats.viewCount + 1}</span>
-              </div>
-              
-              <Button
-                variant="ghost" 
-                size="sm"
-                onClick={handleLike}
-                className={`flex items-center gap-2 px-3 py-2 ${isLiked ? 'text-red-500' : ''}`}
-              >
-                <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="text-sm">{likeCount}</span>
-              </Button>
-              
-              <div className="flex items-center gap-2 px-3 py-2">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{commentCount}</span>
-              </div>
+        {/* 조회수, 좋아요, 댓글 수와 액션 버튼들 */}
+        <div className="flex items-center justify-between text-sm text-slate-500 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <Eye className="h-4 w-4" />
+              <span>{post.stats.viewCount || 0}</span>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleScrap}
-                className={`flex items-center gap-2 px-3 py-2 ${isScrapped ? 'text-blue-500' : ''}`}
-              >
-                <Bookmark className={`h-4 w-4 ${isScrapped ? 'fill-current' : ''}`} />
-                <span className="text-sm">{scrapCount}</span>
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleShare}
-                className="flex items-center gap-1"
-                title="게시글 공유하기"
-              >
-                <Share2 className="h-4 w-4" />
-                <span className="text-sm hidden sm:inline">공유</span>
-              </Button>
+            <div className="flex items-center gap-1">
+              <Heart className="h-4 w-4" />
+              <span>{post.stats.likeCount || 0}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <MessageSquare className="h-4 w-4" />
+              <span>{commentCount}</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleScrap}
+              className={`flex items-center gap-1 h-8 px-2 ${isScrapped ? 'text-blue-500' : 'text-slate-500'}`}
+            >
+              <Bookmark className={`h-4 w-4 ${isScrapped ? 'fill-current' : ''}`} />
+              <span className="text-sm hidden sm:inline">스크랩</span>
+            </Button>
+            
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleShare}
+              className="flex items-center gap-1 h-8 px-2 text-slate-500"
+              title="게시글 공유하기"
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="text-sm hidden sm:inline">공유</span>
+            </Button>
+          </div>
+        </div>
+
+        <Separator />
+      </div>
 
       {/* 댓글 섹션 */}
       <CommentSection 

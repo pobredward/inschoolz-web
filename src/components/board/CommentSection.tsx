@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { 
   MessageSquare, 
   Heart, 
@@ -648,124 +648,123 @@ export default function CommentSection({
   };
 
   return (
-    <Card className="border-0 shadow-sm">
-      <CardContent className="p-6">
-        <div className="space-y-6">
-          {/* 댓글 작성 폼 */}
-          {user ? (
-            <CommentForm
-              onSubmit={(content, isAnonymous) => 
-                handleCreateComment(content, isAnonymous)
-              }
-              isSubmitting={isSubmitting}
-            />
-          ) : !showAnonymousForm ? (
-            <div className="space-y-3">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-3">
-                  로그인하지 않아도 익명으로 댓글을 작성할 수 있습니다.
-                </p>
-                <Button
-                  onClick={() => setShowAnonymousForm(true)}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  익명 댓글 작성
-                </Button>
-              </div>
+    <div className="px-2 md:px-4 py-4 space-y-6">
+      <div className="space-y-6">
+        {/* 댓글 작성 폼 */}
+        {user ? (
+          <CommentForm
+            onSubmit={(content, isAnonymous) => 
+              handleCreateComment(content, isAnonymous)
+            }
+            isSubmitting={isSubmitting}
+          />
+        ) : !showAnonymousForm ? (
+          <div className="space-y-3">
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-3">
+                로그인하지 않아도 익명으로 댓글을 작성할 수 있습니다.
+              </p>
+              <Button
+                onClick={() => setShowAnonymousForm(true)}
+                className="bg-green-500 hover:bg-green-600"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                익명 댓글 작성
+              </Button>
             </div>
-          ) : (
-            <AnonymousCommentForm
-              onSubmit={handleCreateAnonymousComment}
-              onCancel={() => setShowAnonymousForm(false)}
-              isSubmitting={isSubmitting}
-            />
-          )}
+          </div>
+        ) : (
+          <AnonymousCommentForm
+            onSubmit={handleCreateAnonymousComment}
+            onCancel={() => setShowAnonymousForm(false)}
+            isSubmitting={isSubmitting}
+          />
+        )}
 
-          {/* 댓글 목록 */}
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : comments.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquare className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-              <p className="text-slate-500">아직 댓글이 없습니다.</p>
-              <p className="text-sm text-slate-400">첫 번째 댓글을 작성해보세요!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {comments.map((comment: CommentWithReplies) => (
-                <div key={comment.id} className="group">
-                  <CommentItem
-                    comment={comment}
-                    postId={postId}
-                    onReply={handleReply}
-                    onEdit={handleEditComment}
-                    onDelete={handleDeleteComment}
-                    onLike={handleLikeComment}
-                    onAnonymousEdit={handleAnonymousEdit}
-                    onAnonymousDelete={handleAnonymousDelete}
-                    editingComment={editingComment}
-                    onEditingCommentChange={handleEditingCommentChange}
-                    onEditingCommentSave={handleEditingCommentSave}
-                    onEditingCommentCancel={handleEditingCommentCancel}
-                  />
-                  
-                  {/* 대댓글 렌더링 */}
-                  {comment.replies && comment.replies.length > 0 && (
-                    <div className="space-y-2">
-                      {comment.replies.map((reply: CommentWithReplies) => (
-                        <div key={reply.id} className="group">
-                          <CommentItem
-                            comment={reply}
-                            postId={postId}
-                            onReply={handleReply}
-                            onEdit={handleEditComment}
-                            onDelete={handleDeleteComment}
-                            onLike={handleLikeComment}
-                            onAnonymousEdit={handleAnonymousEdit}
-                            onAnonymousDelete={handleAnonymousDelete}
-                            editingComment={editingComment}
-                            onEditingCommentChange={handleEditingCommentChange}
-                            onEditingCommentSave={handleEditingCommentSave}
-                            onEditingCommentCancel={handleEditingCommentCancel}
-                            level={1}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* 답글 작성 폼 */}
-                  {replyingTo && replyingTo.id === comment.id && (
-                    <div className="mt-4 ml-8">
-                      {user ? (
-                        <CommentForm
-                          parentId={comment.id}
-                          parentAuthor={replyingTo.author}
-                          placeholder="답글을 입력하세요..."
-                          buttonText="답글 작성"
-                          onSubmit={(content, isAnonymous) => 
-                            handleCreateComment(content, isAnonymous, comment.id)
-                          }
-                          onCancel={() => setReplyingTo(null)}
-                          isSubmitting={isSubmitting}
+        {/* 댓글 목록 */}
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : comments.length === 0 ? (
+          <div className="text-center py-8">
+            <MessageSquare className="w-12 h-12 text-slate-400 mx-auto mb-2" />
+            <p className="text-slate-500">아직 댓글이 없습니다.</p>
+            <p className="text-sm text-slate-400">첫 번째 댓글을 작성해보세요!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {comments.map((comment: CommentWithReplies) => (
+              <div key={comment.id} className="group">
+                <CommentItem
+                  comment={comment}
+                  postId={postId}
+                  onReply={handleReply}
+                  onEdit={handleEditComment}
+                  onDelete={handleDeleteComment}
+                  onLike={handleLikeComment}
+                  onAnonymousEdit={handleAnonymousEdit}
+                  onAnonymousDelete={handleAnonymousDelete}
+                  editingComment={editingComment}
+                  onEditingCommentChange={handleEditingCommentChange}
+                  onEditingCommentSave={handleEditingCommentSave}
+                  onEditingCommentCancel={handleEditingCommentCancel}
+                />
+                
+                {/* 대댓글 렌더링 */}
+                {comment.replies && comment.replies.length > 0 && (
+                  <div className="space-y-2">
+                    {comment.replies.map((reply: CommentWithReplies) => (
+                      <div key={reply.id} className="group">
+                        <CommentItem
+                          comment={reply}
+                          postId={postId}
+                          onReply={handleReply}
+                          onEdit={handleEditComment}
+                          onDelete={handleDeleteComment}
+                          onLike={handleLikeComment}
+                          onAnonymousEdit={handleAnonymousEdit}
+                          onAnonymousDelete={handleAnonymousDelete}
+                          editingComment={editingComment}
+                          onEditingCommentChange={handleEditingCommentChange}
+                          onEditingCommentSave={handleEditingCommentSave}
+                          onEditingCommentCancel={handleEditingCommentCancel}
+                          level={1}
                         />
-                      ) : (
-                        <AnonymousCommentForm
-                          onSubmit={handleCreateAnonymousComment}
-                          onCancel={() => setReplyingTo(null)}
-                          isSubmitting={isSubmitting}
-                          placeholder={`@${replyingTo.author}님에게 답글을 입력하세요...`}
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* 답글 작성 폼 */}
+                {replyingTo && replyingTo.id === comment.id && (
+                  <div className="mt-4 ml-8">
+                    {user ? (
+                      <CommentForm
+                        parentId={comment.id}
+                        parentAuthor={replyingTo.author}
+                        placeholder="답글을 입력하세요..."
+                        buttonText="답글 작성"
+                        onSubmit={(content, isAnonymous) => 
+                          handleCreateComment(content, isAnonymous, comment.id)
+                        }
+                        onCancel={() => setReplyingTo(null)}
+                        isSubmitting={isSubmitting}
+                      />
+                    ) : (
+                      <AnonymousCommentForm
+                        onSubmit={handleCreateAnonymousComment}
+                        onCancel={() => setReplyingTo(null)}
+                        isSubmitting={isSubmitting}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
           {/* 익명 댓글 비밀번호 확인 모달 */}
           <AnonymousPasswordModal
@@ -796,7 +795,5 @@ export default function CommentSection({
             />
           )}
         </div>
-      </CardContent>
-    </Card>
   );
 } 
