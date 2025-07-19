@@ -33,6 +33,20 @@ import { checkReferralExists } from '@/lib/api/schools';
 import { CheckCircle, XCircle, Loader2, FileText, Info } from 'lucide-react';
 import { ReferralSearch } from '@/components/ui/referral-search';
 
+// 휴대폰 번호 포맷팅 함수
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return '';
+  const numbers = value.replace(/\D/g, '');
+  
+  if (numbers.length <= 3) {
+    return numbers;
+  } else if (numbers.length <= 7) {
+    return numbers.replace(/(\d{3})(\d{1,4})/, '$1-$2');
+  } else {
+    return numbers.replace(/(\d{3})(\d{4})(\d{1,4})/, '$1-$2-$3');
+  }
+};
+
 const detailedInfoSchema = z.object({
   userName: z.string()
     .min(5, { message: '아이디는 최소 5자 이상이어야 합니다.' })
@@ -319,12 +333,19 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                         inputMode="numeric"
                         placeholder="01" 
                         maxLength={2}
-                        {...field} 
+                        value={field.value ? String(field.value).padStart(2, '0') : ''}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
-                          const numValue = parseInt(value) || 0;
-                          field.onChange(numValue);
-                          handleFieldChange('birthMonth', numValue);
+                          if (value.length <= 2) {
+                            const numValue = parseInt(value) || 0;
+                            if (numValue >= 1 && numValue <= 12) {
+                              field.onChange(numValue);
+                              handleFieldChange('birthMonth', numValue);
+                            } else if (value === '' || numValue === 0) {
+                              field.onChange(0);
+                              handleFieldChange('birthMonth', 0);
+                            }
+                          }
                         }}
                       />
                     </FormControl>
@@ -345,12 +366,19 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                         inputMode="numeric"
                         placeholder="01" 
                         maxLength={2}
-                        {...field} 
+                        value={field.value ? String(field.value).padStart(2, '0') : ''}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
-                          const numValue = parseInt(value) || 0;
-                          field.onChange(numValue);
-                          handleFieldChange('birthDay', numValue);
+                          if (value.length <= 2) {
+                            const numValue = parseInt(value) || 0;
+                            if (numValue >= 1 && numValue <= 31) {
+                              field.onChange(numValue);
+                              handleFieldChange('birthDay', numValue);
+                            } else if (value === '' || numValue === 0) {
+                              field.onChange(0);
+                              handleFieldChange('birthDay', 0);
+                            }
+                          }
                         }}
                       />
                     </FormControl>
@@ -370,13 +398,12 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                     <Input 
                       type="text"
                       inputMode="numeric"
-                      placeholder="01012345678" 
-                      maxLength={11}
-                      {...field} 
+                      placeholder="010-1234-5678" 
+                      maxLength={13}
+                      value={field.value ? formatPhoneNumber(field.value) : ''}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
-                        field.onChange(e);
-                        e.target.value = value; // 실제 input 값도 숫자만으로 업데이트
+                        const value = e.target.value.replace(/\D/g, ''); // 숫자만 추출
+                        field.onChange(value); // 숫자만 저장
                         handleFieldChange('phoneNumber', value);
                       }}
                     />

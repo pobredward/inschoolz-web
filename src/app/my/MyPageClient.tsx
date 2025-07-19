@@ -43,6 +43,20 @@ const formatExp = (exp: number): string => {
   return exp.toLocaleString();
 };
 
+// 휴대폰 번호 포맷팅 함수
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return '미설정';
+  const numbers = value.replace(/\D/g, '');
+  
+  if (numbers.length <= 3) {
+    return numbers;
+  } else if (numbers.length <= 7) {
+    return numbers.replace(/(\d{3})(\d{1,4})/, '$1-$2');
+  } else {
+    return numbers.replace(/(\d{3})(\d{4})(\d{1,4})/, '$1-$2-$3');
+  }
+};
+
 // 레벨에 따른 필요 경험치 계산 (헤더와 동일한 로직)
 const getRequiredExpForLevel = (level: number): number => {
   // PRD 요구사항: 1->2레벨 10exp, 2->3레벨 20exp, 오름차순
@@ -313,7 +327,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">연락처:</span>
-                      <span className="text-sm font-medium">{userData.profile?.phoneNumber || '미설정'}</span>
+                      <span className="text-sm font-medium">{formatPhoneNumber(userData.profile?.phoneNumber || '')}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">주소:</span>

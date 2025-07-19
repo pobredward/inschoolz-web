@@ -28,6 +28,20 @@ import {
 import ImageCropModal from "@/components/ui/image-crop-modal";
 import { Camera, Loader2, ArrowLeft } from 'lucide-react';
 
+// 휴대폰 번호 포맷팅 함수
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return '';
+  const numbers = value.replace(/\D/g, '');
+  
+  if (numbers.length <= 3) {
+    return numbers;
+  } else if (numbers.length <= 7) {
+    return numbers.replace(/(\d{3})(\d{1,4})/, '$1-$2');
+  } else {
+    return numbers.replace(/(\d{3})(\d{4})(\d{1,4})/, '$1-$2-$3');
+  }
+};
+
 interface ProfileEditClientProps {
   userData: User;
 }
@@ -366,7 +380,7 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
                   name="phoneNumber"
                   type="text"
                   inputMode="numeric"
-                  value={formData.phoneNumber}
+                  value={formatPhoneNumber(formData.phoneNumber)}
                   onChange={(e) => {
                     const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
                     if (value.length <= 11) {
@@ -375,8 +389,8 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
                       } as React.ChangeEvent<HTMLInputElement>);
                     }
                   }}
-                  placeholder="01012345678"
-                  maxLength={11}
+                  placeholder="010-1234-5678"
+                  maxLength={13}
                   className="h-11 sm:h-10 mt-1.5"
                 />
               </div>
