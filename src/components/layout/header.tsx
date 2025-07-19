@@ -230,50 +230,8 @@ export function Header() {
         role="banner"
       >
         <div className="container h-full mx-auto flex items-center justify-between px-4">
-          {/* 로고 */}
-          <Link 
-            href="/" 
-            className="flex items-center hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-green-400 focus:ring-offset-2 rounded-md"
-            aria-label="인스쿨즈 홈페이지로 이동"
-          >
-            <span className="text-xl font-bold text-pastel-green-600 font-jammin">
-              InSchoolz
-            </span>
-          </Link>
-
-          {/* 데스크탑 네비게이션 - 중간 사이즈 이상에서만 표시 */}
-          <nav className="hidden md:flex items-center space-x-1" role="navigation" aria-label="주 메뉴">
-            {allMenuItems.map((item) => (
-              <Link key={item.path} href={item.path}>
-                <Button
-                  variant={pathname === item.path ? "default" : "ghost"}
-                  className={`flex items-center gap-1 px-3 transition-colors ${
-                    pathname === item.path 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300' 
-                      : 'hover:bg-pastel-green-100 hover:text-pastel-green-700'
-                  }`}
-                  aria-label={item.ariaLabel}
-                  aria-current={pathname === item.path ? 'page' : undefined}
-                >
-                  {item.icon}
-                  <span>{item.name}</span>
-                </Button>
-              </Link>
-            ))}
-          </nav>
-
-          {/* 헤더 오른쪽 - 경험치, 알림, 프로필 */}
+          {/* 왼쪽: 햄버거 메뉴 + 로고 */}
           <div className="flex items-center gap-3">
-            {/* 경험치/레벨 표시 - 로그인 시에만 표시 */}
-            {user && (
-              <div className="hidden md:block">
-                <ExperienceDisplay user={user} />
-              </div>
-            )}
-
-            {/* 알림 버튼 - 로그인 시에만 표시 */}
-            <NotificationButton user={user || undefined} />
-
             {/* 모바일 메뉴 트리거 - md 미만에서만 표시 */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
@@ -287,7 +245,7 @@ export function Header() {
                   <Menu className="h-5 w-5 text-pastel-green-600" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-72">
+              <SheetContent side="left" className="w-72">
                 <SheetHeader className="mb-4">
                   <SheetTitle>메뉴</SheetTitle>
                 </SheetHeader>
@@ -333,6 +291,51 @@ export function Header() {
                 </nav>
               </SheetContent>
             </Sheet>
+
+            {/* 로고 */}
+            <Link 
+              href="/" 
+              className="flex items-center hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-green-400 focus:ring-offset-2 rounded-md"
+              aria-label="인스쿨즈 홈페이지로 이동"
+            >
+              <span className="text-xl font-bold text-pastel-green-600 font-jammin">
+                InSchoolz
+              </span>
+            </Link>
+          </div>
+
+          {/* 데스크탑 네비게이션 - 중간 사이즈 이상에서만 표시 */}
+          <nav className="hidden md:flex items-center space-x-1" role="navigation" aria-label="주 메뉴">
+            {allMenuItems.map((item) => (
+              <Link key={item.path} href={item.path}>
+                <Button
+                  variant={pathname === item.path ? "default" : "ghost"}
+                  className={`flex items-center gap-1 px-3 transition-colors ${
+                    pathname === item.path 
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300' 
+                      : 'hover:bg-pastel-green-100 hover:text-pastel-green-700'
+                  }`}
+                  aria-label={item.ariaLabel}
+                  aria-current={pathname === item.path ? 'page' : undefined}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Button>
+              </Link>
+            ))}
+          </nav>
+
+          {/* 헤더 오른쪽 - 경험치, 알림, 프로필 */}
+          <div className="flex items-center gap-3">
+            {/* 경험치/레벨 표시 - 로그인 시에만 표시 */}
+            {user && (
+              <div className="hidden md:block">
+                <ExperienceDisplay user={user} />
+              </div>
+            )}
+
+            {/* 알림 버튼 - 로그인 시에만 표시 */}
+            <NotificationButton user={user || undefined} />
 
             {/* 프로필 아이콘 & 드롭다운 */}
             <DropdownMenu>
@@ -432,23 +435,23 @@ export function Header() {
 
       {/* 모바일 하단 네비게이션 - md 미만에서만 표시 */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-pastel-green-200"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-pastel-green-200 safe-area-inset"
         role="navigation"
         aria-label="하단 네비게이션"
       >
-        <div className="flex justify-around items-center h-16">
+        <div className="flex justify-around items-center h-16 px-safe-left pr-safe-right pb-safe-bottom">
           {allMenuItems.map((item) => (
             <Link 
               key={item.path} 
               href={item.path} 
-              className="flex-1"
+              className="flex-1 min-w-touch"
               aria-label={item.ariaLabel}
             >
               <div 
-                className={`flex flex-col items-center justify-center py-2 transition-colors ${
+                className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 min-h-touch rounded-lg mx-1 ${
                   pathname === item.path 
-                    ? 'text-pastel-green-600' 
-                    : 'text-gray-500 hover:text-pastel-green-500'
+                    ? 'text-pastel-green-600 bg-pastel-green-50 scale-105 shadow-sm' 
+                    : 'text-gray-500 hover:text-pastel-green-500 hover:bg-pastel-green-50/50 active:scale-95 active:bg-pastel-green-100'
                 }`}
                 role="button"
                 tabIndex={0}
@@ -460,17 +463,25 @@ export function Header() {
                   }
                 }}
               >
-                {item.icon}
-                <span className="text-xs mt-1 font-medium">{item.name}</span>
+                <div className={`transition-transform duration-200 ${pathname === item.path ? 'scale-110' : ''}`}>
+                  {item.icon}
+                </div>
+                <span className={`text-xs mt-1 font-medium transition-all duration-200 ${
+                  pathname === item.path ? 'font-semibold' : ''
+                }`}>
+                  {item.name}
+                </span>
+                {pathname === item.path && (
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pastel-green-600 rounded-full animate-bounce-in" />
+                )}
               </div>
             </Link>
           ))}
         </div>
       </nav>
 
-      {/* 헤더와 하단 네비게이션을 위한 여백 */}
+      {/* 헤더를 위한 여백 */}
       <div className="h-16" aria-hidden="true" /> {/* 헤더 높이만큼 상단 여백 */}
-      <div className="md:hidden h-16" aria-hidden="true" /> {/* 모바일에서 하단 네비게이션 높이만큼 하단 여백 */}
     </>
   );
 } 

@@ -5,6 +5,7 @@ import { Providers } from "@/providers/Providers";
 import { Header } from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
+import { PWAPrompt } from "@/components/ui/pwa-prompt";
 
 // 한글 폰트 - 잼민이체 스타일에 가까운 귀여운 폰트
 const notoSansKR = Noto_Sans_KR({
@@ -109,12 +110,18 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#7FDD72',
-  colorScheme: 'light',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#86efac' },
+    { media: '(prefers-color-scheme: dark)', color: '#15803d' }
+  ],
+  colorScheme: 'light dark',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false
+  maximumScale: 5, // 접근성을 위해 확대 허용
+  userScalable: true, // 접근성을 위해 사용자 스케일링 허용
+  viewportFit: 'cover', // 노치 디스플레이 지원
+  // PWA 지원
+  minimumScale: 1
 }
 
 export default function RootLayout({
@@ -124,12 +131,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning className={notoSansKR.variable}>
-      <body className={`${notoSansKR.className} antialiased min-h-screen bg-background font-sans flex flex-col`}>
+      <body className={`${notoSansKR.className} antialiased min-h-screen bg-background font-sans flex flex-col touch-manipulation safe-area-inset`}>
         <Providers>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pb-16 md:pb-0">{children}</main>
           <Footer />
           <Toaster />
+          <PWAPrompt />
         </Providers>
       </body>
     </html>

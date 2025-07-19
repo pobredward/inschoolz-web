@@ -122,7 +122,7 @@ export default function Home() {
           <div className="mb-6">
             <Link 
               href="/admin" 
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors"
+              className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2 font-medium transition-all duration-200 touch-manipulation active:scale-95 min-h-touch"
             >
               <ShieldIcon className="h-5 w-5" />
               관리자 대시보드 바로가기
@@ -130,20 +130,19 @@ export default function Home() {
           </div>
         )}
 
-
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* 메인 컨텐츠 */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-6 lg:space-y-8">
             {/* 인기 게시글 섹션 */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">🔥 실시간 인기 글</h2>
+                <h2 className="text-xl lg:text-2xl font-bold text-gray-900">🔥 실시간 인기 글</h2>
                 <Link 
                   href="/community?tab=national" 
-                  className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1"
+                  className="text-sm text-green-600 hover:text-green-700 active:text-green-800 flex items-center gap-1 transition-colors touch-manipulation min-h-touch"
                 >
-                  더보기 <ArrowRightIcon className="h-3 w-3" />
+                  더보기
+                  <span className="text-xs">→</span>
                 </Link>
               </div>
               {loading ? (

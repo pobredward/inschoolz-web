@@ -78,13 +78,160 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-
-
+/* 모바일 최적화 기본 스타일 */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  
+  html {
+    /* 모바일에서 탭 하이라이트 제거 */
+    -webkit-tap-highlight-color: transparent;
+    /* 모바일에서 텍스트 크기 조정 방지 */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    /* 스크롤 성능 개선 */
+    -webkit-overflow-scrolling: touch;
+    /* 폰트 렌더링 최적화 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
   body {
     @apply bg-background text-foreground;
+    /* 모바일에서 바운스 스크롤 방지 */
+    overscroll-behavior: none;
+    /* GPU 가속 활성화 */
+    transform: translateZ(0);
+    /* 터치 스크롤 성능 개선 */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 모바일 입력 필드 최적화 */
+  input, textarea, select {
+    /* iOS에서 줌 방지를 위한 최소 폰트 크기 */
+    font-size: max(16px, 1rem);
+  }
+  
+  /* 이미지 최적화 */
+  img {
+    /* 이미지 로딩 성능 개선 */
+    content-visibility: auto;
+    /* 이미지 디코딩 최적화 */
+    decoding: async;
+  }
+}
+
+/* 모바일 전용 유틸리티 클래스 */
+@layer utilities {
+  /* 터치 친화적 최소 크기 */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* 터치 피드백 */
+  .touch-feedback {
+    transition: transform 0.1s ease-out, background-color 0.1s ease-out;
+  }
+  
+  .touch-feedback:active {
+    transform: scale(0.95);
+  }
+  
+  /* 모바일 그리드 최적화 */
+  .mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  
+  /* 스크롤 성능 최적화 */
+  .optimized-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+  }
+  
+  /* 컨텐츠 가시성 최적화 */
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 5000px;
+  }
+  
+  /* 로딩 상태 스켈레톤 */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.4),
+      transparent
+    );
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+  }
+  
+  @keyframes loading {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  
+  /* 모바일 안전 영역 */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* 모바일 브레이크포인트별 최적화 */
+@media (max-width: 640px) {
+  /* 작은 화면에서 패딩 축소 */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* 모바일에서 더 큰 터치 타겟 */
+  button, [role="button"], a {
+    min-height: 44px;
+  }
+}
+
+/* 고해상도 디스플레이 최적화 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* 레티나 디스플레이에서 선명한 테두리 */
+  .border {
+    border-width: 0.5px;
+  }
+}
+
+/* 다크 모드 성능 최적화 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
+
+/* 애니메이션 감소 설정 존중 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
