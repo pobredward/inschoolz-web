@@ -793,6 +793,8 @@ export const updateComment = async (
   }
 };
 
+
+
 // 대댓글 존재 여부 확인
 const hasReplies = async (postId: string, commentId: string): Promise<boolean> => {
   try {

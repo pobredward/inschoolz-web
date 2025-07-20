@@ -76,18 +76,21 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   const [boardInfo, setBoardInfo] = useState<Board | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  useEffect(() => {
+    useEffect(() => {
     // 조회수 증가 (한 번만)
     incrementPostViewCount(post.id);
     
-            // 좋아요/스크랩 상태 확인
-        const checkStatuses = async () => {
-          if (user) {
-            try {
-              const [likeStatus, scrapStatus] = await Promise.all([
-                checkLikeStatus(post.id, user.uid),
-                checkScrapStatus(post.id, user.uid)
-              ]);
+    // 게시글 상세 페이지에 진입했음을 표시
+    sessionStorage.setItem('from-post-detail', 'true');
+    
+    // 좋아요/스크랩 상태 확인
+    const checkStatuses = async () => {
+      if (user) {
+        try {
+          const [likeStatus, scrapStatus] = await Promise.all([
+            checkLikeStatus(post.id, user.uid),
+            checkScrapStatus(post.id, user.uid)
+          ]);
               setIsLiked(likeStatus);
               setIsScrapped(scrapStatus);
         } catch (error) {
