@@ -360,7 +360,16 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent 
+              align="end" 
+              side="bottom" 
+              sideOffset={5}
+              alignOffset={0}
+              className="z-50 min-w-[120px]"
+              avoidCollisions={true}
+              collisionPadding={8}
+              sticky="always"
+            >
               {isAuthor ? (
                 <>
                   <DropdownMenuItem onClick={handleEdit}>

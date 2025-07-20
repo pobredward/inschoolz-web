@@ -418,33 +418,36 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
             />
             
             <div className="space-y-6">
-              <div>
-                <FormLabel>태그</FormLabel>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="태그를 입력하세요"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyPress={handleTagKeyPress}
-                    className="flex-1"
-                  />
-                  <Button type="button" onClick={addTag} variant="outline">
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    추가
-                  </Button>
+              {/* 태그 섹션 비활성화 */}
+              {false && (
+                <div>
+                  <FormLabel>태그</FormLabel>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      placeholder="태그를 입력하세요"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyPress={handleTagKeyPress}
+                      className="flex-1"
+                    />
+                    <Button type="button" onClick={addTag} variant="outline">
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      추가
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {form.getValues().tags.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                        {tag}
+                        <X 
+                          className="h-3 w-3 cursor-pointer" 
+                          onClick={() => removeTag(tag)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {form.getValues().tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                      {tag}
-                      <X 
-                        className="h-3 w-3 cursor-pointer" 
-                        onClick={() => removeTag(tag)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+              )}
               
               {board.allowAnonymous && (
                 <FormField

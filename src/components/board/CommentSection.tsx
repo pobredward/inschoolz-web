@@ -33,7 +33,8 @@ import {
   createComment as createCommentAPI, 
   updateComment, 
   deleteComment,
-  toggleCommentLike
+  toggleCommentLike,
+  checkMultipleCommentLikeStatus
 } from '@/lib/api/board';
 import {
   createAnonymousComment,
@@ -163,6 +164,7 @@ function CommentItem({
   onEditingCommentChange,
   onEditingCommentSave,
   onEditingCommentCancel,
+  isLiked = false,
   level = 0
 }: {
   comment: CommentWithReplies;
@@ -177,12 +179,12 @@ function CommentItem({
   onEditingCommentChange: (content: string) => void;
   onEditingCommentSave: () => void;
   onEditingCommentCancel: () => void;
+  isLiked?: boolean;
   level?: number;
 }) {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
-  const [isLiked, setIsLiked] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   
   const maxLevel = 1; // 최대 1단계 대댓글까지만 허용
@@ -220,7 +222,6 @@ function CommentItem({
 
   const handleLike = () => {
     onLike(comment.id);
-    setIsLiked(!isLiked);
   };
 
   return (
@@ -250,7 +251,16 @@ function CommentItem({
                   <MoreVertical className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent 
+                align="end" 
+                side="bottom" 
+                sideOffset={5}
+                alignOffset={0}
+                className="z-50 min-w-[120px]"
+                avoidCollisions={true}
+                collisionPadding={8}
+                sticky="always"
+              >
                 {isAuthor ? (
                   <>
                     <DropdownMenuItem onClick={() => setIsEditing(true)}>
@@ -405,6 +415,7 @@ export default function CommentSection({
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; author: string } | null>(null);
+  const [likeStatuses, setLikeStatuses] = useState<Record<string, boolean>>({});
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showAnonymousForm, setShowAnonymousForm] = useState(false);
   const [passwordModal, setPasswordModal] = useState<{
@@ -434,13 +445,31 @@ export default function CommentSection({
       const fetchedComments = await getCommentsByPost(postId);
       setComments(fetchedComments);
       onCommentCountChange?.(fetchedComments.length);
+      
+      // 로그인한 사용자인 경우 좋아요 상태 확인
+      if (user && fetchedComments.length > 0) {
+        const allCommentIds: string[] = [];
+        
+        // 모든 댓글과 대댓글의 ID 수집
+        fetchedComments.forEach(comment => {
+          allCommentIds.push(comment.id);
+          if (comment.replies) {
+            comment.replies.forEach((reply: Comment) => {
+              allCommentIds.push(reply.id);
+            });
+          }
+        });
+        
+        const likeStatuses = await checkMultipleCommentLikeStatus(postId, allCommentIds, user.uid);
+        setLikeStatuses(likeStatuses);
+      }
     } catch (error) {
       console.error('댓글 조회 오류:', error);
       toast.error('댓글을 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [postId, onCommentCountChange]);
+  }, [postId, onCommentCountChange, user]);
 
   // 컴포넌트 마운트 시 댓글 로드
   useEffect(() => {
@@ -599,12 +628,48 @@ export default function CommentSection({
     }
     
     try {
-      const isLiked = await toggleCommentLike(postId, commentId, user.uid);
+      const result = await toggleCommentLike(postId, commentId, user.uid);
       
-      // 댓글 목록 새로고침
-      await refreshComments();
+      // 좋아요 상태 즉시 업데이트
+      setLikeStatuses(prev => ({
+        ...prev,
+        [commentId]: result.liked
+      }));
       
-      toast.success(isLiked ? '댓글에 좋아요를 눌렀습니다.' : '댓글 좋아요를 취소했습니다.');
+      // 댓글 좋아요 수 업데이트
+      setComments(prev => prev.map(comment => {
+        if (comment.id === commentId) {
+          return {
+            ...comment,
+            stats: {
+              ...comment.stats,
+              likeCount: result.likeCount
+            }
+          };
+        }
+        // 대댓글 확인
+        if (comment.replies) {
+          const updatedReplies = comment.replies.map(reply => {
+            if (reply.id === commentId) {
+              return {
+                ...reply,
+                stats: {
+                  ...reply.stats,
+                  likeCount: result.likeCount
+                }
+              };
+            }
+            return reply;
+          });
+          return {
+            ...comment,
+            replies: updatedReplies
+          };
+        }
+        return comment;
+      }));
+      
+      toast.success(result.liked ? '댓글에 좋아요를 눌렀습니다.' : '댓글 좋아요를 취소했습니다.');
     } catch (error) {
       console.error('댓글 좋아요 오류:', error);
       toast.error('댓글 좋아요 처리 중 오류가 발생했습니다.');
@@ -709,6 +774,7 @@ export default function CommentSection({
                   onEditingCommentChange={handleEditingCommentChange}
                   onEditingCommentSave={handleEditingCommentSave}
                   onEditingCommentCancel={handleEditingCommentCancel}
+                  isLiked={likeStatuses[comment.id] || false}
                 />
                 
                 {/* 대댓글 렌더링 */}
@@ -729,6 +795,7 @@ export default function CommentSection({
                           onEditingCommentChange={handleEditingCommentChange}
                           onEditingCommentSave={handleEditingCommentSave}
                           onEditingCommentCancel={handleEditingCommentCancel}
+                          isLiked={likeStatuses[reply.id] || false}
                           level={1}
                         />
                       </div>
