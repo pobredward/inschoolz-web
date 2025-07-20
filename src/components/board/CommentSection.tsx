@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 // Portal 없는 커스텀 드롭다운을 위해 Popover 제거
 import { useAuth } from '@/providers/AuthProvider';
+import { useRouter } from 'next/navigation';
 import { Comment } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
 import AnonymousCommentForm from '@/components/ui/anonymous-comment-form';
@@ -287,6 +288,7 @@ function CommentItem({
   level?: number;
 }) {
   const { user } = useAuth();
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -330,20 +332,42 @@ function CommentItem({
 
   return (
     <div className={`flex gap-3 ${isReply ? 'ml-8 mt-3 p-3 bg-slate-50 rounded-lg' : ''}`}>
-      <Avatar className="w-8 h-8 flex-shrink-0">
-        <AvatarImage src={!isAnonymous ? comment.author?.profileImageUrl : undefined} />
-        <AvatarFallback className="text-xs bg-slate-100">
-          {isAnonymous ? <UserX className="w-4 h-4" /> : authorName.charAt(0)}
-        </AvatarFallback>
-      </Avatar>
+      {isAnonymous ? (
+        <Avatar className="w-8 h-8 flex-shrink-0">
+          <AvatarFallback className="text-xs bg-slate-100">
+            <UserX className="w-4 h-4" />
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <button 
+          onClick={() => comment.authorId && router.push(`/users/${comment.authorId}`)}
+          className="hover:opacity-80 transition-opacity"
+        >
+          <Avatar className="w-8 h-8 flex-shrink-0">
+            <AvatarImage src={comment.author?.profileImageUrl} />
+            <AvatarFallback className="text-xs bg-slate-100">
+              {authorName.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      )}
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm text-slate-900">
-              {authorName}
-              {isAnonymous && <span className="text-xs text-slate-500 ml-1">(비회원)</span>}
-            </span>
+            {isAnonymous ? (
+              <span className="font-medium text-sm text-slate-900">
+                {authorName}
+                <span className="text-xs text-slate-500 ml-1">(비회원)</span>
+              </span>
+            ) : (
+              <button 
+                onClick={() => comment.authorId && router.push(`/users/${comment.authorId}`)}
+                className="font-medium text-sm text-slate-900 hover:text-blue-600 transition-colors"
+              >
+                {authorName}
+              </button>
+            )}
             <span className="text-xs text-slate-500">
               {formatTime(comment.createdAt)}
             </span>

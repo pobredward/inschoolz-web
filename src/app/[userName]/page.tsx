@@ -9,29 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import AttendanceCalendar from './components/AttendanceCalendar';
 import { Toaster } from '@/components/ui/sonner';
 import { User } from '@/types';
+import { serializeUserForClient } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: '프로필 | InSchoolz',
   description: '프로필, 학교 정보, 관심사를 확인하세요.',
 };
-
-// Firebase 타임스탬프 객체를 일반 숫자로 변환하는 함수
-function serializeUserData(user: User | null): User | null {
-  // null이나 undefined면 그대로 반환
-  if (!user) return null;
-  
-  // 객체를 JSON으로 변환했다가 다시 파싱하여 깊은 복사 및 직렬화
-  const serialized = JSON.parse(JSON.stringify(user, (key, value) => {
-    // Firestore Timestamp 객체는 seconds와 nanoseconds 속성을 가짐
-    if (value && typeof value === 'object' && 'seconds' in value && 'nanoseconds' in value) {
-      // UNIX 타임스탬프로 변환 (밀리초)
-      return value.seconds * 1000 + value.nanoseconds / 1000000;
-    }
-    return value;
-  }));
-  
-  return serialized;
-}
 
 export default async function UserProfilePage({ params }: { params: Promise<{ userName: string }> }) {
   // Next.js 15에서는 params를 await 해야 함
@@ -86,8 +69,8 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
     }
 
     // Firebase 타임스탬프를 포함한 객체를 직렬화
-    const serializedProfileUser = serializeUserData(profileUser);
-    const serializedCurrentUser = serializeUserData(currentUser);
+    const serializedProfileUser = profileUser ? serializeUserForClient(profileUser) : null;
+    const serializedCurrentUser = currentUser ? serializeUserForClient(currentUser) : null;
     
     // 본인 프로필인지 확인
     const isOwnProfile = serializedCurrentUser?.uid === serializedProfileUser?.uid;

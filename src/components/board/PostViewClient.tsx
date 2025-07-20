@@ -334,23 +334,45 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         {/* 게시글 헤더 */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={post.authorInfo?.profileImageUrl} />
-              <AvatarFallback>
-                {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-medium">
-                  {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '사용자'}
-                </span>
+            {post.authorInfo?.isAnonymous ? (
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback>익명</AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium">익명</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-slate-500" />
+                    <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-slate-500" />
-                <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
-              </div>
-            </div>
+            ) : (
+              <button 
+                onClick={() => router.push(`/users/${post.authorId}`)}
+                className="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+              >
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={post.authorInfo?.profileImageUrl} />
+                  <AvatarFallback>
+                    {post.authorInfo?.displayName?.substring(0, 2) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium hover:text-blue-600 transition-colors">
+                      {post.authorInfo?.displayName || '사용자'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-slate-500" />
+                    <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
+                  </div>
+                </div>
+              </button>
+            )}
           </div>
           
           {/* 게시글 메뉴 - 오른쪽 위 모서리 */}

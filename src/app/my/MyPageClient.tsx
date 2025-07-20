@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 //   GraduationCap, 
 // } from 'lucide-react';
 import { User, School } from '@/types';
-import { getUserById } from '@/lib/api/users';
+import { getUserById, getFollowersCount, getFollowingCount } from '@/lib/api/users';
 import { useAuth } from "@/providers/AuthProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { selectSchool, getUserFavoriteSchools, toggleFavoriteSchool, searchSchools } from '@/lib/api/schools';
@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import AttendanceCalendar from '../[userName]/components/AttendanceCalendar';
+import FollowersModal from '../users/[userId]/components/FollowersModal';
 import {
   Select,
   SelectContent,
@@ -86,6 +87,10 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
   const [searchLoading, setSearchLoading] = useState(false);
   const [isFavoriteSchoolsModalOpen, setIsFavoriteSchoolsModalOpen] = useState(false);
   const [favoriteSchoolsTab, setFavoriteSchoolsTab] = useState<'manage' | 'search'>('manage');
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false);
+  const [followersModalType, setFollowersModalType] = useState<'followers' | 'following'>('followers');
   
   const router = useRouter();
 
@@ -202,6 +207,18 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
         
         // 즐겨찾기 학교 목록 가져오기
         await fetchFavoriteSchools();
+        
+        // 팔로워/팔로잉 수 가져오기
+        try {
+          const [followersNum, followingNum] = await Promise.all([
+            getFollowersCount(user.uid),
+            getFollowingCount(user.uid)
+          ]);
+          setFollowersCount(followersNum);
+          setFollowingCount(followingNum);
+        } catch (error) {
+          console.error('팔로워/팔로잉 수 조회 오류:', error);
+        }
       } catch (error) {
         console.error('사용자 정보를 가져오는 중 오류 발생:', error);
         if (error instanceof Error && error.message !== '사용자 인증 정보가 아직 로드되지 않았습니다.') {
@@ -267,6 +284,38 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                             <Badge variant="secondary" className="ml-2">관리자</Badge>
                           )}
                         </p>
+                      </div>
+                      
+                      {/* 팔로워/팔로잉 정보 */}
+                      <div className="flex items-center gap-6">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFollowersModalType('followers');
+                            setIsFollowersModalOpen(true);
+                          }}
+                          className="p-0 h-auto hover:bg-transparent"
+                        >
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-gray-900">{followersCount}</div>
+                            <div className="text-sm text-gray-500">팔로워</div>
+                          </div>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setFollowersModalType('following');
+                            setIsFollowersModalOpen(true);
+                          }}
+                          className="p-0 h-auto hover:bg-transparent"
+                        >
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-gray-900">{followingCount}</div>
+                            <div className="text-sm text-gray-500">팔로잉</div>
+                          </div>
+                        </Button>
                       </div>
                       
                       <div className="space-y-2">
@@ -930,6 +979,15 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 팔로워/팔로잉 모달 */}
+      <FollowersModal
+        isOpen={isFollowersModalOpen}
+        onClose={() => setIsFollowersModalOpen(false)}
+        userId={user.uid}
+        type={followersModalType}
+        title={followersModalType === 'followers' ? '팔로워' : '팔로잉'}
+      />
     </div>
   );
 }

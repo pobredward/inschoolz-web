@@ -219,18 +219,43 @@ export default function PostList({
                     
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1 min-w-0">
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage 
-                            src={post.authorInfo?.profileImageUrl} 
-                            alt={post.authorInfo?.displayName || '사용자'} 
-                          />
-                          <AvatarFallback className="text-xs">
-                            {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'NA'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="truncate">
-                          {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName || '알 수 없음'}
-                        </span>
+                        {post.authorInfo?.isAnonymous ? (
+                          <>
+                            <Avatar className="h-5 w-5">
+                              <AvatarFallback className="text-xs">익명</AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">익명</span>
+                          </>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/users/${post.authorId}`);
+                              }}
+                              className="hover:opacity-80 transition-opacity"
+                            >
+                              <Avatar className="h-5 w-5">
+                                <AvatarImage 
+                                  src={post.authorInfo?.profileImageUrl} 
+                                  alt={post.authorInfo?.displayName || '사용자'} 
+                                />
+                                <AvatarFallback className="text-xs">
+                                  {post.authorInfo?.displayName?.substring(0, 2) || 'NA'}
+                                </AvatarFallback>
+                              </Avatar>
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/users/${post.authorId}`);
+                              }}
+                              className="truncate hover:text-blue-600 transition-colors"
+                            >
+                              {post.authorInfo?.displayName || '알 수 없음'}
+                            </button>
+                          </>
+                        )}
                         <span className="text-xs">|</span>
                         <span className="text-xs">
                           {formatDate(post.createdAt)}

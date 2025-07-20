@@ -705,4 +705,73 @@ export function getPostPreviewImages(
   return extractPostImageUrls(post, 2);
 }
 
+/**
+ * Firebase 객체를 클라이언트에서 사용할 수 있도록 안전하게 직렬화
+ * @param obj 직렬화할 Firebase 객체
+ * @returns 직렬화된 일반 JavaScript 객체
+ */
+export function serializeFirebaseObject<T>(obj: T): T {
+  try {
+    if (!obj || typeof obj !== 'object') {
+      return obj;
+    }
+    
+    // 깊은 복사를 통해 원본 수정 방지 및 Firebase 객체 직렬화
+    const serialized = JSON.parse(JSON.stringify(obj, (key, value) => {
+      // Firebase Timestamp 객체 처리
+      if (value && typeof value === 'object') {
+        // Firestore Timestamp 객체 감지 (seconds, nanoseconds 속성)
+        if ('seconds' in value && 'nanoseconds' in value && typeof value.seconds === 'number') {
+          return value.seconds * 1000 + Math.floor(value.nanoseconds / 1000000);
+        }
+        
+        // serverTimestamp() 호출 결과 처리
+        if (value._methodName === 'serverTimestamp') {
+          return Date.now();
+        }
+        
+        // DocumentReference 처리 (필요한 경우)
+        if (value.path && typeof value.path === 'string') {
+          return value.path;
+        }
+      }
+      
+      return value;
+    }));
+    
+    return serialized as T;
+  } catch (error) {
+    console.error('Firebase 객체 직렬화 오류:', error);
+    
+    // 직렬화 실패 시 원본 반환 (위험하지만 fallback)
+    console.warn('직렬화 실패, 원본 객체를 반환합니다. 클라이언트에서 오류가 발생할 수 있습니다.');
+    return obj;
+  }
+}
+
+/**
+ * 사용자 객체를 클라이언트 컴포넌트에서 사용할 수 있도록 직렬화
+ * @param user User 객체
+ * @returns 직렬화된 User 객체
+ */
+export function serializeUserForClient<T extends Record<string, any>>(user: T): T {
+  try {
+    return serializeFirebaseObject(user);
+  } catch (error) {
+    console.error('사용자 데이터 직렬화 오류:', error);
+    
+    // 사용자 객체의 경우 특별한 fallback 처리
+    return {
+      ...user,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lastLoginAt: user.lastLoginAt ? Date.now() : undefined,
+      profile: user.profile ? {
+        ...user.profile,
+        createdAt: Date.now(),
+      } : undefined,
+    } as T;
+  }
+}
+
 

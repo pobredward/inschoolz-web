@@ -56,7 +56,7 @@ export const getBoardsByType = async (type: BoardType) => {
     ]);
     
     // Board 객체들의 Firebase Timestamp 직렬화
-    return boards.map(board => serializeObject<Board>(board, ['createdAt', 'updatedAt']));
+    return boards.map(board => serializeObject(board as any, ['createdAt', 'updatedAt']));
   } catch (error) {
     console.error('게시판 목록 가져오기 오류:', error);
     throw new Error('게시판 목록을 가져오는 중 오류가 발생했습니다.');
@@ -259,8 +259,25 @@ export const getPostDetail = async (postId: string) => {
       throw new Error('게시글을 찾을 수 없습니다.');
     }
     
+    // authorInfo가 없거나 profileImageUrl이 없는 경우 사용자 정보 업데이트
+    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      try {
+        const userDoc = await getDocument('users', post.authorId);
+        if (userDoc && (userDoc as any).profile) {
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: post.authorInfo?.displayName || (userDoc as any).profile.userName || '사용자',
+            profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
+            isAnonymous: post.authorInfo?.isAnonymous || false
+          };
+        }
+      } catch (userError) {
+        console.warn('사용자 정보 업데이트 실패:', userError);
+      }
+    }
+    
     // 게시글 Timestamp 직렬화 - serializeObject 사용
-    const serializedPost = serializeObject<Post>(post, ['createdAt', 'updatedAt', 'deletedAt']);
+    const serializedPost = serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']);
     
     // 댓글 가져오기 (이미 직렬화됨)
     const comments = await getCommentsByPost(postId);
@@ -1345,7 +1362,7 @@ export const getScrappedPosts = async (userId: string, page = 1, pageSize = 20):
       try {
         const post = await getDocument<Post>('posts', postId);
         if (post && !post.status.isDeleted) {
-          posts.push(serializeObject<Post>(post, ['createdAt', 'updatedAt', 'deletedAt']));
+          posts.push(serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']));
         }
       } catch (error) {
         console.error(`게시글 ${postId} 조회 실패:`, error);

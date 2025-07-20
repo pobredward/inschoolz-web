@@ -57,7 +57,10 @@ function RankingItem({ user, index, showSchool = true }: {
   };
 
   return (
-    <div className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all ${getRankBg(rank)}`}>
+    <button 
+      onClick={() => window.location.href = `/users/${user.id}`}
+      className={`w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all hover:shadow-md ${getRankBg(rank)}`}
+    >
       <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12">
         {getRankIcon(rank)}
       </div>
@@ -71,7 +74,7 @@ function RankingItem({ user, index, showSchool = true }: {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base">{user.userName}</h3>
+          <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base hover:text-blue-600 transition-colors">{user.userName}</h3>
           <Badge variant="secondary" className="bg-pastel-green-100 text-pastel-green-700 text-xs px-1.5 py-0.5">
             Lv.{user.stats.level}
           </Badge>
@@ -99,7 +102,7 @@ function RankingItem({ user, index, showSchool = true }: {
         </div>
         <span className="text-xs text-gray-500">총 경험치</span>
       </div>
-    </div>
+    </button>
   );
 }
 
