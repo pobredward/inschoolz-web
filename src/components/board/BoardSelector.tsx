@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2 } from "lucide-react";
-import { Board } from "@/types";
-import { getBoardsByType } from "@/lib/api/board";
-import { useAuth } from "@/providers/AuthProvider";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2 } from 'lucide-react';
+import { getBoardsByType } from '@/lib/api/board';
+import { Board } from '@/types';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface BoardSelectorProps {
   isOpen: boolean;
@@ -29,8 +29,6 @@ export default function BoardSelector({
   schoolId, 
   regions 
 }: BoardSelectorProps) {
-  console.log('BoardSelector rendered with:', { isOpen, type, schoolId, regions });
-  
   const router = useRouter();
   const { user } = useAuth();
   const [boards, setBoards] = useState<Board[]>([]);
@@ -40,12 +38,11 @@ export default function BoardSelector({
     if (isOpen) {
       loadBoards();
     }
-  }, [isOpen, type, schoolId, regions]);
+  }, [isOpen, type]);
 
   const loadBoards = async () => {
     setLoading(true);
     try {
-      // 앱과 동일하게 getBoardsByType 사용
       const boardList = await getBoardsByType(type);
       setBoards(boardList);
     } catch (error) {
@@ -102,52 +99,43 @@ export default function BoardSelector({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{getTitle()}</DialogTitle>
+      <DialogContent className="sm:max-w-lg max-h-[70vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-lg">{getTitle()}</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="ml-2">게시판 목록을 불러오는 중...</span>
+              <span className="ml-2 text-sm">게시판 목록을 불러오는 중...</span>
             </div>
           ) : (
-            <ScrollArea className="max-h-96">
-              <div className="space-y-2">
+            <ScrollArea className="h-full max-h-[40vh]">
+              <div className="flex flex-wrap gap-2 p-2">
                 {boards.map((board) => (
-                  <Card 
-                    key={board.id} 
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                  <Badge
+                    key={board.id}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-all duration-200 text-xs font-medium px-3 py-2 whitespace-nowrap"
                     onClick={() => handleBoardSelect(board)}
                   >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <span className="text-lg">{board.icon}</span>
-                        {board.name}
-                      </CardTitle>
-                      {board.description && (
-                        <CardDescription className="text-xs">
-                          {board.description}
-                        </CardDescription>
-                      )}
-                    </CardHeader>
-                  </Card>
+                    {board.name}
+                  </Badge>
                 ))}
               </div>
             </ScrollArea>
           )}
           
           {boards.length === 0 && !loading && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 text-sm">
               사용 가능한 게시판이 없습니다.
             </div>
           )}
         </div>
         
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={onClose}>
+        <div className="flex justify-end pt-3 border-t flex-shrink-0">
+          <Button variant="outline" onClick={onClose} size="sm">
             취소
           </Button>
         </div>

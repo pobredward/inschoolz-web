@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer, orderBy, limit, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Board } from '@/types/board';
 import { School } from '@/types';
@@ -160,7 +160,7 @@ export const getAllBoards = async (): Promise<Board[]> => {
         },
         allowAnonymous: boardData.allowAnonymous !== undefined ? boardData.allowAnonymous : true,
         allowPolls: boardData.allowPolls !== undefined ? boardData.allowPolls : true,
-        icon: boardData.icon || 'forum'
+        icon: boardData.icon || '💬'
       };
       
       console.log('변환된 board:', board); // 디버깅용

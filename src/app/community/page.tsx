@@ -588,7 +588,7 @@ export default function CommunityPage() {
             </div>
           </div>
 
-          {/* 정렬 옵션 */}
+          {/* 정렬 옵션 및 글쓰기 버튼 */}
           <div className="bg-white border-b">
             <div className="container mx-auto px-4 py-3">
               <div className="flex items-center justify-between">
@@ -611,8 +611,21 @@ export default function CommunityPage() {
             </div>
           </div>
 
+          {/* 게시글 리스트 헤더 */}
+          <div className="container mx-auto px-4 pt-4 pb-2">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">게시글</h2>
+              <Button 
+                onClick={handleWriteClick}
+                className="bg-green-500 hover:bg-green-600 text-white shadow-sm"
+              >
+                <span className="text-sm">✏️ 글쓰기</span>
+              </Button>
+            </div>
+          </div>
+
           {/* 게시글 리스트 */}
-          <div className="container mx-auto px-4 py-4">
+          <div className="container mx-auto px-4 pb-4">
             {isLoading ? (
               <div className="space-y-4">
                 {[...Array(5)].map((_, i) => (
@@ -684,18 +697,7 @@ export default function CommunityPage() {
             )}
           </div>
 
-          {/* 글쓰기 버튼 - 로그인된 경우에만 표시 */}
-          {user && (
-            <div className="fixed bottom-20 right-4 z-10">
-              <Button 
-                size="lg" 
-                className="rounded-full h-14 w-14 shadow-lg"
-                onClick={handleWriteClick}
-              >
-                <span className="text-xl">+</span>
-              </Button>
-            </div>
-          )}
+
         </>
       )}
 
