@@ -169,6 +169,10 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
   });
   const [attachments, setAttachments] = useState<{ type: 'image'; url: string; name: string; size: number }[]>([]);
 
+  // 투표 수정 모드 - 기존 투표가 있으면 true, 없으면 false로 고정
+  const hasExistingPoll = !!post.poll;
+  const isPollEditMode = hasExistingPoll;
+
   // 폼 초기화
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -224,32 +228,14 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       
       setIsSubmitting(true);
       
-      // 투표 정보 추가
-      let pollDataForSubmit = undefined;
-      
-      if (isPollActive && pollData.options.length >= 2) {
-        // 빈 옵션 필터링
-        const validOptions = pollData.options.filter(option => option.text.trim() !== "");
-        
-        if (validOptions.length >= 2) {
-          pollDataForSubmit = {
-            question: pollData.question,
-            options: validOptions.map(option => ({
-              text: option.text,
-              imageUrl: option.imageUrl
-            })),
-            expiresAt: values.poll?.expiresAt,
-            multipleChoice: values.poll?.multipleChoice || false
-          };
-        }
-      }
+      // 투표 정보는 수정하지 않음 - 기존 상태 그대로 유지
       
       const postData: PostFormData = {
         title: values.title,
         content: values.content,
         isAnonymous: values.isAnonymous,
         tags: values.tags,
-        poll: pollDataForSubmit,
+        // poll 필드는 제외 - 기존 상태 그대로 유지
         attachments: attachments // 업데이트된 첨부파일 정보 포함
       };
       
@@ -480,37 +466,82 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
                 />
               )}
               
-              {board.allowPolls && (
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="poll">
-                    <AccordionTrigger>
-                      <div className="flex items-center gap-2">
-                        <BarChart className="h-4 w-4" />
-                        투표 만들기
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <FormLabel>투표 활성화</FormLabel>
-                          <Switch
-                            checked={isPollActive}
-                            onCheckedChange={setIsPollActive}
-                          />
+            {/* 투표 섹션 */}
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="poll">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                    <BarChart className="h-4 w-4" />
+                    <span>투표</span>
+                    {hasExistingPoll && (
+                      <Badge variant="secondary" className="ml-2">
+                        수정 불가
+                      </Badge>
+                    )}
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4">
+                  {!hasExistingPoll ? (
+                    <div className="text-center p-6 text-muted-foreground bg-muted/50 rounded-lg">
+                      <BarChart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">
+                        게시글 수정 시에는 새로운 투표를 추가할 수 없습니다.
+                      </p>
+                      <p className="text-xs mt-1">
+                        투표는 게시글 작성 시에만 추가 가능합니다.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex items-start gap-2">
+                          <div className="text-yellow-600 mt-0.5">⚠️</div>
+                          <div>
+                            <h4 className="font-medium text-yellow-800">투표 수정 제한</h4>
+                            <p className="text-sm text-yellow-700 mt-1">
+                              게시글 수정 시에는 기존 투표를 변경할 수 없습니다.
+                              투표는 읽기 전용으로만 표시됩니다.
+                            </p>
+                          </div>
                         </div>
-                        
-                                                {isPollActive && (
-                          <PollEditor
-                            pollData={pollData}
-                            onChange={setPollData}
-                            onImageUpload={handlePollImageUpload}
-                          />
-                        )}
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              )}
+
+                      {/* 읽기 전용 투표 표시 */}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 mb-2 block">
+                            투표 옵션
+                          </label>
+                          <div className="space-y-2">
+                            {pollData.options.map((option, index) => (
+                              <div key={option.id} className="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm font-medium text-gray-500">
+                                    {index + 1}.
+                                  </span>
+                                  <span className="text-sm text-gray-700">
+                                    {option.text || `옵션 ${index + 1}`}
+                                  </span>
+                                  {option.imageUrl && (
+                                    <div className="ml-auto">
+                                      <img 
+                                        src={option.imageUrl} 
+                                        alt={`옵션 ${index + 1} 이미지`}
+                                        className="w-8 h-8 object-cover rounded"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
             </div>
             
             <Separator />

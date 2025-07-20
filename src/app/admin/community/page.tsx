@@ -17,6 +17,8 @@ import { ArrowLeft, Plus, Edit, Trash2, Eye, EyeOff, MessageSquare } from 'lucid
 import { toast } from 'sonner';
 import { Board, BoardType } from '@/types/board';
 import { getAllBoards, createBoard, updateBoard, deleteBoard, toggleBoardStatus } from '@/lib/api/admin';
+import { cleanupInvalidPollFields } from '@/lib/api/board';
+import { useToast } from '@/components/ui/use-toast';
 
 interface BoardFormData {
   name: string;
@@ -46,12 +48,14 @@ const defaultBoardForm: BoardFormData = {
 
 export default function CommunityManagementPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [boards, setBoards] = useState<Board[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBoard, setEditingBoard] = useState<Board | null>(null);
   const [formData, setFormData] = useState<BoardFormData>(defaultBoardForm);
   const [selectedBoardType, setSelectedBoardType] = useState<BoardType>('national');
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
 
   useEffect(() => {
     loadBoards();
@@ -176,6 +180,26 @@ export default function CommunityManagementPage() {
       toast.error('게시판 상태 변경에 실패했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCleanupPollFields = async () => {
+    try {
+      setIsCleaningUp(true);
+      await cleanupInvalidPollFields();
+      toast({
+        title: "정리 완료",
+        description: "잘못된 poll 필드가 정리되었습니다.",
+      });
+    } catch (error) {
+      console.error('Poll 필드 정리 실패:', error);
+      toast({
+        title: "정리 실패",
+        description: "Poll 필드 정리 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCleaningUp(false);
     }
   };
 
@@ -484,6 +508,30 @@ export default function CommunityManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 데이터 정리 섹션 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>데이터 정리</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold mb-2">Poll 필드 정리</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                게시글 수정 시 생성된 잘못된 poll._methodName 필드를 정리합니다.
+              </p>
+              <Button 
+                onClick={handleCleanupPollFields}
+                disabled={isCleaningUp}
+                variant="outline"
+              >
+                {isCleaningUp ? '정리 중...' : '잘못된 Poll 필드 정리'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

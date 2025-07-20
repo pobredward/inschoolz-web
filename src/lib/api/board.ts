@@ -964,7 +964,7 @@ export const updatePost = async (postId: string, data: PostFormData) => {
     if (!postDoc) {
       throw new Error('게시글을 찾을 수 없습니다.');
     }
-    
+
     // 수정할 데이터 준비
     const updateData: any = {
       title: data.title,
@@ -987,7 +987,8 @@ export const updatePost = async (postId: string, data: PostFormData) => {
       }
     }
     
-    // 투표 정보 업데이트
+    // 투표 정보 업데이트 - 게시글 수정 시에는 poll 필드를 건드리지 않음
+    // poll 데이터가 명시적으로 전달된 경우에만 처리 (새 게시글 작성 시)
     if (data.poll && data.poll.question && data.poll.options && data.poll.options.length > 1) {
       const pollData: any = {
         isActive: true,
@@ -1007,10 +1008,8 @@ export const updatePost = async (postId: string, data: PostFormData) => {
       }
       
       updateData.poll = pollData;
-    } else {
-      // 투표 정보 제거 - undefined 대신 deleteField() 사용
-      updateData.poll = deleteField();
     }
+    // 게시글 수정 시에는 poll 필드를 건드리지 않음 - 기존 상태 유지
     
     // undefined 값들을 제거하는 함수
     const removeUndefined = (obj: any): any => {
@@ -1244,5 +1243,40 @@ export const getScrappedPostsCount = async (userId: string): Promise<number> => 
   } catch (error) {
     console.error('스크랩 개수 조회 오류:', error);
     return 0;
+  }
+};
+
+// 잘못된 poll 필드 정리 함수 (개발/관리용)
+export const cleanupInvalidPollFields = async (): Promise<void> => {
+  try {
+    // 모든 posts 문서 조회
+    const postsSnapshot = await getDocs(collection(db, 'posts'));
+    const batch = writeBatch(db);
+    let updateCount = 0;
+    
+    postsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      
+      // poll._methodName이 "deleteField"인 경우 poll 필드 전체를 삭제
+      if (data.poll && typeof data.poll === 'object' && data.poll._methodName === 'deleteField') {
+        const docRef = doc.ref;
+        batch.update(docRef, {
+          poll: deleteField(),
+          updatedAt: serverTimestamp()
+        });
+        updateCount++;
+        console.log(`정리 대상 게시글: ${doc.id}`);
+      }
+    });
+    
+    if (updateCount > 0) {
+      await batch.commit();
+      console.log(`${updateCount}개의 게시글에서 잘못된 poll 필드를 정리했습니다.`);
+    } else {
+      console.log('정리할 대상이 없습니다.');
+    }
+  } catch (error) {
+    console.error('poll 필드 정리 중 오류:', error);
+    throw new Error('poll 필드 정리 중 오류가 발생했습니다.');
   }
 };
