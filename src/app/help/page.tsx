@@ -220,7 +220,7 @@ export default function HelpPage() {
                 <Mail className="h-5 w-5 text-green-600" />
                 <div>
                   <p className="font-medium">이메일 문의</p>
-                  <p className="text-sm text-gray-600">support@inschoolz.com</p>
+                  <p className="text-sm text-gray-600">pobredward@gmail.com</p>
                 </div>
               </div>
               
