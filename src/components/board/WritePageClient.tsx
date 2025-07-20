@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BoardType } from "@/types/board";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,32 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  
+  // 컴포넌트 마운트 시 상태 로깅
+  useEffect(() => {
+    console.log('=== WritePageClient 마운트 ===');
+    console.log('type:', type);
+    console.log('code:', code);
+    console.log('schoolId:', schoolId);
+    console.log('user:', user);
+    console.log('searchParams:', searchParams.toString());
+  }, [type, code, schoolId, user, searchParams]);
+  
+  // 로그인 상태 확인
+  useEffect(() => {
+    if (user === null) {
+      // 사용자 로딩 중
+      console.log('사용자 정보 로딩 중...');
+      return;
+    }
+    
+    if (!user) {
+      // 로그인되지 않음
+      console.log('로그인되지 않음, 로그인 페이지로 리디렉션');
+      router.push('/auth?tab=login');
+      return;
+    }
+  }, [user, router]);
   
   const [board, setBoard] = useState<Board | null>(null);
   const [title, setTitle] = useState("");
@@ -185,14 +211,23 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('=== handleSubmit 호출됨 ===');
+    console.log('이벤트:', e);
+    console.log('사용자:', user);
+    console.log('게시판:', board);
+    console.log('제목:', title);
+    console.log('내용:', content);
+    
     e.preventDefault();
     
     if (!user) {
+      console.log('로그인되지 않음');
       toast.error("로그인이 필요합니다.");
       return;
     }
 
     if (!board) {
+      console.log('게시판 정보 없음');
       toast.error("게시판 정보를 불러오는 중입니다.");
       return;
     }
@@ -271,7 +306,12 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
             options: pollData.options
               .filter(option => option.text.trim())
               .map((option, index) => {
-                const pollOption: any = {
+                const pollOption: {
+                  text: string;
+                  voteCount: number;
+                  index: number;
+                  imageUrl?: string;
+                } = {
                   text: option.text.trim(),
                   voteCount: 0,
                   index
@@ -448,6 +488,44 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
     );
   }
 
+  // 로그인되지 않은 경우 로그인 안내 표시
+  if (user === null) {
+    return (
+      <div className="container mx-auto py-8 px-4 md:px-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">사용자 정보를 불러오는 중...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto py-8 px-4 md:px-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="text-4xl mb-4">🔒</div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">로그인이 필요합니다</h2>
+              <p className="text-gray-600 mb-6">게시글을 작성하려면 로그인해주세요.</p>
+              <Button 
+                onClick={() => router.push('/auth?tab=login')}
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
+                로그인하기
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 게시글 작성 화면
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -557,6 +635,12 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full"
+                onClick={(e) => {
+                  console.log('=== 버튼 클릭됨 ===');
+                  console.log('클릭 이벤트:', e);
+                  console.log('버튼 disabled 상태:', isSubmitting);
+                  console.log('form 요소:', e.currentTarget.form);
+                }}
               >
                 {isSubmitting ? (
                   <>
