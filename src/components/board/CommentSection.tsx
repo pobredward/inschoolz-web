@@ -16,12 +16,7 @@ import {
   Flag,
   UserX
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+// Portal 없는 커스텀 드롭다운을 위해 Popover 제거
 import { useAuth } from '@/providers/AuthProvider';
 import { Comment } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
@@ -70,6 +65,115 @@ interface CommentFormProps {
   onSubmit: (content: string, isAnonymous: boolean) => void;
   onCancel?: () => void;
   isSubmitting?: boolean;
+}
+
+interface CommentMenuDropdownProps {
+  isAuthor: boolean;
+  isAnonymous: boolean;
+  hasAnonymousAuthor: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+  onAnonymousEdit: () => void;
+  onAnonymousDelete: () => void;
+  onReport: () => void;
+}
+
+// Portal 없는 커스텀 드롭다운 컴포넌트
+function CommentMenuDropdown({
+  isAuthor,
+  isAnonymous,
+  hasAnonymousAuthor,
+  onEdit,
+  onDelete,
+  onAnonymousEdit,
+  onAnonymousDelete,
+  onReport
+}: CommentMenuDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // 외부 클릭 시 메뉴 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('[data-comment-menu]')) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const handleMenuAction = (action: () => void) => {
+    action();
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative" data-comment-menu>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="w-6 h-6 p-0"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <MoreVertical className="w-3 h-3" />
+      </Button>
+      
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[140px] z-50">
+          {isAuthor ? (
+            <>
+              <button
+                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center"
+                onClick={() => handleMenuAction(onEdit)}
+              >
+                <Edit2 className="mr-2 h-3 w-3" />
+                수정
+              </button>
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                onClick={() => handleMenuAction(onDelete)}
+              >
+                <Trash2 className="mr-2 h-3 w-3" />
+                삭제
+              </button>
+            </>
+          ) : isAnonymous && hasAnonymousAuthor ? (
+            <>
+              <button
+                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center"
+                onClick={() => handleMenuAction(onAnonymousEdit)}
+              >
+                <Edit2 className="mr-2 h-3 w-3" />
+                수정 (비밀번호 필요)
+              </button>
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                onClick={() => handleMenuAction(onAnonymousDelete)}
+              >
+                <Trash2 className="mr-2 h-3 w-3" />
+                삭제 (비밀번호 필요)
+              </button>
+            </>
+          ) : (
+            <button
+              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+              onClick={() => handleMenuAction(onReport)}
+            >
+              <Flag className="mr-2 h-3 w-3" />
+              신고
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // 댓글 작성 폼 컴포넌트
@@ -234,72 +338,29 @@ function CommentItem({
       </Avatar>
       
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="font-medium text-sm text-slate-900">
-            {authorName}
-            {isAnonymous && <span className="text-xs text-slate-500 ml-1">(비회원)</span>}
-          </span>
-          <span className="text-xs text-slate-500">
-            {formatTime(comment.createdAt)}
-          </span>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm text-slate-900">
+              {authorName}
+              {isAnonymous && <span className="text-xs text-slate-500 ml-1">(비회원)</span>}
+            </span>
+            <span className="text-xs text-slate-500">
+              {formatTime(comment.createdAt)}
+            </span>
+          </div>
           
-          {/* 메뉴 버튼 */}
+          {/* 메뉴 버튼 - 커스텀 드롭다운 */}
           {!isDeleted && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="w-6 h-6 p-0 ml-auto">
-                  <MoreVertical className="w-3 h-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end" 
-                side="bottom" 
-                sideOffset={5}
-                alignOffset={0}
-                className="z-50 min-w-[120px]"
-                avoidCollisions={true}
-                collisionPadding={8}
-                sticky="always"
-              >
-                {isAuthor ? (
-                  <>
-                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                      <Edit2 className="mr-2 h-3 w-3" />
-                      수정
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => onDelete(comment.id)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="mr-2 h-3 w-3" />
-                      삭제
-                    </DropdownMenuItem>
-                  </>
-                ) : isAnonymous && comment.anonymousAuthor ? (
-                  <>
-                    <DropdownMenuItem onClick={() => onAnonymousEdit(comment.id)}>
-                      <Edit2 className="mr-2 h-3 w-3" />
-                      수정 (비밀번호 필요)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => onAnonymousDelete(comment.id)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="mr-2 h-3 w-3" />
-                      삭제 (비밀번호 필요)
-                    </DropdownMenuItem>
-                  </>
-                ) : (
-                  <DropdownMenuItem 
-                    onClick={() => setShowReportModal(true)}
-                    className="text-red-600"
-                  >
-                    <Flag className="mr-2 h-3 w-3" />
-                    신고
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <CommentMenuDropdown
+              isAuthor={isAuthor}
+              isAnonymous={isAnonymous}
+              hasAnonymousAuthor={!!comment.anonymousAuthor}
+              onEdit={() => setIsEditing(true)}
+              onDelete={() => onDelete(comment.id)}
+              onAnonymousEdit={() => onAnonymousEdit(comment.id)}
+              onAnonymousDelete={() => onAnonymousDelete(comment.id)}
+              onReport={() => setShowReportModal(true)}
+            />
           )}
         </div>
         
