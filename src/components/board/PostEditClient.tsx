@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { PlusCircle, X, BarChart, ChevronLeft, ImagePlus } from "lucide-react";
 import { BoardType } from "@/types/board";
-import { updatePostSafe } from "@/lib/api/board";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -233,7 +232,16 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       };
       
       // 실제 수정 함수 호출
-      await updatePostSafe(post.id, postData);
+      const { updatePost } = await import("@/lib/api/board");
+      await updatePost(post.id, {
+        title: postData.title,
+        content: postData.content,
+        isAnonymous: postData.isAnonymous,
+        tags: postData.tags,
+        category: (post as any).category,
+        attachments: (post as any).attachments || [],
+        poll: (post as any).poll // 기존 poll 데이터 유지
+      });
       
       toast({
         title: "게시글 수정 완료",

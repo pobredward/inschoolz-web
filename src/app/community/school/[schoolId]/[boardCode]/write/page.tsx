@@ -22,14 +22,10 @@ export default async function SchoolBoardWritePage({ params }: WritePageProps) {
   const { schoolId, boardCode } = await params;
   
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-      <div className="max-w-4xl mx-auto">
-        <WritePageClient 
-          type={"school" as BoardType} 
-          code={boardCode} 
-          schoolId={schoolId}
-        />
-      </div>
-    </div>
+    <WritePageClient 
+      type={"school" as BoardType} 
+      code={boardCode} 
+      schoolId={schoolId}
+    />
   );
 } 

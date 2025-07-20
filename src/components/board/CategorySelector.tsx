@@ -53,39 +53,39 @@ export default function CategorySelector({
   if (!trigger && externalOpen !== undefined) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>게시글 카테고리를 선택해 주세요</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {categories.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                사용 가능한 카테고리가 없습니다.
-              </div>
-            ) : (
-              categories.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors"
-                  onClick={() => handleCategorySelect({ id: category.id, name: category.name })}
-                >
-                  <div className="flex items-center space-x-3">
-                    {category.icon && (
-                      <div className="text-lg">{category.icon}</div>
+              <DialogContent className="sm:max-w-md max-w-[95vw] max-h-[85vh] overflow-hidden">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="text-lg md:text-xl">게시글 카테고리를 선택해 주세요</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 max-h-[60vh] md:max-h-[400px] overflow-y-auto px-1">
+          {categories.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              사용 가능한 카테고리가 없습니다.
+            </div>
+          ) : (
+            categories.map((category) => (
+              <div
+                key={category.id}
+                className="flex items-center justify-between p-4 md:p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors touch-manipulation"
+                onClick={() => handleCategorySelect({ id: category.id, name: category.name })}
+              >
+                <div className="flex items-center space-x-3">
+                  {category.icon && (
+                    <div className="text-xl md:text-lg">{category.icon}</div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-base md:text-sm truncate">{category.name}</div>
+                    {category.description && (
+                      <div className="text-sm md:text-xs text-muted-foreground truncate">{category.description}</div>
                     )}
-                    <div>
-                      <div className="font-medium">{category.name}</div>
-                      {category.description && (
-                        <div className="text-sm text-muted-foreground">{category.description}</div>
-                      )}
-                    </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
+                <ChevronRight className="h-5 w-5 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
+              </div>
+            ))
+          )}
+        </div>
+      </DialogContent>
       </Dialog>
     );
   }
@@ -95,11 +95,11 @@ export default function CategorySelector({
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>게시글 카테고리를 선택해 주세요</DialogTitle>
+      <DialogContent className="sm:max-w-md max-w-[95vw] max-h-[85vh] overflow-hidden">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="text-lg md:text-xl">게시글 카테고리를 선택해 주세요</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className="space-y-2 max-h-[60vh] md:max-h-[400px] overflow-y-auto px-1">
           {categories.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               사용 가능한 카테고리가 없습니다.
@@ -108,21 +108,21 @@ export default function CategorySelector({
             categories.map((category) => (
               <div
                 key={category.id}
-                className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors"
+                className="flex items-center justify-between p-4 md:p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors touch-manipulation"
                 onClick={() => handleCategorySelect({ id: category.id, name: category.name })}
               >
                 <div className="flex items-center space-x-3">
                   {category.icon && (
-                    <div className="text-lg">{category.icon}</div>
+                    <div className="text-xl md:text-lg">{category.icon}</div>
                   )}
-                  <div>
-                    <div className="font-medium">{category.name}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-base md:text-sm truncate">{category.name}</div>
                     {category.description && (
-                      <div className="text-sm text-muted-foreground">{category.description}</div>
+                      <div className="text-sm md:text-xs text-muted-foreground truncate">{category.description}</div>
                     )}
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-5 w-5 md:h-4 md:w-4 text-muted-foreground flex-shrink-0" />
               </div>
             ))
           )}
@@ -142,13 +142,13 @@ export function CategoryButton({ selectedCategory, onClick }: CategoryButtonProp
   return (
     <Button
       variant="outline"
-      className="justify-between min-w-[200px]"
+      className="justify-between w-full h-10 md:h-9 text-base md:text-sm"
       onClick={onClick}
     >
-      <span className="truncate">
+      <span className="truncate text-left">
         {selectedCategory?.name || "게시글 카테고리를 선택해 주세요"}
       </span>
-      <ChevronDown className="h-4 w-4 flex-shrink-0" />
+      <ChevronDown className="h-4 w-4 flex-shrink-0 ml-2" />
     </Button>
   );
 } 

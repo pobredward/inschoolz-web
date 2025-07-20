@@ -23,13 +23,9 @@ export default async function NationalBoardWritePage({ params }: WritePageProps)
   const { boardCode } = await params;
   
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-      <div className="max-w-4xl mx-auto">
-        <WritePageClient 
-          type={"national" as BoardType} 
-          code={boardCode} 
-        />
-      </div>
-    </div>
+    <WritePageClient 
+      type={"national" as BoardType} 
+      code={boardCode} 
+    />
   );
 } 

@@ -165,19 +165,19 @@ export default function PollEditor({ pollData, onChange, onImageUpload }: PollEd
   
   return (
     <Card className="shadow-sm border">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 px-3 md:px-6">
         <CardTitle className="text-base font-medium">투표 만들기</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-3 md:px-6">
         <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <Label>선택지</Label>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+            <Label className="text-sm font-medium">선택지</Label>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleAddOption}
-              className="h-8"
+              className="h-9 md:h-8 text-sm"
               disabled={pollData.options.length >= 10}
             >
               <PlusCircle className="h-4 w-4 mr-1" />
@@ -186,25 +186,41 @@ export default function PollEditor({ pollData, onChange, onImageUpload }: PollEd
           </div>
           
           {pollData.options.map((option, index) => (
-            <div key={option.id} className="border rounded-lg p-4 space-y-3 min-h-[150px]">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 space-y-2">
-                  <Input
-                    value={option.text}
-                    onChange={(e) => handleOptionChange(option.id, e.target.value)}
-                    placeholder={`선택지 ${index + 1}`}
-                    className="text-base"
-                  />
-                  
+            <div key={option.id} className="border rounded-lg p-3 md:p-4 space-y-3">
+              <div className="space-y-3">
+                {/* 텍스트 입력과 삭제 버튼 */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Input
+                      value={option.text}
+                      onChange={(e) => handleOptionChange(option.id, e.target.value)}
+                      placeholder={`선택지 ${index + 1}`}
+                      className="text-base md:text-sm h-10 md:h-9"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveOption(option.id)}
+                    disabled={pollData.options.length <= 2}
+                    className="h-10 w-10 md:h-8 md:w-8 flex-shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                
+                {/* 이미지 관련 */}
+                <div className="space-y-3">
                   {/* 이미지 업로드 버튼 */}
                   <div className="flex items-center gap-2">
-                                         <input
-                       ref={(el) => { fileInputRefs.current[option.id] = el; }}
-                       type="file"
-                       accept="image/*"
-                       onChange={(e) => handleFileSelect(option.id, e)}
-                       className="hidden"
-                     />
+                    <input
+                      ref={(el) => { fileInputRefs.current[option.id] = el; }}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileSelect(option.id, e)}
+                      className="hidden"
+                    />
                     
                     {!option.imageUrl ? (
                       <Button
@@ -213,7 +229,7 @@ export default function PollEditor({ pollData, onChange, onImageUpload }: PollEd
                         size="sm"
                         onClick={() => fileInputRefs.current[option.id]?.click()}
                         disabled={uploadingOptionId === option.id}
-                        className="h-8"
+                        className="h-9 md:h-8 text-sm"
                       >
                         <ImagePlus className="h-4 w-4 mr-1" />
                         {uploadingOptionId === option.id ? '업로드 중...' : '이미지 추가'}
@@ -224,57 +240,45 @@ export default function PollEditor({ pollData, onChange, onImageUpload }: PollEd
                         variant="outline"
                         size="sm"
                         onClick={() => handleImageRemove(option.id)}
-                        className="h-8 text-red-600 hover:text-red-700"
+                        className="h-9 md:h-8 text-sm text-red-600 hover:text-red-700"
                       >
                         <X className="h-4 w-4 mr-1" />
                         이미지 제거
                       </Button>
                     )}
                   </div>
+                  
+                  {/* 이미지 미리보기 */}
+                  {option.imageUrl && (
+                    <div className="relative w-full max-w-[200px] h-[120px] md:w-[150px] md:h-[150px]">
+                      <Image
+                        src={option.imageUrl}
+                        alt={`옵션 ${index + 1} 이미지`}
+                        fill
+                        sizes="(max-width: 768px) 200px, 150px"
+                        className="object-cover rounded-lg border"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleImageRemove(option.id)}
+                        className="absolute -top-2 -right-2 h-7 w-7 md:h-6 md:w-6 rounded-full bg-red-500 hover:bg-red-600 text-white touch-manipulation"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                
-                {/* 이미지 미리보기 */}
-                {option.imageUrl && (
-                  <div className="relative w-[150px] h-[150px] flex-shrink-0">
-                    <Image
-                      src={option.imageUrl}
-                      alt={`옵션 ${index + 1} 이미지`}
-                      fill
-                      sizes="150px"
-                      className="object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleImageRemove(option.id)}
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 hover:bg-red-600 text-white"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-                
-                {/* 삭제 버튼 */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleRemoveOption(option.id)}
-                  disabled={pollData.options.length <= 2}
-                  className="h-8 w-8 flex-shrink-0"
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
               </div>
             </div>
           ))}
           
           {pollData.options.length < 2 && (
-            <p className="text-xs text-muted-foreground">최소 2개의 선택지가 필요합니다.</p>
+            <p className="text-xs text-muted-foreground px-2">최소 2개의 선택지가 필요합니다.</p>
           )}
           {pollData.options.length >= 10 && (
-            <p className="text-xs text-muted-foreground">최대 10개의 선택지만 등록 가능합니다.</p>
+            <p className="text-xs text-muted-foreground px-2">최대 10개의 선택지만 등록 가능합니다.</p>
           )}
         </div>
       </CardContent>

@@ -112,7 +112,7 @@ export default function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[300px] max-h-[600px] overflow-y-auto p-4',
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[250px] md:min-h-[300px] max-h-[400px] md:max-h-[600px] overflow-y-auto p-3 md:p-4 text-base md:text-sm',
       },
     },
   })
@@ -188,11 +188,12 @@ export default function RichTextEditor({
 
   if (!editor) {
     return (
-      <div className="border rounded-md min-h-[300px] bg-gray-50 animate-pulse">
-        <div className="h-12 bg-gray-200 border-b"></div>
-        <div className="p-4">
+      <div className="border rounded-md min-h-[250px] md:min-h-[300px] bg-gray-50 animate-pulse">
+        <div className="h-10 md:h-12 bg-gray-200 border-b"></div>
+        <div className="p-3 md:p-4">
           <div className="h-4 bg-gray-200 rounded mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
         </div>
       </div>
     )
@@ -200,7 +201,189 @@ export default function RichTextEditor({
 
   return (
     <div className="border rounded-md" ref={editorRef}>
-      <div className="flex flex-wrap gap-1 p-2 border-b bg-muted/20">
+      {/* 모바일 툴바 - 첫 번째 줄 */}
+      <div className="flex flex-wrap gap-1 p-2 border-b bg-muted/20 md:hidden">
+        <TooltipProvider>
+          {/* 기본 텍스트 서식 */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className={`h-8 w-8 ${editor.isActive('bold') ? 'bg-muted' : ''}`}
+              >
+                <Bold className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>굵게</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                className={`h-8 w-8 ${editor.isActive('italic') ? 'bg-muted' : ''}`}
+              >
+                <Italic className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>기울임</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                className={`h-8 w-8 ${editor.isActive('underline') ? 'bg-muted' : ''}`}
+              >
+                <UnderlineIcon className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>밑줄</TooltipContent>
+          </Tooltip>
+
+          {/* 리스트 */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                className={`h-8 w-8 ${editor.isActive('bulletList') ? 'bg-muted' : ''}`}
+              >
+                <List className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>글머리 기호</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                className={`h-8 w-8 ${editor.isActive('orderedList') ? 'bg-muted' : ''}`}
+              >
+                <ListOrdered className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>번호 매기기</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                className={`h-8 w-8 ${editor.isActive('blockquote') ? 'bg-muted' : ''}`}
+              >
+                <Quote className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>인용구</TooltipContent>
+          </Tooltip>
+
+          {/* 이미지 업로드 */}
+          <Popover>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8"
+                    >
+                      <ImageIcon className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>이미지</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <PopoverContent className="w-72">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="mobile-image" className="text-sm">이미지 파일 선택</Label>
+                  <Input
+                    id="mobile-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setSelectedFile(e.target.files[0])
+                      }
+                    }}
+                    className="text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleImageUpload}
+                  disabled={!selectedFile || isUploading}
+                  className="w-full h-9"
+                  size="sm"
+                >
+                  {isUploading ? '업로드 중...' : '이미지 추가'}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* 실행 취소/다시 실행 */}
+          <div className="ml-auto flex gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => editor.chain().focus().undo().run()}
+                  disabled={!editor.can().undo()}
+                  className="h-8 w-8"
+                >
+                  <Undo className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>실행 취소</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => editor.chain().focus().redo().run()}
+                  disabled={!editor.can().redo()}
+                  className="h-8 w-8"
+                >
+                  <Redo className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>다시 실행</TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      </div>
+
+      {/* 데스크톱 툴바 */}
+      <div className="hidden md:flex flex-wrap gap-1 p-2 border-b bg-muted/20">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -466,7 +649,7 @@ export default function RichTextEditor({
 
       <div 
         onClick={handleEditorClick}
-        className="cursor-text"
+        className="cursor-text touch-manipulation"
       >
         <EditorContent 
           editor={editor} 
