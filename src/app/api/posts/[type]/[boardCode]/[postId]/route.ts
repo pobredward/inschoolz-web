@@ -46,9 +46,29 @@ export async function PATCH(
 
     if (body.action === 'increment_view') {
       const postRef = doc(db, 'posts', postId);
+      
+      console.log('🚨 API route increment_view - postId:', postId);
+      
+      // 업데이트 전 poll 데이터 확인
+      const beforeDoc = await getDoc(postRef);
+      const beforePoll = beforeDoc.exists() ? beforeDoc.data()?.poll : null;
+      console.log('🚨 Poll before increment:', JSON.stringify(beforePoll, null, 2));
+      
       await updateDoc(postRef, {
         'stats.viewCount': increment(1)
       });
+      
+      // 업데이트 후 poll 데이터 확인
+      const afterDoc = await getDoc(postRef);
+      const afterPoll = afterDoc.exists() ? afterDoc.data()?.poll : null;
+      console.log('🚨 Poll after increment:', JSON.stringify(afterPoll, null, 2));
+      
+      // poll이 변경되었는지 확인
+      if (JSON.stringify(beforePoll) !== JSON.stringify(afterPoll)) {
+        console.error('🚨🚨🚨 POLL DATA CHANGED BY INCREMENT_VIEW!');
+        console.error('🚨 Before:', beforePoll);
+        console.error('🚨 After:', afterPoll);
+      }
 
       return NextResponse.json({ success: true });
     }

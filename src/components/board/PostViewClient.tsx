@@ -404,7 +404,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
               postId={post.id} 
               poll={post.poll}
               onVoteUpdate={(updatedPoll) => {
-                // 투표 업데이트 시 필요한 로직
+                // 투표 업데이트 시 필요한 로직 (필요시 구현)
               }}
             />
           </div>

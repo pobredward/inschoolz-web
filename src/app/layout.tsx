@@ -126,12 +126,30 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="ko" suppressHydrationWarning className={notoSansKR.variable}>
-      <body className={`${notoSansKR.className} antialiased min-h-screen bg-background font-sans flex flex-col touch-manipulation safe-area-inset`}>
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+        <meta name="robots" content="index, follow" />
+        <meta name="googlebot" content="index, follow" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                if (localStorage.getItem('inschoolz-theme') === 'dark') {
+                  document.documentElement.classList.add('dark')
+                } else {
+                  document.documentElement.classList.add('light')
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
+      </head>
+      <body className={`${notoSansKR.variable} antialiased min-h-screen bg-background font-sans flex flex-col touch-manipulation safe-area-inset`}>
         <Providers>
           <Header />
           <main className="flex-1 pb-16 md:pb-0">{children}</main>
@@ -141,5 +159,5 @@ export default function RootLayout({
         </Providers>
       </body>
     </html>
-  );
+  )
 }

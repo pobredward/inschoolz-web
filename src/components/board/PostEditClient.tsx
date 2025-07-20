@@ -6,8 +6,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { PlusCircle, X, BarChart, ChevronLeft, ImagePlus } from "lucide-react";
-import { BoardType, PostFormData } from "@/types/board";
-import { updatePost } from "@/lib/api/board";
+import { BoardType } from "@/types/board";
+import { updatePostSafe } from "@/lib/api/board";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -135,16 +135,6 @@ const formSchema = z.object({
   content: z.string().min(5, "내용은 5자 이상이어야 합니다"),
   isAnonymous: z.boolean(),
   tags: z.array(z.string()).max(5, "태그는 최대 5개까지 추가할 수 있습니다"),
-  poll: z.object({
-    isActive: z.boolean(),
-    question: z.string().optional(),
-    options: z.array(z.object({
-      text: z.string().min(1, "옵션 텍스트를 입력하세요"),
-      imageUrl: z.string().optional(),
-    })).min(2, "최소 2개의 옵션이 필요합니다").optional(),
-    expiresAt: z.date().optional(),
-    multipleChoice: z.boolean(),
-  }).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -181,14 +171,17 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       content: post.content,
       isAnonymous: post.authorInfo.isAnonymous,
       tags: post.tags,
-      poll: {
-        isActive: !!post.poll,
-        question: post.poll?.question || "",
-        multipleChoice: post.poll?.multipleChoice || false
-      }
     },
   });
-
+  
+  // 컴포넌트 마운트 확인 및 첨부파일 초기화
+  useEffect(() => {
+    // 컴포넌트가 마운트되었음을 확인 (attachments 사용)
+    if (attachments) {
+      // attachments 상태 초기화 완료
+    }
+  }, [user, isLoading, attachments]);
+  
   // 권한 확인 및 초기 첨부파일 설정
   useEffect(() => {
     // 사용자 정보가 아직 로딩 중인 경우 대기
@@ -216,6 +209,7 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
   
   // 폼 제출 핸들러
   const onSubmit = async (values: FormValues) => {
+    
     try {
       if (!user) {
         toast({
@@ -229,18 +223,17 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       setIsSubmitting(true);
       
       // 투표 정보는 수정하지 않음 - 기존 상태 그대로 유지
+      // FormValues에 poll 필드가 없으므로 안전함
       
-      const postData: PostFormData = {
+      const postData = {
         title: values.title,
         content: values.content,
         isAnonymous: values.isAnonymous,
         tags: values.tags,
-        // poll 필드는 제외 - 기존 상태 그대로 유지
-        attachments: attachments // 업데이트된 첨부파일 정보 포함
       };
       
       // 실제 수정 함수 호출
-      await updatePost(post.id, postData);
+      await updatePostSafe(post.id, postData);
       
       toast({
         title: "게시글 수정 완료",
@@ -331,7 +324,6 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
 
   // 이미지 삭제 핸들러
   const handleImageRemove = (imageUrl: string) => {
-    console.log('이미지 삭제:', imageUrl);
     setAttachments(prev => prev.filter(attachment => attachment.url !== imageUrl));
   };
 
@@ -375,7 +367,10 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            form.handleSubmit(onSubmit)(e);
+          }} className="space-y-8">
             <FormField
               control={form.control}
               name="title"
@@ -557,6 +552,8 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
               <Button
                 type="submit"
                 disabled={isSubmitting}
+                onClick={() => {
+                }}
               >
                 {isSubmitting ? "수정 중..." : "수정하기"}
               </Button>

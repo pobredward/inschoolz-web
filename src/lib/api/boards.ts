@@ -387,6 +387,8 @@ export const updatePost = async (
   params: UpdatePostParams
 ): Promise<Post> => {
   try {
+    console.log('🔥 boards.ts updatePost called with:', { postId, userId, params });
+    
     const postRef = doc(db, 'posts', postId);
     const postDoc = await getDoc(postRef);
     
@@ -410,6 +412,9 @@ export const updatePost = async (
     if (params.content) updateData.content = params.content;
     if (params.tags) updateData.tags = params.tags;
     if (params.isAnonymous !== undefined) updateData['authorInfo.isAnonymous'] = params.isAnonymous;
+    
+    console.log('🚨 boards.ts updatePost - updateData:', JSON.stringify(updateData, null, 2));
+    console.log('🚨 boards.ts updatePost - contains poll?', 'poll' in updateData);
     
     await updateDoc(postRef, updateData);
     

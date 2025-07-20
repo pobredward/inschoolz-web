@@ -275,8 +275,11 @@ export const getPostDetail = async (postId: string) => {
 // 게시글 조회수 증가 (별도 함수)
 export const incrementPostViewCount = async (postId: string): Promise<void> => {
   try {
-    await updateDocument('posts', postId, {
-      'stats.viewCount': increment(1)
+    const postRef = doc(db, 'posts', postId);
+    
+    await updateDoc(postRef, {
+      'stats.viewCount': increment(1),
+      updatedAt: serverTimestamp()
     });
   } catch (error) {
     console.error('조회수 증가 오류:', error);
@@ -958,6 +961,11 @@ export const getAllPostsByRegion = async (
 // 게시글 수정
 export const updatePost = async (postId: string, data: PostFormData) => {
   try {
+    // poll 필드를 완전히 제거하여 기존 poll 데이터 보존
+    const { poll, ...dataWithoutPoll } = data;
+    console.log('🔥 Original data:', JSON.stringify(data, null, 2));
+    console.log('🔥 Data without poll:', JSON.stringify(dataWithoutPoll, null, 2));
+    
     // 게시글 정보 가져오기
     const postDoc = await getDocument('posts', postId);
     
@@ -967,15 +975,15 @@ export const updatePost = async (postId: string, data: PostFormData) => {
 
     // 수정할 데이터 준비
     const updateData: any = {
-      title: data.title,
-      content: data.content,
-      tags: data.tags || [],
+      title: dataWithoutPoll.title,
+      content: dataWithoutPoll.content,
+      tags: dataWithoutPoll.tags || [],
       updatedAt: serverTimestamp(),
-      'authorInfo.isAnonymous': data.isAnonymous
+      'authorInfo.isAnonymous': dataWithoutPoll.isAnonymous
     };
     
     // 익명 설정에 따른 작성자 정보 업데이트
-    if (data.isAnonymous) {
+    if (dataWithoutPoll.isAnonymous) {
       updateData['authorInfo.displayName'] = '익명';
       updateData['authorInfo.profileImageUrl'] = '';
     } else {
@@ -987,29 +995,8 @@ export const updatePost = async (postId: string, data: PostFormData) => {
       }
     }
     
-    // 투표 정보 업데이트 - 게시글 수정 시에는 poll 필드를 건드리지 않음
-    // poll 데이터가 명시적으로 전달된 경우에만 처리 (새 게시글 작성 시)
-    if (data.poll && data.poll.question && data.poll.options && data.poll.options.length > 1) {
-      const pollData: any = {
-        isActive: true,
-        question: data.poll.question,
-        options: data.poll.options.map((option, index) => ({
-          text: option.text,
-          imageUrl: option.imageUrl || '', // undefined 대신 빈 문자열
-          voteCount: 0,
-          index
-        })),
-        multipleChoice: data.poll.multipleChoice || false
-      };
-      
-      // expiresAt이 있을 때만 추가 (undefined 방지)
-      if (data.poll.expiresAt) {
-        pollData.expiresAt = data.poll.expiresAt.getTime();
-      }
-      
-      updateData.poll = pollData;
-    }
-    // 게시글 수정 시에는 poll 필드를 건드리지 않음 - 기존 상태 유지
+    // poll 필드는 완전히 처리하지 않음 - 기존 상태 그대로 유지
+    // data에서 poll 필드를 제거했으므로 poll 관련 업데이트 없음
     
     // undefined 값들을 제거하는 함수
     const removeUndefined = (obj: any): any => {
@@ -1031,7 +1018,19 @@ export const updatePost = async (postId: string, data: PostFormData) => {
     };
     
     // undefined 값 제거
-    const cleanedUpdateData = removeUndefined(updateData);
+    console.log('🔥 updateData before cleaning:', JSON.stringify(updateData, null, 2));
+    // removeUndefined 함수를 일시적으로 비활성화하여 테스트
+    // const cleanedUpdateData = removeUndefined(updateData);
+    const cleanedUpdateData = updateData;
+    console.log('🔥 cleanedUpdateData after cleaning:', JSON.stringify(cleanedUpdateData, null, 2));
+    
+    // poll 필드가 있다면 완전히 제거 (Firebase가 처리하지 않도록)
+    if ('poll' in cleanedUpdateData) {
+      delete cleanedUpdateData.poll;
+      console.log('🔥 poll 필드를 제거했습니다.');
+    }
+    
+    console.log('🔥 Final update data:', JSON.stringify(cleanedUpdateData, null, 2));
     
     // 게시글 업데이트
     await updateDocument('posts', postId, cleanedUpdateData);
@@ -1039,6 +1038,79 @@ export const updatePost = async (postId: string, data: PostFormData) => {
     return postId;
   } catch (error) {
     console.error('게시글 수정 오류:', error);
+    throw new Error('게시글을 수정하는 중 오류가 발생했습니다.');
+  }
+};
+
+// 안전한 게시글 수정 - poll 필드를 절대 건드리지 않음
+export const updatePostSafe = async (postId: string, data: {
+  title: string;
+  content: string;
+  isAnonymous: boolean;
+  tags: string[];
+}) => {
+  try {
+    console.log('🔥🔥🔥 updatePostSafe called with:', { postId, data });
+    
+    // 게시글 정보 가져오기
+    const postDoc = await getDocument('posts', postId);
+    
+    if (!postDoc) {
+      throw new Error('게시글을 찾을 수 없습니다.');
+    }
+
+    // poll 필드를 포함한 기존 데이터를 완전히 보존
+    const existingData = postDoc as any;
+    const existingPoll = existingData.poll;
+    
+    console.log('🔥🔥🔥 Existing poll data:', JSON.stringify(existingPoll, null, 2));
+
+    // 업데이트할 필드들만 명시적으로 지정
+    const updateFields: Record<string, any> = {
+      title: data.title,
+      content: data.content,
+      tags: data.tags,
+      updatedAt: serverTimestamp(),
+      'authorInfo.isAnonymous': data.isAnonymous
+    };
+    
+    // 익명 설정에 따른 작성자 정보 업데이트
+    if (data.isAnonymous) {
+      updateFields['authorInfo.displayName'] = '익명';
+      updateFields['authorInfo.profileImageUrl'] = '';
+    } else {
+      // 사용자 정보 다시 가져오기
+      const userDoc = await getDocument('users', existingData.authorId);
+      if (userDoc) {
+        updateFields['authorInfo.displayName'] = (userDoc as any).profile?.userName || '사용자';
+        updateFields['authorInfo.profileImageUrl'] = (userDoc as any).profile?.profileImageUrl || '';
+      }
+    }
+    
+    console.log('🔥🔥🔥 Update fields (no poll):', JSON.stringify(updateFields, null, 2));
+    
+    // Firestore 업데이트 - poll 필드는 절대 포함하지 않음
+    const postRef = doc(db, 'posts', postId);
+    
+    console.log('🔥🔥🔥 About to call updateDoc with postRef:', postRef.path);
+    console.log('🔥🔥🔥 updateFields contains poll?', 'poll' in updateFields);
+    
+    await updateDoc(postRef, updateFields);
+    
+    console.log('🔥🔥🔥 updateDoc completed, checking result...');
+    
+    // 업데이트 후 문서 상태 확인
+    const updatedDoc = await getDoc(postRef);
+    if (updatedDoc.exists()) {
+      const updatedData = updatedDoc.data();
+      console.log('🔥🔥🔥 Document after update:', JSON.stringify(updatedData.poll, null, 2));
+    }
+    
+    console.log('🔥🔥🔥 updatePostSafe completed successfully');
+    
+    return postId;
+  } catch (error) {
+    console.error('안전한 게시글 수정 오류:', error);
     throw new Error('게시글을 수정하는 중 오류가 발생했습니다.');
   }
 };
@@ -1278,5 +1350,41 @@ export const cleanupInvalidPollFields = async (): Promise<void> => {
   } catch (error) {
     console.error('poll 필드 정리 중 오류:', error);
     throw new Error('poll 필드 정리 중 오류가 발생했습니다.');
+  }
+};
+
+// 손상된 poll 데이터 복구 함수
+export const repairDamagedPoll = async (postId: string) => {
+  try {
+    console.log('🔧 Repairing damaged poll for post:', postId);
+    
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      throw new Error('게시글을 찾을 수 없습니다.');
+    }
+    
+    const data = postDoc.data();
+    
+    // poll 필드가 손상되었는지 확인
+    if (data.poll && typeof data.poll === 'object' && data.poll._methodName === 'deleteField') {
+      console.log('🔧 Found damaged poll field, removing it...');
+      
+      // 손상된 poll 필드 완전히 제거
+      await updateDoc(postRef, {
+        poll: deleteField(),
+        updatedAt: serverTimestamp()
+      });
+      
+      console.log('🔧 Damaged poll field removed successfully');
+      return true;
+    } else {
+      console.log('🔧 Poll field is not damaged');
+      return false;
+    }
+  } catch (error) {
+    console.error('Poll 복구 오류:', error);
+    throw error;
   }
 };

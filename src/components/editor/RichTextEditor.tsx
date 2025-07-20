@@ -73,6 +73,7 @@ export default function RichTextEditor({
   }
 
   const editor = useEditor({
+    immediatelyRender: false, // SSR 하이드레이션 미스매치 방지
     extensions: [
       StarterKit,
       Image,

@@ -208,6 +208,18 @@ export const updateDocument = async <T extends Record<string, unknown>>(
       updatedAt: serverTimestamp(),
     };
     
+    // 게시글 업데이트인 경우 로그 출력
+    if (path === 'posts') {
+      console.log('🔥🔥🔥 updateDocument called for posts:', id);
+      console.log('🔥🔥🔥 Update data:', JSON.stringify(dataWithTimestamp, null, 2));
+      
+      // poll 필드가 있는지 확인
+      if ('poll' in dataWithTimestamp) {
+        console.log('🔥🔥🔥 POLL FIELD FOUND IN UPDATE DATA!');
+        console.log('🔥🔥🔥 Poll value:', dataWithTimestamp.poll);
+      }
+    }
+    
     await updateDoc(docRef, dataWithTimestamp as DocumentData);
   } catch (error) {
     console.error('문서 업데이트 오류:', error);

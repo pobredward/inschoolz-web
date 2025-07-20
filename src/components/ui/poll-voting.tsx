@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Check, Users, Clock } from 'lucide-react';
-import { useAuth } from '@/providers/AuthProvider';
-import { toast } from 'sonner';
-import { doc, updateDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/providers/AuthProvider';
+import { Button } from './button';
+import { Progress } from './progress';
+import { Badge } from './badge';
+import toast from 'react-hot-toast';
+import { Check, Users, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FirebaseTimestamp } from '@/types';
 
@@ -73,20 +73,12 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
     setIsVoting(true);
 
     try {
-      const postRef = doc(db, 'posts', postId);
-      const postDoc = await getDoc(postRef);
+      // 로컬 상태 기반으로 즉시 UI 업데이트
+      const updatedOptions = [...localPoll.options];
+      const currentVoters = localPoll.voters || [];
+      const currentUserVotes = localPoll.userVotes || {};
       
-      if (!postDoc.exists()) {
-        toast.error('게시글을 찾을 수 없습니다.');
-        return;
-      }
-
-      const currentPoll = postDoc.data().poll as PollData;
-      const updatedOptions = [...currentPoll.options];
-      const currentVoters = currentPoll.voters || [];
-      const currentUserVotes = currentPoll.userVotes || {};
-
-      // 기존 투표가 있다면 해당 옵션의 카운트 감소 (userVotes가 있는 경우에만)
+      // 기존 투표가 있다면 해당 옵션의 카운트 감소
       if (hasVoted && currentUserVotes[user.uid] !== undefined) {
         const previousOptionIndex = currentUserVotes[user.uid];
         if (previousOptionIndex >= 0 && previousOptionIndex < updatedOptions.length) {
@@ -104,21 +96,22 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
       };
 
       const updatedPoll = {
-        ...currentPoll,
+        ...localPoll,
         options: updatedOptions,
         voters: hasVoted ? currentVoters : [...currentVoters, user.uid],
         userVotes: updatedUserVotes
       };
 
-      // Firestore 업데이트
-      await updateDoc(postRef, {
-        poll: updatedPoll
-      });
-
-      // 로컬 상태 업데이트
+      // 즉시 로컬 상태 업데이트 (UI 반영)
       setLocalPoll(updatedPoll);
       setSelectedOption(optionIndex);
       setHasVoted(true);
+
+      // Firestore 업데이트 (백그라운드에서)
+      const postRef = doc(db, 'posts', postId);
+      await updateDoc(postRef, {
+        poll: updatedPoll
+      });
       
       if (onVoteUpdate) {
         onVoteUpdate(updatedPoll);
@@ -128,6 +121,11 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
     } catch (error) {
       console.error('투표 오류:', error);
       toast.error('투표 처리 중 오류가 발생했습니다.');
+      
+      // 오류 발생 시 원래 상태로 복원
+      setLocalPoll(poll);
+      setSelectedOption(hasVoted ? (poll.userVotes?.[user.uid] ?? -1) : -1);
+      setHasVoted(!!poll.userVotes?.[user.uid]);
     } finally {
       setIsVoting(false);
     }
@@ -140,61 +138,52 @@ export const PollVoting = ({ postId, poll, onVoteUpdate }: PollVotingProps) => {
     setIsVoting(true);
 
     try {
-      const postRef = doc(db, 'posts', postId);
+      const currentUserVotes = localPoll.userVotes || {};
       
-      // 현재 데이터를 다시 가져와서 정확한 상태 확인
-      const postDoc = await getDoc(postRef);
-      if (!postDoc.exists()) {
-        toast.error('게시글을 찾을 수 없습니다.');
-        return;
-      }
-
-      const currentPoll = postDoc.data().poll as PollData;
-      const updatedVoters = (currentPoll.voters || []).filter(voterId => voterId !== user.uid);
-      const currentUserVotes = currentPoll.userVotes || {};
-      
-      // 기존 투표한 옵션의 카운트 감소
       if (currentUserVotes[user.uid] !== undefined) {
+        // 로컬 상태 기반으로 즉시 UI 업데이트
         const userVotedOptionIndex = currentUserVotes[user.uid];
-        const updatedOptions = [...currentPoll.options];
+        const updatedOptions = [...localPoll.options];
         updatedOptions[userVotedOptionIndex].voteCount = Math.max(0, updatedOptions[userVotedOptionIndex].voteCount - 1);
+        
+        const updatedVoters = (localPoll.voters || []).filter(voterId => voterId !== user.uid);
         
         // 사용자 투표 기록에서 제거
         const updatedUserVotes = { ...currentUserVotes };
         delete updatedUserVotes[user.uid];
         
         const updatedPoll = {
-          ...currentPoll,
+          ...localPoll,
           options: updatedOptions,
           voters: updatedVoters,
           userVotes: updatedUserVotes
         };
         
+        // 즉시 로컬 상태 업데이트 (UI 반영)
+        setLocalPoll(updatedPoll);
+        setHasVoted(false);
+        setSelectedOption(-1);
+
+        // Firestore 업데이트 (백그라운드에서)
+        const postRef = doc(db, 'posts', postId);
         await updateDoc(postRef, {
           poll: updatedPoll
         });
 
-        setLocalPoll(updatedPoll);
-        setHasVoted(false);
-        setSelectedOption(null);
-        
         if (onVoteUpdate) {
           onVoteUpdate(updatedPoll);
         }
 
         toast.success('투표를 취소했습니다.');
-        return;
       }
-      
-      const updatedPoll = {
-        ...currentPoll,
-        voters: updatedVoters
-      };
-
-      // 이 부분은 위에서 처리되므로 제거
     } catch (error) {
       console.error('투표 취소 오류:', error);
       toast.error('투표 취소 중 오류가 발생했습니다.');
+      
+      // 오류 발생 시 원래 상태로 복원
+      setLocalPoll(poll);
+      setSelectedOption(hasVoted ? (poll.userVotes?.[user.uid] ?? -1) : -1);
+      setHasVoted(!!poll.userVotes?.[user.uid]);
     } finally {
       setIsVoting(false);
     }

@@ -51,6 +51,7 @@ export function PWAPrompt() {
 
     // PWA 설치 프롬프트 이벤트 리스너
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
+      // PWA 설치 프롬프트를 직접 제어하기 위해 기본 동작 방지
       e.preventDefault();
       setDeferredPrompt(e);
       
