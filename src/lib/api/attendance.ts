@@ -3,7 +3,6 @@ import {
   getDoc,
   updateDoc,
   setDoc,
-  Timestamp,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -17,31 +16,19 @@ import { getSystemSettings, updateUserExperience } from '@/lib/experience';
 
 /**
  * 한국 시간대 기준(UTC+9)으로 날짜 문자열 생성
- * 이렇게 함으로써 사용자가 어떤 시간대에 있든 한국 시간 기준으로 출석체크가 처리됨
+ * @param date 날짜 (선택사항, 기본값: 현재 시간)
+ * @returns 한국 시간대 기준 날짜 문자열 (YYYY-MM-DD 형태)
  */
-const getKoreanDateForAttendance = (): { todayStr: string, thisMonth: string } => {
-  // 현재 UTC 시간 가져오기
-  const now = new Date();
+const getKoreanDateString = (date: Date = new Date()): string => {
+  // UTC 시간에 9시간(한국 시간)을 더해서 한국 시간으로 변환
+  const koreaTime = new Date(date.getTime() + (9 * 60 * 60 * 1000));
   
-  // 한국 시간으로 변환 (UTC+9)
-  const koreaTimezoneOffset = 9 * 60; // 9시간을 분 단위로
-  const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const koreaMinutes = utcMinutes + koreaTimezoneOffset;
+  // UTC 기준으로 날짜 추출 (이미 한국 시간으로 변환된 상태)
+  const year = koreaTime.getUTCFullYear();
+  const month = String(koreaTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(koreaTime.getUTCDate()).padStart(2, '0');
   
-  // 한국 시간 계산
-  const koreaDate = new Date(now);
-  koreaDate.setUTCHours(Math.floor(koreaMinutes / 60));
-  koreaDate.setUTCMinutes(koreaMinutes % 60);
-  
-  // 날짜 부분만 추출
-  const year = koreaDate.getUTCFullYear();
-  const month = String(koreaDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(koreaDate.getUTCDate()).padStart(2, '0');
-  
-  return {
-    todayStr: `${year}-${month}-${day}`,
-    thisMonth: `${year}-${month}`
-  };
+  return `${year}-${month}-${day}`;
 };
 
 /**
@@ -88,7 +75,7 @@ export const checkAttendance = async (
     }
     
     // 한국 시간 기준 날짜 문자열 가져오기
-    const { todayStr } = getKoreanDateForAttendance();
+    const todayStr = getKoreanDateString();
     
     // 사용자 출석체크 데이터 조회
     const attendanceRef = doc(db, 'attendance', userId);
@@ -155,10 +142,7 @@ export const checkAttendance = async (
       // 어제 날짜 계산 (한국 시간 기준)
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayYear = yesterday.getFullYear();
-      const yesterdayMonth = String(yesterday.getMonth() + 1).padStart(2, '0');
-      const yesterdayDay = String(yesterday.getDate()).padStart(2, '0');
-      const yesterdayStr = `${yesterdayYear}-${yesterdayMonth}-${yesterdayDay}`;
+      const yesterdayStr = getKoreanDateString(yesterday);
       
       // 이전 연속 출석 일수 저장 (경험치 보상 계산용)
       const prevStreak = streak;

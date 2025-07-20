@@ -9,15 +9,15 @@ import { Timestamp } from 'firebase/firestore'
  * @param timestamp Firestore Timestamp 또는 Date 또는 문자열
  * @returns JavaScript Date 객체
  */
-export function serializeTimestamp(timestamp: any): Date {
+export function serializeTimestamp(timestamp: unknown): Date {
   if (!timestamp) return new Date();
   
   // 이미 Date 객체인 경우
   if (timestamp instanceof Date) return timestamp;
   
   // Firestore Timestamp인 경우
-  if (timestamp && typeof timestamp.toDate === 'function') {
-    return timestamp.toDate();
+  if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof (timestamp as { toDate: () => Date }).toDate === 'function') {
+    return (timestamp as { toDate: () => Date }).toDate();
   }
   
   // 문자열이나 숫자인 경우
@@ -26,8 +26,9 @@ export function serializeTimestamp(timestamp: any): Date {
   }
   
   // seconds와 nanoseconds가 있는 객체인 경우 (직렬화된 Timestamp)
-  if (timestamp && typeof timestamp.seconds === 'number') {
-    return new Date(timestamp.seconds * 1000 + Math.floor(timestamp.nanoseconds / 1000000));
+  if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp && typeof (timestamp as { seconds: number; nanoseconds?: number }).seconds === 'number') {
+    const { seconds, nanoseconds = 0 } = timestamp as { seconds: number; nanoseconds?: number };
+    return new Date(seconds * 1000 + Math.floor(nanoseconds / 1000000));
   }
   
   // fallback
@@ -40,8 +41,8 @@ export function serializeTimestamp(timestamp: any): Date {
  * @param timestampFields timestamp 필드명 배열
  * @returns 직렬화된 객체
  */
-export function serializeObject<T>(obj: any, timestampFields: string[] = ['createdAt', 'updatedAt']): T {
-  if (!obj || typeof obj !== 'object') return obj;
+export function serializeObject<T>(obj: Record<string, unknown>, timestampFields: string[] = ['createdAt', 'updatedAt']): T {
+  if (!obj || typeof obj !== 'object') return obj as T;
   
   const serialized = { ...obj };
   
@@ -314,18 +315,13 @@ export function formatSmartTime(timestamp: unknown): string {
  * @returns 한국 시간대 기준 날짜 문자열
  */
 export function getKoreanDateString(date: Date = new Date()): string {
-  // 한국 시간으로 변환 (UTC+9)
-  const koreaTimezoneOffset = 9 * 60; // 9시간을 분 단위로
-  const utcMinutes = date.getUTCHours() * 60 + date.getUTCMinutes();
-  const koreaMinutes = utcMinutes + koreaTimezoneOffset;
+  // UTC 시간에 9시간(한국 시간)을 더해서 한국 시간으로 변환
+  const koreaTime = new Date(date.getTime() + (9 * 60 * 60 * 1000));
   
-  // 한국 날짜 계산
-  const koreaDate = new Date(date);
-  koreaDate.setUTCHours(0, koreaMinutes, 0, 0);
-  
-  const year = koreaDate.getUTCFullYear();
-  const month = String(koreaDate.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(koreaDate.getUTCDate()).padStart(2, '0');
+  // UTC 기준으로 날짜 추출 (이미 한국 시간으로 변환된 상태)
+  const year = koreaTime.getUTCFullYear();
+  const month = String(koreaTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(koreaTime.getUTCDate()).padStart(2, '0');
   
   return `${year}-${month}-${day}`;
 }

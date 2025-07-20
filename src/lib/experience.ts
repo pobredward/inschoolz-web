@@ -1,6 +1,7 @@
 import { doc, getDoc, updateDoc, serverTimestamp, increment, collection, query, where, orderBy, limit, getDocs, FieldValue } from 'firebase/firestore';
 import { db } from './firebase';
 import { User, SystemSettings } from '@/types';
+import { getKoreanDateString } from '@/lib/utils';
 
 // 레벨별 필요 경험치 (1→2레벨 10exp, 2→3레벨 20exp, 오름차순)
 // 각 레벨에서 다음 레벨로 가기 위해 필요한 경험치
@@ -321,7 +322,7 @@ export const checkDailyLimit = async (userId: string, activityType: 'posts' | 'c
     }
     
     const userData = userDoc.data() as User;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getKoreanDateString(); // 한국 시간 기준 날짜 사용
     
     // 활동 제한 데이터 확인
     const activityLimits = userData.activityLimits;
@@ -757,7 +758,7 @@ export const resetDailyActivityLimits = async (userId: string): Promise<void> =>
     }
     
     const userData = userDoc.data() as User;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getKoreanDateString(); // 한국 시간 기준 날짜 사용
     
     // 활동 제한 데이터 확인
     const activityLimits = userData.activityLimits;
