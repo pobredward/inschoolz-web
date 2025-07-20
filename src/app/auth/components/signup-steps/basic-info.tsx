@@ -344,12 +344,16 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
                       inputMode="numeric"
                       placeholder="01" 
                       maxLength={2}
-                      value={field.value?.toString() || ''}
+                      value={field.value || ''}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
-                        const numValue = parseInt(value) || 0;
-                        field.onChange(numValue);
-                        handleFieldChange('birthMonth', numValue);
+                        if (value.length <= 2) {
+                          const numValue = parseInt(value);
+                          if ((numValue >= 1 && numValue <= 12) || value === '') {
+                            field.onChange(value);
+                            handleFieldChange('birthMonth', value);
+                          }
+                        }
                       }}
                     />
                   </FormControl>

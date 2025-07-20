@@ -333,7 +333,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                         inputMode="numeric"
                         placeholder="01" 
                         maxLength={2}
-                        value={field.value ? String(field.value).padStart(2, '0') : ''}
+                        value={field.value ? String(field.value) : ''}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
                           if (value.length <= 2) {
@@ -366,7 +366,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                         inputMode="numeric"
                         placeholder="01" 
                         maxLength={2}
-                        value={field.value ? String(field.value).padStart(2, '0') : ''}
+                        value={field.value ? String(field.value) : ''}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
                           if (value.length <= 2) {

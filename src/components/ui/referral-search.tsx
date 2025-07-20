@@ -108,7 +108,8 @@ export const ReferralSearch: React.FC<ReferralSearchProps> = ({
 
   const maskRealName = (realName: string): string => {
     if (realName.length <= 1) return realName;
-    return realName.charAt(0) + '*'.repeat(realName.length - 1);
+    if (realName.length === 2) return realName.charAt(0) + '*';
+    return realName.charAt(0) + '*'.repeat(realName.length - 2) + realName.charAt(realName.length - 1);
   };
 
   return (
