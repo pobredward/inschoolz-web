@@ -103,7 +103,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     const fetchBoardInfo = async () => {
       try {
         const boards = await getBoardsByType(post.type);
-        const board = boards.find(b => b.code === post.boardCode);
+        const board = (boards as Board[]).find((b: Board) => b.code === post.boardCode);
         setBoardInfo(board || null);
       } catch (error) {
         console.error('Board 정보 가져오기 실패:', error);
@@ -149,47 +149,22 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     }
   };
 
-
-
   const handleShare = async () => {
     try {
-      const shareText = post.content.replace(/<[^>]*>/g, '').substring(0, 100);
-      const shareUrl = window.location.href;
-      
       if (navigator.share) {
         await navigator.share({
-          title: `${post.title} - Inschoolz`,
-          text: shareText + '...',
-          url: shareUrl,
+          title: post.title,
+          text: post.content.substring(0, 100) + '...',
+          url: window.location.href,
         });
-        toast.success('게시글이 공유되었습니다.');
       } else {
-        // 클립보드에 복사
-        await navigator.clipboard.writeText(shareUrl);
-        toast.success('📋 게시글 링크가 복사되었습니다!\n다른 곳에 붙여넣기해서 공유해보세요.');
+        // Web Share API를 지원하지 않는 경우 클립보드에 복사
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success('링크가 클립보드에 복사되었습니다.');
       }
     } catch (error) {
       console.error('공유 실패:', error);
-      // 공유 API 실패 시 클립보드로 대체
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success('📋 게시글 링크가 복사되었습니다!\n다른 곳에 붙여넣기해서 공유해보세요.');
-      } catch (clipboardError) {
-        console.error('클립보드 복사 실패:', clipboardError);
-        // 최후의 수단으로 텍스트 선택 방식
-        const textArea = document.createElement('textarea');
-        textArea.value = window.location.href;
-        document.body.appendChild(textArea);
-        textArea.select();
-        try {
-          document.execCommand('copy');
-          toast.success('📋 게시글 링크가 복사되었습니다!');
-        } catch (execError) {
-          toast.error('❌ 공유 기능이 지원되지 않는 브라우저입니다.\n링크를 수동으로 복사해주세요: ' + window.location.href);
-        } finally {
-          document.body.removeChild(textArea);
-        }
-      }
+      toast.error('공유에 실패했습니다.');
     }
   };
 
@@ -424,7 +399,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         </div>
 
         {/* 게시글 제목 */}
-        <h1 className="text-xl md:text-2xl font-bold mb-4">{post.title}</h1>
+        <h1 className="text-2xl font-bold mb-4 leading-tight">{post.title}</h1>
 
         {/* 게시글 내용 */}
         <div className="mb-6">
@@ -435,8 +410,8 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         {post.poll && (
           <div className="mb-6">
             <PollVoting 
-              postId={post.id} 
-              poll={post.poll}
+              poll={post.poll} 
+              postId={post.id}
               onVoteUpdate={(updatedPoll) => {
                 // 투표 업데이트 시 필요한 로직 (필요시 구현)
               }}
@@ -466,15 +441,29 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
             </div>
             <div className="flex items-center gap-1">
               <Heart className="h-4 w-4" />
-              <span>{post.stats.likeCount || 0}</span>
+              <span>{likeCount}</span>
             </div>
             <div className="flex items-center gap-1">
               <MessageSquare className="h-4 w-4" />
               <span>{commentCount}</span>
             </div>
+            <div className="flex items-center gap-1">
+              <Bookmark className="h-4 w-4" />
+              <span>{scrapCount}</span>
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleLike}
+              className={`flex items-center gap-1 h-8 px-2 ${isLiked ? 'text-red-500' : 'text-slate-500'}`}
+            >
+              <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
+              <span className="text-sm hidden sm:inline">좋아요</span>
+            </Button>
+            
             <Button 
               variant="ghost" 
               size="sm" 
@@ -483,6 +472,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
             >
               <Bookmark className={`h-4 w-4 ${isScrapped ? 'fill-current' : ''}`} />
               <span className="text-sm hidden sm:inline">스크랩</span>
+              <span className="text-xs ml-1">{scrapCount}</span>
             </Button>
             
             <Button 

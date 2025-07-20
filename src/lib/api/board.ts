@@ -797,14 +797,8 @@ export const deleteComment = async (postId: string, commentId: string, userId: s
         updatedAt: serverTimestamp()
       });
     } else {
-      // 대댓글이 없는 경우: 실제 삭제
-    await updateDoc(commentRef, {
-      status: {
-        ...commentData.status,
-        isDeleted: true
-      },
-      updatedAt: serverTimestamp()
-    });
+      // 대댓글이 없는 경우: 완전 삭제
+      await deleteDoc(commentRef);
     }
     
     // 게시글 댓글 수 감소
