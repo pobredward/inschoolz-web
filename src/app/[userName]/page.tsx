@@ -37,10 +37,6 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
       return notFound();
     }
 
-    // 쿠키 디버깅: 모든 쿠키 확인
-    const allCookies = cookieStore.getAll();
-    console.log('프로필 페이지 - 모든 쿠키:', allCookies.map(c => ({ name: c.name, value: c.value })));
-    
     // uid 쿠키 우선 확인 (AuthProvider에서 설정하는 쿠키명)
     let currentUserId = cookieStore.get('uid')?.value;
     if (!currentUserId) {
@@ -48,23 +44,15 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
       currentUserId = cookieStore.get('userId')?.value;
     }
     
-    // 쿠키에서 사용자 ID를 찾을 수 없는 경우
+    // 쿠키에서 사용자 ID를 찾을 수 없는 경우 로그인 페이지로 리디렉션
     if (!currentUserId) {
-      console.log('프로필 페이지 - 사용자 ID를 쿠키에서 찾을 수 없음');
-      console.log('사용 가능한 쿠키:', allCookies.map(c => c.name));
-      
-      // 대안: 로컬 상수 사용 (임시 솔루션으로, 프로필 소유자를 현재 사용자로 간주)
-      currentUserId = profileUser.uid;
-      console.log('임시 해결책: 프로필 소유자를 현재 사용자로 간주:', currentUserId);
+      return redirect('/auth?redirect=/' + userName);
     }
-    
-    console.log('현재 사용자 ID:', currentUserId);
     
     // 사용자 정보 조회
     const currentUser = await getUserById(currentUserId);
     
     if (!currentUser) {
-      console.log('현재 사용자 정보를 찾을 수 없음:', currentUserId);
       return redirect('/auth?redirect=/' + userName);
     }
 
@@ -74,10 +62,6 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
     
     // 본인 프로필인지 확인
     const isOwnProfile = serializedCurrentUser?.uid === serializedProfileUser?.uid;
-    
-    console.log('본인 프로필 여부:', isOwnProfile);
-    console.log('현재 사용자 UID:', serializedCurrentUser?.uid);
-    console.log('프로필 사용자 UID:', serializedProfileUser?.uid);
     
     // 본인 프로필이면 MyPageClient 컴포넌트 렌더링
     if (isOwnProfile) {

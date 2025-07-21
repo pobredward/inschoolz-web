@@ -1,35 +1,46 @@
-'use client';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { getUserById } from '@/lib/api/users';
+import MyPageClient from './MyPageClient';
+import { serializeUserForClient } from '@/lib/utils';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/providers/AuthProvider';
+export default async function MyPage() {
+  // 쿠키에서 로그인된 사용자 정보 확인
+  const cookieStore = await cookies();
+  const authToken = cookieStore.get('authToken')?.value;
+  
+  // 로그인되지 않은 경우 로그인 페이지로 리디렉션
+  if (!authToken) {
+    return redirect('/auth?redirect=/my');
+  }
 
-export default function MyPage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading) {
-      if (!user) {
-        // 로그인하지 않은 경우 인증 페이지로 리다이렉션
-        router.push('/auth?redirect=/my');
-      } else if (user.profile?.userName) {
-        // 사용자의 userName으로 리다이렉트
-        router.push(`/${user.profile.userName}`);
-      } else {
-        // userName이 없는 경우 인증 페이지로 리다이렉션
-        router.push('/auth?redirect=/my');
-      }
+  try {
+    // uid 쿠키 우선 확인
+    let currentUserId = cookieStore.get('uid')?.value;
+    if (!currentUserId) {
+      // 백업으로 userId 쿠키도 확인
+      currentUserId = cookieStore.get('userId')?.value;
     }
-  }, [user, isLoading, router]);
+    
+    // 쿠키에서 사용자 ID를 찾을 수 없는 경우 로그인 페이지로 리디렉션
+    if (!currentUserId) {
+      return redirect('/auth?redirect=/my');
+    }
+    
+    // 사용자 정보 조회
+    const currentUser = await getUserById(currentUserId);
+    
+    if (!currentUser) {
+      return redirect('/auth?redirect=/my');
+    }
 
-  // 로딩 중이거나 리다이렉션 중일 때 표시
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-        <p className="text-muted-foreground">마이페이지로 이동 중...</p>
-      </div>
-    </div>
-  );
+    // Firebase 타임스탬프를 포함한 객체를 직렬화
+    const serializedCurrentUser = serializeUserForClient(currentUser);
+    
+    // MyPageClient 컴포넌트 렌더링
+    return <MyPageClient userData={serializedCurrentUser} />;
+  } catch (error) {
+    console.error('마이페이지 사용자 정보 조회 오류:', error);
+    return redirect('/auth?redirect=/my');
+  }
 } 

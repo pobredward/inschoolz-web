@@ -190,11 +190,10 @@ export function Header() {
   // Sticky 훅 사용
   const { sticky, stickyRef } = useSticky();
   
-  // 사용자 프로필 경로 설정 
-  const profilePath = user?.profile?.userName ? `/${user.profile.userName}` : '/my';
+  // 사용자 프로필 경로 설정 - 항상 /my로 이동
   const myMenuItem = { 
     name: '마이페이지', 
-    path: profilePath, 
+    path: '/my', 
     icon: <UserIcon className="h-5 w-5" />, 
     ariaLabel: '마이페이지로 이동' 
   };
@@ -413,7 +412,7 @@ export function Header() {
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href={profilePath} className="cursor-pointer">
+                      <Link href="/my" className="cursor-pointer">
                         <UserIcon className="mr-2 h-4 w-4" />
                         <span>내 프로필</span>
                       </Link>
