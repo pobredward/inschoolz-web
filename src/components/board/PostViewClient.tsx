@@ -440,16 +440,8 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
               <span>{post.stats.viewCount || 0}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Heart className="h-4 w-4" />
-              <span>{likeCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
               <MessageSquare className="h-4 w-4" />
               <span>{commentCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Bookmark className="h-4 w-4" />
-              <span>{scrapCount}</span>
             </div>
           </div>
           
@@ -462,6 +454,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
             >
               <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
               <span className="text-sm hidden sm:inline">좋아요</span>
+              <span className="text-xs ml-1">{likeCount}</span>
             </Button>
             
             <Button 
