@@ -392,7 +392,7 @@ export async function parseHtmlContent(content: string): Promise<string> {
     // 서버사이드에서는 HTML 태그 제거하고 줄바꿈 처리
     return content
       .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/p>/gi, '\n')
       .replace(/<p[^>]*>/gi, '')
       .replace(/<\/div>/gi, '\n')
       .replace(/<div[^>]*>/gi, '')
@@ -413,7 +413,7 @@ export async function parseHtmlContent(content: string): Promise<string> {
   // 먼저 줄바꿈 처리를 위해 HTML 태그를 변환
   const processedContent = content
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/p>/gi, '\n')
     .replace(/<p[^>]*>/gi, '')
     .replace(/<\/div>/gi, '\n')
     .replace(/<div[^>]*>/gi, '');
@@ -453,7 +453,7 @@ export function stripHtmlTags(html: string): string {
   // <br>, <p> 태그를 줄바꿈으로 변환
   let text = html
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/p>/gi, '\n')
     .replace(/<p[^>]*>/gi, '')
     .replace(/<\/div>/gi, '\n')
     .replace(/<div[^>]*>/gi, '');
