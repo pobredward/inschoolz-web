@@ -102,8 +102,6 @@
     @apply bg-background text-foreground;
     /* 모바일에서 바운스 스크롤 방지 */
     overscroll-behavior: none;
-    /* GPU 가속 활성화 */
-    transform: translateZ(0);
     /* 터치 스크롤 성능 개선 */
     -webkit-overflow-scrolling: touch;
   }

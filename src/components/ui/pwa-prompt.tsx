@@ -126,7 +126,7 @@ export function PWAPrompt() {
   }
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 md:bottom-4 md:left-auto md:right-4 md:max-w-sm z-50">
+    <div className="fixed bottom-20 left-4 right-4 md:bottom-4 md:left-auto md:right-4 md:max-w-sm z-[10000]">
       <div className="bg-white border border-pastel-green-200 rounded-lg shadow-lg p-4 animate-slide-up">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">

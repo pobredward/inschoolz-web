@@ -24,7 +24,7 @@ function PopoverContent({
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={typeof window !== 'undefined' ? document.body : undefined}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

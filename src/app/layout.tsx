@@ -151,7 +151,7 @@ export default function RootLayout({
       </head>
       <body className={`${notoSansKR.variable} antialiased min-h-screen bg-background font-sans touch-manipulation`}>
         <Providers>
-          <div className="flex flex-col overflow-x-clip">
+          <div className="flex flex-col overflow-x-clip" style={{ position: 'relative' }}>
             <Header />
             <main className="flex-grow flex flex-col pb-16 md:pb-0">{children}</main>
             <Footer />
