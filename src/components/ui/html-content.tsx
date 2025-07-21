@@ -60,9 +60,10 @@ export function HtmlContent({ content, className = '', fallbackToText = true }: 
     // HTML 태그가 있는 경우 dangerouslySetInnerHTML 사용
     return (
       <div 
-        className={`prose prose-sm max-w-none ${className}`}
+        className={`prose prose-sm max-w-none whitespace-pre-wrap ${className}`}
         dangerouslySetInnerHTML={{ __html: parsedContent }}
         onClick={handleImageClick}
+        style={{ whiteSpace: 'pre-wrap' }}
       />
     );
   } else {
@@ -71,6 +72,7 @@ export function HtmlContent({ content, className = '', fallbackToText = true }: 
       <div 
         className={`whitespace-pre-wrap leading-relaxed ${className}`}
         onClick={handleImageClick}
+        style={{ whiteSpace: 'pre-wrap' }}
       >
         {parsedContent}
       </div>

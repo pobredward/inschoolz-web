@@ -392,10 +392,10 @@ export async function parseHtmlContent(content: string): Promise<string> {
     // 서버사이드에서는 HTML 태그 제거하고 줄바꿈 처리
     return content
       .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
       .replace(/<p[^>]*>/gi, '')
-      .replace(/<div[^>]*>/gi, '\n')
-      .replace(/<\/div>/gi, '')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<div[^>]*>/gi, '')
       .replace(/<[^>]*>/g, '')
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
@@ -413,10 +413,10 @@ export async function parseHtmlContent(content: string): Promise<string> {
   // 먼저 줄바꿈 처리를 위해 HTML 태그를 변환
   const processedContent = content
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
     .replace(/<p[^>]*>/gi, '')
-    .replace(/<div[^>]*>/gi, '\n')
-    .replace(/<\/div>/gi, '');
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<div[^>]*>/gi, '');
   
   // 허용할 HTML 태그와 속성 설정 (img 태그 추가)
   const cleanHtml = DOMPurify.default.sanitize(processedContent, {
@@ -453,10 +453,10 @@ export function stripHtmlTags(html: string): string {
   // <br>, <p> 태그를 줄바꿈으로 변환
   let text = html
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
     .replace(/<p[^>]*>/gi, '')
-    .replace(/<div[^>]*>/gi, '\n')
-    .replace(/<\/div>/gi, '');
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<div[^>]*>/gi, '');
   
   // 다른 HTML 태그 제거
   text = text.replace(/<[^>]*>/g, '');
@@ -471,10 +471,8 @@ export function stripHtmlTags(html: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'");
   
-  // 연속된 줄바꿈을 최대 2개로 제한하고 앞뒤 공백 제거
-  text = text
-    .replace(/\n\s*\n\s*\n/g, '\n\n')
-    .trim();
+  // 앞뒤 공백만 제거 (줄바꿈은 사용자 의도대로 보존)
+  text = text.trim();
   
   return text;
 }

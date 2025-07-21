@@ -241,3 +241,19 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* 게시글 콘텐츠 줄바꿈 최적화 */
+.prose p, .prose div {
+  white-space: pre-wrap;
+}
+
+.prose br {
+  display: block;
+  margin: 0.5em 0;
+  content: "";
+}
+
+/* 모든 텍스트 콘텐츠에 줄바꿈 보존 */
+.whitespace-pre-wrap {
+  white-space: pre-wrap !important;
+}
