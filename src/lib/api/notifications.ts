@@ -164,25 +164,34 @@ export async function createPostCommentNotification(
   postId: string,
   commentId: string,
   postTitle: string,
-  commentContent: string
+  commentContent: string,
+  isAnonymous: boolean = false
 ): Promise<void> {
   try {
-    // 댓글 작성자 정보 조회
-    const commenterDoc = await getDoc(doc(db, 'users', commenterId));
-    const commenterData = commenterDoc.data();
-    const commenterName = commenterData?.profile?.userName || '사용자';
+    // 댓글 작성자 이름 결정 (익명인 경우 실제 사용자 정보 조회 안함)
+    let commenterName = '사용자';
+    
+    if (isAnonymous) {
+      commenterName = '익명';
+    } else {
+      // 익명이 아닌 경우에만 사용자 정보 조회
+      const commenterDoc = await getDoc(doc(db, 'users', commenterId));
+      const commenterData = commenterDoc.data();
+      commenterName = commenterData?.profile?.userName || '사용자';
+    }
 
     // 게시글 정보 조회 (라우팅에 필요한 정보)
     const postDoc = await getDoc(doc(db, 'posts', postId));
     const postData = postDoc.data();
 
     // 기본 데이터 객체
-    const notificationData: any = {
+    const notificationData: Record<string, unknown> = {
       postId,
       commentId,
       postTitle,
       authorName: commenterName,
       commentContent: commentContent.slice(0, 100), // 처음 100자만
+      isAnonymous: isAnonymous, // 익명 여부 추가
     };
 
     // 라우팅에 필요한 정보 조건부 추가 (undefined 값 제외)
@@ -220,7 +229,8 @@ export async function createCommentReplyNotification(
   parentCommentId: string,
   replierName: string,
   replyContent: string,
-  replyId: string
+  replyId: string,
+  isAnonymous: boolean = false
 ): Promise<void> {
   try {
     // 게시글 정보 조회 (라우팅에 필요한 정보)
@@ -228,13 +238,14 @@ export async function createCommentReplyNotification(
     const postData = postDoc.data();
 
     // 기본 데이터 객체
-    const notificationData: any = {
+    const notificationData: Record<string, unknown> = {
       postId,
       commentId: parentCommentId,
       replyId,
       postTitle,
       authorName: replierName,
       commentContent: replyContent.slice(0, 100), // 처음 100자만
+      isAnonymous: isAnonymous, // 익명 여부 추가
     };
 
     // 라우팅에 필요한 정보 조건부 추가 (undefined 값 제외)

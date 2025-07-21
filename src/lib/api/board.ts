@@ -652,7 +652,8 @@ export const createComment = async (postId: string, content: string, userId: str
                 parentId,
                 isAnonymous ? '익명' : (userDoc as any).displayName || '사용자',
                 content,
-                commentDoc.id
+                commentDoc.id,
+                isAnonymous
               );
             }
           }
@@ -664,7 +665,8 @@ export const createComment = async (postId: string, content: string, userId: str
             postId,
             commentDoc.id,
             postDoc.title || '제목 없음',
-            content
+            content,
+            isAnonymous
           );
         }
       }

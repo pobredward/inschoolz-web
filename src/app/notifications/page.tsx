@@ -140,7 +140,7 @@ export default function NotificationsPage() {
       const { data } = notification;
       
       if (data?.postId && (notification.type === 'post_comment' || notification.type === 'comment_reply')) {
-        // 댓글 관련 알림은 해당 게시글로 이동
+        // 댓글 관련 알림은 해당 게시글로 이동 (익명 여부와 관계없이 게시글로만 이동)
         let route = '';
         
         if (data.postType === 'national') {
@@ -155,12 +155,16 @@ export default function NotificationsPage() {
         if (route) {
           router.push(route);
         }
-      } else if (data?.targetUserId && notification.type === 'referral') {
-        // 추천인 알림은 해당 사용자 프로필로 이동
+      } else if (data?.targetUserId && notification.type === 'referral' && !data.isAnonymous) {
+        // 추천인 알림은 해당 사용자 프로필로 이동 (익명이 아닌 경우에만)
+        // 익명 사용자인 경우 프로필로 이동하지 않음
         router.push(`/users/${data.targetUserId}`);
       } else if (notification.type === 'system') {
         // 시스템 알림은 특별한 이동 없음
         toast('시스템 알림입니다.');
+      } else if (data?.isAnonymous) {
+        // 익명 사용자 관련 알림인 경우 별도 처리 없이 읽음 처리만
+        toast('익명 사용자 관련 알림입니다.');
       }
     } catch (error) {
       console.error('알림 처리 실패:', error);
@@ -364,6 +368,11 @@ export default function NotificationsPage() {
                               !notification.isRead ? 'text-gray-700' : 'text-gray-500'
                             }`}>
                               {notification.message}
+                              {notification.data?.isAnonymous === true && (
+                                <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                                  익명
+                                </span>
+                              )}
                             </p>
                             
                             {/* 추가 정보 */}

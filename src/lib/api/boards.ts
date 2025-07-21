@@ -709,7 +709,8 @@ export const createComment = async (
               parentId,
               commenterName,
               content,
-              commentId
+              commentId,
+              isAnonymous
             );
           }
         }
@@ -726,7 +727,8 @@ export const createComment = async (
             postId,                            // 게시글 ID
             commentId,                         // 댓글 ID
             postData.title || '게시글',         // 게시글 제목
-            content                            // 댓글 내용
+            content,                           // 댓글 내용
+            isAnonymous                        // 익명 여부 추가
           );
         }
       }
