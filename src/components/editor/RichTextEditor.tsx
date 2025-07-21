@@ -15,13 +15,7 @@ import {
   Italic,
   Underline as UnderlineIcon,
   Link as LinkIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
   ImageIcon,
-  List,
-  ListOrdered,
-  Quote,
   Undo,
   Redo,
 } from 'lucide-react'
@@ -250,51 +244,9 @@ export default function RichTextEditor({
             <TooltipContent>밑줄</TooltipContent>
           </Tooltip>
 
-          {/* 리스트 */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                className={`h-8 w-8 ${editor.isActive('bulletList') ? 'bg-muted' : ''}`}
-              >
-                <List className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>글머리 기호</TooltipContent>
-          </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                className={`h-8 w-8 ${editor.isActive('orderedList') ? 'bg-muted' : ''}`}
-              >
-                <ListOrdered className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>번호 매기기</TooltipContent>
-          </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                className={`h-8 w-8 ${editor.isActive('blockquote') ? 'bg-muted' : ''}`}
-              >
-                <Quote className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>인용구</TooltipContent>
-          </Tooltip>
+
 
           {/* 이미지 업로드 */}
           <Popover>
@@ -478,95 +430,9 @@ export default function RichTextEditor({
             </PopoverContent>
           </Popover>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                className={editor.isActive({ textAlign: 'left' }) ? 'bg-muted' : ''}
-              >
-                <AlignLeft className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>왼쪽 정렬</TooltipContent>
-          </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => editor.chain().focus().setTextAlign('center').run()}
-                className={editor.isActive({ textAlign: 'center' }) ? 'bg-muted' : ''}
-              >
-                <AlignCenter className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>가운데 정렬</TooltipContent>
-          </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => editor.chain().focus().setTextAlign('right').run()}
-                className={editor.isActive({ textAlign: 'right' }) ? 'bg-muted' : ''}
-              >
-                <AlignRight className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>오른쪽 정렬</TooltipContent>
-          </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                className={editor.isActive('bulletList') ? 'bg-muted' : ''}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>글머리 기호</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                className={editor.isActive('orderedList') ? 'bg-muted' : ''}
-              >
-                <ListOrdered className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>번호 매기기</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                className={editor.isActive('blockquote') ? 'bg-muted' : ''}
-              >
-                <Quote className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>인용구</TooltipContent>
-          </Tooltip>
 
           <Popover>
             <TooltipProvider>
