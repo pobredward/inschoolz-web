@@ -84,6 +84,24 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       throw new Error('이메일과 비밀번호는 필수 입력 항목입니다.');
     }
 
+    // userName 중복 체크 (보안 강화)
+    if (userData.userName) {
+      const { checkUserNameAvailability } = await import('./users');
+      const userNameCheck = await checkUserNameAvailability(userData.userName);
+      if (!userNameCheck.isAvailable) {
+        throw new Error(userNameCheck.message);
+      }
+    }
+
+    // 이메일 중복 체크 (보안 강화)
+    if (userData.email) {
+      const { checkEmailAvailability } = await import('./users');
+      const emailCheck = await checkEmailAvailability(userData.email);
+      if (!emailCheck.isAvailable) {
+        throw new Error(emailCheck.message);
+      }
+    }
+
     // 이메일/비밀번호로 Firebase Auth 계정 생성
     const userCredential = await createUserWithEmailAndPassword(
       auth, 

@@ -17,6 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Eye, EyeOff } from 'lucide-react';
 
 // 로그인 폼 유효성 검사 스키마
 const loginFormSchema = z.object({
@@ -37,6 +38,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [redirectPath, setRedirectPath] = useState('/dashboard');
+  const [showPassword, setShowPassword] = useState(false);
 
   // URL 파라미터에서 리디렉트 경로 가져오기
   useEffect(() => {
@@ -102,11 +104,26 @@ export default function LoginPage() {
                 <FormItem>
                   <FormLabel>비밀번호</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="비밀번호를 입력하세요" 
-                      {...field} 
-                    />
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"}
+                        placeholder="비밀번호를 입력하세요" 
+                        {...field} 
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -32,6 +32,7 @@ import { Separator } from '@/components/ui/separator';
 import { checkReferralExists } from '@/lib/api/schools';
 import { CheckCircle, XCircle, Loader2, FileText, Info } from 'lucide-react';
 import { ReferralSearch } from '@/components/ui/referral-search';
+import { checkUserNameAvailability, checkEmailAvailability } from '@/lib/api/users';
 
 // 휴대폰 번호 포맷팅 함수
 const formatPhoneNumber = (value: string): string => {
@@ -105,6 +106,16 @@ interface DetailedInfoStepProps {
 }
 
 export function DetailedInfoStep({ formData, updateFormData, onSubmit }: DetailedInfoStepProps) {
+  // 약관 전체 동의 상태
+  const [allAgreed, setAllAgreed] = useState(false);
+  const [userNameStatus, setUserNameStatus] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'unavailable';
+    message?: string;
+  }>({ status: 'idle' });
+  const [emailStatus, setEmailStatus] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'unavailable';
+    message?: string;
+  }>({ status: 'idle' });
   const [referralStatus, setReferralStatus] = useState<{
     status: 'idle' | 'checking' | 'valid' | 'invalid';
     message?: string;
@@ -176,6 +187,96 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
     }
   }, []);
 
+  // 사용자명 중복 체크 함수
+  const checkUserName = useCallback(async (userName: string) => {
+    if (!userName || userName.trim() === '') {
+      setUserNameStatus({ status: 'idle' });
+      return;
+    }
+
+    setUserNameStatus({ status: 'checking' });
+
+    try {
+      const result = await checkUserNameAvailability(userName);
+      if (result.isAvailable) {
+        setUserNameStatus({ 
+          status: 'available', 
+          message: result.message 
+        });
+      } else {
+        setUserNameStatus({ 
+          status: 'unavailable', 
+          message: result.message 
+        });
+      }
+    } catch {
+      setUserNameStatus({ 
+        status: 'unavailable', 
+        message: '검증 중 오류가 발생했습니다.' 
+      });
+    }
+  }, []);
+
+  // 이메일 중복 체크 함수
+  const checkEmail = useCallback(async (email: string) => {
+    if (!email || email.trim() === '') {
+      setEmailStatus({ status: 'idle' });
+      return;
+    }
+
+    setEmailStatus({ status: 'checking' });
+
+    try {
+      const result = await checkEmailAvailability(email);
+      if (result.isAvailable) {
+        setEmailStatus({ 
+          status: 'available', 
+          message: result.message 
+        });
+      } else {
+        setEmailStatus({ 
+          status: 'unavailable', 
+          message: result.message 
+        });
+      }
+    } catch {
+      setEmailStatus({ 
+        status: 'unavailable', 
+        message: '검증 중 오류가 발생했습니다.' 
+      });
+    }
+  }, []);
+
+  // 사용자명 입력 디바운싱
+  useEffect(() => {
+    const userNameValue = form.watch('userName');
+    if (!userNameValue) {
+      setUserNameStatus({ status: 'idle' });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkUserName(userNameValue);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [form.watch('userName'), checkUserName]);
+
+  // 이메일 입력 디바운싱
+  useEffect(() => {
+    const emailValue = form.watch('email');
+    if (!emailValue) {
+      setEmailStatus({ status: 'idle' });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkEmail(emailValue);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [form.watch('email'), checkEmail]);
+
   const toggleAllAgreements = (checked: boolean) => {
     setAllChecked(checked);
     
@@ -231,15 +332,43 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                 <FormItem>
                   <FormLabel>아이디</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="영문, 숫자 조합 5-20자" 
-                      {...field} 
-                      onChange={(e) => {
-                        field.onChange(e);
-                        handleFieldChange('userName', e.target.value);
-                      }}
-                    />
+                    <div className="relative">
+                      <Input 
+                        placeholder="영문, 숫자 조합 5-20자" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          handleFieldChange('userName', e.target.value);
+                        }}
+                      />
+                      {userNameStatus.status === 'checking' && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                        </div>
+                      )}
+                      {userNameStatus.status === 'available' && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        </div>
+                      )}
+                      {userNameStatus.status === 'unavailable' && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        </div>
+                      )}
+                    </div>
                   </FormControl>
+                  {userNameStatus.message && (
+                    <p className={`text-sm ${
+                      userNameStatus.status === 'available' 
+                        ? 'text-green-600' 
+                        : userNameStatus.status === 'unavailable'
+                        ? 'text-red-600'
+                        : 'text-gray-600'
+                    }`}>
+                      {userNameStatus.message}
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}

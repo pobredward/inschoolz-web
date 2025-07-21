@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { checkReferralExists } from '@/lib/api/schools';
+import { checkUserNameAvailability, checkEmailAvailability } from '@/lib/api/users';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 
 const basicInfoSchema = z.object({
@@ -68,6 +69,14 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
     status: 'idle' | 'checking' | 'valid' | 'invalid';
     message?: string;
   }>({ status: 'idle' });
+  const [userNameStatus, setUserNameStatus] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'unavailable';
+    message?: string;
+  }>({ status: 'idle' });
+  const [emailStatus, setEmailStatus] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'unavailable';
+    message?: string;
+  }>({ status: 'idle' });
 
   const form = useForm<BasicInfoValues>({
     resolver: zodResolver(basicInfoSchema),
@@ -108,6 +117,51 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
     // 폼 제출 시 상위 컴포넌트로 데이터 전달
     updateFormData(values);
   };
+
+  // 사용자명 중복 체크 함수
+  const checkUserName = useCallback(async (userName: string) => {
+    if (!userName || userName.trim() === '') {
+      setUserNameStatus({ status: 'idle' });
+      return;
+    }
+
+    setUserNameStatus({ status: 'checking' });
+
+    try {
+      const result = await checkUserNameAvailability(userName);
+      if (result.isAvailable) {
+        setUserNameStatus({ 
+          status: 'available', 
+          message: result.message 
+        });
+      } else {
+        setUserNameStatus({ 
+          status: 'unavailable', 
+          message: result.message 
+        });
+      }
+    } catch {
+      setUserNameStatus({ 
+        status: 'unavailable', 
+        message: '검증 중 오류가 발생했습니다.' 
+      });
+    }
+  }, []);
+
+  // 사용자명 입력 디바운싱
+  useEffect(() => {
+    const userNameValue = form.watch('userName');
+    if (!userNameValue) {
+      setUserNameStatus({ status: 'idle' });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkUserName(userNameValue);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [form.watch('userName'), checkUserName]);
 
   // 추천 아이디 검증 함수
   const checkReferral = useCallback(async (userName: string) => {
@@ -154,6 +208,51 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
     return () => clearTimeout(timeoutId);
   }, [form.watch('referral'), checkReferral]);
 
+  // 이메일 중복 체크 함수
+  const checkEmail = useCallback(async (email: string) => {
+    if (!email || email.trim() === '') {
+      setEmailStatus({ status: 'idle' });
+      return;
+    }
+
+    setEmailStatus({ status: 'checking' });
+
+    try {
+      const result = await checkEmailAvailability(email);
+      if (result.isAvailable) {
+        setEmailStatus({ 
+          status: 'available', 
+          message: result.message 
+        });
+      } else {
+        setEmailStatus({ 
+          status: 'unavailable', 
+          message: result.message 
+        });
+      }
+    } catch {
+      setEmailStatus({ 
+        status: 'unavailable', 
+        message: '검증 중 오류가 발생했습니다.' 
+      });
+    }
+  }, []);
+
+  // 이메일 입력 디바운싱
+  useEffect(() => {
+    const emailValue = form.watch('email');
+    if (!emailValue) {
+      setEmailStatus({ status: 'idle' });
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkEmail(emailValue);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [form.watch('email'), checkEmail]);
+
   // 필드 변경 시 실시간으로 상위 컴포넌트에 데이터 업데이트
   const handleFieldChange = (field: keyof BasicInfoValues, value: string) => {
     form.setValue(field, value);
@@ -173,15 +272,43 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
               <FormItem>
                 <FormLabel>아이디</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="영문, 숫자 조합 5-20자" 
-                    {...field} 
-                    onChange={(e) => {
-                      field.onChange(e);
-                      handleFieldChange('userName', e.target.value);
-                    }}
-                  />
+                  <div className="relative">
+                    <Input 
+                      placeholder="영문, 숫자 조합 5-20자" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        handleFieldChange('userName', e.target.value);
+                      }}
+                    />
+                    {userNameStatus.status === 'checking' && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    )}
+                    {userNameStatus.status === 'available' && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      </div>
+                    )}
+                    {userNameStatus.status === 'unavailable' && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      </div>
+                    )}
+                  </div>
                 </FormControl>
+                {userNameStatus.message && (
+                  <p className={`text-sm ${
+                    userNameStatus.status === 'available' 
+                      ? 'text-green-600' 
+                      : userNameStatus.status === 'unavailable'
+                      ? 'text-red-600'
+                      : 'text-gray-600'
+                  }`}>
+                    {userNameStatus.message}
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -194,16 +321,44 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
               <FormItem>
                 <FormLabel>이메일</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="email"
-                    placeholder="example@email.com" 
-                    {...field} 
-                    onChange={(e) => {
-                      field.onChange(e);
-                      handleFieldChange('email', e.target.value);
-                    }}
-                  />
+                  <div className="relative">
+                    <Input 
+                      type="email"
+                      placeholder="example@email.com" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        handleFieldChange('email', e.target.value);
+                      }}
+                    />
+                    {emailStatus.status === 'checking' && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      </div>
+                    )}
+                    {emailStatus.status === 'available' && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      </div>
+                    )}
+                    {emailStatus.status === 'unavailable' && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      </div>
+                    )}
+                  </div>
                 </FormControl>
+                {emailStatus.message && (
+                  <p className={`text-sm ${
+                    emailStatus.status === 'available' 
+                      ? 'text-green-600' 
+                      : emailStatus.status === 'unavailable'
+                      ? 'text-red-600'
+                      : 'text-gray-600'
+                  }`}>
+                    {emailStatus.message}
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}

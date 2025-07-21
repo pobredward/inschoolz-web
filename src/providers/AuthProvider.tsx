@@ -274,22 +274,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
-                  profile: {
-            userName,
-            realName: '',
-            gender: '',
-            birthYear: 0,
-            birthMonth: 0,
-            birthDay: 0,
-            phoneNumber: '',
-            profileImageUrl: user.photoURL || '',
-            createdAt: serverTimestamp(),
-            isAdmin: false
-          },
+        profile: {
+          userName,
+          realName: '',
+          gender: '',
+          birthYear: 0,
+          birthMonth: 0,
+          birthDay: 0,
+          phoneNumber: '',
+          profileImageUrl: user.photoURL || '',
+          createdAt: serverTimestamp(),
+          isAdmin: false
+        },
         createdAt: new Date(),
         role: 'user'
       });
       
+      // 인증 토큰 쿠키 설정 (회원가입 후 바로 로그인 상태로 만들기)
+      const idToken = await user.getIdToken();
+      Cookies.set('authToken', idToken, { expires: 7 });
+      
+      // 사용자 UID 쿠키 설정 (일관성을 위해 uid와 userId 둘 다 설정)
+      Cookies.set('uid', user.uid, { expires: 7 });
+      Cookies.set('userId', user.uid, { expires: 7 });
+      
+      console.log('AuthProvider - 회원가입 후 쿠키 설정 완료:', {
+        authToken: '설정됨',
+        uid: user.uid,
+        userId: user.uid
+      });
+      
+      // 메인 페이지로 리디렉션
       router.push('/');
     } catch (error: unknown) {
       console.error('회원가입 오류:', error);

@@ -107,6 +107,46 @@ export function SignupForm() {
       return;
     }
 
+    // userName 중복 체크
+    if (formData.userName) {
+      try {
+        const { checkUserNameAvailability } = await import('@/lib/api/users');
+        const userNameCheck = await checkUserNameAvailability(formData.userName);
+        if (!userNameCheck.isAvailable) {
+          toast.error("사용자명 오류", {
+            description: userNameCheck.message
+          });
+          setCurrentStep(0); // 기본 정보 단계로 이동
+          return;
+        }
+      } catch (error) {
+        toast.error("사용자명 확인 오류", {
+          description: "사용자명 확인 중 오류가 발생했습니다."
+        });
+        return;
+      }
+    }
+
+    // 이메일 중복 체크
+    if (formData.email) {
+      try {
+        const { checkEmailAvailability } = await import('@/lib/api/users');
+        const emailCheck = await checkEmailAvailability(formData.email);
+        if (!emailCheck.isAvailable) {
+          toast.error("이메일 오류", {
+            description: emailCheck.message
+          });
+          setCurrentStep(0); // 기본 정보 단계로 이동
+          return;
+        }
+      } catch (error) {
+        toast.error("이메일 확인 오류", {
+          description: "이메일 확인 중 오류가 발생했습니다."
+        });
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
       
