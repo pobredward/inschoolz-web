@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
-import ProfileHeader from './ProfileHeader';
 import { User } from '@/types';
 import {
   checkFollowStatus,
@@ -20,7 +19,6 @@ import { AlertTriangle, Users, MapPin, School, Trophy, MessageSquare, FileText, 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -76,13 +74,23 @@ function ProfileError({ error, onRetry }: { error: string; onRetry?: () => void 
 export default function UserProfileContainer({ user }: UserProfileContainerProps) {
   const { user: currentUser } = useAuth();
   const [isFollowing, setIsFollowing] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<any[]>([]);
-  const [comments, setComments] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Array<{
+    id: string;
+    title: string;
+    content: string;
+    boardName: string;
+    createdAt: unknown;
+  }>>([]);
+  const [comments, setComments] = useState<Array<{
+    id: string;
+    content: string;
+    postId: string;
+    createdAt: unknown;
+  }>>([]);
   const [activeTab, setActiveTab] = useState('posts');
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersModalType, setFollowersModalType] = useState<'followers' | 'following'>('followers');
@@ -98,7 +106,7 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       setError(null);
       setIsLoading(true);
 
-      const [followStatus, blockStatus, followerCount, followingCount] = await Promise.all([
+      const [followStatus, , followerCount, followingCount] = await Promise.all([
         checkFollowStatus(currentUser.uid, user.uid).catch(() => false),
         checkBlockStatus(currentUser.uid, user.uid).catch(() => false),
         getFollowersCount(user.uid).catch(() => 0),
@@ -106,7 +114,6 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       ]);
 
       setIsFollowing(followStatus);
-      setIsBlocked(blockStatus);
       setFollowersCount(followerCount);
       setFollowingCount(followingCount);
     } catch (error) {
@@ -210,10 +217,10 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
   };
 
   return (
-    <div className="max-w-md mx-auto p-4 space-y-4">
+    <div className="w-full max-w-md mx-auto p-4 space-y-4 min-w-0">
       {/* 0. 기본 정보 (프로필 이미지, 유저네임) */}
-      <Card>
-        <CardContent className="p-6 text-center">
+      <Card className="min-w-0">
+        <CardContent className="p-6 text-center min-w-0">
           <Avatar className="w-24 h-24 mx-auto mb-4">
             <AvatarImage 
               src={user.profile?.profileImageUrl} 
@@ -224,7 +231,7 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
             </AvatarFallback>
           </Avatar>
           
-          <h1 className="text-2xl font-bold mb-2">{user.profile.userName}</h1>
+          <h1 className="text-2xl font-bold mb-2 truncate px-2">{user.profile.userName}</h1>
           
           {/* 역할 배지 */}
           <div className="flex justify-center gap-2 mb-4">
@@ -259,8 +266,8 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       </Card>
 
       {/* 1. 팔로워와 팔로잉 */}
-      <Card>
-        <CardContent className="p-6">
+      <Card className="min-w-0">
+        <CardContent className="p-6 min-w-0">
           <div className="grid grid-cols-2 gap-4">
             <button 
               onClick={() => handleFollowersClick('followers')}
@@ -284,8 +291,8 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       </Card>
 
       {/* 2. 레벨 및 경험치 */}
-      <Card>
-        <CardContent className="p-6">
+      <Card className="min-w-0">
+        <CardContent className="p-6 min-w-0">
           <div className="flex items-center gap-3 mb-3">
             <Trophy className="w-6 h-6 text-yellow-500" />
             <div>
@@ -307,19 +314,19 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       </Card>
 
       {/* 3. 학교 및 주소 */}
-      <Card>
-        <CardContent className="p-6 space-y-3">
+      <Card className="min-w-0">
+        <CardContent className="p-6 space-y-3 min-w-0">
           {schoolInfo.name !== '소속 학교 없음' && (
-            <div className="flex items-center gap-3">
-              <School className="w-5 h-5 text-blue-500" />
-              <span>{schoolInfo.fullInfo}</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <School className="w-5 h-5 text-blue-500 flex-shrink-0" />
+              <span className="truncate">{schoolInfo.fullInfo}</span>
             </div>
           )}
           
           {user.regions && (
-            <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-red-500" />
-              <span>{user.regions.sido} {user.regions.sigungu}</span>
+            <div className="flex items-center gap-3 min-w-0">
+              <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <span className="truncate">{user.regions.sido} {user.regions.sigungu}</span>
             </div>
           )}
           
@@ -331,11 +338,11 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       </Card>
 
       {/* 4. 게시글 및 댓글 */}
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle className="text-lg">활동 내역</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="posts" className="flex items-center gap-2">
@@ -351,19 +358,26 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
             <TabsContent value="posts" className="mt-4 space-y-3">
               {posts.length > 0 ? (
                 posts.slice(0, 5).map((post) => (
-                  <div key={post.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                    <Link href={`/posts/${post.id}`} className="block">
-                      <h4 className="font-medium line-clamp-1 mb-1">{post.title}</h4>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                  <div key={post.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
+                    <Link href={`/posts/${post.id}`} className="block min-w-0">
+                      <h4 className="font-medium line-clamp-1 mb-1 truncate">{post.title}</h4>
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2 break-words">
                         {post.content?.replace(/<[^>]*>/g, '')}
                       </p>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{post.boardName}</span>
-                        <span>
-                          {formatDistanceToNow(new Date(post.createdAt), { 
-                            addSuffix: true, 
-                            locale: ko 
-                          })}
+                      <div className="flex justify-between items-center text-xs text-muted-foreground min-w-0">
+                        <span className="truncate flex-shrink-0 max-w-[60%]">{post.boardName}</span>
+                        <span className="text-right flex-shrink-0 whitespace-nowrap">
+                          {(() => {
+                            try {
+                              const date = safeTimestampToDate(post.createdAt);
+                              return formatDistanceToNow(date, { 
+                                addSuffix: true, 
+                                locale: ko 
+                              });
+                            } catch {
+                              return '알 수 없음';
+                            }
+                          })()}
                         </span>
                       </div>
                     </Link>
@@ -379,14 +393,21 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
             <TabsContent value="comments" className="mt-4 space-y-3">
               {comments.length > 0 ? (
                 comments.slice(0, 5).map((comment) => (
-                  <div key={comment.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                    <Link href={`/posts/${comment.postId}`} className="block">
-                      <p className="text-sm line-clamp-2 mb-2">{comment.content}</p>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(comment.createdAt), { 
-                          addSuffix: true, 
-                          locale: ko 
-                        })}
+                  <div key={comment.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
+                    <Link href={`/posts/${comment.postId}`} className="block min-w-0">
+                      <p className="text-sm line-clamp-2 mb-2 break-words">{comment.content}</p>
+                      <div className="text-xs text-muted-foreground text-right">
+                        {(() => {
+                          try {
+                            const date = safeTimestampToDate(comment.createdAt);
+                            return formatDistanceToNow(date, { 
+                              addSuffix: true, 
+                              locale: ko 
+                            });
+                          } catch {
+                            return '알 수 없음';
+                          }
+                        })()}
                       </div>
                     </Link>
                   </div>
