@@ -267,24 +267,25 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-2 md:p-4 space-y-4 md:space-y-6">
-      {/* 헤더 */}
-      <div className="flex items-center gap-4 px-2 md:px-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.back()}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          뒤로가기
-        </Button>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-none md:max-w-5xl mx-auto md:py-6">
+        {/* 헤더 */}
+        <div className="flex items-center gap-4 px-3 py-2 md:px-0 md:py-4 bg-white md:bg-transparent border-b md:border-b-0 md:mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.back()}
+            className="flex items-center gap-2 -ml-1 md:ml-0 min-h-touch"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">뒤로가기</span>
+          </Button>
+        </div>
 
-      {/* 게시글 컨텐츠 - Card 제거하고 직접 렌더링 */}
-      <div className="px-2 md:px-4 py-4 space-y-4">
-        {/* 게시판 정보 배지 - 맨 위 왼쪽 */}
-        <div className="flex items-center gap-1 mb-4">
+        {/* 게시글 컨텐츠 */}
+        <div className="bg-white md:rounded-lg md:border md:shadow-sm space-y-3 px-3 py-3 md:px-8 md:py-8 overflow-hidden break-words">
+                  {/* 게시판 정보 배지 - 맨 위 왼쪽 */}
+          <div className="flex items-center gap-1 mb-3 sm:mb-4">
           <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
             {getBoardTypeLabel(post.type)}
           </Badge>
@@ -310,43 +311,43 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         </div>
 
         {/* 게시글 헤더 */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between mb-3 md:mb-6">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
             {post.authorInfo?.isAnonymous ? (
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback>익명</AvatarFallback>
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
+                  <AvatarFallback className="text-xs sm:text-sm">익명</AvatarFallback>
                 </Avatar>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium">익명</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                    <span className="font-medium text-sm sm:text-base">익명</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-slate-500" />
-                    <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm text-slate-500 truncate">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
                   </div>
                 </div>
               </div>
             ) : (
               <button 
                 onClick={() => router.push(`/users/${post.authorId}`)}
-                className="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+                className="flex items-center gap-2 sm:gap-3 hover:bg-gray-50 rounded-lg p-1 sm:p-2 -m-1 sm:-m-2 transition-colors min-w-0 min-h-touch"
               >
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                   <AvatarImage src={post.authorInfo?.profileImageUrl} />
-                  <AvatarFallback>
+                  <AvatarFallback className="text-xs sm:text-sm">
                     {post.authorInfo?.displayName?.substring(0, 2) || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium hover:text-blue-600 transition-colors">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                    <span className="font-medium hover:text-blue-600 transition-colors text-sm sm:text-base truncate">
                       {post.authorInfo?.displayName || '사용자'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-slate-500" />
-                    <span className="text-sm text-slate-500">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-slate-500 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm text-slate-500 truncate">{formatAbsoluteTime(post.createdAt, 'datetime')}</span>
                   </div>
                 </div>
               </button>
@@ -399,16 +400,19 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         </div>
 
         {/* 게시글 제목 */}
-        <h1 className="text-2xl font-bold mb-4 leading-tight">{post.title}</h1>
+        <h1 className="text-lg md:text-2xl font-bold mb-3 md:mb-4 leading-tight break-words overflow-wrap-anywhere" 
+            style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+          {post.title}
+        </h1>
 
         {/* 게시글 내용 */}
-        <div className="mb-6">
+        <div className="mb-4 md:mb-6 text-sm md:text-base leading-relaxed">
           <HtmlContent content={post.content} />
         </div>
 
         {/* 투표 */}
         {post.poll && (
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <PollVoting 
               poll={post.poll} 
               postId={post.id}
@@ -421,8 +425,8 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
 
         {/* 태그 */}
         {post.tags && post.tags.length > 0 && (
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
+          <div className="mb-4 sm:mb-6">
+            <div className="flex flex-wrap gap-1 sm:gap-2">
               {post.tags.map((tag, index) => (
                 <Badge key={index} variant="secondary" className="text-xs">
                   #{tag}
@@ -433,15 +437,15 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
         )}
 
         {/* 조회수, 좋아요, 댓글 수와 액션 버튼들 */}
-        <div className="flex items-center justify-between text-sm text-slate-500 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 text-sm text-slate-500 mb-4 md:mb-6">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
               <Eye className="h-4 w-4" />
-              <span>{post.stats.viewCount || 0}</span>
+              <span className="text-sm">{post.stats.viewCount || 0}</span>
             </div>
             <div className="flex items-center gap-1">
               <MessageSquare className="h-4 w-4" />
-              <span>{commentCount}</span>
+              <span className="text-sm">{commentCount}</span>
             </div>
           </div>
           
@@ -450,46 +454,48 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
               variant="ghost" 
               size="sm" 
               onClick={handleLike}
-              className={`flex items-center gap-1 h-8 px-2 ${isLiked ? 'text-red-500' : 'text-slate-500'}`}
+              className={`flex items-center gap-1 h-9 px-3 md:h-10 md:px-4 min-h-touch ${isLiked ? 'text-red-500' : 'text-slate-500'}`}
             >
               <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
-              <span className="text-sm hidden sm:inline">좋아요</span>
-              <span className="text-xs ml-1">{likeCount}</span>
+              <span className="text-sm">좋아요</span>
+              <span className="text-sm ml-1">{likeCount}</span>
             </Button>
             
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={handleScrap}
-              className={`flex items-center gap-1 h-8 px-2 ${isScrapped ? 'text-blue-500' : 'text-slate-500'}`}
+              className={`flex items-center gap-1 h-9 px-3 md:h-10 md:px-4 min-h-touch ${isScrapped ? 'text-blue-500' : 'text-slate-500'}`}
             >
               <Bookmark className={`h-4 w-4 ${isScrapped ? 'fill-current' : ''}`} />
-              <span className="text-sm hidden sm:inline">스크랩</span>
-              <span className="text-xs ml-1">{scrapCount}</span>
+              <span className="text-sm">스크랩</span>
+              <span className="text-sm ml-1">{scrapCount}</span>
             </Button>
             
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={handleShare}
-              className="flex items-center gap-1 h-8 px-2 text-slate-500"
+              className="flex items-center gap-1 h-9 px-3 md:h-10 md:px-4 min-h-touch text-slate-500"
               title="게시글 공유하기"
             >
               <Share2 className="h-4 w-4" />
-              <span className="text-sm hidden sm:inline">공유</span>
+              <span className="text-sm">공유</span>
             </Button>
           </div>
         </div>
 
-        <Separator />
-      </div>
+        <Separator className="my-4 md:my-6" />
+        </div>
 
-      {/* 댓글 섹션 */}
-      <CommentSection 
-        postId={post.id} 
-        initialComments={initialComments}
-        onCommentCountChange={handleCommentCountChange}
-      />
+        {/* 댓글 섹션 */}
+        <div className="bg-white md:rounded-lg md:border md:shadow-sm md:mt-4">
+          <CommentSection 
+            postId={post.id} 
+            initialComments={initialComments}
+            onCommentCountChange={handleCommentCountChange}
+          />
+        </div>
 
       {/* 신고 모달 */}
       <ReportModal
@@ -528,6 +534,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }; 

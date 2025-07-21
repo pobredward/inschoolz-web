@@ -331,64 +331,68 @@ function CommentItem({
   };
 
   return (
-    <div className={`flex gap-3 ${isReply ? 'ml-8 mt-3 p-3 bg-slate-50 rounded-lg' : ''}`}>
-      {isAnonymous ? (
-        <Avatar className="w-8 h-8 flex-shrink-0">
-          <AvatarFallback className="text-xs bg-slate-100">
-            <UserX className="w-4 h-4" />
-          </AvatarFallback>
-        </Avatar>
-      ) : (
-        <button 
-          onClick={() => comment.authorId && router.push(`/users/${comment.authorId}`)}
-          className="hover:opacity-80 transition-opacity"
-        >
-          <Avatar className="w-8 h-8 flex-shrink-0">
-            <AvatarImage src={comment.author?.profileImageUrl} />
-            <AvatarFallback className="text-xs bg-slate-100">
-              {authorName.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
-        </button>
-      )}
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2">
-            {isAnonymous ? (
-              <span className="font-medium text-sm text-slate-900">
-                {authorName}
-                <span className="text-xs text-slate-500 ml-1">(비회원)</span>
-              </span>
-            ) : (
-              <button 
-                onClick={() => comment.authorId && router.push(`/users/${comment.authorId}`)}
-                className="font-medium text-sm text-slate-900 hover:text-blue-600 transition-colors"
-              >
-                {authorName}
-              </button>
-            )}
-            <span className="text-xs text-slate-500">
-              {formatTime(comment.createdAt)}
-            </span>
-          </div>
-          
-          {/* 메뉴 버튼 - 커스텀 드롭다운 */}
-          {!isDeleted && (
-            <CommentMenuDropdown
-              isAuthor={isAuthor}
-              isAnonymous={isAnonymous}
-              hasAnonymousAuthor={!!comment.anonymousAuthor}
-              onEdit={() => setIsEditing(true)}
-              onDelete={() => onDelete(comment.id)}
-              onAnonymousEdit={() => onAnonymousEdit(comment.id)}
-              onAnonymousDelete={() => onAnonymousDelete(comment.id)}
-              onReport={() => setShowReportModal(true)}
-            />
+    <div className={`${isReply ? 'ml-8 mt-3 p-3 bg-slate-50 rounded-lg' : ''}`}>
+      <div className="flex items-start justify-between mb-1">
+        <div className="flex items-center gap-2">
+          {/* 프로필 이미지를 작성자 이름 바로 왼쪽에 배치 */}
+          {isAnonymous ? (
+            <Avatar className="w-6 h-6 flex-shrink-0">
+              <AvatarFallback className="text-xs bg-slate-100">
+                <UserX className="w-3 h-3" />
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <button 
+              onClick={() => comment.authorId && router.push(`/users/${comment.authorId}`)}
+              className="hover:opacity-80 transition-opacity"
+            >
+              <Avatar className="w-6 h-6 flex-shrink-0">
+                <AvatarImage src={comment.author?.profileImageUrl} />
+                <AvatarFallback className="text-xs bg-slate-100">
+                  {authorName.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+            </button>
           )}
+          
+          {/* 작성자 이름과 시간 */}
+          {isAnonymous ? (
+            <span className="font-medium text-sm text-slate-900">
+              {authorName}
+              <span className="text-xs text-slate-500 ml-1">(비회원)</span>
+            </span>
+          ) : (
+            <button 
+              onClick={() => comment.authorId && router.push(`/users/${comment.authorId}`)}
+              className="font-medium text-sm text-slate-900 hover:text-blue-600 transition-colors"
+            >
+              {authorName}
+            </button>
+          )}
+          <span className="text-xs text-slate-500">
+            {formatTime(comment.createdAt)}
+          </span>
         </div>
+          
         
-        {/* 댓글 내용 */}
+                
+        {/* 메뉴 버튼 - 커스텀 드롭다운 */}
+        {!isDeleted && (
+          <CommentMenuDropdown
+            isAuthor={isAuthor}
+            isAnonymous={isAnonymous}
+            hasAnonymousAuthor={!!comment.anonymousAuthor}
+            onEdit={() => setIsEditing(true)}
+            onDelete={() => onDelete(comment.id)}
+            onAnonymousEdit={() => onAnonymousEdit(comment.id)}
+            onAnonymousDelete={() => onAnonymousDelete(comment.id)}
+            onReport={() => setShowReportModal(true)}
+          />
+        )}
+      </div>
+      
+      {/* 댓글 내용 */}
+      <div className="ml-8">
         {isEditing && !isDeleted ? (
           <div className="space-y-2">
             <Textarea
@@ -470,21 +474,21 @@ function CommentItem({
             )}
           </>
         )}
-
-        {/* 신고 모달 */}
-        <ReportModal
-          isOpen={showReportModal}
-          onClose={() => setShowReportModal(false)}
-          targetId={comment.id}
-          targetType="comment"
-          targetContent={comment.content}
-          postId={postId}
-          onSuccess={() => {
-            setShowReportModal(false);
-            toast.success('신고가 접수되었습니다.');
-          }}
-        />
       </div>
+
+      {/* 신고 모달 */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        targetId={comment.id}
+        targetType="comment"
+        targetContent={comment.content}
+        postId={postId}
+        onSuccess={() => {
+          setShowReportModal(false);
+          toast.success('신고가 접수되었습니다.');
+        }}
+      />
     </div>
   );
 }

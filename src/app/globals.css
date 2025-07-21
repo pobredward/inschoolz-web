@@ -129,6 +129,17 @@
     min-height: 44px;
   }
   
+  .min-h-touch {
+    min-height: 44px;
+  }
+  
+  /* 긴 텍스트/URL 줄바꿈 강제 */
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
   /* 터치 피드백 */
   .touch-feedback {
     transition: transform 0.1s ease-out, background-color 0.1s ease-out;

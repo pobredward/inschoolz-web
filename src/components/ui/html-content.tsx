@@ -60,19 +60,27 @@ export function HtmlContent({ content, className = '', fallbackToText = true }: 
     // HTML 태그가 있는 경우 dangerouslySetInnerHTML 사용
     return (
       <div 
-        className={`prose prose-sm max-w-none whitespace-pre-wrap ${className}`}
+        className={`prose prose-sm max-w-none whitespace-pre-wrap break-words overflow-wrap-anywhere ${className}`}
         dangerouslySetInnerHTML={{ __html: parsedContent }}
         onClick={handleImageClick}
-        style={{ whiteSpace: 'pre-wrap' }}
+        style={{ 
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowWrap: 'anywhere'
+        }}
       />
     );
   } else {
     // 텍스트만 있는 경우 whitespace-pre-wrap 사용
     return (
       <div 
-        className={`whitespace-pre-wrap leading-relaxed ${className}`}
+        className={`whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere ${className}`}
         onClick={handleImageClick}
-        style={{ whiteSpace: 'pre-wrap' }}
+        style={{ 
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowWrap: 'anywhere'
+        }}
       >
         {parsedContent}
       </div>
@@ -86,7 +94,14 @@ export function HtmlContentSync({ content, className = '' }: Omit<HtmlContentPro
   const textContent = stripHtmlTags(content);
   
   return (
-    <div className={`whitespace-pre-wrap leading-relaxed ${className}`}>
+    <div 
+      className={`whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere ${className}`}
+      style={{ 
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        overflowWrap: 'anywhere'
+      }}
+    >
       {textContent}
     </div>
   );
