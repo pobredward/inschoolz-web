@@ -149,11 +149,13 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${notoSansKR.variable} antialiased min-h-screen bg-background font-sans flex flex-col touch-manipulation safe-area-inset`}>
+      <body className={`${notoSansKR.variable} antialiased min-h-screen bg-background font-sans touch-manipulation`}>
         <Providers>
-          <Header />
-          <main className="flex-1 pb-16 md:pb-0">{children}</main>
-          <Footer />
+          <div className="flex flex-col overflow-x-clip">
+            <Header />
+            <main className="flex-grow flex flex-col pb-16 md:pb-0">{children}</main>
+            <Footer />
+          </div>
           <Toaster />
           <PWAPrompt />
         </Providers>

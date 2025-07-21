@@ -193,6 +193,14 @@
   .safe-area-right {
     padding-right: env(safe-area-inset-right);
   }
+  
+
+  
+  /* 부드러운 스크롤 */
+  .smooth-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* 모바일 브레이크포인트별 최적화 */

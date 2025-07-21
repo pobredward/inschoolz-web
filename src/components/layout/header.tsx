@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Home, 
   MessageSquare, 
@@ -46,6 +46,34 @@ const menuItems = [
   { name: '미니게임', path: '/games', icon: <Gamepad2 className="h-5 w-5" />, ariaLabel: '미니게임 페이지로 이동' },
   { name: '랭킹', path: '/ranking', icon: <Trophy className="h-5 w-5" />, ariaLabel: '랭킹 페이지로 이동' },
 ];
+
+// Sticky 헤더를 위한 커스텀 훅
+const useSticky = () => {
+  const stickyRef = useRef<HTMLElement>(null);
+  const [sticky, setSticky] = useState(false);
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    if (!stickyRef.current) {
+      return;
+    }
+    setOffset(stickyRef.current.offsetTop);
+  }, [stickyRef, setOffset]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!stickyRef.current) {
+        return;
+      }
+      setSticky(window.scrollY > offset);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [setSticky, stickyRef, offset]);
+  
+  return { stickyRef, sticky };
+};
 
 // 경험치/레벨 컴포넌트 - 실시간 업데이트 지원
 function ExperienceDisplay({ user }: { user?: User }) {
@@ -132,7 +160,7 @@ function NotificationButton({ user }: { user?: User }) {
 // 에러 표시 컴포넌트
 function ErrorAlert({ error, onDismiss }: { error: string; onDismiss: () => void }) {
   return (
-    <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
+    <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[99999] max-w-md w-full mx-4">
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 pr-12 relative">
         <div className="flex items-center">
           <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
@@ -156,9 +184,11 @@ export function Header() {
   const { user, signOut, isLoading, error, resetError } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  
+  // Sticky 훅 사용
+  const { sticky, stickyRef } = useSticky();
   
   // 사용자 프로필 경로 설정 
   const profilePath = user?.profile?.userName ? `/${user.profile.userName}` : '/my';
@@ -171,16 +201,6 @@ export function Header() {
   
   // 전체 메뉴 아이템 (기본 메뉴 + 프로필 메뉴)
   const allMenuItems = [...menuItems, myMenuItem];
-
-  // 스크롤 감지
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-    
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // 로그아웃 처리 (에러 처리 개선)
   const handleSignOut = async () => {
@@ -222,14 +242,20 @@ export function Header() {
       {/* 에러 표시 */}
       {error && <ErrorAlert error={error} onDismiss={handleErrorDismiss} />}
 
-      {/* 데스크탑 헤더 */}
+      {/* Sticky 헤더 - 웹 튜토리얼에서 배운 확실한 방법 */}
       <header 
-        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-          isScrolled ? 'bg-white shadow-md h-16' : 'bg-white/90 backdrop-blur-md h-16'
+        ref={stickyRef}
+        className={`sticky top-0 left-0 w-full z-[99999] transition-all duration-300 ${
+          sticky 
+            ? 'bg-white/98 backdrop-blur-xl shadow-lg border-b border-gray-200/50' 
+            : 'bg-white/95 backdrop-blur-lg shadow-sm'
         }`}
-        role="banner"
+        style={{
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
       >
-        <div className="container h-full mx-auto flex items-center justify-between px-4">
+        <div className="container h-16 mx-auto flex items-center justify-between px-4">
           {/* 왼쪽: 햄버거 메뉴 + 로고 */}
           <div className="flex items-center gap-3">
             {/* 모바일 메뉴 트리거 - md 미만에서만 표시 */}
@@ -363,7 +389,11 @@ export function Header() {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent 
+                align="end" 
+                className="w-56" 
+                style={{ zIndex: 1000000 }}
+              >
                 {user ? (
                   <>
                     <div className="flex items-center gap-3 px-2 py-2">
@@ -433,35 +463,35 @@ export function Header() {
         </div>
       </header>
 
+      {/* sticky 헤더에 맞춰 content 여백 조정 */}
+      {sticky && (
+        <div style={{ height: `${stickyRef.current?.clientHeight || 64}px` }} />
+      )}
+
       {/* 모바일 하단 네비게이션 - md 미만에서만 표시 */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-pastel-green-200 safe-area-inset"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[99999] bg-white/95 backdrop-blur-lg border-t border-pastel-green-200"
+        style={{
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
         role="navigation"
         aria-label="하단 네비게이션"
       >
-        <div className="flex justify-around items-center h-16 px-safe-left pr-safe-right pb-safe-bottom">
+        <div className="flex justify-around items-center h-16 px-4 pb-2">
           {allMenuItems.map((item) => (
             <Link 
               key={item.path} 
               href={item.path} 
-              className="flex-1 min-w-touch"
+              className="flex-1 min-w-0"
               aria-label={item.ariaLabel}
             >
               <div 
-                className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 min-h-touch rounded-lg mx-1 ${
+                className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 rounded-lg mx-1 ${
                   pathname === item.path 
                     ? 'text-pastel-green-600 bg-pastel-green-50 scale-105 shadow-sm' 
-                    : 'text-gray-500 hover:text-pastel-green-500 hover:bg-pastel-green-50/50 active:scale-95 active:bg-pastel-green-100'
+                    : 'text-gray-500 hover:text-pastel-green-500 hover:bg-pastel-green-50/50'
                 }`}
-                role="button"
-                tabIndex={0}
-                aria-current={pathname === item.path ? 'page' : undefined}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.currentTarget.click();
-                  }
-                }}
               >
                 <div className={`transition-transform duration-200 ${pathname === item.path ? 'scale-110' : ''}`}>
                   {item.icon}
@@ -472,16 +502,13 @@ export function Header() {
                   {item.name}
                 </span>
                 {pathname === item.path && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pastel-green-600 rounded-full animate-bounce-in" />
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pastel-green-600 rounded-full" />
                 )}
               </div>
             </Link>
           ))}
         </div>
       </nav>
-
-      {/* 헤더를 위한 여백 */}
-      <div className="h-16" aria-hidden="true" /> {/* 헤더 높이만큼 상단 여백 */}
     </>
   );
 } 
