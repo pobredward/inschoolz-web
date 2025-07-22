@@ -14,13 +14,15 @@ import {
   Trash2,
   Send,
   Flag,
-  UserX
+  UserX,
+  ShieldOff
 } from 'lucide-react';
 // Portal 없는 커스텀 드롭다운을 위해 Popover 제거
 import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { Comment } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
+import { toggleBlock } from '@/lib/api/users';
 import AnonymousCommentForm from '@/components/ui/anonymous-comment-form';
 import AnonymousPasswordModal from '@/components/ui/anonymous-password-modal';
 import { formatRelativeTime } from '@/lib/utils';
@@ -77,6 +79,8 @@ interface CommentMenuDropdownProps {
   onAnonymousEdit: () => void;
   onAnonymousDelete: () => void;
   onReport: () => void;
+  onBlock: () => void;
+  isBlocking: boolean;
 }
 
 // Portal 없는 커스텀 드롭다운 컴포넌트
@@ -88,7 +92,9 @@ function CommentMenuDropdown({
   onDelete,
   onAnonymousEdit,
   onAnonymousDelete,
-  onReport
+  onReport,
+  onBlock,
+  isBlocking
 }: CommentMenuDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -163,13 +169,23 @@ function CommentMenuDropdown({
               </button>
             </>
           ) : (
-            <button
-              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
-              onClick={() => handleMenuAction(onReport)}
-            >
-              <Flag className="mr-2 h-3 w-3" />
-              신고
-            </button>
+            <>
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                onClick={() => handleMenuAction(onReport)}
+              >
+                <Flag className="mr-2 h-3 w-3" />
+                신고
+              </button>
+              <button
+                className="w-full px-3 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center"
+                onClick={() => handleMenuAction(onBlock)}
+                disabled={isBlocking}
+              >
+                <ShieldOff className="mr-2 h-3 w-3" />
+                {isBlocking ? '처리 중...' : '차단하기'}
+              </button>
+            </>
           )}
         </div>
       )}
@@ -292,6 +308,7 @@ function CommentItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
   
   const maxLevel = 1; // 최대 1단계 대댓글까지만 허용
   const isAuthor = user?.uid === comment.authorId;
@@ -328,6 +345,34 @@ function CommentItem({
 
   const handleLike = () => {
     onLike(comment.id);
+  };
+
+  const handleBlock = async () => {
+    if (!user || !comment.authorId) {
+      toast('로그인이 필요합니다.');
+      return;
+    }
+
+    if (comment.authorId === user.uid) {
+      toast('자기 자신을 차단할 수 없습니다.');
+      return;
+    }
+
+    const authorName = getAuthorName();
+    const confirmed = confirm(`${authorName}님을 차단하시겠습니까?\n\n차단된 사용자의 게시글과 댓글은 "차단한 사용자입니다"로 표시됩니다.`);
+    
+    if (!confirmed) return;
+
+    setIsBlocking(true);
+    try {
+      const result = await toggleBlock(user.uid, comment.authorId);
+      toast(result.isBlocked ? '사용자를 차단했습니다.' : '차단을 해제했습니다.');
+    } catch (error) {
+      console.error('차단 처리 실패:', error);
+      toast('차단 처리에 실패했습니다.');
+    } finally {
+      setIsBlocking(false);
+    }
   };
 
   return (
@@ -387,6 +432,8 @@ function CommentItem({
             onAnonymousEdit={() => onAnonymousEdit(comment.id)}
             onAnonymousDelete={() => onAnonymousDelete(comment.id)}
             onReport={() => setShowReportModal(true)}
+            onBlock={handleBlock}
+            isBlocking={isBlocking}
           />
         )}
       </div>

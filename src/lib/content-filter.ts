@@ -276,3 +276,265 @@ export function logContentFilter(
     // 예: analytics.track('content_violation', { ... })
   }
 } 
+
+// 콘텐츠 필터링 및 모더레이션 유틸리티
+
+/**
+ * 부적절한 콘텐츠 키워드 목록
+ */
+const INAPPROPRIATE_KEYWORDS = [
+  // 욕설/비속어 (예시 - 실제로는 더 포괄적인 리스트 필요)
+  '씨발', '개새끼', '병신', '미친놈', '미친년', '바보', '멍청이',
+  '죽어', '죽이고', '죽을래', '자살', '목매', '뛰어내려',
+  
+  // 성적 콘텐츠
+  '성관계', '섹스', '야동', '포르노', '자위', '성기',
+  
+  // 차별/혐오 표현
+  '김치녀', '한남충', '메갈', '일베', '홍어', '떠라이',
+  
+  // 불법/위험 내용
+  '마약', '대마초', '환각제', '폭탄', '테러', '자해',
+  
+  // 개인정보 관련
+  '주민번호', '전화번호', '주소', '집주소', '학교주소',
+  
+  // 스팸/광고
+  '돈벌기', '대출', '사기', '투자', '코인', '도박',
+];
+
+/**
+ * 강도별 필터링 규칙
+ */
+export interface FilterLevel {
+  level: 'strict' | 'moderate' | 'relaxed';
+  blockedKeywords: string[];
+  warningKeywords: string[];
+}
+
+/**
+ * 콘텐츠 필터링 결과
+ */
+export interface FilterResult {
+  isAllowed: boolean;
+  filteredContent: string;
+  detectedIssues: {
+    type: 'blocked' | 'warning' | 'suspicious';
+    keyword: string;
+    position: number;
+  }[];
+  riskLevel: 'low' | 'medium' | 'high';
+  reason?: string;
+}
+
+/**
+ * 기본 부적절한 키워드 체크
+ */
+export function checkInappropriateContent(content: string): FilterResult {
+  const detectedIssues: FilterResult['detectedIssues'] = [];
+  let filteredContent = content;
+  let riskLevel: FilterResult['riskLevel'] = 'low';
+  
+  // 대소문자 구분 없이 검사
+  const lowerContent = content.toLowerCase();
+  
+  for (const keyword of INAPPROPRIATE_KEYWORDS) {
+    const regex = new RegExp(keyword, 'gi');
+    const matches = [...lowerContent.matchAll(regex)];
+    
+    for (const match of matches) {
+      const position = match.index || 0;
+      
+      // 심각도 판단
+      const issueType = getSeverityLevel(keyword);
+      detectedIssues.push({
+        type: issueType,
+        keyword,
+        position
+      });
+      
+      // 콘텐츠에서 해당 단어를 *로 치환
+      const replacement = '*'.repeat(keyword.length);
+      filteredContent = filteredContent.replace(regex, replacement);
+      
+      // 위험 레벨 업데이트
+      if (issueType === 'blocked') {
+        riskLevel = 'high';
+      } else if (issueType === 'warning' && riskLevel === 'low') {
+        riskLevel = 'medium';
+      }
+    }
+  }
+  
+  const isAllowed = !detectedIssues.some(issue => issue.type === 'blocked');
+  
+  return {
+    isAllowed,
+    filteredContent,
+    detectedIssues,
+    riskLevel,
+    reason: isAllowed ? undefined : '부적절한 내용이 포함되어 있습니다.'
+  };
+}
+
+/**
+ * 키워드의 심각도 레벨 판단
+ */
+function getSeverityLevel(keyword: string): 'blocked' | 'warning' | 'suspicious' {
+  const blockedKeywords = ['씨발', '개새끼', '병신', '죽어', '죽이고', '자살', '야동', '포르노'];
+  const warningKeywords = ['바보', '멍청이', '김치녀', '한남충', '마약', '대마초'];
+  
+  if (blockedKeywords.includes(keyword)) {
+    return 'blocked';
+  } else if (warningKeywords.includes(keyword)) {
+    return 'warning';
+  } else {
+    return 'suspicious';
+  }
+}
+
+/**
+ * 연속된 같은 문자 스팸 체크
+ */
+export function checkSpamPattern(content: string): boolean {
+  // 같은 문자가 5번 이상 연속으로 나오는 경우
+  const repeatPattern = /(.)\1{4,}/g;
+  if (repeatPattern.test(content)) {
+    return true;
+  }
+  
+  // 같은 단어가 3번 이상 반복되는 경우
+  const wordRepeatPattern = /(\S+)(\s+\1){2,}/gi;
+  if (wordRepeatPattern.test(content)) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * 개인정보 패턴 검사
+ */
+export function checkPersonalInfo(content: string): {
+  hasPersonalInfo: boolean;
+  detectedTypes: string[];
+} {
+  const detectedTypes: string[] = [];
+  
+  // 전화번호 패턴
+  const phonePattern = /01[0-9]-?\d{3,4}-?\d{4}/g;
+  if (phonePattern.test(content)) {
+    detectedTypes.push('전화번호');
+  }
+  
+  // 주민등록번호 패턴 (앞 6자리만이라도)
+  const ssnPattern = /\d{6}-?\d{7}|\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/g;
+  if (ssnPattern.test(content)) {
+    detectedTypes.push('주민등록번호');
+  }
+  
+  // 이메일 주소
+  const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  if (emailPattern.test(content)) {
+    detectedTypes.push('이메일');
+  }
+  
+  // 주소 패턴 (시, 구, 동이 포함된 경우)
+  const addressPattern = /(시|구|동)\s*\d+(-\d+)?/g;
+  if (addressPattern.test(content)) {
+    detectedTypes.push('주소');
+  }
+  
+  return {
+    hasPersonalInfo: detectedTypes.length > 0,
+    detectedTypes
+  };
+}
+
+/**
+ * 종합 콘텐츠 모더레이션
+ */
+export function moderateContent(content: string, options: {
+  checkInappropriate?: boolean;
+  checkSpam?: boolean;
+  checkPersonalInfo?: boolean;
+  filterLevel?: 'strict' | 'moderate' | 'relaxed';
+} = {}): FilterResult {
+  const {
+    checkInappropriate = true,
+    checkSpam = true,
+    checkPersonalInfo = true,
+    filterLevel = 'moderate'
+  } = options;
+  
+  let result: FilterResult = {
+    isAllowed: true,
+    filteredContent: content,
+    detectedIssues: [],
+    riskLevel: 'low'
+  };
+  
+  // 부적절한 내용 체크
+  if (checkInappropriate) {
+    const inappropriateResult = checkInappropriateContent(content);
+    result = {
+      ...inappropriateResult,
+      detectedIssues: [...result.detectedIssues, ...inappropriateResult.detectedIssues]
+    };
+  }
+  
+  // 스팸 패턴 체크
+  if (checkSpam && checkSpamPattern(content)) {
+    result.isAllowed = false;
+    result.riskLevel = 'high';
+    result.reason = '스팸성 내용이 감지되었습니다.';
+    result.detectedIssues.push({
+      type: 'blocked',
+      keyword: '스팸 패턴',
+      position: 0
+    });
+  }
+  
+  // 개인정보 체크
+  if (checkPersonalInfo) {
+    const personalInfoResult = checkPersonalInfo(content);
+    if (personalInfoResult.hasPersonalInfo) {
+      result.isAllowed = false;
+      result.riskLevel = 'high';
+      result.reason = `개인정보가 포함되어 있습니다: ${personalInfoResult.detectedTypes.join(', ')}`;
+      result.detectedIssues.push({
+        type: 'blocked',
+        keyword: personalInfoResult.detectedTypes.join(', '),
+        position: 0
+      });
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * 관리자용 - 새로운 금지 키워드 추가
+ */
+export function addBlockedKeyword(keyword: string): void {
+  if (!INAPPROPRIATE_KEYWORDS.includes(keyword)) {
+    INAPPROPRIATE_KEYWORDS.push(keyword);
+  }
+}
+
+/**
+ * 관리자용 - 금지 키워드 제거
+ */
+export function removeBlockedKeyword(keyword: string): void {
+  const index = INAPPROPRIATE_KEYWORDS.indexOf(keyword);
+  if (index > -1) {
+    INAPPROPRIATE_KEYWORDS.splice(index, 1);
+  }
+}
+
+/**
+ * 현재 필터링 키워드 목록 조회 (관리자용)
+ */
+export function getBlockedKeywords(): string[] {
+  return [...INAPPROPRIATE_KEYWORDS];
+} 

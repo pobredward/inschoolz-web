@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import FollowersModal from './FollowersModal';
+import ProfileHeader from './ProfileHeader';
 import { 
   isValidUser, 
   getSchoolInfo, 
@@ -74,6 +75,7 @@ function ProfileError({ error, onRetry }: { error: string; onRetry?: () => void 
 export default function UserProfileContainer({ user }: UserProfileContainerProps) {
   const { user: currentUser } = useAuth();
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +108,7 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       setError(null);
       setIsLoading(true);
 
-      const [followStatus, , followerCount, followingCount] = await Promise.all([
+      const [followStatus, blockStatus, followerCount, followingCount] = await Promise.all([
         checkFollowStatus(currentUser.uid, user.uid).catch(() => false),
         checkBlockStatus(currentUser.uid, user.uid).catch(() => false),
         getFollowersCount(user.uid).catch(() => 0),
@@ -114,6 +116,7 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       ]);
 
       setIsFollowing(followStatus);
+      setIsBlocked(blockStatus);
       setFollowersCount(followerCount);
       setFollowingCount(followingCount);
     } catch (error) {
@@ -218,6 +221,14 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
 
   return (
     <div className="w-full max-w-md mx-auto p-4 space-y-4 min-w-0">
+      {/* 헤더 (뒤로가기, 더보기 메뉴) */}
+      <ProfileHeader 
+        user={user} 
+        isOwnProfile={isOwnProfile} 
+        isBlocked={isBlocked}
+        onBlockStatusChange={fetchUserRelationship}
+      />
+      
       {/* 0. 기본 정보 (프로필 이미지, 유저네임) */}
       <Card className="min-w-0">
         <CardContent className="p-6 text-center min-w-0">

@@ -19,7 +19,8 @@ import {
   Trash2,
   MoreVertical,
   Flag,
-  BarChart3
+  BarChart3,
+  ShieldOff
 } from 'lucide-react';
 import { Post, Comment, Board } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
@@ -35,6 +36,7 @@ import {
   toggleLikePost
 } from '@/lib/api/boards';
 import { getBoardsByType } from '@/lib/api/board';
+import { toggleBlock, checkBlockStatus } from '@/lib/api/users';
 import { toast } from 'react-hot-toast';
 import CommentSection from './CommentSection';
 import { formatAbsoluteTime } from '@/lib/utils';
@@ -75,6 +77,9 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   const [isDeleting, setIsDeleting] = useState(false);
   const [boardInfo, setBoardInfo] = useState<Board | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [isUserBlocked, setIsUserBlocked] = useState(false);
 
     useEffect(() => {
     // 조회수 증가 (한 번만)
@@ -83,16 +88,18 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     // 게시글 상세 페이지에 진입했음을 표시
     sessionStorage.setItem('from-post-detail', 'true');
     
-    // 좋아요/스크랩 상태 확인
+    // 좋아요/스크랩/차단 상태 확인
     const checkStatuses = async () => {
       if (user) {
         try {
-          const [likeStatus, scrapStatus] = await Promise.all([
+          const [likeStatus, scrapStatus, blockStatus] = await Promise.all([
             checkLikeStatus(post.id, user.uid),
-            checkScrapStatus(post.id, user.uid)
+            checkScrapStatus(post.id, user.uid),
+            post.authorId ? checkBlockStatus(user.uid, post.authorId) : Promise.resolve(false)
           ]);
               setIsLiked(likeStatus);
               setIsScrapped(scrapStatus);
+              setIsUserBlocked(blockStatus);
         } catch (error) {
           console.error('상태 확인 실패:', error);
         }
@@ -249,6 +256,37 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     }
   };
 
+  const handleBlockClick = () => {
+    if (!user || !post.authorId) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (post.authorId === user.uid) {
+      toast.error('자기 자신을 차단할 수 없습니다.');
+      return;
+    }
+
+    setShowBlockDialog(true);
+  };
+
+  const handleBlockConfirm = async () => {
+    if (!user || !post.authorId) return;
+
+    setIsBlocking(true);
+    try {
+      const result = await toggleBlock(user.uid, post.authorId);
+      toast.success(result.isBlocked ? '사용자를 차단했습니다.' : '차단을 해제했습니다.');
+      setIsUserBlocked(result.isBlocked);
+      setShowBlockDialog(false);
+    } catch (error) {
+      console.error('차단 처리 실패:', error);
+      toast.error('차단 처리에 실패했습니다.');
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
   // 작성자 확인
   const isAuthor = user && user.uid === post.authorId;
 
@@ -387,13 +425,23 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
                   </DropdownMenuItem>
                 </>
               ) : (
-                <DropdownMenuItem 
-                  onClick={() => setShowReportModal(true)}
-                  className="text-red-600"
-                >
-                  <Flag className="h-4 w-4 mr-2" />
-                  신고
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem 
+                    onClick={() => setShowReportModal(true)}
+                    className="text-red-600"
+                  >
+                    <Flag className="h-4 w-4 mr-2" />
+                    신고
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={handleBlockClick}
+                    disabled={isBlocking}
+                    className="text-orange-600"
+                  >
+                    <ShieldOff className="h-4 w-4 mr-2" />
+                    {isBlocking ? '처리 중...' : (isUserBlocked ? '차단 해제하기' : '차단하기')}
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -530,6 +578,36 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
               className="bg-red-600 hover:bg-red-700"
             >
               {isDeleting ? '삭제 중...' : '삭제'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 차단 확인 다이얼로그 */}
+      <AlertDialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{isUserBlocked ? '사용자 차단 해제' : '사용자 차단'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isUserBlocked 
+                ? `${post.authorInfo?.displayName || '이 사용자'}님을 차단 해제하시겠습니까?`
+                : `${post.authorInfo?.displayName || '이 사용자'}님을 차단하시겠습니까?`
+              }
+              <br />
+              {isUserBlocked 
+                ? '차단 해제하면 이 사용자의 게시글과 댓글을 다시 볼 수 있습니다.'
+                : '차단된 사용자의 게시글과 댓글은 "차단한 사용자입니다"로 표시됩니다.'
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBlockConfirm}
+              disabled={isBlocking}
+              className={isUserBlocked ? "bg-blue-600 hover:bg-blue-700" : "bg-orange-600 hover:bg-orange-700"}
+            >
+              {isBlocking ? '처리 중...' : (isUserBlocked ? '차단 해제하기' : '차단하기')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

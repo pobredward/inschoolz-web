@@ -704,6 +704,106 @@ export const toggleBlock = async (
 };
 
 /**
+ * 사용자가 차단한 사용자 목록 조회
+ */
+export const getBlockedUsers = async (
+  userId: string,
+  page = 1,
+  pageSize = 20
+): Promise<{ users: User[]; totalCount: number; hasMore: boolean }> => {
+  try {
+    const relationshipsRef = collection(db, 'userRelationships');
+    const q = query(
+      relationshipsRef,
+      where('userId', '==', userId),
+      where('type', '==', 'block'),
+      where('status', '==', 'active'),
+      orderBy('createdAt', 'desc'),
+      limit(pageSize * page)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const relationships = querySnapshot.docs.map(doc => doc.data() as UserRelationship);
+    
+    // 차단된 사용자 정보 조회
+    const users: User[] = [];
+    for (const relationship of relationships) {
+      const user = await getUserById(relationship.targetId);
+      if (user) {
+        users.push({
+          ...user,
+          // 차단 날짜 추가
+          blockedAt: relationship.createdAt
+        } as User & { blockedAt: any });
+      }
+    }
+    
+    // 전체 차단 사용자 수 조회
+    const countQuery = query(
+      relationshipsRef,
+      where('userId', '==', userId),
+      where('type', '==', 'block'),
+      where('status', '==', 'active')
+    );
+    const countSnapshot = await getDocs(countQuery);
+    const totalCount = countSnapshot.size;
+    
+    // 페이징 처리
+    const startIndex = (page - 1) * pageSize;
+    const paginatedUsers = users.slice(startIndex, startIndex + pageSize);
+    
+    return {
+      users: paginatedUsers,
+      totalCount,
+      hasMore: totalCount > page * pageSize
+    };
+  } catch (error) {
+    console.error('차단된 사용자 목록 조회 오류:', error);
+    throw new Error('차단된 사용자 목록을 조회하는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 여러 사용자의 차단 상태를 한번에 확인
+ */
+export const checkMultipleBlockStatus = async (
+  userId: string,
+  targetIds: string[]
+): Promise<Record<string, boolean>> => {
+  try {
+    if (!targetIds.length) return {};
+    
+    const relationshipsRef = collection(db, 'userRelationships');
+    const q = query(
+      relationshipsRef,
+      where('userId', '==', userId),
+      where('type', '==', 'block'),
+      where('status', '==', 'active'),
+      where('targetId', 'in', targetIds.slice(0, 10)) // Firestore 'in' 쿼리 제한
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const blockStatus: Record<string, boolean> = {};
+    
+    // 모든 targetId를 false로 초기화
+    targetIds.forEach(id => {
+      blockStatus[id] = false;
+    });
+    
+    // 차단된 사용자들을 true로 설정
+    querySnapshot.docs.forEach(doc => {
+      const data = doc.data() as UserRelationship;
+      blockStatus[data.targetId] = true;
+    });
+    
+    return blockStatus;
+  } catch (error) {
+    console.error('다중 차단 상태 확인 오류:', error);
+    throw new Error('차단 상태를 확인하는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
  * 사용자 활동 요약 정보 조회
  */
 export const getUserActivitySummary = async (userId: string) => {

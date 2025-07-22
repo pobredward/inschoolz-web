@@ -13,6 +13,7 @@ import { ChevronLeft, MoreHorizontal, AlertTriangle, ShieldAlert } from 'lucide-
 import { useRouter } from 'next/navigation';
 import { toggleBlock } from '@/lib/api/users';
 import { useAuth } from '@/providers/AuthProvider';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,9 +29,10 @@ interface ProfileHeaderProps {
   user: User;
   isOwnProfile: boolean;
   isBlocked: boolean;
+  onBlockStatusChange?: () => void;
 }
 
-export default function ProfileHeader({ user, isOwnProfile, isBlocked }: ProfileHeaderProps) {
+export default function ProfileHeader({ user, isOwnProfile, isBlocked, onBlockStatusChange }: ProfileHeaderProps) {
   const router = useRouter();
   const { user: currentUser } = useAuth();
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -41,10 +43,12 @@ export default function ProfileHeader({ user, isOwnProfile, isBlocked }: Profile
     
     setIsSubmitting(true);
     try {
-      await toggleBlock(currentUser.uid, user.uid);
-      router.refresh();
+      const result = await toggleBlock(currentUser.uid, user.uid);
+      onBlockStatusChange?.();
+      toast.success(result.isBlocked ? '사용자를 차단했습니다.' : '차단을 해제했습니다.');
     } catch (error) {
       console.error('차단 상태 변경 오류:', error);
+      toast.error('차단 상태 변경에 실패했습니다.');
     } finally {
       setIsSubmitting(false);
     }

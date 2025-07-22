@@ -529,6 +529,16 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   
                   <Button 
                     variant="ghost" 
+                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    onClick={() => router.push('/my/blocked-users')}
+                  >
+                    <span className="mr-3">🚫</span>
+                    차단된 사용자
+                    <span className="ml-auto">›</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost" 
                     className="w-full justify-start bg-red-50 hover:bg-red-100 text-red-700"
                     onClick={() => setIsAccountDeleteDialogOpen(true)}
                   >
