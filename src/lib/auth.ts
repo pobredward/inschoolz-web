@@ -15,7 +15,7 @@ import {
   reauthenticateWithCredential,
   sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, Timestamp, serverTimestamp, FieldValue } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, FieldValue } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User } from '@/types';
 
@@ -357,8 +357,8 @@ export const logout = async (): Promise<void> => {
 };
 
 /**
- * 계정 삭제
- * @param user 현재 로그인된 사용자
+ * 계정 완전 삭제 (앱스토어 가이드라인 5.1.1(v) 준수)
+ * @param user 현재 로그인된 Firebase 사용자
  * @param password 비밀번호 (이메일/비밀번호 로그인 사용자만)
  */
 export const deleteAccount = async (
@@ -371,15 +371,14 @@ export const deleteAccount = async (
       await reauthenticate(user, password);
     }
     
-    // 사용자 문서 삭제 (또는 비활성화 상태로 표시)
-    await updateDoc(doc(db, 'users', user.uid), {
-      isDeleted: true,
-      deletedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    // Firestore에서 사용자 문서 완전 삭제
+    await deleteDoc(doc(db, 'users', user.uid));
     
     // Firebase 인증 계정 삭제
     await deleteUser(user);
+    
+    // 관련 데이터 정리는 Cloud Functions에서 처리하는 것이 좋지만
+    // 여기서는 기본적인 완전 삭제만 수행
   } catch (error) {
     console.error('계정 삭제 오류:', error);
     throw new Error('계정 삭제 중 오류가 발생했습니다.');
@@ -413,4 +412,4 @@ export const getCurrentUser = (): Promise<User | null> => {
       }
     });
   });
-}; 
+};

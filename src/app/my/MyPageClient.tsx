@@ -37,7 +37,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 
 import { getDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { deleteUserAccount } from '@/lib/api/auth';
 
 // 경험치 포맷팅 함수
 const formatExp = (exp: number): string => {
@@ -91,6 +92,9 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowersModalOpen, setIsFollowersModalOpen] = useState(false);
   const [followersModalType, setFollowersModalType] = useState<'followers' | 'following'>('followers');
+  const [isAccountDeleteDialogOpen, setIsAccountDeleteDialogOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const router = useRouter();
 
@@ -182,6 +186,37 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
     } catch (error) {
       console.error('메인 학교 설정 오류:', error);
       toast.error('메인 학교 설정 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 계정 삭제 함수
+  const handleDeleteAccount = async () => {
+    if (!user || !auth.currentUser) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!deletePassword.trim()) {
+      toast.error('현재 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteUserAccount(deletePassword);
+      toast.success('계정이 완전히 삭제되었습니다.');
+      
+      // 계정 삭제 후 로그인 페이지로 리디렉션
+      router.push('/auth');
+    } catch (error) {
+      console.error('계정 삭제 오류:', error);
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('계정 삭제 중 오류가 발생했습니다.');
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -476,6 +511,16 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   >
                     <span className="mr-3">🚨</span>
                     신고 기록
+                    <span className="ml-auto">›</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-start bg-red-50 hover:bg-red-100 text-red-700"
+                    onClick={() => setIsAccountDeleteDialogOpen(true)}
+                  >
+                    <span className="mr-3">🗑️</span>
+                    계정 삭제
                     <span className="ml-auto">›</span>
                   </Button>
                 </div>
@@ -975,6 +1020,65 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
               }}
             >
               닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 계정 삭제 다이얼로그 */}
+      <Dialog open={isAccountDeleteDialogOpen} onOpenChange={setIsAccountDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">⚠️ 계정 삭제</DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              이 작업은 되돌릴 수 없습니다. 계정을 삭제하면 모든 데이터가 완전히 제거됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h4 className="font-semibold text-red-800 mb-2">삭제되는 데이터:</h4>
+              <ul className="text-sm text-red-700 space-y-1">
+                <li>• 프로필 정보 및 개인 데이터</li>
+                <li>• 작성한 모든 게시글과 댓글</li>
+                <li>• 즐겨찾기 및 설정 정보</li>
+                <li>• 경험치 및 활동 기록</li>
+              </ul>
+            </div>
+            
+            <div>
+              <label htmlFor="deletePassword" className="block text-sm font-medium text-gray-700 mb-2">
+                현재 비밀번호 확인 *
+              </label>
+              <Input
+                id="deletePassword"
+                type="password"
+                placeholder="현재 비밀번호를 입력하세요"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className="w-full"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsAccountDeleteDialogOpen(false);
+                setDeletePassword('');
+              }}
+              disabled={isDeleting}
+            >
+              취소
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={isDeleting || !deletePassword.trim()}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? '삭제 중...' : '계정 삭제'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -270,9 +270,24 @@ export const getPostDetail = async (postId: string) => {
             profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
             isAnonymous: post.authorInfo?.isAnonymous || false
           };
+        } else {
+          // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: '삭제된 계정',
+            profileImageUrl: '',
+            isAnonymous: true
+          };
         }
       } catch (userError) {
-        console.warn('사용자 정보 업데이트 실패:', userError);
+        console.warn('사용자 정보 업데이트 실패 (계정 삭제 가능성):', userError);
+        // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
+        post.authorInfo = {
+          ...post.authorInfo,
+          displayName: '삭제된 계정',
+          profileImageUrl: '',
+          isAnonymous: true
+        };
       }
     }
     
@@ -354,9 +369,22 @@ export const getCommentsByPost = async (postId: string) => {
                 isAnonymous: false
               };
             }
+          } else {
+            // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
+            authorInfo = {
+              displayName: '삭제된 계정',
+              profileImageUrl: '',
+              isAnonymous: true
+            };
           }
         } catch (error) {
-          console.error('사용자 정보 조회 오류:', error);
+          console.error('사용자 정보 조회 오류 (계정 삭제 가능성):', error);
+          // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
+          authorInfo = {
+            displayName: '삭제된 계정',
+            profileImageUrl: '',
+            isAnonymous: true
+          };
         }
       }
       
@@ -408,9 +436,22 @@ export const getCommentsByPost = async (postId: string) => {
                   isAnonymous: false
                 };
               }
+            } else {
+              // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
+              replyAuthorInfo = {
+                displayName: '삭제된 계정',
+                profileImageUrl: '',
+                isAnonymous: true
+              };
             }
           } catch (error) {
-            console.error('대댓글 사용자 정보 조회 오류:', error);
+            console.error('대댓글 사용자 정보 조회 오류 (계정 삭제 가능성):', error);
+            // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
+            replyAuthorInfo = {
+              displayName: '삭제된 계정',
+              profileImageUrl: '',
+              isAnonymous: true
+            };
           }
         }
         
