@@ -64,7 +64,7 @@ export default function TermsPage() {
                     <li>사용자명(아이디)</li>
                     <li>실명</li>
                     <li>성별</li>
-                    <li>생년월일</li>
+                    <li>생년월일 (선택사항)</li>
                     <li>휴대폰 번호</li>
                     <li>학교 정보</li>
                     <li>지역 정보</li>

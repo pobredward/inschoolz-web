@@ -150,15 +150,15 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       status: 'active', // 기본 상태를 'active'로 설정
       isVerified: true, // 이메일 인증 없이 바로 인증된 상태로 처리
       
-      // 프로필 정보
+      // 프로필 정보 (선택사항 필드들은 값이 있을 때만 저장)
       profile: {
         userName: userData.userName,
         realName: userData.realName,
-        gender: userData.gender,
-        birthYear: Number(userData.birthYear),
-        birthMonth: Number(userData.birthMonth),
-        birthDay: Number(userData.birthDay),
-        phoneNumber: userData.phoneNumber,
+        ...(userData.gender && { gender: userData.gender }),
+        ...(userData.birthYear && { birthYear: Number(userData.birthYear) }),
+        ...(userData.birthMonth && { birthMonth: Number(userData.birthMonth) }),
+        ...(userData.birthDay && { birthDay: Number(userData.birthDay) }),
+        ...(userData.phoneNumber && { phoneNumber: userData.phoneNumber }),
         profileImageUrl: profileImageUrl,
         createdAt: serverTimestamp(), // Timestamp를 밀리초로 변환
         isAdmin: false

@@ -55,19 +55,11 @@ const detailedInfoSchema = z.object({
     .regex(/^[a-z0-9]+$/, { message: '아이디는 영문 소문자와 숫자만 사용 가능합니다.' }),
   realName: z.string()
     .min(2, { message: '이름을 입력해주세요.' }),
-  gender: z.string()
-    .min(1, { message: '성별을 선택해주세요.' }),
-  birthYear: z.number()
-    .min(1950, { message: '올바른 연도를 입력해주세요.' })
-    .max(new Date().getFullYear(), { message: '올바른 연도를 입력해주세요.' }),
-  birthMonth: z.number()
-    .min(1, { message: '올바른 월을 입력해주세요.' })
-    .max(12, { message: '올바른 월을 입력해주세요.' }),
-  birthDay: z.number()
-    .min(1, { message: '올바른 일을 입력해주세요.' })
-    .max(31, { message: '올바른 일을 입력해주세요.' }),
-  phoneNumber: z.string()
-    .regex(/^\d{10,11}$/, { message: '올바른 휴대폰 번호를 입력해주세요. (10-11자리)' }),
+  gender: z.string().optional(),
+  birthYear: z.number().optional(),
+  birthMonth: z.number().optional(),
+  birthDay: z.number().optional(),
+  phoneNumber: z.string().optional(),
   referral: z.string().optional(),
   // 약관 동의
   termsAgreed: z.boolean().refine(value => value === true, {
@@ -400,7 +392,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
               name="gender"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>성별</FormLabel>
+                  <FormLabel>성별 (선택사항)</FormLabel>
                   <Select 
                     onValueChange={(value) => {
                       field.onChange(value);
@@ -429,7 +421,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                 name="birthYear"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>출생년도</FormLabel>
+                    <FormLabel>출생년도 (선택사항)</FormLabel>
                     <FormControl>
                       <Input 
                         type="text"
@@ -522,7 +514,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
               name="phoneNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>휴대폰번호</FormLabel>
+                  <FormLabel>휴대폰번호 (선택사항)</FormLabel>
                   <FormControl>
                     <Input 
                       type="text"

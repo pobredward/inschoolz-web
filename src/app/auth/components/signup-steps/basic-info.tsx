@@ -37,16 +37,11 @@ const basicInfoSchema = z.object({
   passwordConfirm: z.string(),
   realName: z.string()
     .min(2, { message: '이름을 입력해주세요.' }),
-  gender: z.string()
-    .min(1, { message: '성별을 선택해주세요.' }),
-  birthYear: z.string()
-    .regex(/^\d{4}$/, { message: '올바른 연도를 입력해주세요. (예: 2000)' }),
-  birthMonth: z.string()
-    .regex(/^(0?[1-9]|1[0-2])$/, { message: '올바른 월을 입력해주세요. (1-12)' }),
-  birthDay: z.string()
-    .regex(/^(0?[1-9]|[12]\d|3[01])$/, { message: '올바른 일을 입력해주세요. (1-31)' }),
-  phoneNumber: z.string()
-    .regex(/^\d{10,11}$/, { message: '올바른 휴대폰 번호를 입력해주세요. (10-11자리)' }),
+  gender: z.string().optional(),
+  birthYear: z.string().optional(),
+  birthMonth: z.string().optional(), 
+  birthDay: z.string().optional(),
+  phoneNumber: z.string().optional(),
   referral: z.string().optional(),
 }).refine((data) => data.password === data.passwordConfirm, {
   message: "비밀번호가 일치하지 않습니다.",
@@ -97,7 +92,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
 
   const sendVerificationCode = () => {
     const phone = form.getValues('phoneNumber');
-    if (phone.length < 10) {
+    if (!phone || phone.length < 10) {
       form.setError('phoneNumber', { message: '올바른 휴대폰 번호를 입력해주세요.' });
       return;
     }
@@ -436,7 +431,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
             name="gender"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>성별</FormLabel>
+                <FormLabel>성별 (선택사항)</FormLabel>
                 <Select
                   value={field.value}
                   onValueChange={(value) => {
@@ -465,7 +460,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
               name="birthYear"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>출생년도</FormLabel>
+                  <FormLabel>출생년도 (선택사항)</FormLabel>
                   <FormControl>
                     <Input 
                       type="text"
@@ -549,7 +544,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
             name="phoneNumber"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>휴대폰번호</FormLabel>
+                <FormLabel>휴대폰번호 (선택사항)</FormLabel>
                 <div className="flex gap-2">
                   <FormControl>
                     <Input 

@@ -170,7 +170,8 @@ export default function PrivacyPage() {
                 <div>
                   <h3 className="font-bold text-lg mb-2">1. 회원가입 및 관리</h3>
                   <ul className="list-disc ml-6 space-y-1">
-                    <li><strong>필수항목:</strong> 이메일, 비밀번호, 사용자명(아이디), 실명, 성별, 생년월일, 휴대폰번호</li>
+                    <li><strong>필수항목:</strong> 이메일, 비밀번호, 사용자명(아이디), 실명</li>
+                <li><strong>선택항목:</strong> 성별, 생년월일, 휴대폰번호</li>
                     <li><strong>선택항목:</strong> 프로필이미지, 추천인정보</li>
                   </ul>
                 </div>
