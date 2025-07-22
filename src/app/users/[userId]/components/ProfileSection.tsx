@@ -214,7 +214,7 @@ export default function ProfileSection({
             {/* 프로필 수정 버튼 */}
             {isOwnProfile && (
               <div className="mt-4">
-                <Link href={`/${user.profile.userName}/edit`}>
+                <Link href="/my/edit">
                   <Button variant="outline" size="sm">
                     프로필 수정
                   </Button>

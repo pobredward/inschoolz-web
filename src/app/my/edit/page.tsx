@@ -1,42 +1,58 @@
+import { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getUserById } from '@/lib/api/users';
+import { Toaster } from '@/components/ui/sonner';
+import ProfileEditClient from '../../[userName]/edit/ProfileEditClient';
+import { serializeUserForClient } from '@/lib/utils';
 
-export default async function MyEditRedirect() {
-  // 쿠키에서 인증 토큰과 사용자 ID 가져오기
+export const metadata: Metadata = {
+  title: '프로필 수정 | InSchoolz',
+  description: '내 프로필, 학교 정보, 관심사를 수정하세요.',
+};
+
+export default async function MyEditPage() {
+  // 쿠키에서 로그인된 사용자 정보 확인
   const cookieStore = await cookies();
   const authToken = cookieStore.get('authToken')?.value;
   
-  // 로그인하지 않은 경우
+  // 로그인되지 않은 경우 로그인 페이지로 리디렉션
   if (!authToken) {
     return redirect('/auth?redirect=/my/edit');
   }
-  
-  try {
-    // userId 또는 uid 쿠키 찾기
-    let userId = cookieStore.get('userId')?.value;
-    if (!userId) {
-      userId = cookieStore.get('uid')?.value;
-    }
 
-    // 쿠키에서 사용자 ID를 찾을 수 없는 경우, 로그인 페이지로 리디렉션
-    if (!userId) {
-      console.log('사용자 ID를 쿠키에서 찾을 수 없음');
+  try {
+    // uid 쿠키 우선 확인
+    let currentUserId = cookieStore.get('uid')?.value;
+    if (!currentUserId) {
+      // 백업으로 userId 쿠키도 확인
+      currentUserId = cookieStore.get('userId')?.value;
+    }
+    
+    // 쿠키에서 사용자 ID를 찾을 수 없는 경우 로그인 페이지로 리디렉션
+    if (!currentUserId) {
       return redirect('/auth?redirect=/my/edit');
     }
     
     // 사용자 정보 조회
-    const user = await getUserById(userId);
+    const currentUser = await getUserById(currentUserId);
     
-    if (!user || !user.profile?.userName) {
+    if (!currentUser) {
       return redirect('/auth?redirect=/my/edit');
     }
-    
-    // 사용자의 userName/edit으로 리다이렉트
-    return redirect(`/${user.profile.userName}/edit`);
+
+    // Firebase 타임스탬프를 포함한 객체를 직렬화
+    const serializedUserData = serializeUserForClient(currentUser);
+
+    // 프로필 수정 컴포넌트 렌더링
+    return (
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-20 sm:pb-6">
+        <Toaster />
+        <ProfileEditClient userData={serializedUserData} />
+      </div>
+    );
   } catch (error) {
-    console.error('인증 오류:', error);
-    // 오류 시 다시 로그인 페이지로
+    console.error('마이페이지 프로필 수정 사용자 정보 조회 오류:', error);
     return redirect('/auth?redirect=/my/edit');
   }
 } 

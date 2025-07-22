@@ -442,7 +442,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                   <Button 
                     variant="ghost" 
                     className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => router.push(`/${userData.profile?.userName}/edit`)}
+                    onClick={() => router.push('/my/edit')}
                   >
                     <span className="mr-3">✏️</span>
                     프로필 수정
