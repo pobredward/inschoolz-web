@@ -424,18 +424,21 @@ function CommentItem({
                 
         {/* 메뉴 버튼 - 커스텀 드롭다운 */}
         {!isDeleted && (
-          <CommentMenuDropdown
-            isAuthor={isAuthor}
-            isAnonymous={isAnonymous}
-            hasAnonymousAuthor={!!comment.anonymousAuthor}
-            onEdit={() => setIsEditing(true)}
-            onDelete={() => onDelete(comment.id)}
-            onAnonymousEdit={() => onAnonymousEdit(comment.id)}
-            onAnonymousDelete={() => onAnonymousDelete(comment.id)}
-            onReport={() => setShowReportModal(true)}
-            onBlock={handleBlock}
-            isBlocking={isBlocking}
-          />
+          // 비회원일 때는 익명 댓글에만 메뉴 표시, 회원일 때는 모든 댓글에 메뉴 표시
+          (user || isAnonymous) && (
+            <CommentMenuDropdown
+              isAuthor={isAuthor}
+              isAnonymous={isAnonymous}
+              hasAnonymousAuthor={!!comment.anonymousAuthor}
+              onEdit={() => setIsEditing(true)}
+              onDelete={() => onDelete(comment.id)}
+              onAnonymousEdit={() => onAnonymousEdit(comment.id)}
+              onAnonymousDelete={() => onAnonymousDelete(comment.id)}
+              onReport={() => setShowReportModal(true)}
+              onBlock={handleBlock}
+              isBlocking={isBlocking}
+            />
+          )
         )}
       </div>
       
