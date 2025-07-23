@@ -764,6 +764,27 @@ export const getBlockedUsers = async (
 };
 
 /**
+ * 사용자가 차단한 사용자 ID 목록만 빠르게 조회
+ */
+export const getBlockedUserIds = async (userId: string): Promise<string[]> => {
+  try {
+    const relationshipsRef = collection(db, 'userRelationships');
+    const q = query(
+      relationshipsRef,
+      where('userId', '==', userId),
+      where('type', '==', 'block'),
+      where('status', '==', 'active')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => doc.data().targetId);
+  } catch (error) {
+    console.error('차단된 사용자 ID 목록 조회 오류:', error);
+    return [];
+  }
+};
+
+/**
  * 여러 사용자의 차단 상태를 한번에 확인
  */
 export const checkMultipleBlockStatus = async (

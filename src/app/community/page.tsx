@@ -10,6 +10,8 @@ import { Bookmark } from 'lucide-react';
 import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
 import { getBoardsByType, getPostsByBoardType, getAllPostsByType, getAllPostsBySchool, getAllPostsByRegion } from '@/lib/api/board';
+import { getBlockedUserIds } from '@/lib/api/users';
+import { BlockedUserContent } from '@/components/ui/blocked-user-content';
 import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
 import { generatePreviewContent, toTimestamp } from '@/lib/utils';
@@ -51,7 +53,8 @@ export default function CommunityPage() {
   const [sortBy, setSortBy] = useState<SortOption>('latest');
   const [isLoading, setIsLoading] = useState(false);
   const [showBoardSelector, setShowBoardSelector] = useState(false);
-  
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+
   // showBoardSelector 상태 변화 감지
   useEffect(() => {
     console.log('showBoardSelector changed to:', showBoardSelector);
@@ -287,6 +290,13 @@ export default function CommunityPage() {
     }
   }, [selectedTab, selectedBoard, sortBy, boards]);
 
+  // 사용자 정보 변경 시 차단된 사용자 목록 로드
+  useEffect(() => {
+    if (user?.uid) {
+      loadBlockedUsers();
+    }
+  }, [user?.uid]);
+
   // 브라우저 탭이 포커스될 때마다 게시글 목록 새로고침
   useEffect(() => {
     const handleWindowFocus = () => {
@@ -303,12 +313,86 @@ export default function CommunityPage() {
     };
   }, [posts.length]);
 
+  // 차단 해제 시 상태 업데이트
+  const handleUnblock = (userId: string) => {
+    setBlockedUserIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(userId);
+      return newSet;
+    });
+  };
+
+  // 게시글 렌더링 함수
+  const renderPost = (post: CommunityPost) => {
+    const isBlocked = blockedUserIds.has(post.authorId);
+    
+    if (isBlocked) {
+      return (
+        <BlockedUserContent
+          key={post.id}
+          blockedUserId={post.authorId}
+          blockedUserName={post.authorInfo?.displayName || '사용자'}
+          contentType="post"
+          onUnblock={() => handleUnblock(post.authorId)}
+        >
+          <PostListItem
+            post={post}
+            href={getPostUrl(post)}
+            typeBadgeText={getTabName()}
+            boardBadgeText={post.boardName}
+          />
+        </BlockedUserContent>
+      );
+    }
+    
+    return (
+      <PostListItem
+        key={post.id}
+        post={post}
+        href={getPostUrl(post)}
+        typeBadgeText={getTabName()}
+        boardBadgeText={post.boardName}
+      />
+    );
+  };
+
+  const getPostUrl = (post: CommunityPost) => {
+    switch (selectedTab) {
+      case 'national':
+        return `/community/national/${post.boardCode}/${post.id}`;
+      case 'regional':
+        const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
+        const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
+        if (selectedSido && selectedSigungu) {
+          return `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${post.boardCode}/${post.id}`;
+        }
+        return '#';
+      case 'school':
+        const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
+        if (selectedSchoolId) {
+          return `/community/school/${selectedSchoolId}/${post.boardCode}/${post.id}`;
+        }
+        return '#';
+      default:
+        return '#';
+    }
+  };
+
+  const getTabName = () => {
+    switch (selectedTab) {
+      case 'national': return '전국';
+      case 'regional': return '지역';
+      case 'school': return '학교';
+      default: return '전국';
+    }
+  };
+
   const loadBoards = async () => {
     try {
       console.log('Loading boards for type:', selectedTab);
       const boardsData = await getBoardsByType(selectedTab);
       console.log('Loaded boards:', boardsData);
-      setBoards(boardsData);
+      setBoards(boardsData as Board[]);
       setSelectedBoard('all'); // 탭 변경 시 전체로 리셋
     } catch (error) {
       console.error('게시판 로드 실패:', error);
@@ -408,6 +492,18 @@ export default function CommunityPage() {
       console.error('게시글 로드 실패:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 차단된 사용자 목록 로드
+  const loadBlockedUsers = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      const blockedIds = await getBlockedUserIds(user.uid);
+      setBlockedUserIds(new Set(blockedIds));
+    } catch (error) {
+      console.error('차단된 사용자 목록 로드 실패:', error);
     }
   };
 
@@ -651,48 +747,7 @@ export default function CommunityPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {posts.map((post) => {
-                  const getPostUrl = () => {
-                    switch (selectedTab) {
-                      case 'national':
-                        return `/community/national/${post.boardCode}/${post.id}`;
-                      case 'regional':
-                        const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
-                        const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
-                        if (selectedSido && selectedSigungu) {
-                          return `/community/region/${encodeURIComponent(selectedSido)}/${encodeURIComponent(selectedSigungu)}/${post.boardCode}/${post.id}`;
-                        }
-                        return '#';
-                      case 'school':
-                        const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
-                        if (selectedSchoolId) {
-                          return `/community/school/${selectedSchoolId}/${post.boardCode}/${post.id}`;
-                        }
-                        return '#';
-                      default:
-                        return '#';
-                    }
-                  };
-
-                  const getTabName = () => {
-                    switch (selectedTab) {
-                      case 'national': return '전국';
-                      case 'regional': return '지역';
-                      case 'school': return '학교';
-                      default: return '전국';
-                    }
-                  };
-
-                  return (
-                    <PostListItem
-                      key={post.id}
-                      post={post}
-                      href={getPostUrl()}
-                      typeBadgeText={getTabName()}
-                      boardBadgeText={post.boardName}
-                    />
-                  );
-                })}
+                {posts.map((post) => renderPost(post))}
               </div>
             )}
           </div>

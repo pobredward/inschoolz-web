@@ -22,7 +22,8 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { Comment } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
-import { toggleBlock } from '@/lib/api/users';
+import { toggleBlock, getBlockedUserIds } from '@/lib/api/users';
+import { BlockedUserContent } from '@/components/ui/blocked-user-content';
 import AnonymousCommentForm from '@/components/ui/anonymous-comment-form';
 import AnonymousPasswordModal from '@/components/ui/anonymous-password-modal';
 import { formatRelativeTime } from '@/lib/utils';
@@ -547,72 +548,73 @@ export default function CommentSection({
   onCommentCountChange 
 }: CommentSectionProps) {
   const { user } = useAuth();
-  const [comments, setComments] = useState<CommentWithReplies[]>(initialComments);
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const [comments, setComments] = useState<CommentWithReplies[]>([]);
+  const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showAnonymousForm, setShowAnonymousForm] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; author: string } | null>(null);
+  const [editingComment, setEditingComment] = useState<{ id: string; content: string; password?: string } | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState<{ commentId: string; action: 'edit' | 'delete' } | null>(null);
   const [likeStatuses, setLikeStatuses] = useState<Record<string, boolean>>({});
   const [showExperienceModal, setShowExperienceModal] = useState(false);
-  const [showAnonymousForm, setShowAnonymousForm] = useState(false);
-  const [passwordModal, setPasswordModal] = useState<{
-    isOpen: boolean;
-    commentId: string;
-    action: 'edit' | 'delete';
-  }>({ isOpen: false, commentId: '', action: 'edit' });
-  const [editingComment, setEditingComment] = useState<{ id: string; content: string; password?: string } | null>(null);
-  const [experienceData, setExperienceData] = useState<{
-    expGained: number;
-    activityType: 'post' | 'comment' | 'like';
-    leveledUp: boolean;
-    oldLevel?: number;
-    newLevel?: number;
-    currentExp: number;
-    expToNextLevel: number;
-    remainingCount: number;
-    totalDailyLimit: number;
-  } | null>(null);
+  const [experienceGained, setExperienceGained] = useState(0);
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
 
-  // 댓글 목록 새로고침
-  const refreshComments = useCallback(async () => {
-    if (!postId) return;
+  // 차단된 사용자 목록 로드
+  const loadBlockedUsers = useCallback(async () => {
+    if (!user?.uid) return;
     
-    setIsLoading(true);
     try {
+      const blockedIds = await getBlockedUserIds(user.uid);
+      setBlockedUserIds(new Set(blockedIds));
+    } catch (error) {
+      console.error('차단된 사용자 목록 로드 실패:', error);
+    }
+  }, [user?.uid]);
+
+  // 댓글 목록 로드
+  const fetchComments = useCallback(async () => {
+    try {
+      setIsLoading(true);
       const fetchedComments = await getCommentsByPost(postId);
       setComments(fetchedComments);
-      onCommentCountChange?.(fetchedComments.length);
       
-      // 로그인한 사용자인 경우 좋아요 상태 확인
+      // 좋아요 상태 확인
       if (user && fetchedComments.length > 0) {
-        const allCommentIds: string[] = [];
+        const allCommentIds = fetchedComments.flatMap(comment => [
+          comment.id,
+          ...(comment.replies || []).map(reply => reply.id)
+        ]);
         
-        // 모든 댓글과 대댓글의 ID 수집
-        fetchedComments.forEach(comment => {
-          allCommentIds.push(comment.id);
-          if (comment.replies) {
-            comment.replies.forEach((reply: Comment) => {
-              allCommentIds.push(reply.id);
-            });
-          }
-        });
-        
-        const likeStatuses = await checkMultipleCommentLikeStatus(postId, allCommentIds, user.uid);
-        setLikeStatuses(likeStatuses);
+        const statuses = await checkMultipleCommentLikeStatus(postId, allCommentIds, user.uid);
+        setLikeStatuses(statuses);
       }
+      
+      onCommentCountChange?.(fetchedComments.length);
     } catch (error) {
-      console.error('댓글 조회 오류:', error);
-      toast.error('댓글을 불러오는데 실패했습니다.');
+      console.error('댓글 조회 실패:', error);
+      toast('댓글을 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
-  }, [postId, onCommentCountChange, user]);
+  }, [postId, user, onCommentCountChange]);
 
-  // 컴포넌트 마운트 시 댓글 로드
+  // 컴포넌트 마운트 시 댓글 및 차단 사용자 목록 로드
   useEffect(() => {
-    if (postId && initialComments.length === 0) {
-      refreshComments();
-    }
-  }, [postId, refreshComments, initialComments.length]);
+    fetchComments();
+    loadBlockedUsers();
+  }, [fetchComments, loadBlockedUsers]);
+
+  // 차단 해제 시 상태 업데이트
+  const handleUnblock = (userId: string) => {
+    setBlockedUserIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(userId);
+      return newSet;
+    });
+  };
 
   // 일반 댓글 작성 (로그인 사용자)
   const handleCreateComment = async (content: string, isAnonymous: boolean, parentId?: string) => {
@@ -630,10 +632,7 @@ export default function CommentSection({
         try {
           const expResult = await awardCommentExperience(user.uid);
           if (expResult) {
-            setExperienceData({
-              ...expResult,
-              activityType: 'comment'
-            });
+            setExperienceGained(expResult.expGained);
             setShowExperienceModal(true);
           }
         } catch (expError) {
@@ -643,7 +642,7 @@ export default function CommentSection({
 
       toast.success('댓글이 작성되었습니다.');
       setReplyingTo(null);
-      refreshComments();
+      fetchComments();
     } catch (error) {
       console.error('댓글 작성 오류:', error);
       toast.error('댓글 작성에 실패했습니다.');
@@ -674,7 +673,7 @@ export default function CommentSection({
       toast.success('익명 댓글이 작성되었습니다.');
       setShowAnonymousForm(false);
       setReplyingTo(null);
-      refreshComments();
+      fetchComments();
     } catch (error) {
       console.error('익명 댓글 작성 오류:', error);
       toast.error('댓글 작성에 실패했습니다.');
@@ -688,7 +687,7 @@ export default function CommentSection({
     try {
       await updateComment(postId, commentId, content, user?.uid || '');
       toast.success('댓글이 수정되었습니다.');
-      refreshComments();
+      fetchComments();
     } catch (error) {
       console.error('댓글 수정 오류:', error);
       toast.error('댓글 수정에 실패했습니다.');
@@ -702,7 +701,7 @@ export default function CommentSection({
     try {
       await deleteComment(postId, commentId, user?.uid || '');
       toast.success('댓글이 삭제되었습니다.');
-      refreshComments();
+      fetchComments();
     } catch (error) {
       console.error('댓글 삭제 오류:', error);
       toast.error('댓글 삭제에 실패했습니다.');
@@ -712,19 +711,21 @@ export default function CommentSection({
   // 익명 댓글 수정
   const handleAnonymousEdit = (commentId: string) => {
     // 비밀번호 확인 모달만 열고, 편집 상태는 비밀번호 확인 후에 설정
-    setPasswordModal({ isOpen: true, commentId, action: 'edit' });
+    setShowPasswordModal({ commentId, action: 'edit' });
   };
 
   // 익명 댓글 삭제
   const handleAnonymousDelete = (commentId: string) => {
-    setPasswordModal({ isOpen: true, commentId, action: 'delete' });
+    setShowPasswordModal({ commentId, action: 'delete' });
   };
 
   // 비밀번호 확인 후 익명 댓글 수정/삭제
   const handlePasswordConfirm = async (password: string): Promise<boolean> => {
     try {
-      const { commentId, action } = passwordModal;
+      const { commentId, action } = showPasswordModal || {};
       
+      if (!commentId) return false; // 모달가 열려있지 않으면 처리하지 않음
+
       if (action === 'edit') {
         // 비밀번호 검증만 하고 실제 수정은 나중에
         const isValidPassword = await verifyAnonymousCommentPassword(postId, commentId, password);
@@ -741,7 +742,7 @@ export default function CommentSection({
       } else if (action === 'delete') {
         await deleteAnonymousComment(postId, commentId, password);
         toast.success('댓글이 삭제되었습니다.');
-        refreshComments();
+        fetchComments();
         return true;
       }
       
@@ -820,7 +821,7 @@ export default function CommentSection({
   // 경험치 모달 닫기 핸들러
   const handleExperienceModalClose = () => {
     setShowExperienceModal(false);
-    setExperienceData(null);
+    setExperienceGained(0);
   };
 
   // 익명 댓글 수정 내용 변경
@@ -836,7 +837,7 @@ export default function CommentSection({
       await updateAnonymousComment(postId, editingComment.id, editingComment.content, editingComment.password);
       toast.success('댓글이 수정되었습니다.');
       setEditingComment(null);
-      refreshComments();
+      fetchComments();
     } catch (error) {
       console.error('익명 댓글 수정 오류:', error);
       toast.error('댓글 수정에 실패했습니다.');
@@ -895,94 +896,193 @@ export default function CommentSection({
           </div>
         ) : (
           <div className="space-y-4">
-            {comments.map((comment: CommentWithReplies) => (
-              <div key={comment.id} className="group">
-                <CommentItem
-                  comment={comment}
-                  postId={postId}
-                  onReply={handleReply}
-                  onEdit={handleEditComment}
-                  onDelete={handleDeleteComment}
-                  onLike={handleLikeComment}
-                  onAnonymousEdit={handleAnonymousEdit}
-                  onAnonymousDelete={handleAnonymousDelete}
-                  editingComment={editingComment}
-                  onEditingCommentChange={handleEditingCommentChange}
-                  onEditingCommentSave={handleEditingCommentSave}
-                  onEditingCommentCancel={handleEditingCommentCancel}
-                  isLiked={likeStatuses[comment.id] || false}
-                />
-                
-                {/* 대댓글 렌더링 */}
-                {comment.replies && comment.replies.length > 0 && (
-                  <div className="space-y-2">
-                    {comment.replies.map((reply: CommentWithReplies) => (
-                      <div key={reply.id} className="group">
-                        <CommentItem
-                          comment={reply}
-                          postId={postId}
-                          onReply={handleReply}
-                          onEdit={handleEditComment}
-                          onDelete={handleDeleteComment}
-                          onLike={handleLikeComment}
-                          onAnonymousEdit={handleAnonymousEdit}
-                          onAnonymousDelete={handleAnonymousDelete}
-                          editingComment={editingComment}
-                          onEditingCommentChange={handleEditingCommentChange}
-                          onEditingCommentSave={handleEditingCommentSave}
-                          onEditingCommentCancel={handleEditingCommentCancel}
-                          isLiked={likeStatuses[reply.id] || false}
-                          level={1}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* 답글 작성 폼 */}
-                {replyingTo && replyingTo.id === comment.id && (
-                  <div className="mt-4 ml-8">
-                    {user ? (
-                      <CommentForm
-                        parentId={comment.id}
-                        parentAuthor={replyingTo.author}
-                        placeholder="답글을 입력하세요..."
-                        buttonText="답글 작성"
-                        onSubmit={(content, isAnonymous) => 
-                          handleCreateComment(content, isAnonymous, comment.id)
+            {comments.map((comment: CommentWithReplies) => {
+              const isBlocked = comment.authorId && blockedUserIds.has(comment.authorId);
+              
+              if (isBlocked && comment.authorId) {
+                return (
+                  <BlockedUserContent
+                    key={comment.id}
+                    blockedUserId={comment.authorId}
+                    blockedUserName={comment.author?.displayName || '사용자'}
+                    contentType="comment"
+                    onUnblock={() => handleUnblock(comment.authorId!)}
+                  >
+                    <div className="group">
+                      <CommentItem
+                        comment={comment}
+                        postId={postId}
+                        onReply={handleReply}
+                        onEdit={handleEditComment}
+                        onDelete={handleDeleteComment}
+                        onLike={handleLikeComment}
+                        onAnonymousEdit={handleAnonymousEdit}
+                        onAnonymousDelete={handleAnonymousDelete}
+                        editingComment={editingComment}
+                        onEditingCommentChange={handleEditingCommentChange}
+                        onEditingCommentSave={handleEditingCommentSave}
+                        onEditingCommentCancel={handleEditingCommentCancel}
+                        isLiked={likeStatuses[comment.id] || false}
+                      />
+                      
+                      {/* 대댓글 렌더링 */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="ml-8 mt-4 space-y-4">
+                          {comment.replies.map((reply: any) => {
+                            const isReplyBlocked = reply.authorId && blockedUserIds.has(reply.authorId);
+                            
+                            if (isReplyBlocked && reply.authorId) {
+                              return (
+                                <BlockedUserContent
+                                  key={reply.id}
+                                  blockedUserId={reply.authorId}
+                                  blockedUserName={reply.author?.displayName || '사용자'}
+                                  contentType="comment"
+                                  onUnblock={() => handleUnblock(reply.authorId)}
+                                >
+                                  <CommentItem
+                                    comment={reply}
+                                    postId={postId}
+                                    onReply={handleReply}
+                                    onEdit={handleEditComment}
+                                    onDelete={handleDeleteComment}
+                                    onLike={handleLikeComment}
+                                    onAnonymousEdit={handleAnonymousEdit}
+                                    onAnonymousDelete={handleAnonymousDelete}
+                                    editingComment={editingComment}
+                                    onEditingCommentChange={handleEditingCommentChange}
+                                    onEditingCommentSave={handleEditingCommentSave}
+                                    onEditingCommentCancel={handleEditingCommentCancel}
+                                    isLiked={likeStatuses[reply.id] || false}
+                                    level={1}
+                                  />
+                                </BlockedUserContent>
+                              );
+                            }
+                            
+                            return (
+                              <CommentItem
+                                key={reply.id}
+                                comment={reply}
+                                postId={postId}
+                                onReply={handleReply}
+                                onEdit={handleEditComment}
+                                onDelete={handleDeleteComment}
+                                onLike={handleLikeComment}
+                                onAnonymousEdit={handleAnonymousEdit}
+                                onAnonymousDelete={handleAnonymousDelete}
+                                editingComment={editingComment}
+                                onEditingCommentChange={handleEditingCommentChange}
+                                onEditingCommentSave={handleEditingCommentSave}
+                                onEditingCommentCancel={handleEditingCommentCancel}
+                                isLiked={likeStatuses[reply.id] || false}
+                                level={1}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </BlockedUserContent>
+                );
+              }
+              
+              return (
+                <div key={comment.id} className="group">
+                  <CommentItem
+                    comment={comment}
+                    postId={postId}
+                    onReply={handleReply}
+                    onEdit={handleEditComment}
+                    onDelete={handleDeleteComment}
+                    onLike={handleLikeComment}
+                    onAnonymousEdit={handleAnonymousEdit}
+                    onAnonymousDelete={handleAnonymousDelete}
+                    editingComment={editingComment}
+                    onEditingCommentChange={handleEditingCommentChange}
+                    onEditingCommentSave={handleEditingCommentSave}
+                    onEditingCommentCancel={handleEditingCommentCancel}
+                    isLiked={likeStatuses[comment.id] || false}
+                  />
+                  
+                  {/* 대댓글 렌더링 */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div className="ml-8 mt-4 space-y-4">
+                      {comment.replies.map((reply: any) => {
+                        const isReplyBlocked = reply.authorId && blockedUserIds.has(reply.authorId);
+                        
+                        if (isReplyBlocked && reply.authorId) {
+                          return (
+                            <BlockedUserContent
+                              key={reply.id}
+                              blockedUserId={reply.authorId}
+                              blockedUserName={reply.author?.displayName || '사용자'}
+                              contentType="comment"
+                              onUnblock={() => handleUnblock(reply.authorId)}
+                            >
+                              <CommentItem
+                                comment={reply}
+                                postId={postId}
+                                onReply={handleReply}
+                                onEdit={handleEditComment}
+                                onDelete={handleDeleteComment}
+                                onLike={handleLikeComment}
+                                onAnonymousEdit={handleAnonymousEdit}
+                                onAnonymousDelete={handleAnonymousDelete}
+                                editingComment={editingComment}
+                                onEditingCommentChange={handleEditingCommentChange}
+                                onEditingCommentSave={handleEditingCommentSave}
+                                onEditingCommentCancel={handleEditingCommentCancel}
+                                isLiked={likeStatuses[reply.id] || false}
+                                level={1}
+                              />
+                            </BlockedUserContent>
+                          );
                         }
-                        onCancel={() => setReplyingTo(null)}
-                        isSubmitting={isSubmitting}
-                      />
-                    ) : (
-                      <AnonymousCommentForm
-                        onSubmit={handleCreateAnonymousComment}
-                        onCancel={() => setReplyingTo(null)}
-                        isSubmitting={isSubmitting}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                        
+                        return (
+                          <CommentItem
+                            key={reply.id}
+                            comment={reply}
+                            postId={postId}
+                            onReply={handleReply}
+                            onEdit={handleEditComment}
+                            onDelete={handleDeleteComment}
+                            onLike={handleLikeComment}
+                            onAnonymousEdit={handleAnonymousEdit}
+                            onAnonymousDelete={handleAnonymousDelete}
+                            editingComment={editingComment}
+                            onEditingCommentChange={handleEditingCommentChange}
+                            onEditingCommentSave={handleEditingCommentSave}
+                            onEditingCommentCancel={handleEditingCommentCancel}
+                            isLiked={likeStatuses[reply.id] || false}
+                            level={1}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
           {/* 익명 댓글 비밀번호 확인 모달 */}
           <AnonymousPasswordModal
-            isOpen={passwordModal.isOpen}
+            isOpen={!!showPasswordModal}
             onClose={() => {
-              setPasswordModal({ isOpen: false, commentId: '', action: 'edit' });
+              setShowPasswordModal(null);
               // 삭제 작업일 때만 편집 상태 초기화, 수정 작업일 때는 유지
-              if (passwordModal.action === 'delete') {
+              if (showPasswordModal?.action === 'delete') {
                 setEditingComment(null);
               }
             }}
             onConfirm={handlePasswordConfirm}
-            title={passwordModal.action === 'edit' ? '댓글 수정' : '댓글 삭제'}
+            title={showPasswordModal?.action === 'edit' ? '댓글 수정' : '댓글 삭제'}
             description={
-              passwordModal.action === 'edit' 
+              showPasswordModal?.action === 'edit' 
                 ? '댓글을 수정하려면 작성 시 입력한 비밀번호를 입력해주세요.'
                 : '댓글을 삭제하려면 작성 시 입력한 비밀번호를 입력해주세요.'
             }
@@ -990,11 +1090,11 @@ export default function CommentSection({
           />
 
           {/* 경험치 획득 모달 */}
-          {experienceData && (
+          {showExperienceModal && (
             <ExperienceModal
               isOpen={showExperienceModal}
               onClose={handleExperienceModalClose}
-              data={experienceData}
+              data={{ expGained: experienceGained, activityType: 'comment', leveledUp: false, oldLevel: undefined, newLevel: undefined, currentExp: 0, expToNextLevel: 0, remainingCount: 0, totalDailyLimit: 0 }}
             />
           )}
         </div>
