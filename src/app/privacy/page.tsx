@@ -291,6 +291,15 @@ export default function PrivacyPage() {
                </div>
               
               <p className="mt-4">② 정보주체께서는 인스쿨즈의 서비스(또는 사업)을 이용하시면서 발생한 모든 개인정보 보호 관련 문의, 불만처리, 피해구제 등에 관한 사항을 개인정보 보호책임자 및 담당부서로 문의하실 수 있습니다. 인스쿨즈는 정보주체의 문의에 대해 지체 없이 답변 및 처리해드릴 것입니다.</p>
+              
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mt-4">
+                <h4 className="font-bold text-base mb-2 text-blue-800">🚨 신고 및 고충처리 안내</h4>
+                <ul className="space-y-1 text-sm text-blue-700">
+                  <li>• 부적절한 콘텐츠나 사용자에 대한 모든 신고는 <strong>24시간 이내</strong>에 검토됩니다.</li>
+                  <li>• 개인정보 침해 관련 고충은 접수 즉시 우선 처리하며, 처리 결과는 알림으로 안내됩니다.</li>
+                  <li>• 긴급한 사안의 경우 더욱 신속히 대응하여 사용자 안전을 보장합니다.</li>
+                </ul>
+              </div>
             </div>
           </section>
 

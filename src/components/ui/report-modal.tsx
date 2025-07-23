@@ -181,7 +181,20 @@ export function ReportModal({
             <p className="text-xs text-gray-500">{description.length}/500</p>
           </div>
 
-
+          {/* 24시간 내 처리 안내 */}
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-white text-xs">!</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-blue-800">신고 처리 안내</p>
+                <p className="text-sm text-blue-700 mt-1">
+                  모든 신고는 <strong>24시간 이내</strong>에 검토되며, 처리 결과는 알림으로 안내됩니다.
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* 안내 메시지 */}
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
