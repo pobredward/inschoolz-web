@@ -35,18 +35,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 import { getDoc, doc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -107,7 +95,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
   const [isAccountDeleteDialogOpen, setIsAccountDeleteDialogOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
   
   const router = useRouter();
 
@@ -546,76 +533,6 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     계정 삭제
                     <span className="ml-auto">›</span>
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 계정 관리 섹션 추가 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-red-600">🚨 계정 관리</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-                  <h3 className="font-semibold text-red-800 mb-2">계정 삭제</h3>
-                  <p className="text-sm text-red-700 mb-4">
-                    계정을 삭제하면 모든 개인정보가 영구적으로 삭제됩니다. 
-                    작성한 게시글과 댓글은 "삭제된 계정"으로 표시되지만 내용은 유지됩니다.
-                  </p>
-                  
-                  <AlertDialog open={deleteAccountDialog} onOpenChange={setDeleteAccountDialog}>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm">
-                        계정 삭제
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>⚠️ 계정 삭제 확인</AlertDialogTitle>
-                        <AlertDialogDescription className="space-y-3">
-                          <p>정말로 계정을 삭제하시겠습니까?</p>
-                          <div className="bg-red-50 p-3 rounded-lg">
-                            <p className="text-sm text-red-800 font-medium">삭제되는 정보:</p>
-                            <ul className="text-sm text-red-700 mt-1 list-disc list-inside">
-                              <li>프로필 정보 (이름, 이메일, 전화번호 등)</li>
-                              <li>계정 설정 및 기록</li>
-                              <li>랭킹 및 경험치 정보</li>
-                            </ul>
-                          </div>
-                          <div className="bg-yellow-50 p-3 rounded-lg">
-                            <p className="text-sm text-yellow-800 font-medium">유지되는 정보:</p>
-                            <ul className="text-sm text-yellow-700 mt-1 list-disc list-inside">
-                              <li>작성한 게시글과 댓글 (작성자명은 "삭제된 계정"으로 변경)</li>
-                            </ul>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="delete-password">비밀번호 확인</Label>
-                            <Input
-                              id="delete-password"
-                              type="password"
-                              placeholder="현재 비밀번호를 입력하세요"
-                              value={deletePassword}
-                              onChange={(e) => setDeletePassword(e.target.value)}
-                            />
-                          </div>
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => {
-                          setDeletePassword('');
-                        }}>
-                          취소
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleDeleteAccount}
-                          disabled={isDeleting || !deletePassword.trim()}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          {isDeleting ? '삭제 중...' : '계정 삭제'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
                 </div>
               </CardContent>
             </Card>
