@@ -821,7 +821,7 @@ export const deleteComment = async (
   postId: string,
   commentId: string,
   userId: string
-): Promise<void> => {
+): Promise<{ hasReplies: boolean }> => {
   try {
     const commentRef = doc(db, `posts/${postId}/comments`, commentId);
     const commentDoc = await getDoc(commentRef);
@@ -841,31 +841,34 @@ export const deleteComment = async (
     const hasRepliesExist = await hasReplies(postId, commentId);
     
     if (hasRepliesExist) {
-      // 대댓글이 있는 경우: 소프트 삭제 (내용만 변경)
-    await updateDoc(commentRef, {
+      // 대댓글이 있는 경우: 소프트 삭제 (내용만 변경, 카운트는 유지)
+      await updateDoc(commentRef, {
         content: '삭제된 댓글입니다.',
-      'status.isDeleted': true,
-      updatedAt: Timestamp.now()
-    });
+        'status.isDeleted': true,
+        updatedAt: Timestamp.now()
+      });
+      // 대댓글이 있는 경우 카운트는 감소시키지 않음
     } else {
-      // 대댓글이 없는 경우: 실제 삭제
+      // 대댓글이 없는 경우: 소프트 삭제 및 카운트 감소
       await updateDoc(commentRef, {
         'status.isDeleted': true,
         updatedAt: Timestamp.now()
       });
+      
+      // 게시글 댓글 수 감소 (대댓글이 없는 경우에만)
+      await updateDoc(doc(db, 'posts', postId), {
+        'stats.commentCount': increment(-1),
+        updatedAt: Timestamp.now()
+      });
+      
+      // 사용자 댓글 수 감소 (대댓글이 없는 경우에만)
+      await updateDoc(doc(db, 'users', userId), {
+        'stats.commentCount': increment(-1),
+        updatedAt: Timestamp.now()
+      });
     }
     
-    // 게시글 댓글 수 감소
-    await updateDoc(doc(db, 'posts', postId), {
-      'stats.commentCount': increment(-1),
-      updatedAt: Timestamp.now()
-    });
-    
-    // 사용자 댓글 수 감소
-    await updateDoc(doc(db, 'users', userId), {
-      'stats.commentCount': increment(-1),
-      updatedAt: Timestamp.now()
-    });
+    return { hasReplies: hasRepliesExist };
   } catch (error) {
     console.error('댓글 삭제 오류:', error);
     throw new Error('댓글 삭제 중 오류가 발생했습니다.');
@@ -994,5 +997,122 @@ export const getPopularBoards = async (limit_count: number = 5): Promise<Board[]
   } catch (error) {
     console.error('인기 게시판 조회 오류:', error);
     return [];
+  }
+};
+
+// 익명 댓글 작성하기
+export const createAnonymousComment = async ({
+  postId,
+  content,
+  nickname,
+  password,
+  parentId = null,
+  ipAddress
+}: {
+  postId: string;
+  content: string;
+  nickname: string;
+  password: string;
+  parentId?: string | null;
+  ipAddress?: string;
+}) => {
+  try {
+    // 게시글 정보 가져오기
+    const postDoc = await getDoc(doc(db, 'posts', postId));
+    if (!postDoc.exists()) {
+      throw new Error('존재하지 않는 게시글입니다.');
+    }
+
+    // 비밀번호 해시화 (간단한 해시 - 실제로는 더 안전한 방법 사용)
+    const hashPassword = async (password: string): Promise<string> => {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+    
+    const passwordHash = await hashPassword(password);
+    
+    // 댓글 데이터 생성
+    const commentData = {
+      postId,
+      content,
+      authorId: null,
+      isAnonymous: true,
+      parentId,
+      anonymousAuthor: {
+        nickname,
+        passwordHash,
+        ipAddress: ipAddress || null,
+      },
+      stats: {
+        likeCount: 0,
+      },
+      status: {
+        isDeleted: false,
+        isBlocked: false,
+      },
+      createdAt: serverTimestamp(),
+    };
+
+    // Firestore에 댓글 추가
+    const commentRef = await addDoc(collection(db, 'posts', postId, 'comments'), commentData);
+    
+    // 게시글의 댓글 수 증가
+    await updateDoc(doc(db, 'posts', postId), {
+      'stats.commentCount': increment(1),
+    });
+
+    // 알림 발송 로직
+    try {
+      const postData = postDoc.data();
+      
+      if (parentId) {
+        // 대댓글인 경우: 원 댓글 작성자에게 알림
+        const parentCommentDoc = await getDoc(doc(db, `posts/${postId}/comments`, parentId));
+        if (parentCommentDoc.exists()) {
+          const parentCommentData = parentCommentDoc.data();
+          const parentAuthorId = parentCommentData.authorId;
+          
+          // 익명 댓글에 대한 답글이므로 원 댓글 작성자가 존재하는 경우에만 알림 발송
+          if (parentAuthorId) {
+            const { createCommentReplyNotification } = await import('./notifications');
+            await createCommentReplyNotification(
+              parentAuthorId,
+              postId,
+              postData.title || '게시글',
+              parentId,
+              nickname,
+              content,
+              commentRef.id
+            );
+          }
+        }
+      } else {
+        // 일반 댓글인 경우: 게시글 작성자에게 알림
+        const postAuthorId = postData.authorId;
+        
+        if (postAuthorId) {
+          const { createPostCommentNotification } = await import('./notifications');
+          await createPostCommentNotification(
+            postAuthorId,
+            'anonymous', // 익명 사용자 ID
+            postId,
+            commentRef.id,
+            postData.title || '게시글',
+            content
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error('익명 댓글 알림 발송 실패:', notificationError);
+      // 알림 발송 실패는 댓글 작성 자체를 실패시키지 않음
+    }
+
+    return commentRef.id;
+  } catch (error) {
+    console.error('익명 댓글 작성 실패:', error);
+    throw new Error('댓글 작성에 실패했습니다.');
   }
 }; 

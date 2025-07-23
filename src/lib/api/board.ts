@@ -810,7 +810,7 @@ const hasReplies = async (postId: string, commentId: string): Promise<boolean> =
 };
 
 // 댓글 삭제하기
-export const deleteComment = async (postId: string, commentId: string, userId: string) => {
+export const deleteComment = async (postId: string, commentId: string, userId: string): Promise<{ hasReplies: boolean }> => {
   try {
     const commentRef = doc(db, 'posts', postId, 'comments', commentId);
     const commentDoc = await getDoc(commentRef);
@@ -830,7 +830,7 @@ export const deleteComment = async (postId: string, commentId: string, userId: s
     const hasRepliesExist = await hasReplies(postId, commentId);
     
     if (hasRepliesExist) {
-      // 대댓글이 있는 경우: 소프트 삭제 (내용만 변경)
+      // 대댓글이 있는 경우: 소프트 삭제 (내용만 변경, 카운트는 유지)
       await updateDoc(commentRef, {
         content: '삭제된 댓글입니다.',
         status: {
@@ -839,22 +839,23 @@ export const deleteComment = async (postId: string, commentId: string, userId: s
         },
         updatedAt: serverTimestamp()
       });
+      // 대댓글이 있는 경우 카운트는 감소시키지 않음
     } else {
-      // 대댓글이 없는 경우: 완전 삭제
+      // 대댓글이 없는 경우: 완전 삭제 및 카운트 감소
       await deleteDoc(commentRef);
+      
+      // 게시글 댓글 수 감소 (대댓글이 없는 경우에만)
+      await updateDocument('posts', postId, {
+        'stats.commentCount': increment(-1)
+      });
+      
+      // 사용자 댓글 수 감소 (대댓글이 없는 경우에만)
+      await updateDocument('users', userId, {
+        'stats.commentCount': increment(-1)
+      });
     }
     
-    // 게시글 댓글 수 감소
-    await updateDocument('posts', postId, {
-      'stats.commentCount': increment(-1)
-    });
-    
-    // 사용자 댓글 수 감소
-    await updateDocument('users', userId, {
-      'stats.commentCount': increment(-1)
-    });
-    
-    return true;
+    return { hasReplies: hasRepliesExist };
   } catch (error) {
     console.error('댓글 삭제 오류:', error);
     throw new Error('댓글을 삭제하는 중 오류가 발생했습니다.');

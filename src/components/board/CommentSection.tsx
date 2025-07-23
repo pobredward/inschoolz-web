@@ -642,6 +642,10 @@ export default function CommentSection({
 
       toast.success('댓글이 작성되었습니다.');
       setReplyingTo(null);
+      
+      // 즉시 카운트 업데이트
+      onCommentCountChange?.(comments.length + 1);
+      
       fetchComments();
     } catch (error) {
       console.error('댓글 작성 오류:', error);
@@ -699,7 +703,13 @@ export default function CommentSection({
     if (!confirm('정말로 이 댓글을 삭제하시겠습니까?')) return;
 
     try {
-      await deleteComment(postId, commentId, user?.uid || '');
+      const result = await deleteComment(postId, commentId, user?.uid || '');
+      
+      // 즉시 카운트 업데이트 (대댓글이 없는 경우에만)
+      if (!result.hasReplies) {
+        onCommentCountChange?.(Math.max(0, comments.length - 1));
+      }
+      
       toast.success('댓글이 삭제되었습니다.');
       fetchComments();
     } catch (error) {
