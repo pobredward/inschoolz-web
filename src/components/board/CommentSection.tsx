@@ -272,6 +272,30 @@ function CommentForm({
   );
 }
 
+// 링크가 포함된 텍스트를 렌더링하는 함수
+function renderCommentWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800 underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 // 댓글 아이템 컴포넌트
 function CommentItem({ 
   comment, 
@@ -493,9 +517,9 @@ function CommentItem({
           </div>
         ) : (
           <>
-            <p className={`text-sm leading-relaxed whitespace-pre-wrap ${isDeleted ? 'text-slate-500 italic' : 'text-slate-700'}`}>
-              {isDeleted ? '삭제된 댓글입니다.' : comment.content}
-            </p>
+            <div className={`text-sm leading-relaxed whitespace-pre-wrap ${isDeleted ? 'text-slate-500 italic' : 'text-slate-700'}`}>
+              {isDeleted ? '삭제된 댓글입니다.' : renderCommentWithLinks(comment.content)}
+            </div>
             
             {/* 액션 버튼들 */}
             {!isDeleted && (
