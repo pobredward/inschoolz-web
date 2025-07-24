@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Comment } from '@/types';
+import bcrypt from 'bcryptjs';
 
 // 기존 댓글 API 함수들...
 
@@ -172,7 +173,28 @@ export const updateAnonymousComment = async (
 };
 
 /**
- * 익명 댓글을 삭제합니다.
+ * 대댓글 존재 여부 확인
+ */
+const hasReplies = async (postId: string, commentId: string): Promise<boolean> => {
+  try {
+    const repliesRef = collection(db, 'posts', postId, 'comments');
+    const repliesQuery = query(
+      repliesRef,
+      where('parentId', '==', commentId),
+      where('status.isDeleted', '==', false),
+      limit(1)
+    );
+    
+    const repliesSnapshot = await getDocs(repliesQuery);
+    return !repliesSnapshot.empty;
+  } catch (error) {
+    console.error('대댓글 확인 오류:', error);
+    return false;
+  }
+};
+
+/**
+ * 익명 댓글 삭제
  */
 export const deleteAnonymousComment = async (
   postId: string,
@@ -187,22 +209,30 @@ export const deleteAnonymousComment = async (
       throw new Error('비밀번호가 일치하지 않습니다.');
     }
 
-    // 트랜잭션으로 댓글 삭제 및 게시글 댓글 수 감소
+    // 대댓글 존재 여부 확인
+    const hasRepliesExist = await hasReplies(postId, commentId);
+
     await runTransaction(db, async (transaction) => {
       const commentRef = doc(db, 'posts', postId, 'comments', commentId);
       const postRef = doc(db, 'posts', postId);
       
-      // 댓글 상태를 삭제로 변경 (실제 삭제하지 않고 상태만 변경)
-      transaction.update(commentRef, {
-        'status.isDeleted': true,
-        content: '삭제된 댓글입니다.',
-        deletedAt: serverTimestamp(),
-      });
-      
-      // 게시글의 댓글 수 감소
-      transaction.update(postRef, {
-        'stats.commentCount': increment(-1),
-      });
+      if (hasRepliesExist) {
+        // 대댓글이 있는 경우: 소프트 삭제 (내용만 변경, 카운트는 유지)
+        transaction.update(commentRef, {
+          content: '삭제된 댓글입니다.',
+          'status.isDeleted': true,
+          deletedAt: serverTimestamp(),
+        });
+        // 대댓글이 있는 경우 카운트는 감소시키지 않음
+      } else {
+        // 대댓글이 없는 경우: 완전 삭제 및 카운트 감소
+        transaction.delete(commentRef);
+        
+        // 게시글의 댓글 수 감소
+        transaction.update(postRef, {
+          'stats.commentCount': increment(-1),
+        });
+      }
     });
   } catch (error) {
     console.error('익명 댓글 삭제 실패:', error);
