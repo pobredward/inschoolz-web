@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -19,12 +20,13 @@ import { useAuth } from '@/providers/AuthProvider';
 import { Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
-  email: z.string().email({
-    message: '유효한 이메일 주소를 입력해주세요.',
-  }),
-  password: z.string().min(1, {
-    message: '비밀번호를 입력해주세요.',
-  }),
+  email: z
+    .string()
+    .min(1, { message: '이메일을 입력해주세요.' })
+    .email({ message: '유효한 이메일 주소를 입력해주세요.' }),
+  password: z
+    .string()
+    .min(6, { message: '비밀번호는 최소 6자 이상이어야 합니다.' }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -32,6 +34,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const { signIn, signInWithGoogle, error, isLoading, resetError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -42,13 +46,31 @@ export function LoginForm() {
   });
 
   const onSubmit = async (values: LoginFormValues) => {
-    resetError();
-    await signIn(values.email, values.password);
+    try {
+      resetError();
+      await signIn(values.email, values.password);
+      
+      // 로그인 성공 후 리디렉션
+      const redirectUrl = searchParams.get('redirect') || '/';
+      router.push(redirectUrl);
+    } catch (error) {
+      // 에러는 AuthProvider에서 이미 처리됨
+      console.error('로그인 실패:', error);
+    }
   };
 
   const handleGoogleSignIn = async () => {
-    resetError();
-    await signInWithGoogle();
+    try {
+      resetError();
+      await signInWithGoogle();
+      
+      // 로그인 성공 후 리디렉션
+      const redirectUrl = searchParams.get('redirect') || '/';
+      router.push(redirectUrl);
+    } catch (error) {
+      // 에러는 AuthProvider에서 이미 처리됨
+      console.error('Google 로그인 실패:', error);
+    }
   };
 
   return (

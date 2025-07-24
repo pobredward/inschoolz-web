@@ -27,26 +27,31 @@ interface AuthContextType {
   resetError: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  firebaseUser: null,
-  isLoading: true,
-  error: null,
-  suspensionStatus: null,
-  signIn: async () => {},
-  signInWithGoogle: async () => {},
-  signOut: async () => {},
-  refreshUser: async () => {},
-  checkSuspension: () => {},
-  resetError: () => {},
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+// 쿠키 설정 함수
+const setCookie = (name: string, value: string, days = 7) => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  
+  // 개발 환경에서는 secure 옵션 제외
+  const isProduction = process.env.NODE_ENV === 'production';
+  const secureOption = isProduction ? '; secure' : '';
+  
+  document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+};
+
+// 쿠키 삭제 함수
+const deleteCookie = (name: string) => {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
 };
 
 interface AuthProviderProps {
@@ -62,6 +67,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const resetError = () => {
     setError(null);
+  };
+
+  // 사용자 정보와 쿠키 설정
+  const setUserAndCookies = async (userData: User, firebaseUser: FirebaseUser) => {
+    try {
+      setUser(userData);
+      
+      // Firebase ID 토큰 가져오기
+      const idToken = await firebaseUser.getIdToken();
+      
+      // 쿠키 설정
+      setCookie('authToken', idToken);
+      setCookie('uid', userData.uid);
+      setCookie('userId', userData.uid); // 백업용
+      setCookie('userRole', userData.role);
+      
+      checkUserSuspension(userData);
+    } catch (error) {
+      console.error('쿠키 설정 오류:', error);
+    }
+  };
+
+  // 인증 정보 초기화 및 쿠키 삭제
+  const clearAuthAndCookies = () => {
+    setUser(null);
+    setFirebaseUser(null);
+    setSuspensionStatus(null);
+    setError(null);
+    
+    // 쿠키 삭제
+    deleteCookie('authToken');
+    deleteCookie('uid');
+    deleteCookie('userId');
+    deleteCookie('userRole');
   };
 
   const signIn = async (email: string, password: string) => {
@@ -91,10 +130,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
-      setUser(null);
-      setFirebaseUser(null);
-      setSuspensionStatus(null);
-      setError(null);
+      clearAuthAndCookies();
       toast.success('로그아웃되었습니다.');
     } catch (error) {
       console.error('로그아웃 오류:', error);
@@ -108,8 +144,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const userData = await getUserById(firebaseUser.uid);
       if (userData) {
-        setUser(userData);
-        checkUserSuspension(userData);
+        await setUserAndCookies(userData, firebaseUser);
       }
     } catch (error) {
       console.error('사용자 정보 새로고침 오류:', error);
@@ -177,20 +212,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         try {
           const userData = await getUserById(firebaseUser.uid);
           if (userData) {
-            setUser(userData);
-            checkUserSuspension(userData);
+            await setUserAndCookies(userData, firebaseUser);
           } else {
-            setUser(null);
-            setSuspensionStatus(null);
+            clearAuthAndCookies();
           }
         } catch (error) {
           console.error('사용자 정보 조회 오류:', error);
-          setUser(null);
-          setSuspensionStatus(null);
+          clearAuthAndCookies();
         }
       } else {
-        setUser(null);
-        setSuspensionStatus(null);
+        clearAuthAndCookies();
       }
       
       setIsLoading(false);

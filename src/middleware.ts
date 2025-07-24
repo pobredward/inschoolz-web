@@ -55,18 +55,23 @@ export function middleware(request: NextRequest) {
   // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
   if (!authCookie) {
     console.log(`🚫 Middleware: ${path} -> /auth?tab=login 리다이렉트 (인증 필요)`);
-    return NextResponse.redirect(new URL('/auth?tab=login', request.url));
+    return NextResponse.redirect(new URL(`/auth?tab=login&redirect=${encodeURIComponent(path)}`, request.url));
   }
   
   // 관리자 페이지 접근 제한 (관리자 역할 확인)
   if (path.startsWith('/admin')) {
     const userRoleCookie = request.cookies.get('userRole');
+    const userRole = userRoleCookie?.value;
+    
+    console.log(`👤 Middleware: ${path} - 사용자 role: ${userRole || '없음'}`);
     
     // 관리자가 아닌 경우 홈페이지로 리디렉션
-    if (userRoleCookie?.value !== 'admin') {
-      console.log(`🚫 Middleware: ${path} -> / 리다이렉트 (관리자 아님)`);
+    if (userRole !== 'admin') {
+      console.log(`🚫 Middleware: ${path} -> / 리다이렉트 (관리자 아님, role: ${userRole})`);
       return NextResponse.redirect(new URL('/', request.url));
     }
+    
+    console.log(`✅ Middleware: ${path} - 관리자 접근 허용`);
   }
   
   console.log(`✅ Middleware: ${path} - 통과`);
