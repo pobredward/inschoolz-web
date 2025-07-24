@@ -710,12 +710,14 @@ export default function CommunityPageClient() {
           <div className="container mx-auto px-4 pt-4 pb-2">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">게시글</h2>
-              <Button 
-                onClick={handleWriteClick}
-                className="bg-green-500 hover:bg-green-600 text-white shadow-sm"
-              >
-                <span className="text-sm">✏️ 글쓰기</span>
-              </Button>
+              {user && (
+                <Button 
+                  onClick={handleWriteClick}
+                  className="bg-green-500 hover:bg-green-600 text-white shadow-sm"
+                >
+                  <span className="text-sm">✏️ 글쓰기</span>
+                </Button>
+              )}
             </div>
           </div>
 
