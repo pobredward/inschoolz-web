@@ -8,7 +8,7 @@ import {
   GoogleAuthProvider, 
   signInWithPopup
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { useRouter } from 'next/navigation';
 

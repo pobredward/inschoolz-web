@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getUserById } from '@/lib/api/users';
+import { loginWithEmail, loginWithGoogle } from '@/lib/auth';
 import { User } from '@/types';
 import { checkSuspensionStatus, SuspensionStatus } from '@/lib/auth/suspension-check';
 import { SuspensionNotice } from '@/components/ui/suspension-notice';
@@ -17,20 +18,28 @@ interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   isLoading: boolean;
+  error: string | null;
   suspensionStatus: SuspensionStatus | null;
+  signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   checkSuspension: () => void;
+  resetError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   firebaseUser: null,
   isLoading: true,
+  error: null,
   suspensionStatus: null,
+  signIn: async () => {},
+  signInWithGoogle: async () => {},
   signOut: async () => {},
   refreshUser: async () => {},
   checkSuspension: () => {},
+  resetError: () => {},
 });
 
 export const useAuth = () => {
@@ -49,8 +58,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [suspensionStatus, setSuspensionStatus] = useState<SuspensionStatus | null>(null);
   const [showSuspensionNotice, setShowSuspensionNotice] = useState(false);
+
+  const resetError = () => {
+    setError(null);
+  };
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await loginWithEmail(email, password);
+      toast.success('로그인되었습니다.');
+    } catch (error) {
+      console.error('로그인 오류:', error);
+      setError(error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await loginWithGoogle();
+      toast.success('Google 로그인되었습니다.');
+    } catch (error) {
+      console.error('Google 로그인 오류:', error);
+      setError(error instanceof Error ? error.message : 'Google 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const signOut = async () => {
     try {
@@ -59,6 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setFirebaseUser(null);
       setSuspensionStatus(null);
       setShowSuspensionNotice(false);
+      setError(null);
       toast.success('로그아웃되었습니다.');
     } catch (error) {
       console.error('로그아웃 오류:', error);
@@ -158,10 +201,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           user,
           firebaseUser,
           isLoading,
+          error,
           suspensionStatus,
+          signIn,
+          signInWithGoogle,
           signOut,
           refreshUser,
           checkSuspension,
+          resetError,
         }}
       >
         <SuspensionNotice
@@ -179,10 +226,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         user,
         firebaseUser,
         isLoading,
+        error,
         suspensionStatus,
+        signIn,
+        signInWithGoogle,
         signOut,
         refreshUser,
         checkSuspension,
+        resetError,
       }}
     >
       {children}
