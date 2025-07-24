@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ReferralSearch } from '@/components/ui/referral-search';
 import { checkUserNameAvailability } from '@/lib/api/users';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { FormDataType } from '@/types';
@@ -74,22 +75,17 @@ interface DetailedInfoStepProps {
 }
 
 export function DetailedInfoStep({ formData, updateFormData, onSubmit }: DetailedInfoStepProps) {
-  // 약관 전체 동의 상태
-  const [allAgreed, setAllAgreed] = useState(false);
+  // 사용자명 검증 상태
   const [userNameStatus, setUserNameStatus] = useState<{
     status: 'idle' | 'checking' | 'available' | 'unavailable';
     message?: string;
   }>({ status: 'idle' });
-  const [emailStatus, setEmailStatus] = useState<{
-    status: 'idle' | 'checking' | 'available' | 'unavailable';
-    message?: string;
-  }>({ status: 'idle' });
-  const [referralStatus, setReferralStatus] = useState<{
-    status: 'idle' | 'checking' | 'valid' | 'invalid';
-    message?: string;
-  }>({ status: 'idle' });
+  
   const [allChecked, setAllChecked] = useState(
-    formData.agreements?.terms && formData.agreements?.privacy && formData.agreements?.location
+    formData.agreements.terms && 
+    formData.agreements.privacy && 
+    formData.agreements.location && 
+    formData.agreements.marketing
   );
 
   const form = useForm<DetailedInfoValues>({
@@ -103,25 +99,34 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
       birthDay: formData.birthDay || 1,
       phoneNumber: formData.phoneNumber || '',
       referral: formData.referral || '',
-      termsAgreed: formData.agreements?.terms || false,
-      privacyAgreed: formData.agreements?.privacy || false,
-      locationAgreed: formData.agreements?.location || false,
-      marketingAgreed: formData.agreements?.marketing || false,
+      termsAgreed: formData.agreements.terms,
+      privacyAgreed: formData.agreements.privacy,
+      locationAgreed: formData.agreements.location,
+      marketingAgreed: formData.agreements.marketing,
     },
   });
 
-  const handleFieldChange = (field: keyof DetailedInfoValues, value: any) => {
-    form.setValue(field, value);
+  const handleFieldChange = (field: keyof DetailedInfoValues, value: string | number | boolean) => {
+    // 타입에 따라 안전하게 설정
+    if (typeof value === 'boolean') {
+      form.setValue(field as keyof DetailedInfoValues, value);
+    } else if (typeof value === 'number') {
+      form.setValue(field as keyof DetailedInfoValues, value);
+    } else {
+      form.setValue(field as keyof DetailedInfoValues, value);
+    }
+    
     if (field.includes('Agreed')) {
       // 약관 동의 필드인 경우
       const agreementField = field.replace('Agreed', '') as 'terms' | 'privacy' | 'location' | 'marketing';
       updateFormData({
         agreements: {
           ...formData.agreements,
-          [agreementField]: value
-        }
+          [agreementField]: value as boolean,
+        },
       });
     } else {
+      // 일반 필드인 경우
       updateFormData({ [field]: value });
     }
   };
@@ -451,14 +456,14 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                 <FormItem>
                   <FormLabel>추천인 아이디 (선택)</FormLabel>
                   <FormControl>
-                    {/* ReferralSearch component was removed, so this field is now a simple Input */}
-                    <Input 
-                      placeholder="추천인 아이디를 입력하세요" 
-                      {...field} 
-                      onChange={(e) => {
-                        field.onChange(e.target.value);
-                        handleFieldChange('referral', e.target.value);
+                    <ReferralSearch 
+                      placeholder="추천인 아이디를 검색하세요" 
+                      onSelect={(selectedUser) => {
+                        const referralValue = selectedUser ? selectedUser.userName : '';
+                        field.onChange(referralValue);
+                        handleFieldChange('referral', referralValue);
                       }}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
