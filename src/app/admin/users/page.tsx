@@ -18,21 +18,26 @@ import {
   Edit, 
   Trash2, 
   AlertTriangle, 
-  RefreshCw
+  RefreshCw,
+  Filter,
+  Download,
+  ChevronDown
 } from 'lucide-react';
 import { 
-  getUsersList, 
+  getEnhancedUsersList, 
   updateUserRole, 
-  updateUserStatus, 
+  updateUserStatusEnhanced, 
   updateUserExperienceAdmin, 
   addUserWarning, 
   deleteUser, 
   bulkUpdateUsers,
-  AdminUserListParams,
 } from '@/lib/api/users';
-import { User, FirebaseTimestamp } from '@/types'; // 통일된 타입 사용
+import { EnhancedAdminUserListParams, SuspensionSettings, ExportOptions } from '@/types/admin';
+import { User, FirebaseTimestamp } from '@/types';
 import { toast } from 'sonner';
 import { toDate } from '@/lib/utils';
+import { CSVExportDialog } from '@/components/ui/csv-export-dialog';
+import { convertUsersToCSV, downloadCSV, generateExportFilename } from '@/lib/utils/csv-export';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -42,41 +47,65 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   
-  // 필터 상태
+  // 개선된 필터 상태
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchType, setSearchType] = useState<'all' | 'userName' | 'realName' | 'email' | 'school'>('all');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
   const [sortBy, setSortBy] = useState<'createdAt' | 'lastActiveAt' | 'totalExperience' | 'userName'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
+  // 고급 필터 상태
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [levelRange, setLevelRange] = useState<{ min?: number; max?: number }>({});
+  const [experienceRange, setExperienceRange] = useState<{ min?: number; max?: number }>({});
+  const [regionFilter, setRegionFilter] = useState<{ sido?: string; sigungu?: string }>({});
+  const [hasWarnings, setHasWarnings] = useState<boolean | undefined>(undefined);
+  
   // 다이얼로그 상태
   const [warningDialog, setWarningDialog] = useState<{ isOpen: boolean; user: User | null }>({ isOpen: false, user: null });
   const [experienceDialog, setExperienceDialog] = useState<{ isOpen: boolean; user: User | null }>({ isOpen: false, user: null });
+  const [suspensionDialog, setSuspensionDialog] = useState<{ isOpen: boolean; user: User | null }>({ isOpen: false, user: null });
+  const [csvExportDialog, setCsvExportDialog] = useState(false);
   
   // 폼 상태
   const [warningForm, setWarningForm] = useState({ reason: '', severity: 'medium' as 'low' | 'medium' | 'high' });
   const [experienceForm, setExperienceForm] = useState({ totalExperience: 0, reason: '' });
+  const [suspensionForm, setSuspensionForm] = useState<SuspensionSettings>({
+    type: 'temporary',
+    duration: 7,
+    reason: '',
+    autoRestore: true,
+    notifyUser: true
+  });
   const [bulkAction, setBulkAction] = useState<{ type: string; value: string }>({ type: '', value: '' });
 
-  const loadUsers = async (params: AdminUserListParams = {}) => {
+  const loadUsers = async (params: EnhancedAdminUserListParams = {}) => {
     setIsLoading(true);
     try {
-      const response = await getUsersList({
+      const response = await getEnhancedUsersList({
         page: currentPage,
         pageSize: 20,
         search: searchTerm,
+        searchType,
         role: roleFilter,
         status: statusFilter,
         sortBy,
         sortOrder,
+        dateRange: (dateRange.from && dateRange.to) ? { from: dateRange.from, to: dateRange.to } : undefined,
+        levelRange: (levelRange.min !== undefined && levelRange.max !== undefined) ? { min: levelRange.min, max: levelRange.max } : undefined,
+        experienceRange: (experienceRange.min !== undefined && experienceRange.max !== undefined) ? { min: experienceRange.min, max: experienceRange.max } : undefined,
+        regions: regionFilter.sido || regionFilter.sigungu ? regionFilter : undefined,
+        hasWarnings,
         ...params
       });
       
       setUsers(response.users);
       setTotalCount(response.totalCount);
       setHasMore(response.hasMore);
-    } catch (error) {
-      console.error('사용자 목록 로드 오류:', error);
+    } catch (err) {
+      console.error('사용자 목록 로드 오류:', err);
       toast.error('사용자 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
@@ -85,7 +114,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage, searchTerm, roleFilter, statusFilter, sortBy, sortOrder]);
+  }, [currentPage, searchTerm, searchType, roleFilter, statusFilter, sortBy, sortOrder, dateRange, levelRange, experienceRange, regionFilter, hasWarnings]);
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -113,18 +142,49 @@ export default function AdminUsersPage() {
       await updateUserRole(userId, newRole);
       toast.success('사용자 역할이 변경되었습니다.');
       loadUsers();
-    } catch (error) {
+    } catch (err) {
+      console.error('역할 변경 오류:', err);
       toast.error('역할 변경 중 오류가 발생했습니다.');
     }
   };
 
   const handleStatusChange = async (userId: string, newStatus: 'active' | 'inactive' | 'suspended') => {
+    if (newStatus === 'suspended') {
+      // 정지의 경우 상세 설정 다이얼로그 열기
+      const user = users.find(u => u.uid === userId);
+      if (user) {
+        setSuspensionDialog({ isOpen: true, user });
+      }
+    } else {
+      try {
+        await updateUserStatusEnhanced(userId, newStatus);
+        toast.success('사용자 상태가 변경되었습니다.');
+        loadUsers();
+      } catch (err) {
+        console.error('상태 변경 오류:', err);
+        toast.error('상태 변경 중 오류가 발생했습니다.');
+      }
+    }
+  };
+
+  const handleSuspension = async () => {
+    if (!suspensionDialog.user) return;
+    
     try {
-      await updateUserStatus(userId, newStatus);
-      toast.success('사용자 상태가 변경되었습니다.');
+      await updateUserStatusEnhanced(suspensionDialog.user.uid, 'suspended', suspensionForm);
+      toast.success('사용자가 정지되었습니다.');
+      setSuspensionDialog({ isOpen: false, user: null });
+      setSuspensionForm({
+        type: 'temporary',
+        duration: 7,
+        reason: '',
+        autoRestore: true,
+        notifyUser: true
+      });
       loadUsers();
-    } catch (error) {
-      toast.error('상태 변경 중 오류가 발생했습니다.');
+    } catch (err) {
+      console.error('사용자 정지 오류:', err);
+      toast.error('사용자 정지 중 오류가 발생했습니다.');
     }
   };
 
@@ -137,7 +197,8 @@ export default function AdminUsersPage() {
       setWarningDialog({ isOpen: false, user: null });
       setWarningForm({ reason: '', severity: 'medium' });
       loadUsers();
-    } catch (error) {
+    } catch (err) {
+      console.error('경고 추가 오류:', err);
       toast.error('경고 추가 중 오류가 발생했습니다.');
     }
   };
@@ -146,12 +207,13 @@ export default function AdminUsersPage() {
     if (!experienceDialog.user) return;
     
     try {
-              await updateUserExperienceAdmin(experienceDialog.user.uid, experienceForm.totalExperience, experienceForm.reason);
+      await updateUserExperienceAdmin(experienceDialog.user.uid, experienceForm.totalExperience, experienceForm.reason);
       toast.success('경험치가 수정되었습니다.');
       setExperienceDialog({ isOpen: false, user: null });
       setExperienceForm({ totalExperience: 0, reason: '' });
       loadUsers();
-    } catch (error) {
+    } catch (err) {
+      console.error('경험치 수정 오류:', err);
       toast.error('경험치 수정 중 오류가 발생했습니다.');
     }
   };
@@ -161,7 +223,8 @@ export default function AdminUsersPage() {
       await deleteUser(userId);
       toast.success('사용자가 삭제되었습니다.');
       loadUsers();
-    } catch (error) {
+    } catch (err) {
+      console.error('사용자 삭제 오류:', err);
       toast.error('사용자 삭제 중 오류가 발생했습니다.');
     }
   };
@@ -170,12 +233,12 @@ export default function AdminUsersPage() {
     if (selectedUsers.length === 0 || !bulkAction.type) return;
     
     try {
-      const updates: any = {};
+      const updates: { role?: 'admin' | 'user'; status?: 'active' | 'inactive' | 'suspended' } = {};
       
       if (bulkAction.type === 'role') {
-        updates.role = bulkAction.value;
+        updates.role = bulkAction.value as 'admin' | 'user';
       } else if (bulkAction.type === 'status') {
-        updates.status = bulkAction.value;
+        updates.status = bulkAction.value as 'active' | 'inactive' | 'suspended';
       }
       
       await bulkUpdateUsers(selectedUsers, updates);
@@ -183,9 +246,23 @@ export default function AdminUsersPage() {
       setSelectedUsers([]);
       setBulkAction({ type: '', value: '' });
       loadUsers();
-    } catch (error) {
+    } catch (err) {
+      console.error('대량 업데이트 오류:', err);
       toast.error('대량 업데이트 중 오류가 발생했습니다.');
     }
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setSearchType('all');
+    setRoleFilter('all');
+    setStatusFilter('all');
+    setDateRange({});
+    setLevelRange({});
+    setExperienceRange({});
+    setRegionFilter({});
+    setHasWarnings(undefined);
+    setCurrentPage(1);
   };
 
   const getRoleColor = (role?: string) => {
@@ -207,15 +284,60 @@ export default function AdminUsersPage() {
     }
   };
 
-  const formatDate = (timestamp?: FirebaseTimestamp | { seconds?: number; nanoseconds?: number } | any) => {
+  const formatDate = (timestamp?: FirebaseTimestamp | { seconds?: number; nanoseconds?: number } | unknown) => {
     if (!timestamp) return '-';
     try {
       const date = toDate(timestamp);
       if (isNaN(date.getTime())) return '-';
       return date.toLocaleDateString('ko-KR');
-    } catch (error) {
-      console.error('Date formatting error:', error);
+    } catch (err) {
+      console.error('Date formatting error:', err);
       return '-';
+    }
+  };
+
+  const exportToCSV = () => {
+    setCsvExportDialog(true);
+  };
+
+  const handleCSVExport = async (options: ExportOptions) => {
+    try {
+      // 내보낼 사용자 데이터 가져오기
+      let exportUsers: User[] = [];
+      
+      // exportScope는 options 내부에서 직접 확인
+      if (selectedUsers.length > 0) {
+        // 선택된 사용자가 있을 때만 선택 옵션 활용
+        exportUsers = users.filter(user => selectedUsers.includes(user.uid));
+      } else {
+        // 현재 필터 결과 또는 모든 사용자
+        const allUsersResponse = await getEnhancedUsersList({
+          page: 1,
+          pageSize: 10000, // 대량 데이터 가져오기
+          search: '',
+          searchType: 'all',
+          role: 'all',
+          status: 'all'
+        });
+        exportUsers = allUsersResponse.users;
+      }
+      
+      if (exportUsers.length === 0) {
+        toast.warning('내보낼 데이터가 없습니다.');
+        return;
+      }
+      
+      // CSV 변환
+      const csvContent = convertUsersToCSV(exportUsers, options);
+      
+      // 파일 다운로드
+      const filename = generateExportFilename('inschoolz_users');
+      downloadCSV(csvContent, filename);
+      
+      toast.success(`${exportUsers.length}명의 사용자 데이터가 내보내졌습니다.`);
+    } catch (err) {
+      console.error('CSV 내보내기 오류:', err);
+      toast.error('CSV 내보내기 중 오류가 발생했습니다.');
     }
   };
 
@@ -227,28 +349,63 @@ export default function AdminUsersPage() {
           <h1 className="text-3xl font-bold text-gray-900">사용자 관리</h1>
           <p className="text-gray-600">총 {totalCount}명의 사용자</p>
         </div>
-        <Button onClick={() => loadUsers()} disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          새로고침
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={exportToCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            CSV 내보내기
+          </Button>
+          <Button onClick={() => loadUsers()} disabled={isLoading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            새로고침
+          </Button>
+        </div>
       </div>
 
       {/* 검색 및 필터 */}
       <Card>
         <CardHeader>
-          <CardTitle>검색 및 필터</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>검색 및 필터</CardTitle>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                고급 필터
+                <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                필터 초기화
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+            <div className="lg:col-span-2">
               <Label htmlFor="search">검색</Label>
               <div className="flex gap-2">
+                <Select value={searchType} onValueChange={(value: typeof searchType) => setSearchType(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="userName">사용자명</SelectItem>
+                    <SelectItem value="realName">실명</SelectItem>
+                    <SelectItem value="email">이메일</SelectItem>
+                    <SelectItem value="school">학교명</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Input
                   id="search"
-                  placeholder="사용자명 검색..."
+                  placeholder="검색어 입력..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="flex-1"
                 />
                 <Button onClick={handleSearch}>
                   <Search className="h-4 w-4" />
@@ -258,7 +415,7 @@ export default function AdminUsersPage() {
             
             <div>
               <Label htmlFor="role">역할</Label>
-              <Select value={roleFilter} onValueChange={(value: any) => setRoleFilter(value)}>
+              <Select value={roleFilter} onValueChange={(value: typeof roleFilter) => setRoleFilter(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -272,7 +429,7 @@ export default function AdminUsersPage() {
             
             <div>
               <Label htmlFor="status">상태</Label>
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: typeof statusFilter) => setStatusFilter(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -289,8 +446,8 @@ export default function AdminUsersPage() {
               <Label htmlFor="sort">정렬</Label>
               <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
                 const [field, order] = value.split('-');
-                setSortBy(field as any);
-                setSortOrder(order as any);
+                setSortBy(field as typeof sortBy);
+                setSortOrder(order as typeof sortOrder);
               }}>
                 <SelectTrigger>
                   <SelectValue />
@@ -299,12 +456,88 @@ export default function AdminUsersPage() {
                   <SelectItem value="createdAt-desc">가입일 (최신순)</SelectItem>
                   <SelectItem value="createdAt-asc">가입일 (오래된순)</SelectItem>
                   <SelectItem value="lastActiveAt-desc">최근 활동 (최신순)</SelectItem>
-                  <SelectItem value="experience-desc">경험치 (높은순)</SelectItem>
+                  <SelectItem value="totalExperience-desc">경험치 (높은순)</SelectItem>
                   <SelectItem value="userName-asc">사용자명 (가나다순)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {/* 고급 필터 */}
+          {showAdvancedFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <Label>가입일 범위</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={dateRange.from ? dateRange.from.toISOString().split('T')[0] : ''}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value ? new Date(e.target.value) : undefined }))}
+                    placeholder="시작일"
+                  />
+                  <Input
+                    type="date"
+                    value={dateRange.to ? dateRange.to.toISOString().split('T')[0] : ''}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value ? new Date(e.target.value) : undefined }))}
+                    placeholder="종료일"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>레벨 범위</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="최소"
+                    value={levelRange.min || ''}
+                    onChange={(e) => setLevelRange(prev => ({ ...prev, min: Number(e.target.value) || undefined }))}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="최대"
+                    value={levelRange.max || ''}
+                    onChange={(e) => setLevelRange(prev => ({ ...prev, max: Number(e.target.value) || undefined }))}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>경험치 범위</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="최소"
+                    value={experienceRange.min || ''}
+                    onChange={(e) => setExperienceRange(prev => ({ ...prev, min: Number(e.target.value) || undefined }))}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="최대"
+                    value={experienceRange.max || ''}
+                    onChange={(e) => setExperienceRange(prev => ({ ...prev, max: Number(e.target.value) || undefined }))}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>경고 여부</Label>
+                <Select value={hasWarnings?.toString() || 'all'} onValueChange={(value) => {
+                  if (value === 'all') setHasWarnings(undefined);
+                  else setHasWarnings(value === 'true');
+                }}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="true">경고 있음</SelectItem>
+                    <SelectItem value="false">경고 없음</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -441,7 +674,7 @@ export default function AdminUsersPage() {
                       <TableCell>{formatDate(user.profile?.createdAt || user.createdAt)}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Select onValueChange={(value) => handleRoleChange(user.uid, value as any)}>
+                          <Select onValueChange={(value) => handleRoleChange(user.uid, value as 'admin' | 'user')}>
                             <SelectTrigger className="w-28 h-8">
                               <span className="text-xs">
                                 {user.role === 'admin' ? '관리자' : '일반 사용자'}
@@ -453,7 +686,7 @@ export default function AdminUsersPage() {
                             </SelectContent>
                           </Select>
                           
-                          <Select onValueChange={(value) => handleStatusChange(user.uid, value as any)}>
+                          <Select onValueChange={(value) => handleStatusChange(user.uid, value as 'active' | 'inactive' | 'suspended')}>
                             <SelectTrigger className="w-20 h-8">
                               <span className="text-xs">
                                 {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : user.status === 'suspended' ? '정지' : '활성'}
@@ -542,13 +775,89 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
 
+      {/* 정지 설정 다이얼로그 */}
+      <Dialog open={suspensionDialog.isOpen} onOpenChange={(open) => setSuspensionDialog({ isOpen: open, user: suspensionDialog.user })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>사용자 정지</DialogTitle>
+            <DialogDescription>
+              사용자 &quot;{suspensionDialog.user?.profile?.userName}&quot;을 정지합니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>정지 유형</Label>
+              <Select value={suspensionForm.type} onValueChange={(value: 'temporary' | 'permanent') => 
+                setSuspensionForm({ ...suspensionForm, type: value })
+              }>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="temporary">임시 정지</SelectItem>
+                  <SelectItem value="permanent">영구 정지</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {suspensionForm.type === 'temporary' && (
+              <div>
+                <Label>정지 기간 (일)</Label>
+                <Input
+                  type="number"
+                  value={suspensionForm.duration || ''}
+                  onChange={(e) => setSuspensionForm({ ...suspensionForm, duration: Number(e.target.value) })}
+                  min="1"
+                  max="365"
+                />
+              </div>
+            )}
+            
+            <div>
+              <Label>정지 사유</Label>
+              <Textarea
+                placeholder="정지 사유를 입력하세요..."
+                value={suspensionForm.reason}
+                onChange={(e) => setSuspensionForm({ ...suspensionForm, reason: e.target.value })}
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="autoRestore"
+                checked={suspensionForm.autoRestore}
+                onCheckedChange={(checked) => setSuspensionForm({ ...suspensionForm, autoRestore: checked as boolean })}
+              />
+              <Label htmlFor="autoRestore">자동 해제</Label>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="notifyUser"
+                checked={suspensionForm.notifyUser}
+                onCheckedChange={(checked) => setSuspensionForm({ ...suspensionForm, notifyUser: checked as boolean })}
+              />
+              <Label htmlFor="notifyUser">사용자에게 알림</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuspensionDialog({ isOpen: false, user: null })}>
+              취소
+            </Button>
+            <Button onClick={handleSuspension}>
+              정지
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 경고 추가 다이얼로그 */}
       <Dialog open={warningDialog.isOpen} onOpenChange={(open) => setWarningDialog({ isOpen: open, user: warningDialog.user })}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>경고 추가</DialogTitle>
             <DialogDescription>
-              사용자 "{warningDialog.user?.profile.userName}"에게 경고를 추가합니다.
+              사용자 &quot;{warningDialog.user?.profile?.userName}&quot;에게 경고를 추가합니다.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -563,7 +872,7 @@ export default function AdminUsersPage() {
             </div>
             <div>
               <Label htmlFor="warning-severity">심각도</Label>
-              <Select value={warningForm.severity} onValueChange={(value: any) => setWarningForm({ ...warningForm, severity: value })}>
+              <Select value={warningForm.severity} onValueChange={(value: typeof warningForm.severity) => setWarningForm({ ...warningForm, severity: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -592,7 +901,7 @@ export default function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>경험치 수정</DialogTitle>
             <DialogDescription>
-              사용자 "{experienceDialog.user?.profile.userName}"의 경험치를 수정합니다.
+              사용자 &quot;{experienceDialog.user?.profile?.userName}&quot;의 경험치를 수정합니다.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -601,8 +910,8 @@ export default function AdminUsersPage() {
               <Input
                 id="experience-amount"
                 type="number"
-                                      value={experienceForm.totalExperience}
-                      onChange={(e) => setExperienceForm({ ...experienceForm, totalExperience: Number(e.target.value) })}
+                value={experienceForm.totalExperience}
+                onChange={(e) => setExperienceForm({ ...experienceForm, totalExperience: Number(e.target.value) })}
               />
             </div>
             <div>
@@ -625,6 +934,15 @@ export default function AdminUsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CSV 내보내기 다이얼로그 */}
+      <CSVExportDialog
+        isOpen={csvExportDialog}
+        onClose={() => setCsvExportDialog(false)}
+        onExport={handleCSVExport}
+        totalCount={totalCount}
+        selectedCount={selectedUsers.length}
+      />
     </div>
   );
 } 

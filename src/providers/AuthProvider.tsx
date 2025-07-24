@@ -1,47 +1,42 @@
 'use client';
 
-import React, { ReactNode, createContext, useContext, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { 
+  onAuthStateChanged, 
   signOut as firebaseSignOut,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  sendPasswordResetEmail,
-  updateProfile
+  User as FirebaseUser 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
+import { getUserById } from '@/lib/api/users';
 import { User } from '@/types';
-import Cookies from 'js-cookie';
-import { resetDailyActivityLimits } from '@/lib/experience';
+import { checkSuspensionStatus, SuspensionStatus } from '@/lib/auth/suspension-check';
+import { SuspensionNotice } from '@/components/ui/suspension-notice';
+import { toast } from 'sonner';
 
-interface AuthUser extends User {
-  emailVerified: boolean;
-}
-
-interface AuthContextProps {
-  user: AuthUser | null;
+interface AuthContextType {
+  user: User | null;
+  firebaseUser: FirebaseUser | null;
   isLoading: boolean;
-  error: string | null;
-  signUp: (email: string, password: string, userName: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  suspensionStatus: SuspensionStatus | null;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  resetError: () => void;
   refreshUser: () => Promise<void>;
-  isAdmin: boolean;
+  checkSuspension: () => void;
 }
 
-const AuthContext = createContext<AuthContextProps | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  firebaseUser: null,
+  isLoading: true,
+  suspensionStatus: null,
+  signOut: async () => {},
+  refreshUser: async () => {},
+  checkSuspension: () => {},
+});
 
-export const useAuth = (): AuthContextProps => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth는 AuthProvider 내에서 사용되어야 합니다.');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
@@ -50,484 +45,147 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const router = useRouter();
+  const [suspensionStatus, setSuspensionStatus] = useState<SuspensionStatus | null>(null);
+  const [showSuspensionNotice, setShowSuspensionNotice] = useState(false);
 
-  // 하이드레이션 이슈 해결을 위한 로딩 상태
-  const [isMounted, setIsMounted] = useState(false);
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setFirebaseUser(null);
+      setSuspensionStatus(null);
+      setShowSuspensionNotice(false);
+      toast.success('로그아웃되었습니다.');
+    } catch (error) {
+      console.error('로그아웃 오류:', error);
+      toast.error('로그아웃 중 오류가 발생했습니다.');
+    }
+  };
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const refreshUser = async () => {
+    if (!firebaseUser) return;
+    
+    try {
+      const userData = await getUserById(firebaseUser.uid);
+      if (userData) {
+        setUser(userData);
+        checkUserSuspension(userData);
+      }
+    } catch (error) {
+      console.error('사용자 정보 새로고침 오류:', error);
+    }
+  };
 
-  // 인증 상태 변경 감지
+  const checkUserSuspension = (userData: User) => {
+    const status = checkSuspensionStatus(userData);
+    setSuspensionStatus(status);
+    
+    if (status.isSuspended) {
+      setShowSuspensionNotice(true);
+      
+      // 임시 정지이고 기간이 만료된 경우 자동 복구 처리
+      if (!status.isPermanent && !status.suspendedUntil) {
+        handleAutoRestore();
+      }
+    } else {
+      setShowSuspensionNotice(false);
+    }
+  };
+
+  const handleAutoRestore = async () => {
+    try {
+      // 여기서 실제로는 서버에 요청해서 상태를 업데이트해야 함
+      // 현재는 클라이언트에서만 처리
+      toast.success('정지 기간이 만료되어 계정이 복구되었습니다.');
+      await refreshUser();
+    } catch (error) {
+      console.error('자동 복구 처리 오류:', error);
+    }
+  };
+
+  const checkSuspension = () => {
+    if (user) {
+      checkUserSuspension(user);
+    }
+  };
+
+  const handleContactSupport = () => {
+    // 고객지원 페이지로 이동 또는 이메일 클라이언트 열기
+    window.location.href = '/support';
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setIsLoading(true);
+      setFirebaseUser(firebaseUser);
+      
       if (firebaseUser) {
-        const { uid, email, displayName, photoURL, emailVerified } = firebaseUser;
-        
         try {
-          // Firestore에서 실제 사용자 데이터 가져오기
-          const userDocRef = doc(db, 'users', uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            // 일일 활동 제한 자동 리셋 실행
-            await resetDailyActivityLimits(uid);
-            
-            // Firestore의 실제 사용자 데이터 사용
-            const firestoreUserData = userDoc.data();
-            
-            // 쿠키 설정 (일관성을 위해 uid와 userId 둘 다 설정)
-            const authToken = await firebaseUser.getIdToken();
-            Cookies.set('authToken', authToken, { expires: 7 });
-            Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
-            Cookies.set('uid', uid, { expires: 7 });
-            Cookies.set('userId', uid, { expires: 7 }); // 추가: 일관성을 위해
-            
-            console.log('AuthProvider - 쿠키 설정 완료:', { uid, authToken: authToken.substring(0, 20) + '...' });
-            
-            setUser({
-              uid,
-              email: email || '',
-              role: firestoreUserData.role || 'student',
-              isVerified: emailVerified,
-              profile: firestoreUserData.profile || {
-                userName: displayName || '',
-                realName: '',
-                gender: '',
-                birthYear: 0,
-                birthMonth: 0,
-                birthDay: 0,
-                phoneNumber: '',
-                profileImageUrl: photoURL || '',
-                createdAt: serverTimestamp(),
-                isAdmin: false
-              },
-              stats: firestoreUserData.stats || {
-                level: 1,
-                totalExperience: 0,
-                currentExp: 0,
-                streak: 0,
-                postCount: 0,
-                commentCount: 0,
-                likeCount: 0
-              },
-              school: firestoreUserData.school,
-              regions: firestoreUserData.regions,
-              agreements: firestoreUserData.agreements || {
-                terms: false,
-                privacy: false,
-                location: false,
-                marketing: false
-              },
-              createdAt: firestoreUserData.createdAt || serverTimestamp(),
-              updatedAt: firestoreUserData.updatedAt || serverTimestamp(),
-              lastLoginAt: firestoreUserData.lastLoginAt,
-              referrerId: firestoreUserData.referrerId,
-              emailVerified
-            });
-            
-            // 관리자 권한 확인
-            const isUserAdmin = firestoreUserData.role === 'admin';
-            setIsAdmin(isUserAdmin);
-            
-            if (isUserAdmin) {
-              Cookies.set('userRole', 'admin', { expires: 7 });
-            } else {
-              Cookies.remove('userRole');
-            }
+          const userData = await getUserById(firebaseUser.uid);
+          if (userData) {
+            setUser(userData);
+            checkUserSuspension(userData);
           } else {
-            // Firestore에 사용자 데이터가 없는 경우 기본값 사용
-            const authToken = await firebaseUser.getIdToken();
-            Cookies.set('authToken', authToken, { expires: 7 });
-            Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
-            Cookies.set('uid', uid, { expires: 7 });
-            Cookies.set('userId', uid, { expires: 7 }); // 추가: 일관성을 위해
-            
-            console.log('AuthProvider - 기본 쿠키 설정 완료:', { uid });
-            
-            setUser({
-              uid,
-              email: email || '',
-              role: 'student',
-              isVerified: emailVerified,
-              profile: {
-                userName: displayName || '',
-                realName: '',
-                gender: '',
-                birthYear: 0,
-                birthMonth: 0,
-                birthDay: 0,
-                phoneNumber: '',
-                profileImageUrl: photoURL || '',
-                createdAt: serverTimestamp(),
-                isAdmin: false
-              },
-              stats: {
-                level: 1,
-                totalExperience: 0,
-                currentExp: 0,
-                currentLevelRequiredXp: 0,
-                streak: 0,
-                postCount: 0,
-                commentCount: 0,
-                likeCount: 0
-              },
-              agreements: {
-                terms: false,
-                privacy: false,
-                location: false,
-                marketing: false
-              },
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-              emailVerified
-            });
+            setUser(null);
+            setSuspensionStatus(null);
           }
         } catch (error) {
-          console.error('사용자 데이터 조회 오류:', error);
-          // 오류 발생 시 기본값 사용
-          const authToken = await firebaseUser.getIdToken();
-          Cookies.set('authToken', authToken, { expires: 7 });
-          Cookies.set('emailVerified', emailVerified ? 'true' : 'false', { expires: 7 });
-          Cookies.set('uid', uid, { expires: 7 });
-          Cookies.set('userId', uid, { expires: 7 }); // 추가: 일관성을 위해
-          
-          console.log('AuthProvider - 오류 후 기본 쿠키 설정:', { uid });
-          
-          setUser({
-            uid,
-            email: email || '',
-            role: 'student',
-            isVerified: emailVerified,
-            profile: {
-              userName: displayName || '',
-              realName: '',
-              gender: '',
-              birthYear: 0,
-              birthMonth: 0,
-              birthDay: 0,
-              phoneNumber: '',
-              profileImageUrl: photoURL || '',
-              createdAt: serverTimestamp(),
-              isAdmin: false
-            },
-            stats: {
-              level: 1,
-              totalExperience: 0,
-              currentExp: 0,
-              currentLevelRequiredXp: 0,
-              streak: 0,
-              postCount: 0,
-              commentCount: 0,
-              likeCount: 0
-            },
-            agreements: {
-              terms: false,
-              privacy: false,
-              location: false,
-              marketing: false
-            },
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            emailVerified
-          });
+          console.error('사용자 정보 조회 오류:', error);
+          setUser(null);
+          setSuspensionStatus(null);
         }
       } else {
-        // 로그아웃 시 쿠키 삭제
-        Cookies.remove('authToken');
-        Cookies.remove('emailVerified');
-        Cookies.remove('uid');
-        Cookies.remove('userId'); // 추가: 일관성을 위해
-        Cookies.remove('userRole');
-        
-        console.log('AuthProvider - 로그아웃: 모든 쿠키 삭제');
-        
         setUser(null);
-        setIsAdmin(false);
+        setSuspensionStatus(null);
+        setShowSuspensionNotice(false);
       }
+      
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 회원가입
-  const signUp = async (email: string, password: string, userName: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = credential.user;
-      
-      // 사용자 프로필 업데이트
-      await updateProfile(user, { displayName: userName });
-      
-      // Firestore에 사용자 정보 저장
-      await setDoc(doc(db, 'users', user.uid), {
-        uid: user.uid,
-        email: user.email,
-        profile: {
-          userName,
-          realName: '',
-          gender: '',
-          birthYear: 0,
-          birthMonth: 0,
-          birthDay: 0,
-          phoneNumber: '',
-          profileImageUrl: user.photoURL || '',
-          createdAt: serverTimestamp(),
-          isAdmin: false
-        },
-        createdAt: new Date(),
-        role: 'user'
-      });
-      
-      // 인증 토큰 쿠키 설정 (회원가입 후 바로 로그인 상태로 만들기)
-      const idToken = await user.getIdToken();
-      Cookies.set('authToken', idToken, { expires: 7 });
-      
-      // 사용자 UID 쿠키 설정 (일관성을 위해 uid와 userId 둘 다 설정)
-      Cookies.set('uid', user.uid, { expires: 7 });
-      Cookies.set('userId', user.uid, { expires: 7 });
-      
-      console.log('AuthProvider - 회원가입 후 쿠키 설정 완료:', {
-        authToken: '설정됨',
-        uid: user.uid,
-        userId: user.uid
-      });
-      
-      // 메인 페이지로 리디렉션
-      router.push('/');
-    } catch (error: unknown) {
-      console.error('회원가입 오류:', error);
-      const errorCode = (error as { code?: string }).code;
-      if (errorCode === 'auth/email-already-in-use') {
-        setError('이미 사용 중인 이메일입니다.');
-      } else {
-        setError('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 로그인
-  const signIn = async (email: string, password: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // 인증 토큰 쿠키 설정 (7일 유효)
-      Cookies.set('authToken', await user.getIdToken(), { expires: 7 });
-      
-      // 사용자 UID 쿠키 설정 (일관성을 위해 uid와 userId 둘 다 설정)
-      Cookies.set('uid', user.uid, { expires: 7 });
-      Cookies.set('userId', user.uid, { expires: 7 });
-      
-      // 인증된 사용자는 메인 페이지로 리디렉션
-      router.push('/');
-    } catch (error: unknown) {
-      console.error('로그인 오류:', error);
-      const errorCode = (error as { code?: string }).code;
-      if (errorCode === 'auth/invalid-credential') {
-        setError('아이디 또는 비밀번호가 올바르지 않습니다.');
-      } else {
-        setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 로그아웃
-  const signOut = async () => {
-    setIsLoading(true);
-    try {
-      // 쿠키 삭제
-      Cookies.remove('authToken');
-      Cookies.remove('uid');
-      Cookies.remove('userId');
-      
-      await firebaseSignOut(auth);
-      router.push('/');
-    } catch (error) {
-      console.error('로그아웃 오류:', error);
-      setError('로그아웃 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 구글 로그인
-  const signInWithGoogle = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      
-      // 사용자 정보 저장
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: user.email,
-          profile: {
-            userName: user.displayName || '',
-            email: user.email || '',
-            realName: '',
-            birthYear: 0,
-            birthMonth: 0,
-            birthDay: 0,
-            phoneNumber: '',
-            profileImageUrl: user.photoURL || '',
-            createdAt: serverTimestamp(),
-            isAdmin: false
-          },
-          createdAt: new Date(),
-          role: 'user'
-        });
-      }
-      
-      router.push('/');
-    } catch (error: unknown) {
-      console.error('구글 로그인 오류:', error);
-      setError('구글 로그인 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 비밀번호 재설정
-  const resetPassword = async (email: string) => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      await sendPasswordResetEmail(auth, email);
-    } catch (error: unknown) {
-      console.error('비밀번호 재설정 오류:', error);
-      const errorCode = (error as { code?: string }).code;
-      if (errorCode === 'auth/user-not-found') {
-        setError('해당 이메일로 등록된 계정을 찾을 수 없습니다.');
-      } else {
-        setError('비밀번호 재설정 중 오류가 발생했습니다.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 오류 초기화
-  const resetError = () => {
-    setError(null);
-  };
-
-  // 사용자 정보 새로고침
-  const refreshUser = async () => {
-    if (!auth.currentUser) return;
-    
-    const firebaseUser = auth.currentUser;
-    const { uid, email, displayName, photoURL, emailVerified } = firebaseUser;
-    
-    try {
-      setIsLoading(true);
-      
-      // Firestore에서 최신 사용자 데이터 가져오기
-      const userDocRef = doc(db, 'users', uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      if (userDoc.exists()) {
-        const firestoreUserData = userDoc.data();
-        
-        setUser({
-          uid,
-          email: email || '',
-          role: firestoreUserData.role || 'student',
-          isVerified: emailVerified,
-          profile: firestoreUserData.profile || {
-            userName: displayName || '',
-            realName: '',
-            gender: '',
-            birthYear: 0,
-            birthMonth: 0,
-            birthDay: 0,
-            phoneNumber: '',
-            profileImageUrl: photoURL || '',
-            createdAt: firestoreUserData.createdAt || serverTimestamp(),
-            isAdmin: false
-          },
-          stats: firestoreUserData.stats || {
-            level: 1,
-            totalExperience: 0,
-            currentExp: 0,
-            currentLevelRequiredXp: 0,
-            streak: 0,
-            postCount: 0,
-            commentCount: 0,
-            likeCount: 0
-          },
-          school: firestoreUserData.school,
-          regions: firestoreUserData.regions,
-          agreements: firestoreUserData.agreements || {
-            terms: false,
-            privacy: false,
-            location: false,
-            marketing: false
-          },
-          createdAt: firestoreUserData.createdAt || serverTimestamp(),
-          updatedAt: firestoreUserData.updatedAt || serverTimestamp(),
-          emailVerified
-        });
-        
-        // 관리자 권한 확인
-        const isUserAdmin = firestoreUserData.role === 'admin';
-        setIsAdmin(isUserAdmin);
-      }
-    } catch (error) {
-      console.error('사용자 정보 새로고침 오류:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 하이드레이션이 완료될 때까지 로딩 상태 표시
-  if (!isMounted) {
-    return null;
+  // 정지된 사용자에게 정지 안내 화면 표시
+  if (showSuspensionNotice && suspensionStatus?.isSuspended) {
+    return (
+      <AuthContext.Provider
+        value={{
+          user,
+          firebaseUser,
+          isLoading,
+          suspensionStatus,
+          signOut,
+          refreshUser,
+          checkSuspension,
+        }}
+      >
+        <SuspensionNotice
+          suspensionStatus={suspensionStatus}
+          onContactSupport={handleContactSupport}
+          onLogout={signOut}
+        />
+      </AuthContext.Provider>
+    );
   }
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        firebaseUser,
         isLoading,
-        error,
-        signUp,
-        signIn,
+        suspensionStatus,
         signOut,
-        signInWithGoogle,
-        resetPassword,
-        resetError,
         refreshUser,
-        isAdmin
+        checkSuspension,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
-}; 
+} 
