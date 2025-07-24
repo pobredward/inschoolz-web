@@ -124,6 +124,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log('=== checkUserSuspension 호출 ===');
     console.log('userData:', userData);
     console.log('userData.status:', userData.status);
+    console.log('userData에 있는 모든 키:', Object.keys(userData));
+    
+    // 정지 관련 필드들 확인
+    const userWithSuspension = userData as unknown as Record<string, unknown>;
+    console.log('suspensionReason:', userWithSuspension.suspensionReason);
+    console.log('suspendedUntil:', userWithSuspension.suspendedUntil);
+    console.log('suspendedAt:', userWithSuspension.suspendedAt);
     
     const status = checkSuspensionStatus(userData);
     console.log('정지 상태 확인 결과:', status);
@@ -132,10 +139,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     // 정지 상태 로깅 (디버깅용)
     if (status.isSuspended) {
-      console.log('사용자 정지 감지:', status);
+      console.log('🚫 사용자 정지 감지:', status);
       console.log('정지 사유:', status.reason);
       console.log('정지 기간:', status.suspendedUntil);
       console.log('남은 일수:', status.remainingDays);
+      console.log('영구 정지 여부:', status.isPermanent);
       
       // 임시 정지이고 기간이 만료된 경우 자동 복구 처리
       if (!status.isPermanent && status.suspendedUntil && status.suspendedUntil <= new Date()) {
@@ -143,7 +151,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         handleAutoRestore();
       }
     } else {
-      console.log('정지되지 않은 사용자');
+      console.log('✅ 정지되지 않은 사용자 또는 정지 기간 만료');
     }
   };
 
