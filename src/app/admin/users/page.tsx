@@ -38,8 +38,10 @@ import { toast } from 'sonner';
 import { toDate } from '@/lib/utils';
 import { CSVExportDialog } from '@/components/ui/csv-export-dialog';
 import { convertUsersToCSV, downloadCSV, generateExportFilename } from '@/lib/utils/csv-export';
+import { useAuth } from '@/providers/AuthProvider';
 
 export default function AdminUsersPage() {
+  const { user: currentAdmin } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,7 +159,7 @@ export default function AdminUsersPage() {
       }
     } else {
       try {
-        await updateUserStatusEnhanced(userId, newStatus);
+        await updateUserStatusEnhanced(userId, newStatus, undefined, currentAdmin?.uid);
         toast.success('사용자 상태가 변경되었습니다.');
         loadUsers();
       } catch (err) {
@@ -171,7 +173,7 @@ export default function AdminUsersPage() {
     if (!suspensionDialog.user) return;
     
     try {
-      await updateUserStatusEnhanced(suspensionDialog.user.uid, 'suspended', suspensionForm);
+      await updateUserStatusEnhanced(suspensionDialog.user.uid, 'suspended', suspensionForm, currentAdmin?.uid);
       toast.success('사용자가 정지되었습니다.');
       setSuspensionDialog({ isOpen: false, user: null });
       setSuspensionForm({

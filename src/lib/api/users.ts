@@ -1283,7 +1283,8 @@ const getClientIP = async (): Promise<string> => {
 export const updateUserStatusEnhanced = async (
   userId: string, 
   newStatus: 'active' | 'inactive' | 'suspended', 
-  settings?: SuspensionSettings
+  settings?: SuspensionSettings,
+  adminId?: string
 ): Promise<void> => {
   try {
     const userRef = doc(db, 'users', userId);
@@ -1323,20 +1324,48 @@ export const updateUserStatusEnhanced = async (
 
     await updateDoc(userRef, updateData);
 
+    // 정지 알림 발송
+    if (newStatus === 'suspended' && settings && settings.notifyUser) {
+      try {
+        const { createSanctionNotification } = await import('./notifications');
+        
+        let duration = '';
+        if (settings.type === 'temporary' && settings.duration) {
+          duration = `${settings.duration}일`;
+        } else if (settings.type === 'permanent') {
+          duration = '영구';
+        }
+
+        await createSanctionNotification(
+          userId,
+          'suspension',
+          settings.reason,
+          duration
+        );
+
+        console.log('정지 알림 발송 완료:', userId);
+      } catch (notificationError) {
+        console.error('정지 알림 발송 실패:', notificationError);
+        // 알림 발송 실패는 정지 처리 자체를 실패시키지 않음
+      }
+    }
+
     // 관리자 작업 로그 기록
     await logAdminAction({
-      adminId: 'current_admin', // 실제로는 현재 관리자 ID
+      adminId: adminId || 'current_admin', // 실제로는 현재 관리자 ID
       adminName: 'Admin', // 실제로는 현재 관리자 이름
       action: 'status_change',
       targetUserId: userId,
-      targetUserName: userData.profile?.userName || userData.email,
-      oldValue: oldStatus,
+      targetUserName: userData.profile?.userName || userData.email || '',
+      oldValue: oldStatus || 'active',
       newValue: newStatus,
       reason: settings?.reason
     });
+
+    console.log('사용자 상태 업데이트 완료:', { userId, oldStatus, newStatus });
   } catch (error) {
-    console.error('사용자 상태 변경 오류:', error);
-    throw new Error('사용자 상태를 변경하는 중 오류가 발생했습니다.');
+    console.error('사용자 상태 업데이트 오류:', error);
+    throw error;
   }
 };
 
@@ -1511,23 +1540,105 @@ export const updateUserRole = async (userId: string, newRole: 'admin' | 'user'):
 /**
  * 사용자 상태 변경
  */
-export const updateUserStatus = async (userId: string, newStatus: 'active' | 'inactive' | 'suspended', reason?: string): Promise<void> => {
+export const updateUserStatus = async (
+  userId: string,
+  status: 'active' | 'inactive' | 'suspended',
+  suspensionSettings?: SuspensionSettings,
+  adminId?: string
+): Promise<void> => {
+  if (!userId) {
+    throw new Error('사용자 ID가 필요합니다.');
+  }
+
   try {
+    console.log('사용자 상태 업데이트 시작:', { userId, status, suspensionSettings });
+    
     const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+
+    const userData = userDoc.data();
     const updateData: Record<string, FieldValue | string | number | boolean | object | null> = {
-      status: newStatus,
-      updatedAt: serverTimestamp()
+      status,
+      updatedAt: serverTimestamp(),
     };
 
-    if (newStatus === 'suspended' && reason) {
-      updateData.suspensionReason = reason;
-      updateData.suspendedAt = serverTimestamp();
+    // 정지인 경우 추가 필드 설정
+    if (status === 'suspended' && suspensionSettings) {
+      updateData.suspensionReason = suspensionSettings.reason;
+      
+      if (suspensionSettings.type === 'temporary' && suspensionSettings.duration) {
+        const suspendedUntil = new Date();
+        suspendedUntil.setDate(suspendedUntil.getDate() + suspensionSettings.duration);
+        updateData.suspendedUntil = toTimestamp(suspendedUntil);
+        updateData.suspendedAt = serverTimestamp();
+      } else {
+        // 영구 정지인 경우 suspendedUntil을 null로 설정
+        updateData.suspendedUntil = null;
+        updateData.suspendedAt = serverTimestamp();
+      }
+    } else if (status === 'active') {
+      // 정지 해제 시 정지 관련 필드 제거
+      updateData.suspensionReason = null;
+      updateData.suspendedUntil = null;
+      updateData.suspendedAt = null;
     }
 
     await updateDoc(userRef, updateData);
+
+    // 정지 알림 발송
+    if (status === 'suspended' && suspensionSettings) {
+      try {
+        const { createSanctionNotification } = await import('./notifications');
+        
+        let duration = '';
+        if (suspensionSettings.type === 'temporary' && suspensionSettings.duration) {
+          duration = `${suspensionSettings.duration}일`;
+        } else if (suspensionSettings.type === 'permanent') {
+          duration = '영구';
+        }
+
+        await createSanctionNotification(
+          userId,
+          'suspension',
+          suspensionSettings.reason,
+          duration
+        );
+
+        console.log('정지 알림 발송 완료:', userId);
+      } catch (notificationError) {
+        console.error('정지 알림 발송 실패:', notificationError);
+        // 알림 발송 실패는 정지 처리 자체를 실패시키지 않음
+      }
+    }
+
+    // 관리자 로그 기록
+    if (adminId) {
+      try {
+        await logAdminAction({
+          adminId,
+          adminName: 'Admin', // TODO: 실제 관리자 이름 가져오기
+          action: 'status_change',
+          targetUserId: userId,
+          targetUserName: userData?.profile?.userName || '',
+          oldValue: userData?.status || 'active',
+          newValue: status,
+          reason: suspensionSettings?.reason,
+          ipAddress: '', // 서버에서는 IP 추적이 어려움
+          userAgent: ''
+        });
+      } catch (logError) {
+        console.error('관리자 로그 기록 실패:', logError);
+      }
+    }
+
+    console.log('사용자 상태 업데이트 완료');
   } catch (error) {
-    console.error('사용자 상태 변경 오류:', error);
-    throw new Error('사용자 상태를 변경하는 중 오류가 발생했습니다.');
+    console.error('사용자 상태 업데이트 오류:', error);
+    throw error;
   }
 };
 
