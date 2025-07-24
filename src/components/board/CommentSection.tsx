@@ -574,7 +574,7 @@ export default function CommentSection({
   initialComments = [], 
   onCommentCountChange 
 }: CommentSectionProps) {
-  const { user } = useAuth();
+  const { user, suspensionStatus } = useAuth();
   const router = useRouter();
   const [comments, setComments] = useState<CommentWithReplies[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -588,6 +588,9 @@ export default function CommentSection({
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [experienceGained, setExperienceGained] = useState(0);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+
+  // 정지된 사용자인지 확인
+  const isSuspendedUser = user && suspensionStatus?.isSuspended;
 
   // 차단된 사용자 목록 로드
   const loadBlockedUsers = useCallback(async () => {
@@ -647,6 +650,15 @@ export default function CommentSection({
   const handleCreateComment = async (content: string, isAnonymous: boolean, parentId?: string) => {
     if (!user) {
       toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    // 정지된 사용자 차단
+    if (suspensionStatus?.isSuspended) {
+      const message = suspensionStatus.isPermanent
+        ? "계정이 영구 정지되어 댓글을 작성할 수 없습니다."
+        : `계정이 정지되어 댓글을 작성할 수 없습니다. (남은 기간: ${suspensionStatus.remainingDays}일)`;
+      toast.error(message);
       return;
     }
 
@@ -891,12 +903,26 @@ export default function CommentSection({
       <div className="space-y-6">
         {/* 댓글 작성 폼 */}
         {user ? (
-          <CommentForm
-            onSubmit={(content, isAnonymous) => 
-              handleCreateComment(content, isAnonymous)
-            }
-            isSubmitting={isSubmitting}
-          />
+          suspensionStatus?.isSuspended ? (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">
+                {suspensionStatus.isPermanent
+                  ? "계정이 영구 정지되어 댓글을 작성할 수 없습니다."
+                  : `계정이 정지되어 댓글을 작성할 수 없습니다. (남은 기간: ${suspensionStatus.remainingDays}일)`
+                }
+              </p>
+              <p className="text-red-600 text-xs mt-1">
+                사유: {suspensionStatus.reason || '정책 위반'}
+              </p>
+            </div>
+          ) : (
+            <CommentForm
+              onSubmit={(content, isAnonymous) => 
+                handleCreateComment(content, isAnonymous)
+              }
+              isSubmitting={isSubmitting}
+            />
+          )
         ) : !showAnonymousForm ? (
           <div className="space-y-3">
             <div className="text-center p-4 bg-gray-50 rounded-lg">

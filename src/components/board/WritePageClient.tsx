@@ -23,6 +23,7 @@ import { awardPostExperience } from "@/lib/experience-service";
 import { ExperienceModal } from "@/components/ui/experience-modal";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+import { SuspensionBanner } from "@/components/ui/suspension-notice";
 
 // 이미지 압축 함수
 const compressImage = (file: File, quality: number = 0.8): Promise<File> => {
@@ -90,7 +91,7 @@ interface WritePageClientProps {
 export default function WritePageClient({ type, code, schoolId }: WritePageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, suspensionStatus } = useAuth();
   
   // 컴포넌트 마운트 시 상태 로깅
   useEffect(() => {
@@ -99,8 +100,9 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
     console.log('code:', code);
     console.log('schoolId:', schoolId);
     console.log('user:', user);
+    console.log('suspensionStatus:', suspensionStatus);
     console.log('searchParams:', searchParams.toString());
-  }, [type, code, schoolId, user, searchParams]);
+  }, [type, code, schoolId, user, suspensionStatus, searchParams]);
   
   // 로그인 상태 확인
   useEffect(() => {
@@ -118,6 +120,19 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
     }
   }, [user, router]);
   
+  // 정지 상태 확인
+  useEffect(() => {
+    if (user && suspensionStatus?.isSuspended) {
+      const message = suspensionStatus.isPermanent 
+        ? "계정이 영구 정지되어 게시글을 작성할 수 없습니다."
+        : `계정이 정지되어 게시글을 작성할 수 없습니다. (남은 기간: ${suspensionStatus.remainingDays}일)`;
+      
+      toast.error(message);
+      router.push("/");
+      return;
+    }
+  }, [user, suspensionStatus, router]);
+
   const [board, setBoard] = useState<Board | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -533,6 +548,18 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // 정지된 사용자에게 정지 배너 표시
+  if (user && suspensionStatus?.isSuspended) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <SuspensionBanner 
+          suspensionStatus={suspensionStatus}
+          onDismiss={() => router.push('/')}
+        />
       </div>
     );
   }

@@ -30,7 +30,7 @@ export default function BoardSelector({
   regions 
 }: BoardSelectorProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, suspensionStatus } = useAuth();
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +44,7 @@ export default function BoardSelector({
     setLoading(true);
     try {
       const boardList = await getBoardsByType(type);
-      setBoards(boardList);
+      setBoards(boardList as Board[]);
     } catch (error) {
       console.error('게시판 목록 로딩 오류:', error);
     } finally {
@@ -53,6 +53,17 @@ export default function BoardSelector({
   };
 
   const handleBoardSelect = (board: Board) => {
+    // 정지된 사용자 차단
+    if (suspensionStatus?.isSuspended) {
+      const message = suspensionStatus.isPermanent
+        ? "계정이 영구 정지되어 게시글을 작성할 수 없습니다."
+        : `계정이 정지되어 게시글을 작성할 수 없습니다. (남은 기간: ${suspensionStatus.remainingDays}일)`;
+      
+      alert(message + `\n사유: ${suspensionStatus.reason || '정책 위반'}`);
+      onClose();
+      return;
+    }
+    
     onClose();
     
     // 게시판 타입에 따라 적절한 URL로 이동

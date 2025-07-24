@@ -11,7 +11,6 @@ import { getUserById } from '@/lib/api/users';
 import { loginWithEmail, loginWithGoogle } from '@/lib/auth';
 import { User } from '@/types';
 import { checkSuspensionStatus, SuspensionStatus } from '@/lib/auth/suspension-check';
-import { SuspensionNotice } from '@/components/ui/suspension-notice';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -60,7 +59,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suspensionStatus, setSuspensionStatus] = useState<SuspensionStatus | null>(null);
-  const [showSuspensionNotice, setShowSuspensionNotice] = useState(false);
 
   const resetError = () => {
     setError(null);
@@ -100,7 +98,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setFirebaseUser(null);
       setSuspensionStatus(null);
-      setShowSuspensionNotice(false);
       setError(null);
       toast.success('로그아웃되었습니다.');
     } catch (error) {
@@ -124,18 +121,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const checkUserSuspension = (userData: User) => {
+    console.log('=== checkUserSuspension 호출 ===');
+    console.log('userData:', userData);
+    console.log('userData.status:', userData.status);
+    
     const status = checkSuspensionStatus(userData);
+    console.log('정지 상태 확인 결과:', status);
+    
     setSuspensionStatus(status);
     
+    // 정지 상태 로깅 (디버깅용)
     if (status.isSuspended) {
-      setShowSuspensionNotice(true);
+      console.log('사용자 정지 감지:', status);
+      console.log('정지 사유:', status.reason);
+      console.log('정지 기간:', status.suspendedUntil);
+      console.log('남은 일수:', status.remainingDays);
       
       // 임시 정지이고 기간이 만료된 경우 자동 복구 처리
-      if (!status.isPermanent && !status.suspendedUntil) {
+      if (!status.isPermanent && status.suspendedUntil && status.suspendedUntil <= new Date()) {
+        console.log('정지 기간 만료, 자동 복구 시도');
         handleAutoRestore();
       }
     } else {
-      setShowSuspensionNotice(false);
+      console.log('정지되지 않은 사용자');
     }
   };
 
@@ -154,11 +162,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (user) {
       checkUserSuspension(user);
     }
-  };
-
-  const handleContactSupport = () => {
-    // 고객지원 페이지로 이동 또는 이메일 클라이언트 열기
-    window.location.href = '/support';
   };
 
   useEffect(() => {
@@ -184,7 +187,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else {
         setUser(null);
         setSuspensionStatus(null);
-        setShowSuspensionNotice(false);
       }
       
       setIsLoading(false);
@@ -192,33 +194,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     return () => unsubscribe();
   }, []);
-
-  // 정지된 사용자에게 정지 안내 화면 표시
-  if (showSuspensionNotice && suspensionStatus?.isSuspended) {
-    return (
-      <AuthContext.Provider
-        value={{
-          user,
-          firebaseUser,
-          isLoading,
-          error,
-          suspensionStatus,
-          signIn,
-          signInWithGoogle,
-          signOut,
-          refreshUser,
-          checkSuspension,
-          resetError,
-        }}
-      >
-        <SuspensionNotice
-          suspensionStatus={suspensionStatus}
-          onContactSupport={handleContactSupport}
-          onLogout={signOut}
-        />
-      </AuthContext.Provider>
-    );
-  }
 
   return (
     <AuthContext.Provider

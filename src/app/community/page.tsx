@@ -35,7 +35,7 @@ const SORT_OPTIONS = [
 export default function CommunityPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, suspensionStatus } = useAuth();
   
   // 사용자 상태 디버깅
   useEffect(() => {
@@ -512,6 +512,16 @@ export default function CommunityPage() {
     console.log('Current tab:', selectedTab);
     console.log('User:', user);
     console.log('User school:', user?.school);
+    
+    // 정지된 사용자 차단
+    if (suspensionStatus?.isSuspended) {
+      const message = suspensionStatus.isPermanent
+        ? "계정이 영구 정지되어 게시글을 작성할 수 없습니다."
+        : `계정이 정지되어 게시글을 작성할 수 없습니다. (남은 기간: ${suspensionStatus.remainingDays}일)`;
+      
+      alert(message + `\n사유: ${suspensionStatus.reason || '정책 위반'}`);
+      return;
+    }
     
     // 현재 선택된 탭에 따라 적절한 write 페이지로 이동하거나 BoardSelector 표시
     if (selectedTab === 'national') {
