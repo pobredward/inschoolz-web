@@ -27,6 +27,8 @@ export function SignupForm() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBasicInfoValid, setIsBasicInfoValid] = useState(false);
+  
   const [formData, setFormData] = useState<FormDataType>({
     // 1단계: 이메일, 비밀번호
     email: '',
@@ -80,6 +82,14 @@ export function SignupForm() {
   };
 
   const handleNext = () => {
+    // 기본 정보 단계에서는 검증이 완료되어야만 다음으로 이동 가능
+    if (currentStep === 0 && !isBasicInfoValid) {
+      toast.error("입력 확인 필요", {
+        description: "모든 필수 정보를 올바르게 입력하고 중복 확인을 완료해주세요."
+      });
+      return;
+    }
+
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
     }
@@ -194,6 +204,7 @@ export function SignupForm() {
             formData={formData} 
             updateFormData={updateFormData}
             onNext={handleNext}
+            onValidationChange={setIsBasicInfoValid}
           />
         )}
         {currentStep === 1 && (
@@ -227,7 +238,10 @@ export function SignupForm() {
           </Button>
           
           {currentStep < steps.length - 1 ? (
-            <Button onClick={handleNext} disabled={isSubmitting}>
+            <Button 
+              onClick={handleNext} 
+              disabled={isSubmitting || (currentStep === 0 && !isBasicInfoValid)}
+            >
               다음
             </Button>
           ) : (

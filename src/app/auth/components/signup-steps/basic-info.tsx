@@ -38,9 +38,9 @@ const basicInfoSchema = z.object({
   realName: z.string()
     .min(2, { message: '이름을 입력해주세요.' }),
   gender: z.string().optional(),
-  birthYear: z.string().optional(),
-  birthMonth: z.string().optional(), 
-  birthDay: z.string().optional(),
+  birthYear: z.number().optional(),
+  birthMonth: z.number().optional(), 
+  birthDay: z.number().optional(),
   phoneNumber: z.string().optional(),
   referral: z.string().optional(),
 }).refine((data) => data.password === data.passwordConfirm, {
@@ -55,9 +55,10 @@ import { FormDataType } from '@/types';
 interface BasicInfoStepProps {
   formData: FormDataType;
   updateFormData: (data: Partial<FormDataType>) => void;
+  onValidationChange?: (isValid: boolean) => void;
 }
 
-export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) {
+export function BasicInfoStep({ formData, updateFormData, onValidationChange }: BasicInfoStepProps) {
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [referralStatus, setReferralStatus] = useState<{
@@ -153,10 +154,18 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
 
     const timeoutId = setTimeout(() => {
       checkUserName(userNameValue);
-    }, 500);
+    }, 300); // 500ms에서 300ms로 단축
 
     return () => clearTimeout(timeoutId);
   }, [form.watch('userName'), checkUserName]);
+
+  // 사용자명 필드에서 포커스가 벗어날 때 즉시 검증
+  const handleUserNameBlur = () => {
+    const userNameValue = form.getValues('userName');
+    if (userNameValue && userNameValue.trim() !== '') {
+      checkUserName(userNameValue);
+    }
+  };
 
   // 추천 아이디 검증 함수
   const checkReferral = useCallback(async (userName: string) => {
@@ -243,15 +252,44 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
 
     const timeoutId = setTimeout(() => {
       checkEmail(emailValue);
-    }, 500);
+    }, 300); // 500ms에서 300ms로 단축
 
     return () => clearTimeout(timeoutId);
   }, [form.watch('email'), checkEmail]);
 
+  // 이메일 필드에서 포커스가 벗어날 때 즉시 검증
+  const handleEmailBlur = () => {
+    const emailValue = form.getValues('email');
+    if (emailValue && emailValue.trim() !== '') {
+      checkEmail(emailValue);
+    }
+  };
+
+  // 검증 상태가 변경될 때마다 부모에게 알림
+  useEffect(() => {
+    if (onValidationChange) {
+      const isEmailValid = emailStatus.status === 'available';
+      const isUserNameValid = userNameStatus.status === 'available';
+      const hasRequiredFields = !!(formData.email && formData.password && formData.userName);
+      
+      // 필수 필드가 모두 있고, 중복 체크를 통과했거나 검증을 하지 않은 상태일 때 유효
+      const isValid = hasRequiredFields && 
+        (emailStatus.status === 'idle' || isEmailValid) && 
+        (userNameStatus.status === 'idle' || isUserNameValid);
+      
+      onValidationChange(isValid);
+    }
+  }, [emailStatus.status, userNameStatus.status, formData.email, formData.password, formData.userName, onValidationChange]);
+
   // 필드 변경 시 실시간으로 상위 컴포넌트에 데이터 업데이트
-  const handleFieldChange = (field: keyof BasicInfoValues, value: string) => {
-    form.setValue(field, value);
-    updateFormData({ [field]: value });
+  const handleFieldChange = (field: keyof FormDataType, value: string | number) => {
+    // FormDataType에 맞게 타입 변환하여 업데이트
+    if (field === 'birthYear' || field === 'birthMonth' || field === 'birthDay') {
+      const numValue = typeof value === 'string' ? parseInt(value) || 0 : value;
+      updateFormData({ [field]: numValue });
+    } else {
+      updateFormData({ [field]: value });
+    }
   };
 
   return (
@@ -275,6 +313,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
                         field.onChange(e);
                         handleFieldChange('userName', e.target.value);
                       }}
+                      onBlur={handleUserNameBlur}
                     />
                     {userNameStatus.status === 'checking' && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -325,6 +364,7 @@ export function BasicInfoStep({ formData, updateFormData }: BasicInfoStepProps) 
                         field.onChange(e);
                         handleFieldChange('email', e.target.value);
                       }}
+                      onBlur={handleEmailBlur}
                     />
                     {emailStatus.status === 'checking' && (
                       <div className="absolute right-3 top-1/2 transform -translate-y-1/2">

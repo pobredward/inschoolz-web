@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Form,
@@ -22,17 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { Separator } from '@/components/ui/separator';
-import { checkReferralExists } from '@/lib/api/schools';
-import { CheckCircle, XCircle, Loader2, FileText, Info } from 'lucide-react';
-import { ReferralSearch } from '@/components/ui/referral-search';
-import { checkUserNameAvailability, checkEmailAvailability } from '@/lib/api/users';
+import { checkUserNameAvailability } from '@/lib/api/users';
+import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { FormDataType } from '@/types';
 
 // 휴대폰 번호 포맷팅 함수
 const formatPhoneNumber = (value: string): string => {
@@ -77,23 +68,8 @@ const detailedInfoSchema = z.object({
 type DetailedInfoValues = z.infer<typeof detailedInfoSchema>;
 
 interface DetailedInfoStepProps {
-  formData: {
-    userName: string;
-    realName: string;
-    gender: string;
-    birthYear: number;
-    birthMonth: number;
-    birthDay: number;
-    phoneNumber: string;
-    referral: string;
-    agreements: {
-      terms: boolean;
-      privacy: boolean;
-      location: boolean;
-      marketing: boolean;
-    };
-  };
-  updateFormData: (data: Partial<any>) => void;
+  formData: FormDataType;
+  updateFormData: (data: Partial<FormDataType>) => void;
   onSubmit: () => void;
 }
 
@@ -150,35 +126,6 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
     }
   };
 
-  const checkReferral = useCallback(async (referralCode: string) => {
-    if (!referralCode || referralCode.length < 3) {
-      setReferralStatus({ status: 'idle' });
-      return;
-    }
-
-    setReferralStatus({ status: 'checking' });
-    
-    try {
-      const exists = await checkReferralExists(referralCode);
-      if (exists) {
-        setReferralStatus({ 
-          status: 'valid', 
-          message: '유효한 추천인 아이디입니다.' 
-        });
-      } else {
-        setReferralStatus({ 
-          status: 'invalid', 
-          message: '존재하지 않는 추천인 아이디입니다.' 
-        });
-      }
-    } catch (error) {
-      setReferralStatus({ 
-        status: 'invalid', 
-        message: '추천인 확인 중 오류가 발생했습니다.' 
-      });
-    }
-  }, []);
-
   // 사용자명 중복 체크 함수
   const checkUserName = useCallback(async (userName: string) => {
     if (!userName || userName.trim() === '') {
@@ -209,36 +156,6 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
     }
   }, []);
 
-  // 이메일 중복 체크 함수
-  const checkEmail = useCallback(async (email: string) => {
-    if (!email || email.trim() === '') {
-      setEmailStatus({ status: 'idle' });
-      return;
-    }
-
-    setEmailStatus({ status: 'checking' });
-
-    try {
-      const result = await checkEmailAvailability(email);
-      if (result.isAvailable) {
-        setEmailStatus({ 
-          status: 'available', 
-          message: result.message 
-        });
-      } else {
-        setEmailStatus({ 
-          status: 'unavailable', 
-          message: result.message 
-        });
-      }
-    } catch {
-      setEmailStatus({ 
-        status: 'unavailable', 
-        message: '검증 중 오류가 발생했습니다.' 
-      });
-    }
-  }, []);
-
   // 사용자명 입력 디바운싱
   useEffect(() => {
     const userNameValue = form.watch('userName');
@@ -249,25 +166,18 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
 
     const timeoutId = setTimeout(() => {
       checkUserName(userNameValue);
-    }, 500);
+    }, 300); // 500ms에서 300ms로 단축
 
     return () => clearTimeout(timeoutId);
   }, [form.watch('userName'), checkUserName]);
 
-  // 이메일 입력 디바운싱
-  useEffect(() => {
-    const emailValue = form.watch('email');
-    if (!emailValue) {
-      setEmailStatus({ status: 'idle' });
-      return;
+  // 사용자명 필드에서 포커스가 벗어날 때 즉시 검증
+  const handleUserNameBlur = () => {
+    const userNameValue = form.getValues('userName');
+    if (userNameValue && userNameValue.trim() !== '') {
+      checkUserName(userNameValue);
     }
-
-    const timeoutId = setTimeout(() => {
-      checkEmail(emailValue);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [form.watch('email'), checkEmail]);
+  };
 
   const toggleAllAgreements = (checked: boolean) => {
     setAllChecked(checked);
@@ -306,7 +216,6 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <FileText className="h-5 w-5 text-green-600" />
         <h2 className="text-xl font-bold">세부 정보 입력</h2>
       </div>
       <p className="text-sm text-gray-600">개인정보와 약관 동의를 입력해주세요.</p>
@@ -332,6 +241,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                           field.onChange(e);
                           handleFieldChange('userName', e.target.value);
                         }}
+                        onBlur={handleUserNameBlur}
                       />
                       {userNameStatus.status === 'checking' && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -541,14 +451,14 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                 <FormItem>
                   <FormLabel>추천인 아이디 (선택)</FormLabel>
                   <FormControl>
-                    <ReferralSearch
-                      value={field.value}
-                      onSelect={(user) => {
-                        const referralValue = user ? user.userName : '';
-                        field.onChange(referralValue);
-                        handleFieldChange('referral', referralValue);
+                    {/* ReferralSearch component was removed, so this field is now a simple Input */}
+                    <Input 
+                      placeholder="추천인 아이디를 입력하세요" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e.target.value);
+                        handleFieldChange('referral', e.target.value);
                       }}
-                      placeholder="추천인 아이디를 검색하세요"
                     />
                   </FormControl>
                   <FormMessage />
@@ -557,18 +467,11 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
             />
           </div>
 
-          <Separator />
+          {/* Separator was removed, so this section is removed */}
 
           {/* 약관 동의 섹션 */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">약관 동의</h3>
-            
-            <div className="bg-green-50 p-4 rounded-lg mb-6">
-              <p className="text-sm text-green-700 flex items-start">
-                <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                <span>서비스 이용을 위해 필수 약관에 동의해 주세요. 필수 약관에 동의하지 않을 경우 서비스 이용이 제한됩니다.</span>
-              </p>
-            </div>
             
             {/* 전체 동의 */}
             <div className="bg-gray-50 p-4 rounded-lg border flex items-center gap-3">
@@ -585,7 +488,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
               </label>
             </div>
             
-            <Separator className="my-4" />
+            {/* Separator was removed, so this section is removed */}
             
             {/* 개별 약관 동의 */}
             <div className="space-y-4">
