@@ -66,29 +66,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
       setError(null);
       await loginWithEmail(email, password);
       toast.success('로그인되었습니다.');
     } catch (error) {
       console.error('로그인 오류:', error);
       setError(error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
+      throw error; // 에러를 다시 throw하여 LoginPageClient에서 처리할 수 있도록 함
     }
   };
 
   const signInWithGoogle = async () => {
     try {
-      setIsLoading(true);
       setError(null);
       await loginWithGoogle();
       toast.success('Google 로그인되었습니다.');
     } catch (error) {
       console.error('Google 로그인 오류:', error);
       setError(error instanceof Error ? error.message : 'Google 로그인 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
+      throw error; // 에러를 다시 throw하여 호출하는 곳에서 처리할 수 있도록 함
     }
   };
 

@@ -33,11 +33,11 @@ const loginFormSchema = z.object({
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
 export default function LoginPageClient() {
-  const { signIn, error, resetError } = useAuth();
+  const { signIn, error, resetError, user, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [redirectPath, setRedirectPath] = useState('/dashboard');
+  const [redirectPath, setRedirectPath] = useState('/');
   const [showPassword, setShowPassword] = useState(false);
 
   // URL 파라미터에서 리디렉트 경로 가져오기
@@ -47,6 +47,13 @@ export default function LoginPageClient() {
       setRedirectPath(redirect);
     }
   }, [searchParams]);
+
+  // 사용자가 로그인되면 자동으로 리다이렉션
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.push(redirectPath);
+    }
+  }, [user, isLoading, router, redirectPath]);
 
   // react-hook-form 설정
   const form = useForm<LoginFormValues>({
@@ -63,7 +70,7 @@ export default function LoginPageClient() {
       setIsSubmitting(true);
       resetError();
       await signIn(data.email, data.password);
-      router.push(redirectPath);
+      // 리다이렉션은 useEffect에서 user 상태 변화를 감지하여 처리됩니다.
     } catch (error) {
       console.error('로그인 에러:', error);
     } finally {
