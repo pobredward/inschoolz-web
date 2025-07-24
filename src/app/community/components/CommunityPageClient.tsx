@@ -598,17 +598,6 @@ export default function CommunityPageClient() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold">커뮤니티</h1>
-            <Button variant="ghost" size="icon">
-              <Bookmark className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </div>
 
       {/* 탭 */}
       <div className="bg-white border-b">
