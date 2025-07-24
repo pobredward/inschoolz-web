@@ -72,7 +72,7 @@ export default function AdminUsersPage() {
   const [csvExportDialog, setCsvExportDialog] = useState(false);
   
   // 폼 상태
-  const [warningForm, setWarningForm] = useState({ reason: '', severity: 'medium' as 'low' | 'medium' | 'high' });
+  const [warningForm, setWarningForm] = useState({ reason: '' });
   const [experienceForm, setExperienceForm] = useState({ totalExperience: 0, reason: '' });
   const [suspensionForm, setSuspensionForm] = useState<SuspensionSettings>({
     type: 'temporary',
@@ -194,10 +194,10 @@ export default function AdminUsersPage() {
     if (!warningDialog.user) return;
     
     try {
-      await addUserWarning(warningDialog.user.uid, warningForm.reason, warningForm.severity);
+      await addUserWarning(warningDialog.user.uid, warningForm.reason);
       toast.success('경고가 추가되었습니다.');
       setWarningDialog({ isOpen: false, user: null });
-      setWarningForm({ reason: '', severity: 'medium' });
+      setWarningForm({ reason: '' });
       loadUsers();
     } catch (err) {
       console.error('경고 추가 오류:', err);
@@ -872,19 +872,7 @@ export default function AdminUsersPage() {
                 onChange={(e) => setWarningForm({ ...warningForm, reason: e.target.value })}
               />
             </div>
-            <div>
-              <Label htmlFor="warning-severity">심각도</Label>
-              <Select value={warningForm.severity} onValueChange={(value: typeof warningForm.severity) => setWarningForm({ ...warningForm, severity: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">낮음</SelectItem>
-                  <SelectItem value="medium">보통</SelectItem>
-                  <SelectItem value="high">높음</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setWarningDialog({ isOpen: false, user: null })}>
