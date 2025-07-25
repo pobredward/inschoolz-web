@@ -96,7 +96,7 @@ export const metadata: Metadata = {
   },
   manifest: '/manifest.json',
   verification: {
-    google: 'your-google-verification-code',
+    google: 'JHJ-RXl4MxuuU2-5nQiRFv-V72VbSiR3ppghw9V9b50',
     other: {
       'naver-site-verification': 'your-naver-verification-code'
     }
