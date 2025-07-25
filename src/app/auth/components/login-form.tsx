@@ -50,6 +50,9 @@ export function LoginForm() {
       resetError();
       await signIn(values.email, values.password);
       
+      // 쿠키 설정이 완료될 때까지 잠시 대기
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // 로그인 성공 후 리디렉션
       const redirectUrl = searchParams.get('redirect') || '/';
       router.push(redirectUrl);
@@ -63,6 +66,9 @@ export function LoginForm() {
     try {
       resetError();
       await signInWithGoogle();
+      
+      // 쿠키 설정이 완료될 때까지 잠시 대기
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // 로그인 성공 후 리디렉션
       const redirectUrl = searchParams.get('redirect') || '/';
