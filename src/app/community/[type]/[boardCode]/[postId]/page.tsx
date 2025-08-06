@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getPostDetail } from '@/lib/api/board';
+import { getPostDetail, getPostBasicInfo } from '@/lib/api/board';
 import { getBoardsByType } from '@/lib/api/board';
 import { PostViewClient } from '@/components/board/PostViewClient';
 import type { BoardType } from '@/types/board';
@@ -13,6 +13,9 @@ interface PostDetailPageProps {
     postId: string;
   }>;
 }
+
+export const revalidate = 300; // 5분마다 revalidate
+export const dynamic = 'force-static'; // ISR을 위해 static 생성 강제
 
 export default async function PostDetailPage({ params }: PostDetailPageProps) {
   const { type, boardCode, postId } = await params;
@@ -38,6 +41,7 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
       <PostViewClient
         post={post as Post}
         initialComments={comments as Comment[]}
+        boardInfo={board}
       />
     );
   } catch (error) {
@@ -51,7 +55,7 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
   const { postId } = await params;
   
   try {
-    const { post } = await getPostDetail(postId);
+    const post = await getPostBasicInfo(postId);
     
     return {
       title: `${post.title} - Inschoolz`,

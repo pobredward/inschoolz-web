@@ -7,6 +7,7 @@ import { FirebaseTimestamp } from "@/types";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 
 interface PostListItemProps {
   post: {
@@ -107,15 +108,13 @@ const PostListItem: React.FC<PostListItemProps> = ({
                   key={index}
                   className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
                 >
-                  <img
+                  <OptimizedImage
                     src={imageUrl}
                     alt={`미리보기 ${index + 1}`}
                     className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      // 이미지 로드 실패 시 숨김 처리
-                      e.currentTarget.style.display = 'none';
-                    }}
+                    width={64}
+                    height={64}
+                    priority={index === 0}
                   />
                 </div>
               ))}

@@ -250,6 +250,57 @@ export const getPostsByBoard = async (
   }
 };
 
+// 게시글 기본 정보만 가져오기 (메타데이터용, 댓글 제외)
+export const getPostBasicInfo = async (postId: string) => {
+  try {
+    const post = await getDocument<Post>('posts', postId);
+    
+    if (!post) {
+      throw new Error('게시글을 찾을 수 없습니다.');
+    }
+    
+    // authorInfo가 없거나 profileImageUrl이 없는 경우 사용자 정보 업데이트
+    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      try {
+        const userDoc = await getDocument('users', post.authorId);
+        if (userDoc && (userDoc as any).profile) {
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: post.authorInfo?.displayName || (userDoc as any).profile.userName || '사용자',
+            profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
+            isAnonymous: post.authorInfo?.isAnonymous || false
+          };
+        } else {
+          // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: '삭제된 계정',
+            profileImageUrl: '',
+            isAnonymous: true
+          };
+        }
+      } catch (userError) {
+        console.warn('사용자 정보 업데이트 실패 (계정 삭제 가능성):', userError);
+        // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
+        post.authorInfo = {
+          ...post.authorInfo,
+          displayName: '삭제된 계정',
+          profileImageUrl: '',
+          isAnonymous: true
+        };
+      }
+    }
+    
+    // 게시글 Timestamp 직렬화 - serializeObject 사용
+    const serializedPost = serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']);
+    
+    return serializedPost;
+  } catch (error) {
+    console.error('게시글 기본 정보 가져오기 오류:', error);
+    throw new Error('게시글 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
 // 게시글 상세 정보 가져오기 (조회수 증가 없이)
 export const getPostDetail = async (postId: string) => {
   try {
@@ -319,7 +370,7 @@ export const incrementPostViewCount = async (postId: string): Promise<void> => {
   }
 };
 
-// 게시글에 달린 댓글 가져오기
+// 게시글에 달린 댓글 가져오기 (최적화된 버전)
 export const getCommentsByPost = async (postId: string) => {
   try {
     const commentsRef = collection(db, 'posts', postId, 'comments');
@@ -332,6 +383,10 @@ export const getCommentsByPost = async (postId: string) => {
     const querySnapshot = await getDocs(q);
     const comments: any[] = [];
     
+    // 모든 댓글과 대댓글을 먼저 수집
+    const allComments = [];
+    const allReplies = [];
+    
     for (const commentDoc of querySnapshot.docs) {
       const commentData = commentDoc.data();
       const comment = { id: commentDoc.id, ...commentData } as any;
@@ -341,52 +396,7 @@ export const getCommentsByPost = async (postId: string) => {
         continue;
       }
       
-      // 사용자 정보 가져오기
-      let authorInfo = {
-        displayName: '사용자',
-        profileImageUrl: '',
-        isAnonymous: comment.isAnonymous
-      };
-      
-      // 익명 댓글 처리
-      if (comment.isAnonymous || !comment.authorId) {
-        if (comment.anonymousAuthor?.nickname) {
-          authorInfo.displayName = comment.anonymousAuthor.nickname;
-        } else {
-          authorInfo.displayName = '익명';
-        }
-        authorInfo.isAnonymous = true;
-      } else if (!comment.status.isDeleted) {
-        try {
-          const userDocRef = doc(db, 'users', comment.authorId);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            if (userData && userData.profile) {
-              authorInfo = {
-                displayName: userData.profile.userName || '사용자',
-                profileImageUrl: userData.profile.profileImageUrl || '',
-                isAnonymous: false
-              };
-            }
-          } else {
-            // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
-            authorInfo = {
-              displayName: '삭제된 계정',
-              profileImageUrl: '',
-              isAnonymous: true
-            };
-          }
-        } catch (error) {
-          console.error('사용자 정보 조회 오류 (계정 삭제 가능성):', error);
-          // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
-          authorInfo = {
-            displayName: '삭제된 계정',
-            profileImageUrl: '',
-            isAnonymous: true
-          };
-        }
-      }
+      allComments.push(comment);
       
       // 대댓글 가져오기
       const repliesRef = collection(db, 'posts', postId, 'comments');
@@ -397,72 +407,130 @@ export const getCommentsByPost = async (postId: string) => {
       );
       
       const repliesSnapshot = await getDocs(repliesQuery);
-      const replies = [];
       
       for (const replyDoc of repliesSnapshot.docs) {
         const replyData = replyDoc.data();
-        const reply = { id: replyDoc.id, ...replyData } as any;
+        const reply = { id: replyDoc.id, ...replyData, parentCommentId: comment.id } as any;
         
         // 삭제된 대댓글이지만 내용이 "삭제된 댓글입니다."가 아닌 경우 건너뛰기
         if (reply.status.isDeleted && reply.content !== '삭제된 댓글입니다.') {
           continue;
         }
         
-        // 대댓글 작성자 정보 가져오기
-        let replyAuthorInfo = {
-          displayName: '사용자',
-          profileImageUrl: '',
-          isAnonymous: reply.isAnonymous
-        };
+        allReplies.push(reply);
+      }
+    }
+    
+    // 모든 고유한 사용자 ID 수집 (익명이 아닌 경우만)
+    const userIds = new Set<string>();
+    
+    [...allComments, ...allReplies].forEach(item => {
+      if (!item.isAnonymous && item.authorId && !item.status.isDeleted) {
+        userIds.add(item.authorId);
+      }
+    });
+    
+    // 사용자 정보를 한 번에 가져오기
+    const userDataMap = new Map<string, any>();
+    if (userIds.size > 0) {
+      try {
+        // Firestore는 'in' 쿼리에서 최대 10개까지만 지원하므로 배치로 처리
+        const userIdArray = Array.from(userIds);
+        const batchSize = 10;
         
-        // 익명 대댓글 처리
-        if (reply.isAnonymous || !reply.authorId) {
-          if (reply.anonymousAuthor?.nickname) {
-            replyAuthorInfo.displayName = reply.anonymousAuthor.nickname;
-          } else {
-            replyAuthorInfo.displayName = '익명';
-          }
-          replyAuthorInfo.isAnonymous = true;
-        } else if (!reply.status.isDeleted) {
-          try {
-            const replyUserDocRef = doc(db, 'users', reply.authorId);
-            const replyUserDocSnap = await getDoc(replyUserDocRef);
-            if (replyUserDocSnap.exists()) {
-              const replyUserData = replyUserDocSnap.data();
-              if (replyUserData && replyUserData.profile) {
-                replyAuthorInfo = {
-                  displayName: replyUserData.profile.userName || '사용자',
-                  profileImageUrl: replyUserData.profile.profileImageUrl || '',
-                  isAnonymous: false
-                };
-              }
+        for (let i = 0; i < userIdArray.length; i += batchSize) {
+          const batch = userIdArray.slice(i, i + batchSize);
+          const usersQuery = query(
+            collection(db, 'users'),
+            where('__name__', 'in', batch)
+          );
+          
+          const usersSnapshot = await getDocs(usersQuery);
+          usersSnapshot.docs.forEach(userDoc => {
+            const userData = userDoc.data();
+            if (userData && userData.profile) {
+              userDataMap.set(userDoc.id, {
+                displayName: userData.profile.userName || '사용자',
+                profileImageUrl: userData.profile.profileImageUrl || '',
+                isAnonymous: false
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('사용자 정보 일괄 조회 오류:', error);
+      }
+    }
+    
+    // 댓글별로 처리
+    for (const comment of allComments) {
+      // 댓글 작성자 정보 설정
+      let authorInfo = {
+        displayName: '사용자',
+        profileImageUrl: '',
+        isAnonymous: comment.isAnonymous
+      };
+      
+      if (comment.isAnonymous || !comment.authorId) {
+        if (comment.anonymousAuthor?.nickname) {
+          authorInfo.displayName = comment.anonymousAuthor.nickname;
+        } else {
+          authorInfo.displayName = '익명';
+        }
+        authorInfo.isAnonymous = true;
+      } else if (!comment.status.isDeleted) {
+        const userData = userDataMap.get(comment.authorId);
+        if (userData) {
+          authorInfo = userData;
+        } else {
+          // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
+          authorInfo = {
+            displayName: '삭제된 계정',
+            profileImageUrl: '',
+            isAnonymous: true
+          };
+        }
+      }
+      
+      // 해당 댓글의 대댓글들 찾기
+      const replies = allReplies
+        .filter(reply => reply.parentCommentId === comment.id)
+        .map(reply => {
+          // 대댓글 작성자 정보 설정
+          let replyAuthorInfo = {
+            displayName: '사용자',
+            profileImageUrl: '',
+            isAnonymous: reply.isAnonymous
+          };
+          
+          if (reply.isAnonymous || !reply.authorId) {
+            if (reply.anonymousAuthor?.nickname) {
+              replyAuthorInfo.displayName = reply.anonymousAuthor.nickname;
             } else {
-              // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
+              replyAuthorInfo.displayName = '익명';
+            }
+            replyAuthorInfo.isAnonymous = true;
+          } else if (!reply.status.isDeleted) {
+            const userData = userDataMap.get(reply.authorId);
+            if (userData) {
+              replyAuthorInfo = userData;
+            } else {
               replyAuthorInfo = {
                 displayName: '삭제된 계정',
                 profileImageUrl: '',
                 isAnonymous: true
               };
             }
-          } catch (error) {
-            console.error('대댓글 사용자 정보 조회 오류 (계정 삭제 가능성):', error);
-            // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
-            replyAuthorInfo = {
-              displayName: '삭제된 계정',
-              profileImageUrl: '',
-              isAnonymous: true
-            };
           }
-        }
-        
-        const serializedReply = serializeObject(reply, ['createdAt', 'updatedAt', 'deletedAt']) as any;
-        replies.push({
-          ...serializedReply,
-          author: replyAuthorInfo,
+          
+          const serializedReply = serializeObject(reply, ['createdAt', 'updatedAt', 'deletedAt']) as any;
+          return {
+            ...serializedReply,
+            author: replyAuthorInfo,
+          };
         });
-      }
       
-      // 대댓글도 시간순으로 정렬
+      // 대댓글 시간순 정렬
       replies.sort((a, b) => a.createdAt - b.createdAt);
       
       const serializedComment = serializeObject(comment, ['createdAt', 'updatedAt', 'deletedAt']) as any;
@@ -473,7 +541,7 @@ export const getCommentsByPost = async (postId: string) => {
       });
     }
     
-    // 모든 댓글을 시간순으로 확실히 정렬 (익명 댓글 포함)
+    // 모든 댓글을 시간순으로 정렬
     comments.sort((a, b) => a.createdAt - b.createdAt);
     
     return comments;
