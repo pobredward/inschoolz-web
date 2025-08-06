@@ -63,10 +63,9 @@ import {
 interface PostViewClientProps {
   post: Post;
   initialComments: Comment[];
-  boardInfo?: Board;
 }
 
-export const PostViewClient = ({ post, initialComments, boardInfo: initialBoardInfo }: PostViewClientProps) => {
+export const PostViewClient = ({ post, initialComments }: PostViewClientProps) => {
   const router = useRouter();
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
@@ -76,7 +75,7 @@ export const PostViewClient = ({ post, initialComments, boardInfo: initialBoardI
   const [commentCount, setCommentCount] = useState(post.stats.commentCount);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [boardInfo, setBoardInfo] = useState<Board | null>(initialBoardInfo || null);
+  const [boardInfo, setBoardInfo] = useState<Board | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
@@ -107,21 +106,19 @@ export const PostViewClient = ({ post, initialComments, boardInfo: initialBoardI
       }
     };
     
-    checkStatuses();
+    // board 정보 가져오기
+    const fetchBoardInfo = async () => {
+      try {
+        const boards = await getBoardsByType(post.type);
+        const board = (boards as Board[]).find((b: Board) => b.code === post.boardCode);
+        setBoardInfo(board || null);
+      } catch (error) {
+        console.error('Board 정보 가져오기 실패:', error);
+      }
+    };
     
-    // board 정보가 없는 경우에만 가져오기
-    if (!initialBoardInfo) {
-      const fetchBoardInfo = async () => {
-        try {
-          const boards = await getBoardsByType(post.type);
-          const board = (boards as Board[]).find((b: Board) => b.code === post.boardCode);
-          setBoardInfo(board || null);
-        } catch (error) {
-          console.error('Board 정보 가져오기 실패:', error);
-        }
-      };
-      fetchBoardInfo();
-    }
+    checkStatuses();
+    fetchBoardInfo();
   }, [user, post.id, post.type, post.boardCode]);
 
   const handleLike = async () => {

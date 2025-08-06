@@ -2,7 +2,7 @@ import React from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getPostDetail, getBoardsByType } from "@/lib/api/board";
+import { getPostDetail, getPostBasicInfo, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { ArticleStructuredData, BreadcrumbStructuredData } from "@/components/seo/StructuredData";
@@ -25,8 +25,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   
   try {
     // 게시글과 게시판 정보를 병렬로 가져오기 (댓글은 메타데이터에 불필요)
-    const [{ post }, boards] = await Promise.all([
-      getPostDetail(postId),
+    const [post, boards] = await Promise.all([
+      getPostBasicInfo(postId),
       getBoardsByType('national')
     ]);
     const boardInfo = boards.find(board => board.code === boardCode);
@@ -40,30 +40,30 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
     }
 
     // 익명 게시글은 검색엔진에서 제외
-    const isAnonymous = (post as Post).authorInfo?.isAnonymous;
+    const isAnonymous = post.authorInfo?.isAnonymous;
     
     // 게시글 내용 정리 및 작성 정보 추가
-    const cleanContent = stripHtmlTags((post as Post).content);
-    const authorName = isAnonymous ? '익명' : ((post as Post).authorInfo?.displayName || '사용자');
-    const createdDate = serializeTimestamp((post as Post).createdAt).toLocaleDateString('ko-KR');
+    const cleanContent = stripHtmlTags(post.content);
+    const authorName = isAnonymous ? '익명' : (post.authorInfo?.displayName || '사용자');
+    const createdDate = serializeTimestamp(post.createdAt).toLocaleDateString('ko-KR');
     
     // 첨부 이미지 추출
-    const images = (post as Post).attachments?.filter((att: any) => att.type === 'image').map((att: any) => att.url) || [];
+    const images = post.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
     const firstImage = images.length > 0 ? images[0] : undefined;
     
     // SEO 최적화된 메타데이터 생성
-    const seoTitle = generateSeoTitle(post as Post, (boardInfo as any).name, 'national');
+    const seoTitle = generateSeoTitle(post, boardInfo.name, 'national');
     const seoDescription = generateSeoDescription(
-      post as Post, 
+      post, 
       cleanContent, 
       authorName, 
       createdDate, 
       'national'
     );
-    const seoKeywords = generateSeoKeywords(post as Post, (boardInfo as any).name, 'national');
+    const seoKeywords = generateSeoKeywords(post, boardInfo.name, 'national');
     
     // 게시글 카테고리 분류
-    const categories = categorizePost((post as Post).title, (post as Post).content);
+    const categories = categorizePost(post.title, post.content);
 
     return {
       title: seoTitle,
@@ -80,12 +80,12 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
         type: 'article',
         siteName: 'Inschoolz - 인스쿨즈',
         url: `https://inschoolz.com/community/national/${boardCode}/${postId}`,
-        publishedTime: serializeTimestamp((post as Post).createdAt).toISOString(),
-        modifiedTime: serializeTimestamp((post as Post).updatedAt || (post as Post).createdAt).toISOString(),
+        publishedTime: serializeTimestamp(post.createdAt).toISOString(),
+        modifiedTime: serializeTimestamp(post.updatedAt || post.createdAt).toISOString(),
         authors: [authorName],
-        section: `전국 ${(boardInfo as any).name}`,
+        section: `전국 ${boardInfo.name}`,
         tags: [...categories, ...seoKeywords.slice(0, 10)],
-        ...(firstImage && { images: [{ url: firstImage, alt: (post as Post).title }] }),
+        ...(firstImage && { images: [{ url: firstImage, alt: post.title }] }),
       },
       twitter: {
         card: firstImage ? 'summary_large_image' : 'summary',
@@ -96,11 +96,11 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
         ...(firstImage && { images: [firstImage] }),
       },
       other: {
-        'article:section': `전국 ${(boardInfo as any).name}`,
+        'article:section': `전국 ${boardInfo.name}`,
         'article:tag': categories.join(','),
         'article:author': authorName,
-        'article:published_time': serializeTimestamp((post as Post).createdAt).toISOString(),
-        'article:modified_time': serializeTimestamp((post as Post).updatedAt || (post as Post).createdAt).toISOString(),
+        'article:published_time': serializeTimestamp(post.createdAt).toISOString(),
+        'article:modified_time': serializeTimestamp(post.updatedAt || post.createdAt).toISOString(),
       },
     };
   } catch (error) {
@@ -113,9 +113,6 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   }
 }
 
-export const revalidate = 300; // 5분마다 revalidate
-export const dynamic = 'force-static'; // ISR을 위해 static 생성 강제
-
 export default async function NationalPostDetailPage({ params }: PostViewPageProps) {
   const { boardCode, postId } = await params;
   
@@ -125,7 +122,7 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
     
     // 게시판 정보 가져오기
     const boards = await getBoardsByType('national');
-    const board = (boards as any[]).find((b: any) => b.code === boardCode);
+    const board = boards.find(b => b.code === boardCode);
     
     if (!board) {
       notFound();
@@ -155,7 +152,7 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
         />
         <BreadcrumbStructuredData 
           boardCode={boardCode}
-          boardName={(board as any).name}
+          boardName={board.name}
           postTitle={(post as Post).title}
           communityType="national"
         />
@@ -163,7 +160,6 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
         <PostViewClient
           post={post as unknown as Post}
           initialComments={comments as unknown as Comment[]}
-          boardInfo={board as any}
         />
       </>
     );

@@ -2,7 +2,7 @@ import React from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getPostDetail, getBoardsByType } from "@/lib/api/board";
+import { getPostDetail, getPostBasicInfo, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { 
@@ -28,8 +28,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   
   try {
     // 게시글과 게시판 정보를 병렬로 가져오기 (댓글은 메타데이터에 불필요)
-    const [{ post }, boards] = await Promise.all([
-      getPostDetail(postId),
+    const [post, boards] = await Promise.all([
+      getPostBasicInfo(postId),
       getBoardsByType('regional')
     ]);
     const boardInfo = boards.find(board => board.code === boardCode);
@@ -126,9 +126,6 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   }
 }
 
-export const revalidate = 300; // 5분마다 revalidate  
-export const dynamic = 'force-static'; // ISR을 위해 static 생성 강제
-
 export default async function RegionalPostDetailPage({ params }: PostViewPageProps) {
   const { boardCode, postId } = await params;
   
@@ -153,7 +150,6 @@ export default async function RegionalPostDetailPage({ params }: PostViewPagePro
       <PostViewClient
         post={post as unknown as Post}
         initialComments={comments as unknown as Comment[]}
-        boardInfo={board}
       />
     );
   } catch (error) {
