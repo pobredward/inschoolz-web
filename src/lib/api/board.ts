@@ -250,56 +250,7 @@ export const getPostsByBoard = async (
   }
 };
 
-// 게시글 기본 정보만 가져오기 (메타데이터용, 댓글 제외)
-export const getPostBasicInfo = async (postId: string) => {
-  try {
-    const post = await getDocument<Post>('posts', postId);
-    
-    if (!post) {
-      throw new Error('게시글을 찾을 수 없습니다.');
-    }
-    
-    // authorInfo가 없거나 profileImageUrl이 없는 경우 사용자 정보 업데이트
-    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
-      try {
-        const userDoc = await getDocument('users', post.authorId);
-        if (userDoc && (userDoc as any).profile) {
-          post.authorInfo = {
-            ...post.authorInfo,
-            displayName: post.authorInfo?.displayName || (userDoc as any).profile.userName || '사용자',
-            profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
-            isAnonymous: post.authorInfo?.isAnonymous || false
-          };
-        } else {
-          // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
-          post.authorInfo = {
-            ...post.authorInfo,
-            displayName: '삭제된 계정',
-            profileImageUrl: '',
-            isAnonymous: true
-          };
-        }
-      } catch (userError) {
-        console.warn('사용자 정보 업데이트 실패 (계정 삭제 가능성):', userError);
-        // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
-        post.authorInfo = {
-          ...post.authorInfo,
-          displayName: '삭제된 계정',
-          profileImageUrl: '',
-          isAnonymous: true
-        };
-      }
-    }
-    
-    // 게시글 Timestamp 직렬화 - serializeObject 사용
-    const serializedPost = serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']);
-    
-    return serializedPost;
-  } catch (error) {
-    console.error('게시글 기본 정보 가져오기 오류:', error);
-    throw new Error('게시글 정보를 가져오는 중 오류가 발생했습니다.');
-  }
-};
+
 
 // 게시글 상세 정보 가져오기 (조회수 증가 없이)
 export const getPostDetail = async (postId: string) => {

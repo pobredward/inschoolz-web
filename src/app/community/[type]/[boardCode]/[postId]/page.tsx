@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation';
-import { getPostDetail, getPostBasicInfo } from '@/lib/api/board';
+import { getPostDetail } from '@/lib/api/board';
 import { getBoardsByType } from '@/lib/api/board';
 import { PostViewClient } from '@/components/board/PostViewClient';
 import type { BoardType } from '@/types/board';
 import { Post, Comment } from '@/types';
-import { stripHtmlTags, serializeTimestamp } from '@/lib/utils';
+import { stripHtmlTags } from '@/lib/utils';
 
 interface PostDetailPageProps {
   params: Promise<{
@@ -26,7 +26,7 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
     
     // 게시판 정보 가져오기
     const boards = await getBoardsByType(type);
-    const board = boards.find(b => b.code === boardCode);
+    const board = (boards as any[]).find((b: any) => b.code === boardCode);
     
     if (!board) {
       notFound();
@@ -41,7 +41,7 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
       <PostViewClient
         post={post as Post}
         initialComments={comments as Comment[]}
-        boardInfo={board}
+        boardInfo={board as any}
       />
     );
   } catch (error) {
@@ -55,15 +55,15 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
   const { postId } = await params;
   
   try {
-    const post = await getPostBasicInfo(postId);
+    const { post } = await getPostDetail(postId);
     
     return {
-      title: `${post.title} - Inschoolz`,
-      description: stripHtmlTags(post.content).slice(0, 150) + '...',
+      title: `${(post as Post).title} - Inschoolz`,
+      description: stripHtmlTags((post as Post).content).slice(0, 150) + '...',
       openGraph: {
-        title: post.title,
-        description: stripHtmlTags(post.content).slice(0, 150) + '...',
-        images: post.attachments?.length > 0 ? [post.attachments[0].url] : [],
+        title: (post as Post).title,
+        description: stripHtmlTags((post as Post).content).slice(0, 150) + '...',
+        images: (post as Post).attachments?.length > 0 ? [(post as Post).attachments[0].url] : [],
       },
     };
   } catch {

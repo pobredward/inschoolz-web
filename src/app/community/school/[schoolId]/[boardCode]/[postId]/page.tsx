@@ -2,7 +2,7 @@ import React from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getPostDetail, getPostBasicInfo, getBoardsByType } from "@/lib/api/board";
+import { getPostDetail, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { 
@@ -35,8 +35,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   
   try {
     // 게시글과 게시판 정보를 병렬로 가져오기 (댓글은 메타데이터에 불필요)
-    const [post, boards] = await Promise.all([
-      getPostBasicInfo(postId),
+    const [{ post }, boards] = await Promise.all([
+      getPostDetail(postId),
       getBoardsByType('school')
     ]);
     const boardInfo = boards.find(board => board.code === boardCode);
