@@ -355,6 +355,60 @@ export const getPostDetail = async (postId: string) => {
   }
 };
 
+// 최적화된 게시글 상세 정보 가져오기 (메타데이터용, 댓글 제외)
+export const getPostDetailOptimized = async (postId: string, includeComments = true) => {
+  try {
+    const post = await getDocument<Post>('posts', postId);
+    
+    if (!post) {
+      throw new Error('게시글을 찾을 수 없습니다.');
+    }
+    
+    // authorInfo 처리 (getPostBasicInfo와 동일한 로직)
+    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      try {
+        const userDoc = await getDocument('users', post.authorId);
+        if (userDoc && (userDoc as any).profile) {
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: post.authorInfo?.displayName || (userDoc as any).profile.userName || '사용자',
+            profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
+            isAnonymous: post.authorInfo?.isAnonymous || false
+          };
+        } else {
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: '삭제된 계정',
+            profileImageUrl: '',
+            isAnonymous: true
+          };
+        }
+      } catch (userError) {
+        console.warn('사용자 정보 업데이트 실패:', userError);
+        post.authorInfo = {
+          ...post.authorInfo,
+          displayName: '삭제된 계정',
+          profileImageUrl: '',
+          isAnonymous: true
+        };
+      }
+    }
+    
+    const serializedPost = serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']);
+    
+    if (includeComments) {
+      const comments = await getCommentsByPost(postId);
+      return { post: serializedPost, comments };
+    }
+    
+    // 메타데이터용으로는 댓글 없이 반환
+    return { post: serializedPost, comments: [] };
+  } catch (error) {
+    console.error('최적화된 게시글 정보 가져오기 오류:', error);
+    throw new Error('게시글 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
 // 게시글 조회수 증가 (별도 함수)
 export const incrementPostViewCount = async (postId: string): Promise<void> => {
   try {

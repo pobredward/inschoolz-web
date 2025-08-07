@@ -82,31 +82,40 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   const [isUserBlocked, setIsUserBlocked] = useState(false);
 
     useEffect(() => {
-    // 조회수 증가 (한 번만)
-    incrementPostViewCount(post.id);
+    // 조회수 증가 (백그라운드에서 처리, 실패해도 무시)
+    incrementPostViewCount(post.id).catch(() => {
+      // 조회수 증가 실패는 무시 (사용자 경험에 영향 없음)
+    });
     
     // 게시글 상세 페이지에 진입했음을 표시
     sessionStorage.setItem('from-post-detail', 'true');
+  }, [post.id]);
+
+  // 사용자 관련 상태는 지연 로딩
+  useEffect(() => {
+    if (!user) return;
     
-    // 좋아요/스크랩/차단 상태 확인
+    // 좋아요/스크랩/차단 상태 확인 (지연 로딩)
     const checkStatuses = async () => {
-      if (user) {
-        try {
-          const [likeStatus, scrapStatus, blockStatus] = await Promise.all([
-            checkLikeStatus(post.id, user.uid),
-            checkScrapStatus(post.id, user.uid),
-            post.authorId ? checkBlockStatus(user.uid, post.authorId) : Promise.resolve(false)
-          ]);
-              setIsLiked(likeStatus);
-              setIsScrapped(scrapStatus);
-              setIsUserBlocked(blockStatus);
-        } catch (error) {
-          console.error('상태 확인 실패:', error);
-        }
+      try {
+        const [likeStatus, scrapStatus, blockStatus] = await Promise.all([
+          checkLikeStatus(post.id, user.uid),
+          checkScrapStatus(post.id, user.uid),
+          post.authorId ? checkBlockStatus(user.uid, post.authorId) : Promise.resolve(false)
+        ]);
+        setIsLiked(likeStatus);
+        setIsScrapped(scrapStatus);
+        setIsUserBlocked(blockStatus);
+      } catch (error) {
+        console.error('상태 확인 실패:', error);
       }
     };
     
-    // board 정보 가져오기
+    checkStatuses();
+  }, [user, post.id, post.authorId]);
+
+  // board 정보는 가장 나중에 로딩 (필수가 아님)
+  useEffect(() => {
     const fetchBoardInfo = async () => {
       try {
         const boards = await getBoardsByType(post.type);
@@ -117,9 +126,10 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
       }
     };
     
-    checkStatuses();
-    fetchBoardInfo();
-  }, [user, post.id, post.type, post.boardCode]);
+    // 약간의 지연을 두고 로딩 (다른 중요한 렌더링 완료 후)
+    const timer = setTimeout(fetchBoardInfo, 100);
+    return () => clearTimeout(timer);
+  }, [post.type, post.boardCode]);
 
   const handleLike = async () => {
     if (!user) {
