@@ -24,7 +24,7 @@ export default async function PopularPostsSection({ type }: PopularPostsSectionP
       
       <div className="space-y-3">
         {popularPosts.map((post) => (
-          <Link key={post.id} href={`/community/national/${post.boardCode}/${post.id}`}>
+          <Link key={post.id} href={`/community/national/${post.boardCode}/${post.id}/fast`}>
             <Card className="hover:shadow-md transition-all duration-200">
               <CardContent className="p-4">
                 {/* 상단 뱃지들 */}

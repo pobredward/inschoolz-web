@@ -101,8 +101,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
         'article:section': `전국 ${boardInfo.name}`,
         'article:tag': categories.join(','),
         'article:author': authorName,
-        'article:published_time': serializeTimestamp(postData.createdAt).toISOString(),
-        'article:modified_time': serializeTimestamp(postData.updatedAt || postData.createdAt).toISOString(),
+        'article:published_time': serializeTimestamp(post.createdAt).toISOString(),
+        'article:modified_time': serializeTimestamp(post.updatedAt || post.createdAt).toISOString(),
       },
     };
   } catch (error) {
@@ -124,7 +124,7 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
     
     // 게시판 정보 가져오기
     const boards = await getBoardsByType('national');
-    const board = (boards as Board[]).find((b: Board) => b.code === boardCode);
+    const board = boards.find(b => b.code === boardCode);
     
     if (!board) {
       notFound();

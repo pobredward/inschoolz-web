@@ -187,6 +187,12 @@ export default function PostList({
     });
   };
 
+  // 게시글 클릭 핸들러 - 즉시 클라이언트 사이드 라우팅
+  const handlePostClick = useCallback((postId: string) => {
+    // 빠른 로딩 모드로 이동 (SEO 우회)
+    router.push(`/community/${type}/${boardCode}/${postId}/fast`);
+  }, [router, type, boardCode]);
+
   // 게시글 렌더링 함수
   const renderPost = (post: PostWithOptionalFields) => {
     const isBlocked = blockedUserIds.has(post.authorId);
@@ -215,18 +221,19 @@ export default function PostList({
       <Card className="hover:shadow-md transition-shadow duration-200">
         <div className="p-4">
           {/* 게시글 내용 렌더링 로직 */}
-          <Link href={`/community/${type}/${boardCode}/${post.id}`}>
-            <div className="space-y-3">
-              <h3 className="font-semibold text-lg text-gray-900 hover:text-blue-600 transition-colors">
-                {post.title}
-              </h3>
-              {post.content && (
-                <p className="text-gray-600 text-sm line-clamp-2">
-                  {post.content.replace(/<[^>]*>/g, '').slice(0, 100)}...
-                </p>
-              )}
-            </div>
-          </Link>
+          <div 
+            className="cursor-pointer space-y-3"
+            onClick={() => handlePostClick(post.id)}
+          >
+            <h3 className="font-semibold text-lg text-gray-900 hover:text-blue-600 transition-colors">
+              {post.title}
+            </h3>
+            {post.content && (
+              <p className="text-gray-600 text-sm line-clamp-2">
+                {post.content.replace(/<[^>]*>/g, '').slice(0, 100)}...
+              </p>
+            )}
+          </div>
         </div>
       </Card>
     );

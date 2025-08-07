@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
       getPostDetailOptimized(postId, false), // 댓글 제외하고 가져오기
       getBoardsByType('school')
     ]);
-    const boardInfo = (boards as Board[]).find((board: Board) => board.code === boardCode);
+    const boardInfo = boards.find(board => board.code === boardCode);
     const schoolInfo = getSchoolInfo(schoolId);
     
     if (!boardInfo || !post) {
@@ -50,35 +50,33 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
       };
     }
 
-    const postData = post as Post;
-    
     // 익명 게시글은 검색엔진에서 제외
-    const isAnonymous = postData.authorInfo?.isAnonymous;
+    const isAnonymous = post.authorInfo?.isAnonymous;
     
     // 게시글 내용 정리 및 작성 정보 추가
-    const cleanContent = stripHtmlTags(postData.content);
-    const authorName = isAnonymous ? '익명' : (postData.authorInfo?.displayName || '사용자');
-    const createdDate = serializeTimestamp(postData.createdAt).toLocaleDateString('ko-KR');
+    const cleanContent = stripHtmlTags(post.content);
+    const authorName = isAnonymous ? '익명' : (post.authorInfo?.displayName || '사용자');
+    const createdDate = serializeTimestamp(post.createdAt).toLocaleDateString('ko-KR');
     
     // 첨부 이미지 추출
-    const images = postData.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
+    const images = post.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
     const firstImage = images.length > 0 ? images[0] : undefined;
     
     // SEO 최적화된 메타데이터 생성
     const locationInfo = { name: schoolInfo.name, address: schoolInfo.address };
-    const seoTitle = generateSeoTitle(postData, boardInfo.name, 'school', locationInfo);
+    const seoTitle = generateSeoTitle(post, boardInfo.name, 'school', locationInfo);
     const seoDescription = generateSeoDescription(
-      postData, 
+      post, 
       cleanContent, 
       authorName, 
       createdDate, 
       'school',
       locationInfo
     );
-    const seoKeywords = generateSeoKeywords(postData, boardInfo.name, 'school', locationInfo);
+    const seoKeywords = generateSeoKeywords(post, boardInfo.name, 'school', locationInfo);
     
     // 게시글 카테고리 분류
-    const categories = categorizePost(postData.title, postData.content);
+    const categories = categorizePost(post.title, post.content);
 
     return {
       title: seoTitle,
@@ -140,7 +138,7 @@ export default async function SchoolPostDetailPage({ params }: PostViewPageProps
     
     // 게시판 정보 가져오기
     const boards = await getBoardsByType('school');
-    const board = (boards as Board[]).find((b: Board) => b.code === boardCode);
+    const board = boards.find(b => b.code === boardCode);
     
     if (!board) {
       notFound();

@@ -1642,3 +1642,43 @@ export const repairDamagedPoll = async (postId: string) => {
     throw error;
   }
 };
+
+// 빠른 모드용 게시글 상세 정보 가져오기 (최소한의 처리)
+export const getPostDetailFast = async (postId: string) => {
+  try {
+    // 게시글과 댓글을 병렬로 가져오기
+    const [post, comments] = await Promise.all([
+      getDocument<Post>('posts', postId),
+      getCommentsByPost(postId)
+    ]);
+    
+    if (!post) {
+      throw new Error('게시글을 찾을 수 없습니다.');
+    }
+    
+    // 최소한의 authorInfo 처리 (사용자 문서 조회 생략으로 속도 향상)
+    if (!post.authorInfo) {
+      post.authorInfo = {
+        displayName: '사용자',
+        profileImageUrl: '',
+        isAnonymous: false
+      };
+    }
+    
+    // 빠른 직렬화 (필수 필드만)
+    const serializedPost = {
+      ...post,
+      createdAt: post.createdAt instanceof Date ? post.createdAt : 
+                 (post.createdAt as any)?.toDate ? (post.createdAt as any).toDate() : 
+                 new Date(post.createdAt),
+      updatedAt: post.updatedAt instanceof Date ? post.updatedAt : 
+                 (post.updatedAt as any)?.toDate ? (post.updatedAt as any).toDate() : 
+                 post.updatedAt ? new Date(post.updatedAt) : new Date(post.createdAt)
+    };
+    
+    return { post: serializedPost, comments };
+  } catch (error) {
+    console.error('빠른 모드 게시글 정보 가져오기 오류:', error);
+    throw new Error('게시글 정보를 가져오는 중 오류가 발생했습니다.');
+  }
+};

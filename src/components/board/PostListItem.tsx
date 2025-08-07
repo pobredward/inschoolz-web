@@ -52,7 +52,7 @@ const PostListItem: React.FC<PostListItemProps> = ({
   const previewImages = getPostPreviewImages(post);
 
   return (
-    <Link key={post.id} href={href} className={`block group ${className}`}>
+    <Link key={post.id} href={`${href}/fast`} className={`block group ${className}`}>
       <div className="bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
         {/* 상단 뱃지들 */}
         {showBadges && (
