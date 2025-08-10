@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import {
   Form,
   FormControl,
@@ -27,7 +28,7 @@ const signupFormSchema = z.object({
   email: z
     .string()
     .min(1, { message: '이메일을 입력해주세요.' })
-    .email({ message: '유효한 이메일 주소를 입력해주세요.' }),
+    .email({ message: '올바른 이메일 형식이 아닙니다. (예: user@example.com)' }),
   password: z
     .string()
     .min(6, { message: '비밀번호는 최소 6자 이상이어야 합니다.' }),
@@ -63,16 +64,30 @@ export default function SignupPage() {
       setIsSubmitting(true);
       resetError();
       await signUp(data.email, data.password, data.userName);
-      router.push('/');
+      
+      toast.success('회원가입 성공', {
+        description: '회원가입이 완료되었습니다. 환영합니다!'
+      });
+      
+      // 잠시 후 홈페이지로 이동
+      setTimeout(() => {
+        router.push('/');
+      }, 1500);
     } catch (error) {
       console.error('회원가입 에러:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.';
+      
+      toast.error('회원가입 실패', {
+        description: errorMessage
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center md:p-4 px-4 py-2">
+    <div className="flex min-h-screen flex-col items-center justify-center md:p-4 px-1 py-2">
       <div className="w-full md:max-w-md max-w-full md:space-y-6 space-y-4">
         <div className="text-center">
           <h1 className="text-3xl font-bold">회원가입</h1>

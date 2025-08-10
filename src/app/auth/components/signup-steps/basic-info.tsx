@@ -31,7 +31,7 @@ const basicInfoSchema = z.object({
     .max(20, { message: '아이디는 최대 20자까지 가능합니다.' })
     .regex(/^[a-z0-9]+$/, { message: '아이디는 영문 소문자와 숫자만 사용 가능합니다.' }),
   email: z.string()
-    .email({ message: '유효한 이메일 주소를 입력해주세요.' }),
+    .email({ message: '올바른 이메일 형식이 아닙니다. (예: user@example.com)' }),
   password: z.string()
     .min(8, { message: '비밀번호는 최소 8자 이상이어야 합니다.' }),
   passwordConfirm: z.string(),
@@ -293,11 +293,11 @@ export function BasicInfoStep({ formData, updateFormData, onValidationChange }: 
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h2 className="text-xl font-bold">기본 정보 입력</h2>
       
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
           <FormField
             control={form.control}
             name="userName"

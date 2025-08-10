@@ -1815,10 +1815,10 @@ export const checkEmailAvailability = async (email: string): Promise<{
       return { isAvailable: false, message: '이메일을 입력해주세요.' };
     }
 
-    // 이메일 형식 검증
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // 이메일 형식 검증 (더 엄격한 검증)
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
     if (!emailRegex.test(email)) {
-      return { isAvailable: false, message: '올바른 이메일 형식이 아닙니다.' };
+      return { isAvailable: false, message: '올바른 이메일 형식이 아닙니다. (예: user@example.com)' };
     }
 
     // Firestore에서 중복 확인

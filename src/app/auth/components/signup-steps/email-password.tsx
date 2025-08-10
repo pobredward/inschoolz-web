@@ -19,7 +19,7 @@ import { checkEmailAvailability } from '@/lib/api/users';
 import { FormDataType } from '@/types';
 
 const emailPasswordSchema = z.object({
-  email: z.string().email({ message: '유효한 이메일 주소를 입력해주세요.' }),
+  email: z.string().email({ message: '올바른 이메일 형식이 아닙니다. (예: user@example.com)' }),
   password: z.string().min(8, { message: '비밀번호는 최소 8자 이상이어야 합니다.' }),
   passwordConfirm: z.string(),
 }).refine((data) => data.password === data.passwordConfirm, {
@@ -133,12 +133,12 @@ export function EmailPasswordStep({ formData, updateFormData, onNext, onValidati
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <h2 className="text-xl font-bold">기본 정보 입력</h2>
       <p className="text-sm text-gray-600">이메일과 비밀번호를 입력해주세요.</p>
       
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
           <FormField
             control={form.control}
             name="email"
@@ -164,13 +164,13 @@ export function EmailPasswordStep({ formData, updateFormData, onNext, onValidati
                   </p>
                 )}
                 {emailStatus.status === 'available' && (
-                  <p className="text-sm text-green-600 mt-1">
-                    <CheckCircle className="mr-1 h-4 w-4" /> 사용 가능한 이메일입니다.
+                  <p className="text-sm text-green-600 mt-1 flex items-center">
+                    <CheckCircle className="mr-1 h-4 w-4" /> {emailStatus.message}
                   </p>
                 )}
                 {emailStatus.status === 'unavailable' && (
-                  <p className="text-sm text-red-600 mt-1">
-                    <XCircle className="mr-1 h-4 w-4" /> 이미 사용 중인 이메일입니다.
+                  <p className="text-sm text-red-600 mt-1 flex items-center">
+                    <XCircle className="mr-1 h-4 w-4" /> {emailStatus.message}
                   </p>
                 )}
               </FormItem>

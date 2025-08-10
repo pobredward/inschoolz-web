@@ -204,7 +204,7 @@ export function SignupForm() {
         ))}
       </Stepper>
 
-      <Card className="md:p-6 p-3 md:border md:shadow-sm border-none shadow-none">
+      <Card className="md:p-6 p-1 md:border md:shadow-sm border-none shadow-none">
         {currentStep === 0 && (
           <EmailPasswordStep 
             formData={formData} 

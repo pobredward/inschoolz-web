@@ -82,6 +82,19 @@ export const registerWithEmail = async (
     return newUser;
   } catch (error) {
     console.error('회원가입 오류:', error);
+    
+    // Firebase 에러 메시지를 사용자 친화적으로 변환
+    if (error instanceof Error && 'code' in error) {
+      const firebaseError = error as { code: string };
+      if (firebaseError.code === 'auth/email-already-in-use') {
+        throw new Error('이미 가입된 이메일 주소입니다.');
+      } else if (firebaseError.code === 'auth/weak-password') {
+        throw new Error('비밀번호는 최소 6자 이상이어야 합니다.');
+      } else if (firebaseError.code === 'auth/invalid-email') {
+        throw new Error('유효하지 않은 이메일 형식입니다.');
+      }
+    }
+    
     throw new Error('회원가입 중 오류가 발생했습니다.');
   }
 };

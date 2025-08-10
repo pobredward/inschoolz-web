@@ -219,16 +219,16 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
         <h2 className="text-xl font-bold">세부 정보 입력</h2>
       </div>
       <p className="text-sm text-gray-600">개인정보와 약관 동의를 입력해주세요.</p>
       
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmitForm)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleSubmitForm)} className="space-y-4">
           {/* 개인정보 섹션 */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             <h3 className="text-lg font-semibold">개인정보</h3>
             
             <FormField
