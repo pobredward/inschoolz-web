@@ -8,8 +8,9 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getUserById } from '@/lib/api/users';
-import { loginWithEmail, loginWithGoogle } from '@/lib/auth';
-import { User } from '@/types';
+import { loginWithEmail, loginWithGoogle, registerWithEmail } from '@/lib/auth';
+import { signUp as signUpAPI } from '@/lib/api/auth';
+import { User, FormDataType } from '@/types';
 import { checkSuspensionStatus, SuspensionStatus } from '@/lib/auth/suspension-check';
 import { toast } from 'sonner';
 
@@ -20,6 +21,7 @@ interface AuthContextType {
   error: string | null;
   suspensionStatus: SuspensionStatus | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (emailOrFormData: string | FormDataType, password?: string, userName?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -72,10 +74,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // 사용자 정보와 쿠키 설정
   const setUserAndCookies = async (userData: User, firebaseUser: FirebaseUser) => {
     try {
+      console.log('🍪 AuthProvider: 사용자 상태 및 쿠키 설정 시작', { 
+        uid: userData.uid, 
+        userName: userData.profile?.userName 
+      });
+      
       setUser(userData);
       
       // Firebase ID 토큰 가져오기
       const idToken = await firebaseUser.getIdToken();
+      console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
       
       // 쿠키 설정
       setCookie('authToken', idToken);
@@ -83,9 +91,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setCookie('userId', userData.uid); // 백업용
       setCookie('userRole', userData.role);
       
-      checkUserSuspension(userData);
+      console.log('✅ AuthProvider: 모든 쿠키 설정 완료', {
+        authToken: '설정됨',
+        uid: userData.uid,
+        userRole: userData.role
+      });
+      
+      // 사용자 정지 상태 확인
+      const suspensionStatus = checkSuspensionStatus(userData);
+      setSuspensionStatus(suspensionStatus);
+      
+      if (suspensionStatus.isSuspended) {
+        console.log('⚠️ 정지된 사용자 감지:', suspensionStatus);
+      } else {
+        console.log('✅ 정지되지 않은 사용자');
+      }
     } catch (error) {
-      console.error('쿠키 설정 오류:', error);
+      console.error('❌ AuthProvider: 쿠키 설정 오류:', error);
     }
   };
 
@@ -112,6 +134,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('로그인 오류:', error);
       setError(error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.');
       throw error; // 에러를 다시 throw하여 LoginPageClient에서 처리할 수 있도록 함
+    }
+  };
+
+  const signUp = async (emailOrFormData: string | FormDataType, password?: string, userName?: string) => {
+    try {
+      setError(null);
+      console.log('🚀 AuthProvider: 회원가입 시작', { 
+        type: typeof emailOrFormData === 'object' ? 'FormData' : 'Simple',
+        email: typeof emailOrFormData === 'object' ? emailOrFormData.email : emailOrFormData 
+      });
+      
+      // 복잡한 FormDataType이 전달된 경우
+      if (typeof emailOrFormData === 'object') {
+        console.log('📝 AuthProvider: 복잡한 회원가입 처리 중...');
+        await signUpAPI(emailOrFormData);
+        console.log('✅ AuthProvider: signUpAPI 완료, Firebase Auth 상태 변화 대기 중...');
+        // signUpAPI는 Firebase Auth에 계정을 생성하고 Firestore에 사용자 정보를 저장
+        // Firebase Auth의 onAuthStateChanged가 자동으로 트리거되어 사용자 상태가 업데이트됨
+      } else {
+        // 간단한 이메일/비밀번호/이름이 전달된 경우
+        if (!password || !userName) {
+          throw new Error('비밀번호와 사용자명이 필요합니다.');
+        }
+        console.log('📝 AuthProvider: 간단한 회원가입 처리 중...');
+        await registerWithEmail(emailOrFormData, password, userName);
+        console.log('✅ AuthProvider: registerWithEmail 완료, Firebase Auth 상태 변화 대기 중...');
+      }
+      
+      // 잠시 대기하여 Firebase Auth 상태 변화가 제대로 처리되도록 함
+      console.log('⏳ AuthProvider: Firebase Auth 상태 업데이트 대기 중...');
+      
+      toast.success('회원가입이 완료되었습니다. 환영합니다!');
+    } catch (error) {
+      console.error('❌ AuthProvider: 회원가입 오류:', error);
+      setError(error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.');
+      throw error;
     }
   };
 
@@ -151,76 +209,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const checkUserSuspension = (userData: User) => {
-    console.log('=== checkUserSuspension 호출 ===');
-    console.log('userData:', userData);
-    console.log('userData.status:', userData.status);
-    console.log('userData에 있는 모든 키:', Object.keys(userData));
-    
-    // 정지 관련 필드들 확인
-    const userWithSuspension = userData as unknown as Record<string, unknown>;
-    console.log('suspensionReason:', userWithSuspension.suspensionReason);
-    console.log('suspendedUntil:', userWithSuspension.suspendedUntil);
-    console.log('suspendedAt:', userWithSuspension.suspendedAt);
-    
-    const status = checkSuspensionStatus(userData);
-    console.log('정지 상태 확인 결과:', status);
-    
-    setSuspensionStatus(status);
-    
-    // 정지 상태 로깅 (디버깅용)
-    if (status.isSuspended) {
-      console.log('🚫 사용자 정지 감지:', status);
-      console.log('정지 사유:', status.reason);
-      console.log('정지 기간:', status.suspendedUntil);
-      console.log('남은 일수:', status.remainingDays);
-      console.log('영구 정지 여부:', status.isPermanent);
-      
-      // 임시 정지이고 기간이 만료된 경우 자동 복구 처리
-      if (!status.isPermanent && status.suspendedUntil && status.suspendedUntil <= new Date()) {
-        console.log('정지 기간 만료, 자동 복구 시도');
-        handleAutoRestore();
-      }
-    } else {
-      console.log('✅ 정지되지 않은 사용자 또는 정지 기간 만료');
-    }
-  };
-
-  const handleAutoRestore = async () => {
-    try {
-      // 여기서 실제로는 서버에 요청해서 상태를 업데이트해야 함
-      // 현재는 클라이언트에서만 처리
-      toast.success('정지 기간이 만료되어 계정이 복구되었습니다.');
-      await refreshUser();
-    } catch (error) {
-      console.error('자동 복구 처리 오류:', error);
-    }
-  };
-
   const checkSuspension = () => {
     if (user) {
-      checkUserSuspension(user);
+      const suspensionStatus = checkSuspensionStatus(user);
+      setSuspensionStatus(suspensionStatus);
     }
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔄 AuthProvider: onAuthStateChanged 트리거됨', {
+        user: firebaseUser ? `${firebaseUser.uid} (${firebaseUser.email})` : null,
+        timestamp: new Date().toISOString()
+      });
+      
       setIsLoading(true);
       setFirebaseUser(firebaseUser);
       
       if (firebaseUser) {
         try {
-          const userData = await getUserById(firebaseUser.uid);
+          console.log('👤 AuthProvider: Firebase 사용자 로그인됨, Firestore에서 사용자 정보 조회 중...');
+          
+          // 회원가입 직후에는 Firestore 데이터 저장이 약간의 지연이 있을 수 있으므로 재시도 로직 추가
+          let userData = null;
+          let retryCount = 0;
+          const maxRetries = 3;
+          
+          while (!userData && retryCount < maxRetries) {
+            userData = await getUserById(firebaseUser.uid);
+            
+            if (!userData && retryCount < maxRetries - 1) {
+              console.log(`⏳ AuthProvider: 사용자 정보 조회 실패, 재시도 중... (${retryCount + 1}/${maxRetries})`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
+              retryCount++;
+            } else {
+              break;
+            }
+          }
+          
           if (userData) {
+            console.log('✅ AuthProvider: 사용자 정보 조회 성공, 쿠키 설정 중...');
             await setUserAndCookies(userData, firebaseUser);
+            console.log('✅ AuthProvider: 인증 완료', { userName: userData.profile?.userName });
           } else {
+            console.warn('⚠️ AuthProvider: Firestore에서 사용자 정보를 찾을 수 없음 (재시도 완료)');
             clearAuthAndCookies();
           }
         } catch (error) {
-          console.error('사용자 정보 조회 오류:', error);
+          console.error('❌ AuthProvider: 사용자 정보 조회 오류:', error);
           clearAuthAndCookies();
         }
       } else {
+        console.log('🚪 AuthProvider: 사용자 로그아웃됨');
         clearAuthAndCookies();
       }
       
@@ -239,6 +279,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error,
         suspensionStatus,
         signIn,
+        signUp,
         signInWithGoogle,
         signOut,
         refreshUser,

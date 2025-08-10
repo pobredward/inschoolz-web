@@ -63,7 +63,7 @@ export default function SignupPage() {
       setIsSubmitting(true);
       resetError();
       await signUp(data.email, data.password, data.userName);
-      router.push('/dashboard');
+      router.push('/');
     } catch (error) {
       console.error('회원가입 에러:', error);
     } finally {
@@ -72,8 +72,8 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="flex min-h-screen flex-col items-center justify-center md:p-4 px-4 py-2">
+      <div className="w-full md:max-w-md max-w-full md:space-y-6 space-y-4">
         <div className="text-center">
           <h1 className="text-3xl font-bold">회원가입</h1>
           <p className="mt-2 text-sm text-muted-foreground">

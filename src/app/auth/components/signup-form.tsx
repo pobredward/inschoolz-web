@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Stepper, Step } from '@/components/ui/stepper';
-import { signUp } from '@/lib/api/auth';
+import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -25,6 +25,7 @@ const steps = [
 
 export function SignupForm() {
   const router = useRouter();
+  const { signUp } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBasicInfoValid, setIsBasicInfoValid] = useState(false);
@@ -160,17 +161,22 @@ export function SignupForm() {
     try {
       setIsSubmitting(true);
       
+      console.log('🚀 SignupForm: 회원가입 요청 시작');
+      
       // Firebase에 회원가입 요청
       await signUp(formData);
+      
+      console.log('✅ SignupForm: 회원가입 완료, 홈페이지로 이동');
       
       toast.success("회원가입 성공", {
         description: "회원가입이 완료되었습니다. 환영합니다!"
       });
       
-      // 잠시 후 메인 페이지로 이동 (사용자가 메시지를 볼 수 있도록)
+      // 잠시 후 메인 페이지로 이동 (AuthProvider 상태 업데이트 대기)
       setTimeout(() => {
+        console.log('🏠 SignupForm: 홈페이지로 리다이렉트');
         router.push('/');
-      }, 1500);
+      }, 2000); // 2초로 늘려서 충분히 기다리게 함
     } catch (error) {
       console.error('회원가입 오류:', error);
       
@@ -198,7 +204,7 @@ export function SignupForm() {
         ))}
       </Stepper>
 
-      <Card className="p-6">
+      <Card className="md:p-6 p-3 md:border md:shadow-sm border-none shadow-none">
         {currentStep === 0 && (
           <EmailPasswordStep 
             formData={formData} 
