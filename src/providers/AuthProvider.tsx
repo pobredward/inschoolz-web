@@ -128,10 +128,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signIn = async (email: string, password: string) => {
     try {
       setError(null);
+      console.log('🚀 AuthProvider: signIn 시작');
       await loginWithEmail(email, password);
+      console.log('✅ AuthProvider: loginWithEmail 완료, onAuthStateChanged 대기 중...');
+      
+      // Firebase Auth의 onAuthStateChanged가 트리거되어 사용자 상태가 업데이트될 때까지 대기
+      // 이는 로그인 직후 즉시 라우팅할 때 사용자 상태가 확실히 설정되도록 함
+      await new Promise<void>((resolve) => {
+        const checkAuth = () => {
+          if (auth.currentUser && !isLoading) {
+            console.log('✅ AuthProvider: 인증 상태 확인 완료');
+            resolve();
+          } else {
+            setTimeout(checkAuth, 100);
+          }
+        };
+        checkAuth();
+      });
+      
+      console.log('🎉 AuthProvider: 로그인 프로세스 완전히 완료');
       toast.success('로그인되었습니다.');
     } catch (error) {
-      console.error('로그인 오류:', error);
+      console.error('❌ AuthProvider: 로그인 오류:', error);
       setError(error instanceof Error ? error.message : '로그인 중 오류가 발생했습니다.');
       throw error; // 에러를 다시 throw하여 LoginPageClient에서 처리할 수 있도록 함
     }
@@ -176,10 +194,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signInWithGoogle = async () => {
     try {
       setError(null);
+      console.log('🚀 AuthProvider: Google signIn 시작');
       await loginWithGoogle();
+      console.log('✅ AuthProvider: loginWithGoogle 완료, onAuthStateChanged 대기 중...');
+      
+      // Firebase Auth의 onAuthStateChanged가 트리거되어 사용자 상태가 업데이트될 때까지 대기
+      await new Promise<void>((resolve) => {
+        const checkAuth = () => {
+          if (auth.currentUser && !isLoading) {
+            console.log('✅ AuthProvider: Google 인증 상태 확인 완료');
+            resolve();
+          } else {
+            setTimeout(checkAuth, 100);
+          }
+        };
+        checkAuth();
+      });
+      
+      console.log('🎉 AuthProvider: Google 로그인 프로세스 완전히 완료');
       toast.success('Google 로그인되었습니다.');
     } catch (error) {
-      console.error('Google 로그인 오류:', error);
+      console.error('❌ AuthProvider: Google 로그인 오류:', error);
       setError(error instanceof Error ? error.message : 'Google 로그인 중 오류가 발생했습니다.');
       throw error; // 에러를 다시 throw하여 호출하는 곳에서 처리할 수 있도록 함
     }

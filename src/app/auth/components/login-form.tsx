@@ -48,34 +48,42 @@ export function LoginForm() {
   const onSubmit = async (values: LoginFormValues) => {
     try {
       resetError();
+      console.log('🚀 LoginForm: 로그인 시작');
       await signIn(values.email, values.password);
       
-      // 쿠키 설정이 완료될 때까지 잠시 대기
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('✅ LoginForm: signIn 완료, AuthProvider 상태 업데이트 대기 중...');
+      
+      // AuthProvider의 상태 업데이트를 충분히 기다림 (쿠키 설정 + 사용자 정보 로드)
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // 로그인 성공 후 리디렉션
       const redirectUrl = searchParams.get('redirect') || '/';
+      console.log('🏠 LoginForm: 리다이렉트 시작', { redirectUrl });
       router.push(redirectUrl);
     } catch (error) {
       // 에러는 AuthProvider에서 이미 처리됨
-      console.error('로그인 실패:', error);
+      console.error('❌ LoginForm: 로그인 실패:', error);
     }
   };
 
   const handleGoogleSignIn = async () => {
     try {
       resetError();
+      console.log('🚀 LoginForm: Google 로그인 시작');
       await signInWithGoogle();
       
-      // 쿠키 설정이 완료될 때까지 잠시 대기
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('✅ LoginForm: Google signIn 완료, AuthProvider 상태 업데이트 대기 중...');
+      
+      // AuthProvider의 상태 업데이트를 충분히 기다림 (쿠키 설정 + 사용자 정보 로드)
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // 로그인 성공 후 리디렉션
       const redirectUrl = searchParams.get('redirect') || '/';
+      console.log('🏠 LoginForm: Google 리다이렉트 시작', { redirectUrl });
       router.push(redirectUrl);
     } catch (error) {
       // 에러는 AuthProvider에서 이미 처리됨
-      console.error('Google 로그인 실패:', error);
+      console.error('❌ LoginForm: Google 로그인 실패:', error);
     }
   };
 
