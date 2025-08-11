@@ -286,10 +286,10 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
               name="realName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>실명</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="실명을 입력하세요" 
+                                  <FormLabel>이름</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="홍길동" 
                       {...field} 
                       onChange={(e) => {
                         field.onChange(e);
