@@ -346,15 +346,26 @@ export const checkDailyLimit = async (userId: string, activityType: 'posts' | 'c
       resetTime.setUTCHours(15, 0, 0, 0); // 한국시간 00:00 = UTC 15:00
       resetTime.setUTCDate(resetTime.getUTCDate() + 1);
       
-      return { canEarnExp: true, currentCount: 0, limit: getActivityLimit(activityType), resetTime };
+      // 시스템 설정에서 제한값 가져오기
+      const settings = await getSystemSettings();
+      const limit = activityType === 'posts' ? settings.dailyLimits.postsForReward : 
+                   activityType === 'comments' ? settings.dailyLimits.commentsForReward : 
+                   settings.dailyLimits.gamePlayCount;
+      
+      return { canEarnExp: true, currentCount: 0, limit, resetTime };
     }
     
     let currentCount = 0;
     
     if (activityType === 'games') {
       if (gameType) {
-        // 특정 게임 타입의 카운트만
-        currentCount = activityLimits.dailyCounts.games?.[gameType] || 0;
+        // 특정 게임 타입의 카운트만 (타입 안전성 검증)
+        if (gameType === 'flappyBird' || gameType === 'reactionGame' || gameType === 'tileGame') {
+          currentCount = activityLimits.dailyCounts.games?.[gameType] || 0;
+        } else {
+          console.warn('Invalid game type:', gameType);
+          currentCount = 0;
+        }
       } else {
         // 모든 게임 타입의 합계
         const gamesCounts = activityLimits.dailyCounts.games || { flappyBird: 0, reactionGame: 0, tileGame: 0 };
@@ -365,7 +376,11 @@ export const checkDailyLimit = async (userId: string, activityType: 'posts' | 'c
       currentCount = (activityLimits.dailyCounts[activityType] as number) || 0;
     }
     
-    const limit = getActivityLimit(activityType);
+    // 시스템 설정에서 제한값 가져오기
+    const settings = await getSystemSettings();
+    const limit = activityType === 'posts' ? settings.dailyLimits.postsForReward : 
+                 activityType === 'comments' ? settings.dailyLimits.commentsForReward : 
+                 settings.dailyLimits.gamePlayCount;
     
     // 다음 리셋 시간 계산
     const now = new Date();
@@ -405,17 +420,7 @@ export const resetDailyLimits = async (userId: string, today: string): Promise<v
   }
 };
 
-/**
- * 활동 타입별 제한 수치 반환
- */
-const getActivityLimit = (activityType: 'posts' | 'comments' | 'games'): number => {
-  switch (activityType) {
-    case 'posts': return 3;
-    case 'comments': return 5;
-    case 'games': return 5;
-    default: return 0;
-  }
-};
+
 
 /**
  * 활동 카운트 업데이트 (단순화된 버전)
