@@ -33,6 +33,7 @@ import {
   getUserRole, 
   safeTimestampToDate
 } from '@/lib/type-guards';
+import { generatePostUrl, generateCommentPostUrl } from '@/lib/utils/post-url-generator';
 
 interface UserProfileContainerProps {
   user: User;
@@ -85,12 +86,29 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
     title: string;
     content: string;
     boardName: string;
+    type?: 'national' | 'regional' | 'school';
+    boardCode?: string;
+    schoolId?: string;
+    regions?: {
+      sido: string;
+      sigungu: string;
+    };
     createdAt: unknown;
   }>>([]);
   const [comments, setComments] = useState<Array<{
     id: string;
     content: string;
     postId: string;
+    postData?: {
+      title?: string;
+      type?: 'national' | 'regional' | 'school';
+      boardCode?: string;
+      schoolId?: string;
+      regions?: {
+        sido: string;
+        sigungu: string;
+      };
+    };
     createdAt: unknown;
   }>>([]);
   const [activeTab, setActiveTab] = useState('posts');
@@ -368,32 +386,42 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
             
             <TabsContent value="posts" className="mt-4 space-y-3">
               {posts.length > 0 ? (
-                posts.slice(0, 5).map((post) => (
-                  <div key={post.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
-                    <Link href={`/posts/${post.id}`} className="block min-w-0">
-                      <h4 className="font-medium line-clamp-1 mb-1 truncate">{post.title}</h4>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mb-2 break-words">
-                        {post.content?.replace(/<[^>]*>/g, '')}
-                      </p>
-                      <div className="flex justify-between items-center text-xs text-muted-foreground min-w-0">
-                        <span className="truncate flex-shrink-0 max-w-[60%]">{post.boardName}</span>
-                        <span className="text-right flex-shrink-0 whitespace-nowrap">
-                          {(() => {
-                            try {
-                              const date = safeTimestampToDate(post.createdAt);
-                              return formatDistanceToNow(date, { 
-                                addSuffix: true, 
-                                locale: ko 
-                              });
-                            } catch {
-                              return '알 수 없음';
-                            }
-                          })()}
-                        </span>
-                      </div>
-                    </Link>
-                  </div>
-                ))
+                posts.slice(0, 5).map((post) => {
+                  const postUrl = generatePostUrl({
+                    id: post.id,
+                    type: post.type,
+                    boardCode: post.boardCode,
+                    schoolId: post.schoolId,
+                    regions: post.regions
+                  });
+                  
+                  return (
+                    <div key={post.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
+                      <Link href={postUrl} className="block min-w-0">
+                        <h4 className="font-medium line-clamp-1 mb-1 truncate">{post.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2 break-words">
+                          {post.content?.replace(/<[^>]*>/g, '')}
+                        </p>
+                        <div className="flex justify-between items-center text-xs text-muted-foreground min-w-0">
+                          <span className="truncate flex-shrink-0 max-w-[60%]">{post.boardName}</span>
+                          <span className="text-right flex-shrink-0 whitespace-nowrap">
+                            {(() => {
+                              try {
+                                const date = safeTimestampToDate(post.createdAt);
+                                return formatDistanceToNow(date, { 
+                                  addSuffix: true, 
+                                  locale: ko 
+                                });
+                              } catch {
+                                return '알 수 없음';
+                              }
+                            })()}
+                          </span>
+                        </div>
+                      </Link>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   작성한 게시글이 없습니다.
@@ -403,26 +431,30 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
             
             <TabsContent value="comments" className="mt-4 space-y-3">
               {comments.length > 0 ? (
-                comments.slice(0, 5).map((comment) => (
-                  <div key={comment.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
-                    <Link href={`/posts/${comment.postId}`} className="block min-w-0">
-                      <p className="text-sm line-clamp-2 mb-2 break-words">{comment.content}</p>
-                      <div className="text-xs text-muted-foreground text-right">
-                        {(() => {
-                          try {
-                            const date = safeTimestampToDate(comment.createdAt);
-                            return formatDistanceToNow(date, { 
-                              addSuffix: true, 
-                              locale: ko 
-                            });
-                          } catch {
-                            return '알 수 없음';
-                          }
-                        })()}
-                      </div>
-                    </Link>
-                  </div>
-                ))
+                comments.slice(0, 5).map((comment) => {
+                  const commentPostUrl = generateCommentPostUrl(comment);
+                  
+                  return (
+                    <div key={comment.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
+                      <Link href={commentPostUrl} className="block min-w-0">
+                        <p className="text-sm line-clamp-2 mb-2 break-words">{comment.content}</p>
+                        <div className="text-xs text-muted-foreground text-right">
+                          {(() => {
+                            try {
+                              const date = safeTimestampToDate(comment.createdAt);
+                              return formatDistanceToNow(date, { 
+                                addSuffix: true, 
+                                locale: ko 
+                              });
+                            } catch {
+                              return '알 수 없음';
+                            }
+                          })()}
+                        </div>
+                      </Link>
+                    </div>
+                  );
+                })
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   작성한 댓글이 없습니다.

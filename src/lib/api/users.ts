@@ -55,6 +55,13 @@ interface ExtendedPost extends Omit<Post, 'boardName'> {
   boardName: string;
   schoolName?: string;
   previewContent?: string;
+  type?: 'national' | 'regional' | 'school';
+  boardCode?: string;
+  schoolId?: string;
+  regions?: {
+    sido: string;
+    sigungu: string;
+  };
 }
 
 /**
@@ -205,7 +212,10 @@ export const getUserPosts = async (
         boardName,
         schoolName,
         previewContent,
-        regions: postData.regions
+        regions: postData.regions,
+        type: postData.type,
+        boardCode: postData.boardCode,
+        schoolId: postData.schoolId
       } as ExtendedPost);
     }
     
@@ -309,7 +319,19 @@ export const getUserComments = async (
             schoolId: postData.schoolId,
             regions: postData.regions
           }
-        } as Comment & { postData: Record<string, unknown> });
+        } as Comment & { 
+          postData: {
+            title?: string;
+            type?: 'national' | 'regional' | 'school';
+            boardCode?: string;
+            boardName?: string;
+            schoolId?: string;
+            regions?: {
+              sido: string;
+              sigungu: string;
+            };
+          }
+        });
       }
     }
     
