@@ -9,6 +9,7 @@ import { ArrowLeft, RotateCcw, Trophy, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { updateGameScore } from '@/lib/api/games';
 import { useAuth } from '@/providers/AuthProvider';
+import { toast } from 'sonner';
 
 type GameState = 'waiting' | 'playing' | 'finished';
 
@@ -59,7 +60,25 @@ export default function TileGamePage() {
   }, [totalPairs]);
 
   // 게임 시작
-  const startGame = () => {
+  const startGame = async () => {
+    if (!user?.uid) {
+      return;
+    }
+    
+    // 플레이 전 제한 재확인
+    try {
+      const { checkDailyLimit } = await import('@/lib/experience');
+      const limitCheck = await checkDailyLimit(user.uid, 'games', 'tileGame');
+      if (!limitCheck.canEarnExp) {
+        toast.error(`오늘의 타일 게임 플레이 횟수를 모두 사용했습니다. (${limitCheck.currentCount}/${limitCheck.limit})`);
+        return;
+      }
+    } catch (error) {
+      console.error('제한 확인 오류:', error);
+      toast.error('게임을 시작할 수 없습니다.');
+      return;
+    }
+    
     initializeGame();
     setGameState('playing');
     setGameStartTime(performance.now());
