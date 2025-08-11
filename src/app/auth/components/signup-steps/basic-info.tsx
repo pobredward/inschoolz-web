@@ -29,7 +29,7 @@ const basicInfoSchema = z.object({
   userName: z.string()
     .min(5, { message: '아이디는 최소 5자 이상이어야 합니다.' })
     .max(20, { message: '아이디는 최대 20자까지 가능합니다.' })
-    .regex(/^[a-z0-9]+$/, { message: '아이디는 영문 소문자와 숫자만 사용 가능합니다.' }),
+    .regex(/^[a-zA-Z0-9]+$/, { message: '아이디는 영문자와 숫자만 사용 가능합니다.' }),
   email: z.string()
     .email({ message: '올바른 이메일 형식이 아닙니다. (예: user@example.com)' }),
   password: z.string()
@@ -307,7 +307,7 @@ export function BasicInfoStep({ formData, updateFormData, onValidationChange }: 
                 <FormControl>
                   <div className="relative">
                     <Input 
-                      placeholder="영문, 숫자 조합 5-20자" 
+                      placeholder="영문자, 숫자 조합 5-20자" 
                       {...field} 
                       onChange={(e) => {
                         field.onChange(e);
@@ -358,7 +358,7 @@ export function BasicInfoStep({ formData, updateFormData, onValidationChange }: 
                   <div className="relative">
                     <Input 
                       type="email"
-                      placeholder="example@email.com" 
+                      placeholder="email@naver.com" 
                       {...field} 
                       onChange={(e) => {
                         field.onChange(e);

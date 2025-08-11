@@ -44,7 +44,7 @@ const detailedInfoSchema = z.object({
   userName: z.string()
     .min(5, { message: '아이디는 최소 5자 이상이어야 합니다.' })
     .max(20, { message: '아이디는 최대 20자까지 가능합니다.' })
-    .regex(/^[a-z0-9]+$/, { message: '아이디는 영문 소문자와 숫자만 사용 가능합니다.' }),
+    .regex(/^[a-zA-Z0-9]+$/, { message: '아이디는 영문자와 숫자만 사용 가능합니다.' }),
   realName: z.string()
     .min(2, { message: '이름을 입력해주세요.' }),
   gender: z.string().optional(),
@@ -240,7 +240,7 @@ export function DetailedInfoStep({ formData, updateFormData, onSubmit }: Detaile
                   <FormControl>
                     <div className="relative">
                       <Input 
-                        placeholder="영문, 숫자 조합 5-20자" 
+                        placeholder="영문자, 숫자 조합 5-20자" 
                         {...field} 
                         onChange={(e) => {
                           field.onChange(e);
