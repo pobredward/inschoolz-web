@@ -311,7 +311,10 @@ function CommentItem({
   onEditingCommentSave,
   onEditingCommentCancel,
   isLiked = false,
-  level = 0
+  level = 0,
+  replyingTo,
+  onCommentSubmit,
+  isSubmitting
 }: {
   comment: CommentWithReplies;
   postId: string;
@@ -327,6 +330,9 @@ function CommentItem({
   onEditingCommentCancel: () => void;
   isLiked?: boolean;
   level?: number;
+  replyingTo?: { id: string; author: string } | null;
+  onCommentSubmit?: (content: string, isAnonymous: boolean, parentId?: string) => void;
+  isSubmitting?: boolean;
 }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -550,6 +556,23 @@ function CommentItem({
           </>
         )}
       </div>
+
+      {/* 답글 작성 폼 */}
+      {replyingTo?.id === comment.id && onCommentSubmit && (
+        <div className="mt-4">
+          <CommentForm
+            parentId={comment.id}
+            parentAuthor={getAuthorName()}
+            placeholder="답글을 입력하세요..."
+            buttonText="답글 작성"
+            onSubmit={(content, isAnonymous) => 
+              onCommentSubmit(content, isAnonymous, comment.id)
+            }
+            onCancel={() => onReply(comment.id, getAuthorName())}
+            isSubmitting={isSubmitting}
+          />
+        </div>
+      )}
 
       {/* 신고 모달 */}
       <ReportModal
@@ -986,6 +1009,9 @@ export default function CommentSection({
                         onEditingCommentSave={handleEditingCommentSave}
                         onEditingCommentCancel={handleEditingCommentCancel}
                         isLiked={likeStatuses[comment.id] || false}
+                        replyingTo={replyingTo}
+                        onCommentSubmit={handleCreateComment}
+                        isSubmitting={isSubmitting}
                       />
                       
                       {/* 대댓글 렌더링 */}
@@ -1018,6 +1044,9 @@ export default function CommentSection({
                                     onEditingCommentCancel={handleEditingCommentCancel}
                                     isLiked={likeStatuses[reply.id] || false}
                                     level={1}
+                                    replyingTo={replyingTo}
+                                    onCommentSubmit={handleCreateComment}
+                                    isSubmitting={isSubmitting}
                                   />
                                 </BlockedUserContent>
                               );
@@ -1040,6 +1069,9 @@ export default function CommentSection({
                                 onEditingCommentCancel={handleEditingCommentCancel}
                                 isLiked={likeStatuses[reply.id] || false}
                                 level={1}
+                                replyingTo={replyingTo}
+                                onCommentSubmit={handleCreateComment}
+                                isSubmitting={isSubmitting}
                               />
                             );
                           })}
@@ -1066,6 +1098,9 @@ export default function CommentSection({
                     onEditingCommentSave={handleEditingCommentSave}
                     onEditingCommentCancel={handleEditingCommentCancel}
                     isLiked={likeStatuses[comment.id] || false}
+                    replyingTo={replyingTo}
+                    onCommentSubmit={handleCreateComment}
+                    isSubmitting={isSubmitting}
                   />
                   
                   {/* 대댓글 렌더링 */}
@@ -1098,6 +1133,9 @@ export default function CommentSection({
                                 onEditingCommentCancel={handleEditingCommentCancel}
                                 isLiked={likeStatuses[reply.id] || false}
                                 level={1}
+                                replyingTo={replyingTo}
+                                onCommentSubmit={handleCreateComment}
+                                isSubmitting={isSubmitting}
                               />
                             </BlockedUserContent>
                           );
@@ -1120,6 +1158,9 @@ export default function CommentSection({
                             onEditingCommentCancel={handleEditingCommentCancel}
                             isLiked={likeStatuses[reply.id] || false}
                             level={1}
+                            replyingTo={replyingTo}
+                            onCommentSubmit={handleCreateComment}
+                            isSubmitting={isSubmitting}
                           />
                         );
                       })}
