@@ -119,6 +119,82 @@ export const getPaginatedDocuments = async <T>(
 };
 
 /**
+ * 오프셋 기반 페이지네이션 문서 목록 가져오기 (개선된 버전)
+ * @param path 컬렉션 경로
+ * @param constraints 쿼리 제약 조건
+ * @param pageSize 페이지 크기
+ * @param page 페이지 번호 (1부터 시작)
+ * @returns 문서 목록, 총 개수, 총 페이지 수
+ */
+export const getPaginatedDocumentsWithCount = async <T>(
+  path: string,
+  constraints: QueryConstraint[] = [],
+  pageSize = 10,
+  page = 1
+): Promise<{ items: T[]; totalCount: number; totalPages: number; currentPage: number }> => {
+  try {
+    const collectionRef = collection(db, path);
+    
+    // where 조건만 필터링하여 카운트 쿼리 생성
+    const whereConstraints = constraints.filter(constraint => {
+      const constraintType = (constraint as any).type;
+      return constraintType === 'where';
+    });
+    
+    // 총 개수를 구하기 위한 쿼리
+    const countQuery = query(collectionRef, ...whereConstraints);
+    const countSnapshot = await getDocs(countQuery);
+    const totalCount = countSnapshot.size;
+    const totalPages = Math.ceil(totalCount / pageSize);
+    
+    if (totalCount === 0) {
+      return { items: [], totalCount: 0, totalPages: 1, currentPage: page };
+    }
+    
+    // 실제 데이터를 가져오기 위한 쿼리 (페이지 크기를 늘려서 오프셋 적용)
+    const offset = (page - 1) * pageSize;
+    const fetchSize = offset + pageSize;
+    
+    const dataQuery = query(collectionRef, ...constraints, limit(fetchSize));
+    const dataSnapshot = await getDocs(dataQuery);
+    
+    const allItems: T[] = [];
+    dataSnapshot.forEach((doc) => {
+      allItems.push({ id: doc.id, ...doc.data() } as T);
+    });
+    
+    // 페이지네이션 적용 (오프셋부터 pageSize만큼)
+    const items = allItems.slice(offset, offset + pageSize);
+    
+    return { items, totalCount, totalPages, currentPage: page };
+  } catch (error) {
+    console.error('오프셋 기반 페이지네이션 오류:', error);
+    throw new Error('페이지네이션 문서 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 문서 개수 가져오기
+ * @param path 컬렉션 경로
+ * @param constraints 쿼리 제약 조건
+ * @returns 문서 개수
+ */
+export const getDocumentCount = async (
+  path: string,
+  constraints: QueryConstraint[] = []
+): Promise<number> => {
+  try {
+    const collectionRef = collection(db, path);
+    const q = query(collectionRef, ...constraints);
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
+  } catch (error) {
+    console.error('문서 개수 가져오기 오류:', error);
+    throw new Error('문서 개수를 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+/**
  * 문서 생성 또는 덮어쓰기
  * @param path 컬렉션 경로
  * @param id 문서 ID

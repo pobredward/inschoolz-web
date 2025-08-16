@@ -36,6 +36,7 @@ import {
   getDocument, 
   getDocuments,
   getPaginatedDocuments,
+  getPaginatedDocumentsWithCount,
   updateDocument,
   addDocument
 } from '@/lib/firestore';
@@ -1164,6 +1165,43 @@ export const getAllPostsByType = async (
   }
 };
 
+// 페이지네이션과 함께 모든 게시판의 게시글 가져오기 (커뮤니티 페이지용)
+export const getAllPostsByTypeWithPagination = async (
+  boardType: BoardType,
+  page = 1,
+  pageSize = 10,
+  sortBy: 'latest' | 'popular' | 'views' | 'comments' = 'latest'
+) => {
+  try {
+    let constraints = [
+      where('type', '==', boardType),
+      where('status.isDeleted', '==', false),
+      where('status.isHidden', '==', false),
+      orderBy('status.isPinned', 'desc')
+    ];
+
+    // 정렬 조건 추가
+    switch (sortBy) {
+      case 'popular':
+        constraints.push(orderBy('stats.likeCount', 'desc'));
+        break;
+      case 'views':
+        constraints.push(orderBy('stats.viewCount', 'desc'));
+        break;
+      case 'comments':
+        constraints.push(orderBy('stats.commentCount', 'desc'));
+        break;
+      default:
+        constraints.push(orderBy('createdAt', 'desc'));
+    }
+    
+    return await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+  } catch (error) {
+    console.error('페이지네이션 전체 게시글 목록 가져오기 오류:', error);
+    throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
 // 학교별 게시글 가져오기 (유저의 메인 학교 기준)
 export const getAllPostsBySchool = async (
   schoolId: string,
@@ -1183,6 +1221,44 @@ export const getAllPostsBySchool = async (
     return await getDocuments<Post>('posts', constraints);
   } catch (error) {
     console.error('학교별 게시글 목록 가져오기 오류:', error);
+    throw new Error('학교별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 페이지네이션과 함께 학교별 게시글 가져오기
+export const getAllPostsBySchoolWithPagination = async (
+  schoolId: string,
+  page = 1,
+  pageSize = 10,
+  sortBy: 'latest' | 'popular' | 'views' | 'comments' = 'latest'
+) => {
+  try {
+    let constraints = [
+      where('type', '==', 'school'),
+      where('schoolId', '==', schoolId),
+      where('status.isDeleted', '==', false),
+      where('status.isHidden', '==', false),
+      orderBy('status.isPinned', 'desc')
+    ];
+
+    // 정렬 조건 추가
+    switch (sortBy) {
+      case 'popular':
+        constraints.push(orderBy('stats.likeCount', 'desc'));
+        break;
+      case 'views':
+        constraints.push(orderBy('stats.viewCount', 'desc'));
+        break;
+      case 'comments':
+        constraints.push(orderBy('stats.commentCount', 'desc'));
+        break;
+      default:
+        constraints.push(orderBy('createdAt', 'desc'));
+    }
+    
+    return await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+  } catch (error) {
+    console.error('페이지네이션 학교별 게시글 목록 가져오기 오류:', error);
     throw new Error('학교별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
   }
 };
@@ -1208,6 +1284,46 @@ export const getAllPostsByRegion = async (
     return await getDocuments<Post>('posts', constraints);
   } catch (error) {
     console.error('지역별 게시글 목록 가져오기 오류:', error);
+    throw new Error('지역별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
+
+// 페이지네이션과 함께 지역별 게시글 가져오기
+export const getAllPostsByRegionWithPagination = async (
+  sido: string,
+  sigungu: string,
+  page = 1,
+  pageSize = 10,
+  sortBy: 'latest' | 'popular' | 'views' | 'comments' = 'latest'
+) => {
+  try {
+    let constraints = [
+      where('type', '==', 'regional'),
+      where('regions.sido', '==', sido),
+      where('regions.sigungu', '==', sigungu),
+      where('status.isDeleted', '==', false),
+      where('status.isHidden', '==', false),
+      orderBy('status.isPinned', 'desc')
+    ];
+
+    // 정렬 조건 추가
+    switch (sortBy) {
+      case 'popular':
+        constraints.push(orderBy('stats.likeCount', 'desc'));
+        break;
+      case 'views':
+        constraints.push(orderBy('stats.viewCount', 'desc'));
+        break;
+      case 'comments':
+        constraints.push(orderBy('stats.commentCount', 'desc'));
+        break;
+      default:
+        constraints.push(orderBy('createdAt', 'desc'));
+    }
+    
+    return await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+  } catch (error) {
+    console.error('페이지네이션 지역별 게시글 목록 가져오기 오류:', error);
     throw new Error('지역별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
   }
 };

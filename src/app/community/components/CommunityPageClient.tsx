@@ -9,7 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Bookmark } from 'lucide-react';
 import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
-import { getBoardsByType, getPostsByBoardType, getAllPostsByType, getAllPostsBySchool, getAllPostsByRegion } from '@/lib/api/board';
+import { 
+  getBoardsByType, 
+  getPostsByBoardType, 
+  getAllPostsByType, 
+  getAllPostsByTypeWithPagination,
+  getAllPostsBySchool, 
+  getAllPostsBySchoolWithPagination,
+  getAllPostsByRegion,
+  getAllPostsByRegionWithPagination
+} from '@/lib/api/board';
 import { getBlockedUserIds } from '@/lib/api/users';
 import { BlockedUserContent } from '@/components/ui/blocked-user-content';
 import BoardSelector from '@/components/board/BoardSelector';
@@ -17,6 +26,7 @@ import SchoolSelector from '@/components/board/SchoolSelector';
 import { generatePreviewContent, toTimestamp } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import PostListItem from '@/components/board/PostListItem';
+import CommunityPagination, { PaginationInfo } from '@/components/ui/community-pagination';
 
 interface CommunityPost extends Post {
   boardName: string;
@@ -54,6 +64,12 @@ export default function CommunityPageClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [showBoardSelector, setShowBoardSelector] = useState(false);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+  
+  // 페이지네이션 관련 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize] = useState(10); // 기본적으로 10개씩
 
   // showBoardSelector 상태 변화 감지
   useEffect(() => {
@@ -112,6 +128,9 @@ export default function CommunityPageClient() {
     console.log('user?.regions:', user?.regions);
     
     setSelectedTab(newTab);
+    // 페이지네이션 리셋
+    setCurrentPage(1);
+    setSelectedBoard('all');
     
     // 세션 스토리지와 URL 파라미터 모두 업데이트
     sessionStorage.setItem('community-selected-tab', newTab);
@@ -288,7 +307,7 @@ export default function CommunityPageClient() {
     if (boards.length > 0) {
       loadPosts();
     }
-  }, [selectedTab, selectedBoard, sortBy, boards]);
+  }, [selectedTab, selectedBoard, sortBy, boards, currentPage]);
 
   // 사용자 정보 변경 시 차단된 사용자 목록 로드
   useEffect(() => {
@@ -402,94 +421,90 @@ export default function CommunityPageClient() {
   const loadPosts = async () => {
     try {
       setIsLoading(true);
-      let allPosts: CommunityPost[] = [];
+      let result: { items: Post[]; totalCount: number; totalPages: number; currentPage: number } | null = null;
 
-      console.log('Loading posts for tab:', selectedTab, 'boards:', boards.length);
+      console.log('Loading posts for tab:', selectedTab, 'page:', currentPage, 'pageSize:', pageSize);
 
       if (selectedBoard === 'all') {
-        // 모든 게시판의 게시글 가져오기 - 새로운 필터링 로직 적용
-        let boardPosts: Post[] = [];
-        
+        // 모든 게시판의 게시글 가져오기 - 페이지네이션 적용
         if (selectedTab === 'school') {
           // 학교 탭: URL 파라미터 또는 사용자의 메인 학교 사용
           const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
           if (selectedSchoolId) {
-            boardPosts = await getAllPostsBySchool(selectedSchoolId);
+            result = await getAllPostsBySchoolWithPagination(selectedSchoolId, currentPage, pageSize, sortBy);
           }
         } else if (selectedTab === 'regional') {
           // 지역 탭: URL 파라미터 또는 사용자의 지역 사용
           const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
           const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
           if (selectedSido && selectedSigungu) {
-            boardPosts = await getAllPostsByRegion(selectedSido, selectedSigungu);
+            result = await getAllPostsByRegionWithPagination(selectedSido, selectedSigungu, currentPage, pageSize, sortBy);
           }
         } else {
           // 전국 탭: 기존 로직 유지
-          boardPosts = await getAllPostsByType(selectedTab);
+          result = await getAllPostsByTypeWithPagination(selectedTab, currentPage, pageSize, sortBy);
         }
         
-        const postsWithBoardName = boardPosts.map(post => {
-          const board = boards.find(b => b.code === post.boardCode);
-          console.log('Post boardCode:', post.boardCode, 'Found board:', board?.name);
-          return {
-            ...post,
-            attachments: post.attachments || [], // 기본값 설정
-            boardName: board?.name || `게시판 (${post.boardCode})`,
-            previewContent: generatePreviewContent(post.content)
-          };
-        });
-        allPosts = postsWithBoardName;
+        if (result) {
+          const postsWithBoardName = result.items.map(post => {
+            const board = boards.find(b => b.code === post.boardCode);
+            console.log('Post boardCode:', post.boardCode, 'Found board:', board?.name);
+            return {
+              ...post,
+              attachments: post.attachments || [], // 기본값 설정
+              boardName: board?.name || `게시판 (${post.boardCode})`,
+              previewContent: generatePreviewContent(post.content)
+            };
+          });
+          
+          setPosts(postsWithBoardName);
+          setTotalCount(result.totalCount);
+          setTotalPages(result.totalPages);
+        } else {
+          setPosts([]);
+          setTotalCount(0);
+          setTotalPages(1);
+        }
       } else {
-        // 특정 게시판의 게시글만 가져오기 - 새로운 필터링 로직 적용
+        // 특정 게시판의 게시글만 가져오기 - 기존 API 사용 (향후 페이지네이션 추가 가능)
         let boardPosts: Post[] = [];
         
         if (selectedTab === 'school') {
           // 학교 탭: 해당 학교의 특정 게시판 게시글만 가져오기
           const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
           if (selectedSchoolId) {
-            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, 20, selectedSchoolId);
+            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize, selectedSchoolId);
           }
         } else if (selectedTab === 'regional') {
           // 지역 탭: 해당 지역의 특정 게시판 게시글만 가져오기
           const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
           const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
           if (selectedSido && selectedSigungu) {
-            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, 20, undefined, { sido: selectedSido, sigungu: selectedSigungu });
+            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize, undefined, { sido: selectedSido, sigungu: selectedSigungu });
           }
         } else {
           // 전국 탭: 기존 로직 유지
-          boardPosts = await getPostsByBoardType(selectedTab, selectedBoard);
+          boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize);
         }
         
         const board = boards.find(b => b.code === selectedBoard);
         console.log('Selected board:', selectedBoard, 'Found board:', board?.name, 'Posts count:', boardPosts.length);
-        allPosts = boardPosts.map(post => ({
+        const allPosts = boardPosts.map(post => ({
           ...post,
           attachments: post.attachments || [], // 기본값 설정
           boardName: board?.name || `게시판 (${selectedBoard})`,
           previewContent: generatePreviewContent(post.content)
         }));
+        
+        setPosts(allPosts);
+        setTotalCount(boardPosts.length);
+        setTotalPages(1); // 특정 게시판의 경우 임시로 1페이지로 설정
       }
-
-      // 정렬
-      allPosts.sort((a, b) => {
-        switch (sortBy) {
-          case 'latest':
-            return toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
-          case 'popular':
-            return b.stats.likeCount - a.stats.likeCount;
-          case 'views':
-            return b.stats.viewCount - a.stats.viewCount;
-          case 'comments':
-            return b.stats.commentCount - a.stats.commentCount;
-          default:
-            return toTimestamp(b.createdAt) - toTimestamp(a.createdAt);
-        }
-      });
-
-      setPosts(allPosts);
     } catch (error) {
       console.error('게시글 로드 실패:', error);
+      setPosts([]);
+      setTotalCount(0);
+      setTotalPages(1);
     } finally {
       setIsLoading(false);
     }
@@ -505,6 +520,25 @@ export default function CommunityPageClient() {
     } catch (error) {
       console.error('차단된 사용자 목록 로드 실패:', error);
     }
+  };
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // 페이지 변경 시 스크롤을 맨 위로
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // 게시판 변경 시 페이지 리셋
+  const handleBoardChange = (boardCode: string) => {
+    setSelectedBoard(boardCode);
+    setCurrentPage(1);
+  };
+
+  // 정렬 변경 시 페이지 리셋
+  const handleSortChange = (newSort: SortOption) => {
+    setSortBy(newSort);
+    setCurrentPage(1);
   };
 
   const handleWriteClick = () => {
@@ -663,7 +697,7 @@ export default function CommunityPageClient() {
                 <Button
                   variant={selectedBoard === 'all' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedBoard('all')}
+                  onClick={() => handleBoardChange('all')}
                   className="whitespace-nowrap"
                 >
                   전체
@@ -673,7 +707,7 @@ export default function CommunityPageClient() {
                     key={board.code}
                     variant={selectedBoard === board.code ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setSelectedBoard(board.code)}
+                    onClick={() => handleBoardChange(board.code)}
                     className="whitespace-nowrap"
                   >
                     {board.name}
@@ -686,11 +720,8 @@ export default function CommunityPageClient() {
           {/* 정렬 옵션 및 글쓰기 버튼 */}
           <div className="bg-white border-b">
             <div className="container mx-auto px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">
-                  총 {posts.length}개
-                </span>
-                <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+              <div className="flex items-center justify-end">
+                <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
                   <SelectTrigger className="w-24 h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -747,9 +778,29 @@ export default function CommunityPageClient() {
                 <p className="text-sm text-gray-400 mt-1">첫 번째 게시글을 작성해보세요!</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {posts.map((post) => renderPost(post))}
-              </div>
+              <>
+                <div className="space-y-3">
+                  {posts.map((post) => renderPost(post))}
+                </div>
+                
+                {/* 페이지네이션 */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex flex-col items-center gap-4">
+                    <CommunityPagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                    />
+                    <PaginationInfo
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      totalCount={totalCount}
+                      pageSize={pageSize}
+                      className="text-sm text-gray-500"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
 
