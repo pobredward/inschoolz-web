@@ -89,6 +89,20 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // .well-known 파일 설정
+      {
+        source: '/.well-known/(.*)',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/json',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=3600',
+          },
+        ],
+      },
     ];
   },
   
