@@ -23,20 +23,27 @@ interface KakaoErrorResponse {
 /**
  * 카카오 OAuth 토큰 요청
  */
-async function getKakaoAccessToken(code: string): Promise<KakaoTokenResponse> {
+async function getKakaoAccessToken(code: string, requestUrl: string): Promise<KakaoTokenResponse> {
   const tokenEndpoint = 'https://kauth.kakao.com/oauth/token';
+  
+  // 리다이렉트 URI 결정 (환경 변수 또는 현재 도메인 기반)
+  let redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
+  if (!redirectUri) {
+    const url = new URL(requestUrl);
+    redirectUri = `${url.origin}/api/auth/kakao/callback`;
+  }
   
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
     client_id: process.env.NEXT_PUBLIC_KAKAO_APP_KEY!,
-    redirect_uri: process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI!,
+    redirect_uri: redirectUri,
     code,
   });
 
   console.log('[KAKAO] 토큰 요청 파라미터:', {
     grant_type: 'authorization_code',
     client_id: process.env.NEXT_PUBLIC_KAKAO_APP_KEY,
-    redirect_uri: process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI,
+    redirect_uri: redirectUri,
     code: code.substring(0, 10) + '...',
   });
 
@@ -100,7 +107,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 액세스 토큰 요청
-    const tokenData = await getKakaoAccessToken(code);
+    const tokenData = await getKakaoAccessToken(code, request.url);
 
     // 프론트엔드로 리다이렉트 (액세스 토큰을 쿼리 파라미터로 전달)
     // 보안상 실제 환경에서는 세션이나 HTTP-only 쿠키 사용 권장

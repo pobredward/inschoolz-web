@@ -102,12 +102,16 @@ export const initializeKakao = (): void => {
 export const startKakaoLogin = (): void => {
   if (typeof window === 'undefined') return;
   
-  const redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
+  let redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
   
+  // 환경 변수가 없는 경우 현재 도메인 기반으로 생성
   if (!redirectUri) {
-    console.error('NEXT_PUBLIC_KAKAO_REDIRECT_URI가 설정되지 않았습니다.');
-    return;
+    const currentOrigin = window.location.origin;
+    redirectUri = `${currentOrigin}/api/auth/kakao/callback`;
+    console.log('[KAKAO] 환경 변수 없음, 자동 생성된 리다이렉트 URI:', redirectUri);
   }
+
+  console.log('[KAKAO] 사용할 리다이렉트 URI:', redirectUri);
 
   try {
     window.Kakao.Auth.authorize({
