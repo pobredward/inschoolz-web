@@ -10,6 +10,7 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult
 } from 'firebase/auth';
+import { kakaoLogout } from './kakao-auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User } from '../types';
@@ -369,10 +370,18 @@ export const loginWithGoogle = async (): Promise<User> => {
 };
 
 /**
- * 로그아웃
+ * 로그아웃 (Firebase + 카카오)
  */
 export const logout = async (): Promise<void> => {
   try {
+    // 카카오 로그아웃 (에러가 발생해도 계속 진행)
+    try {
+      await kakaoLogout();
+    } catch (kakaoError) {
+      console.warn('카카오 로그아웃 중 오류 (무시됨):', kakaoError);
+    }
+
+    // Firebase 로그아웃
     await signOut(auth);
   } catch (error) {
     console.error('로그아웃 오류:', error);

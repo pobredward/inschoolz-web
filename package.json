@@ -44,6 +44,7 @@
     "@tiptap/react": "^2.11.7",
     "@tiptap/starter-kit": "^2.11.7",
     "@types/dompurify": "^3.0.5",
+    "@types/kakao-js-sdk": "^1.39.5",
     "@types/recharts": "^1.8.29",
     "axios": "^1.8.4",
     "class-variance-authority": "^0.7.1",
