@@ -5,16 +5,16 @@
  * 액세스 토큰을 받아서 사용자 정보를 가져오고 로그인을 완료합니다.
  */
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { processKakaoLogin } from '@/lib/kakao-auth';
-import { useAuthStore } from '@/store/authStore';
+import { useAuth } from '@/lib/AuthContext';
 import { Loader2 } from 'lucide-react';
 
-function KakaoSuccessContent() {
+export default function KakaoSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser } = useAuthStore();
+  const { setUser } = useAuth();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [error, setError] = useState<string>('');
 
@@ -136,27 +136,5 @@ function KakaoSuccessContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function KakaoSuccessPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full mx-auto p-8">
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-yellow-500" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              로딩 중...
-            </h2>
-            <p className="text-gray-600">
-              잠시만 기다려주세요.
-            </p>
-          </div>
-        </div>
-      </div>
-    }>
-      <KakaoSuccessContent />
-    </Suspense>
   );
 }
