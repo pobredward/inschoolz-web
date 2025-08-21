@@ -27,6 +27,8 @@ import { generatePreviewContent, toTimestamp } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import PostListItem from '@/components/board/PostListItem';
 import CommunityPagination, { PaginationInfo } from '@/components/ui/community-pagination';
+import { RegionSetupModal } from '@/components/community/RegionSetupModal';
+import { SchoolSetupModal } from '@/components/community/SchoolSetupModal';
 
 interface CommunityPost extends Post {
   boardName: string;
@@ -64,6 +66,8 @@ export default function CommunityPageClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [showBoardSelector, setShowBoardSelector] = useState(false);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+  const [showRegionSetupModal, setShowRegionSetupModal] = useState(false);
+  const [showSchoolSetupModal, setShowSchoolSetupModal] = useState(false);
   
   // 페이지네이션 관련 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -167,8 +171,8 @@ export default function CommunityPageClient() {
           router.push(`/community?tab=school/${latestUser.school.id}`);
         } else {
           // 로그인은 되어 있지만 학교 정보가 없는 경우
-          console.log('No school info in users collection, redirecting to edit page');
-          router.push('/my/edit');
+          console.log('No school info in users collection, showing school setup modal');
+          setShowSchoolSetupModal(true);
         }
       } catch (error) {
         console.error('Failed to fetch user info:', error);
@@ -177,8 +181,8 @@ export default function CommunityPageClient() {
           console.log('Fallback to cached school:', user.school.id);
           router.push(`/community?tab=school/${user.school.id}`);
         } else {
-          console.log('No cached school info, redirecting to edit page');
-          router.push('/my/edit');
+          console.log('No cached school info, showing school setup modal');
+          setShowSchoolSetupModal(true);
         }
       }
     } else if (newTab === 'regional') {
@@ -215,8 +219,8 @@ export default function CommunityPageClient() {
           router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
         } else {
           // 로그인은 되어 있지만 지역 정보가 없는 경우
-          console.log('No region info in users collection, redirecting to edit page');
-          router.push('/my/edit');
+          console.log('No region info in users collection, showing region setup modal');
+          setShowRegionSetupModal(true);
         }
       } catch (error) {
         console.error('Failed to fetch user info:', error);
@@ -225,8 +229,8 @@ export default function CommunityPageClient() {
           console.log('Fallback to cached region:', user.regions.sido, user.regions.sigungu);
           router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
         } else {
-          console.log('No cached region info, redirecting to edit page');
-          router.push('/my/edit');
+          console.log('No cached region info, showing region setup modal');
+          setShowRegionSetupModal(true);
         }
       }
     } else {
@@ -254,9 +258,9 @@ export default function CommunityPageClient() {
                 console.log('Auto-redirecting to school with ID:', latestUser.school.id);
                 router.push(`/community?tab=school/${latestUser.school.id}`);
               } else {
-                // 학교 정보가 없으면 편집 페이지로
-                console.log('No school info in users collection, redirecting to edit');
-                router.push('/my/edit');
+                // 학교 정보가 없으면 모달 표시
+                console.log('No school info in users collection, showing school setup modal');
+                setShowSchoolSetupModal(true);
               }
             }
           } else if (selectedTab === 'regional') {
@@ -266,9 +270,9 @@ export default function CommunityPageClient() {
                 console.log('Auto-redirecting to region:', latestUser.regions.sido, latestUser.regions.sigungu);
                 router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
               } else {
-                // 지역 정보가 없으면 편집 페이지로
-                console.log('No region info in users collection, redirecting to edit');
-                router.push('/my/edit');
+                // 지역 정보가 없으면 모달 표시
+                console.log('No region info in users collection, showing region setup modal');
+                setShowRegionSetupModal(true);
               }
             }
           }
@@ -280,16 +284,16 @@ export default function CommunityPageClient() {
               console.log('Fallback auto-redirect to cached school:', user.school.id);
               router.push(`/community?tab=school/${user.school.id}`);
             } else {
-              console.log('No cached school info, redirecting to edit');
-              router.push('/my/edit');
+              console.log('No cached school info, showing school setup modal');
+              setShowSchoolSetupModal(true);
             }
           } else if (selectedTab === 'regional' && tabFromUrl === 'regional') {
             if (user?.regions?.sido && user?.regions?.sigungu) {
               console.log('Fallback auto-redirect to cached region:', user.regions.sido, user.regions.sigungu);
               router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
             } else {
-              console.log('No cached region info, redirecting to edit');
-              router.push('/my/edit');
+              console.log('No cached region info, showing region setup modal');
+              setShowRegionSetupModal(true);
             }
           }
         }
@@ -578,8 +582,8 @@ export default function CommunityPageClient() {
         console.log('Opening board selector for school');
         setShowBoardSelector(true);
       } else {
-        console.log('No school info for writing, redirecting to edit page');
-        router.push('/my/edit'); // 학교 정보 설정 페이지로
+        console.log('No school info for writing, showing school setup modal');
+        setShowSchoolSetupModal(true);
       }
     } else if (selectedTab === 'regional') {
       console.log('Regional tab - checking user info...');
@@ -599,8 +603,8 @@ export default function CommunityPageClient() {
         console.log('Opening board selector for region');
         setShowBoardSelector(true);
       } else {
-        console.log('No region info for writing, redirecting to edit page');
-        router.push('/my/edit'); // 지역 정보 설정 페이지로
+        console.log('No region info for writing, showing region setup modal');
+        setShowRegionSetupModal(true);
       }
     } else {
       console.log('Default case - opening board selector');
@@ -818,6 +822,26 @@ export default function CommunityPageClient() {
           sido: sessionStorage?.getItem('community-selected-sido') || user?.regions?.sido || '',
           sigungu: sessionStorage?.getItem('community-selected-sigungu') || user?.regions?.sigungu || ''
         } : undefined}
+      />
+
+      {/* 지역 설정 모달 */}
+      <RegionSetupModal
+        isOpen={showRegionSetupModal}
+        onClose={() => setShowRegionSetupModal(false)}
+        onComplete={() => {
+          // 지역 설정 완료 후 리프레시하여 업데이트된 정보 반영
+          window.location.reload();
+        }}
+      />
+
+      {/* 학교 설정 모달 */}
+      <SchoolSetupModal
+        isOpen={showSchoolSetupModal}
+        onClose={() => setShowSchoolSetupModal(false)}
+        onComplete={() => {
+          // 학교 설정 완료 후 리프레시하여 업데이트된 정보 반영
+          window.location.reload();
+        }}
       />
     </div>
   );
