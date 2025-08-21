@@ -6,24 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bookmark } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
 import { 
   getBoardsByType, 
   getPostsByBoardType, 
-  getAllPostsByType, 
   getAllPostsByTypeWithPagination,
-  getAllPostsBySchool, 
   getAllPostsBySchoolWithPagination,
-  getAllPostsByRegion,
   getAllPostsByRegionWithPagination
 } from '@/lib/api/board';
 import { getBlockedUserIds } from '@/lib/api/users';
 import { BlockedUserContent } from '@/components/ui/blocked-user-content';
 import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
-import { generatePreviewContent, toTimestamp } from '@/lib/utils';
+import { generatePreviewContent } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import PostListItem from '@/components/board/PostListItem';
 import CommunityPagination, { PaginationInfo } from '@/components/ui/community-pagination';
@@ -65,6 +62,7 @@ export default function CommunityPageClient() {
   const [sortBy, setSortBy] = useState<SortOption>('latest');
   const [isLoading, setIsLoading] = useState(false);
   const [showBoardSelector, setShowBoardSelector] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
   const [showRegionSetupModal, setShowRegionSetupModal] = useState(false);
   const [showSchoolSetupModal, setShowSchoolSetupModal] = useState(false);
@@ -697,34 +695,87 @@ export default function CommunityPageClient() {
           {/* 카테고리 필터 */}
           <div className="bg-white border-b">
             <div className="container mx-auto px-4 py-3">
-              <div className="flex items-center space-x-2 overflow-x-auto">
-                <Button
-                  variant={selectedBoard === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleBoardChange('all')}
-                  className="whitespace-nowrap"
-                >
-                  전체
-                </Button>
-                {boards.map((board) => (
+              {/* 가로 스크롤 카테고리와 화살표 버튼 */}
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5 overflow-x-auto flex-1">
                   <Button
-                    key={board.code}
-                    variant={selectedBoard === board.code ? 'default' : 'outline'}
+                    variant={selectedBoard === 'all' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => handleBoardChange(board.code)}
-                    className="whitespace-nowrap"
+                    onClick={() => handleBoardChange('all')}
+                    className="whitespace-nowrap text-xs px-2.5 py-1.5 h-7"
                   >
-                    {board.name}
+                    전체
                   </Button>
-                ))}
+                  {boards.map((board) => (
+                    <Button
+                      key={board.code}
+                      variant={selectedBoard === board.code ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleBoardChange(board.code)}
+                      className="whitespace-nowrap text-xs px-2.5 py-1.5 h-7"
+                    >
+                      {board.name}
+                    </Button>
+                  ))}
+                </div>
+                
+                {/* 화살표 버튼 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className="flex-shrink-0 p-1.5 h-7 w-7 text-gray-600 hover:text-gray-900 border-gray-300"
+                >
+                  {showCategoryDropdown ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </Button>
               </div>
             </div>
+            
+            {/* 인라인 확장 카테고리 영역 */}
+            {showCategoryDropdown && (
+              <div className="border-t bg-gray-50">
+                <div className="container mx-auto px-4 py-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-64 overflow-y-auto">
+                    <Button
+                      variant={selectedBoard === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        handleBoardChange('all');
+                        setShowCategoryDropdown(false);
+                      }}
+                      className="justify-start text-xs px-2.5 py-1.5 h-7"
+                    >
+                      전체
+                    </Button>
+                    {boards.map((board) => (
+                      <Button
+                        key={`dropdown-${board.code}`}
+                        variant={selectedBoard === board.code ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => {
+                          handleBoardChange(board.code);
+                          setShowCategoryDropdown(false);
+                        }}
+                        className="justify-start text-xs px-2.5 py-1.5 h-7"
+                      >
+                        {board.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 정렬 옵션 및 글쓰기 버튼 */}
-          <div className="bg-white border-b">
-            <div className="container mx-auto px-4 py-3">
-              <div className="flex items-center justify-end">
+          {/* 게시글 리스트 헤더 */}
+          <div className="container mx-auto px-4 pt-4 pb-2">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">게시글</h2>
+              <div className="flex items-center space-x-3">
                 <Select value={sortBy} onValueChange={(value: SortOption) => handleSortChange(value)}>
                   <SelectTrigger className="w-24 h-8 text-sm">
                     <SelectValue />
@@ -737,22 +788,15 @@ export default function CommunityPageClient() {
                     ))}
                   </SelectContent>
                 </Select>
+                {user && (
+                  <Button 
+                    onClick={handleWriteClick}
+                    className="bg-green-500 hover:bg-green-600 text-white shadow-sm"
+                  >
+                    <span className="text-sm">✏️ 글쓰기</span>
+                  </Button>
+                )}
               </div>
-            </div>
-          </div>
-
-          {/* 게시글 리스트 헤더 */}
-          <div className="container mx-auto px-4 pt-4 pb-2">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">게시글</h2>
-              {user && (
-                <Button 
-                  onClick={handleWriteClick}
-                  className="bg-green-500 hover:bg-green-600 text-white shadow-sm"
-                >
-                  <span className="text-sm">✏️ 글쓰기</span>
-                </Button>
-              )}
             </div>
           </div>
 
