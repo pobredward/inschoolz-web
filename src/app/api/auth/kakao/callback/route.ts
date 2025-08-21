@@ -30,7 +30,7 @@ async function getKakaoAccessToken(code: string, requestUrl: string): Promise<Ka
   let redirectUri = process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI;
   if (!redirectUri) {
     const url = new URL(requestUrl);
-    redirectUri = `${url.origin}/api/auth/kakao/callback`;
+    redirectUri = `${url.origin}/api/auth/callback/kakao`;
   }
   
   const params = new URLSearchParams({
@@ -73,7 +73,7 @@ async function getKakaoAccessToken(code: string, requestUrl: string): Promise<Ka
 }
 
 /**
- * GET /api/auth/kakao/callback
+ * GET /api/auth/callback/kakao
  * 카카오 로그인 콜백 처리
  */
 export async function GET(request: NextRequest) {

@@ -107,7 +107,7 @@ export const startKakaoLogin = (): void => {
   // 환경 변수가 없는 경우 현재 도메인 기반으로 생성
   if (!redirectUri) {
     const currentOrigin = window.location.origin;
-    redirectUri = `${currentOrigin}/api/auth/kakao/callback`;
+    redirectUri = `${currentOrigin}/api/auth/callback/kakao`;
     console.log('[KAKAO] 환경 변수 없음, 자동 생성된 리다이렉트 URI:', redirectUri);
   }
 
