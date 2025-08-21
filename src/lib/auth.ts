@@ -541,6 +541,9 @@ export const createRecaptchaVerifier = (containerId: string): RecaptchaVerifier 
   // 개발 환경에서 테스트를 위한 설정
   const isDevelopment = process.env.NODE_ENV === 'development';
   
+  // reCAPTCHA Enterprise 사이트 키 설정
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LfwZ60rAAAAABCOxuHmdobkjQVCsxzlH8xmaoyN';
+  
   // reCAPTCHA Enterprise 지원을 위한 설정
   const recaptchaConfig = {
     'size': isDevelopment ? 'normal' : 'invisible', // 개발 환경에서는 visible로 설정
@@ -554,23 +557,23 @@ export const createRecaptchaVerifier = (containerId: string): RecaptchaVerifier 
     },
     // reCAPTCHA Enterprise 호환성을 위한 추가 설정
     'hl': 'ko', // 한국어 설정
-    'isolated': true // 격리 모드로 설정
+    'isolated': true, // 격리 모드로 설정
+    // Enterprise 사이트 키 설정 (v3 호환)
+    'sitekey': recaptchaSiteKey
   };
 
   try {
     const verifier = new RecaptchaVerifier(auth, containerId, recaptchaConfig);
     
-    // 개발 환경에서 테스트 모드 활성화 (선택사항)
+    // 개발 환경에서 테스트 모드 활성화
     if (isDevelopment && typeof window !== 'undefined') {
-      // 개발 환경에서 reCAPTCHA 테스트 모드 설정
-      // 이는 Firebase 콘솔에서 테스트 번호를 설정한 경우에만 작동
-      console.log('개발 환경: reCAPTCHA 설정 완료');
+      console.log('개발 환경: reCAPTCHA Enterprise 설정 완료, 사이트 키:', recaptchaSiteKey);
     }
     
     return verifier;
   } catch (error) {
     console.error('reCAPTCHA 인증기 생성 실패:', error);
-    // fallback으로 기본 설정 시도
+    // fallback으로 기본 설정 시도 (Enterprise 키 제외)
     return new RecaptchaVerifier(auth, containerId, {
       'size': 'invisible',
       'callback': () => {

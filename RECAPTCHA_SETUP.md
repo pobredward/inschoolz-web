@@ -26,11 +26,18 @@
 
 ### 3. 환경변수 설정
 
-`.env.local` 파일에 다음 변수 추가 (선택사항):
+`.env.local` 파일에 다음 변수 추가 (이미 코드에 하드코딩되어 있음):
 ```env
-# reCAPTCHA Enterprise 사용 시
-NEXT_PUBLIC_RECAPTCHA_SITE_KEY=your_enterprise_site_key_here
+# reCAPTCHA Enterprise 사이트 키
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6LfwZ60rAAAAABCOxuHmdobkjQVCsxzlH8xmaoyN
+
+# 모바일 앱용 (선택사항)
+EXPO_PUBLIC_RECAPTCHA_ANDROID_SITE_KEY=6LdlSKwrAAAAAEcg9AiaKngSIWIUaRycF4-OHFXB
+EXPO_PUBLIC_RECAPTCHA_IOS_SITE_KEY=6Ldfh60rAAAAAGdNxY4qv2uUXpYdkZxEpMig5GYD
+EXPO_PUBLIC_RECAPTCHA_WEB_SITE_KEY=6LfwZ60rAAAAABCOxuHmdobkjQVCsxzlH8xmaoyN
 ```
+
+**⚠️ 보안 주의사항:** 현재 사이트 키가 코드에 하드코딩되어 있습니다. 운영 환경에서는 환경변수를 사용하는 것을 권장합니다.
 
 ### 4. 승인된 도메인 확인
 
@@ -38,6 +45,14 @@ Firebase Console > Authentication > Settings > Authorized domains에서:
 - `localhost` (개발용)
 - `your-domain.com` (운영용)
 - 기타 필요한 도메인들
+
+## 현재 설정된 사이트 키
+
+다음 reCAPTCHA Enterprise 사이트 키가 설정되었습니다:
+
+- **웹 (Web)**: `6LfwZ60rAAAAABCOxuHmdobkjQVCsxzlH8xmaoyN`
+- **Android**: `6LdlSKwrAAAAAEcg9AiaKngSIWIUaRycF4-OHFXB`
+- **iOS**: `6Ldfh60rAAAAAGdNxY4qv2uUXpYdkZxEpMig5GYD`
 
 ## 코드 수정 사항
 
