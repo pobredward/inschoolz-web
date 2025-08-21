@@ -6,12 +6,8 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
-  User as FirebaseUser,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  PhoneAuthProvider,
-  signInWithCredential,
-  linkWithCredential,
   ConfirmationResult
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
@@ -431,11 +427,24 @@ export const sendPhoneVerificationCode = async (
     console.error('휴대폰 인증 코드 발송 오류:', error);
     
     if (error instanceof Error && 'code' in error) {
-      const firebaseError = error as { code: string };
+      const firebaseError = error as { code: string; message: string };
+      
+      // reCAPTCHA Enterprise 관련 오류 처리
+      if (firebaseError.message.includes('reCAPTCHA Enterprise') || 
+          firebaseError.message.includes('Triggering the reCAPTCHA v2')) {
+        console.warn('reCAPTCHA Enterprise 설정 오류 감지됨. v2로 fallback 처리됨.');
+        // 재시도 로직은 UI에서 처리하도록 특별한 오류 메시지 전달
+        throw new Error('RECAPTCHA_ENTERPRISE_FALLBACK');
+      }
+      
       if (firebaseError.code === 'auth/invalid-phone-number') {
         throw new Error('유효하지 않은 휴대폰 번호입니다.');
       } else if (firebaseError.code === 'auth/too-many-requests') {
         throw new Error('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (firebaseError.code === 'auth/invalid-app-credential') {
+        throw new Error('앱 인증 정보가 올바르지 않습니다. 관리자에게 문의하세요.');
+      } else if (firebaseError.code === 'auth/captcha-check-failed') {
+        throw new Error('보안 검증에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.');
       }
     }
     
@@ -529,17 +538,49 @@ export const confirmPhoneVerificationCode = async (
  * reCAPTCHA 인증기 생성
  */
 export const createRecaptchaVerifier = (containerId: string): RecaptchaVerifier => {
-  return new RecaptchaVerifier(auth, containerId, {
-    'size': 'invisible',
-    'callback': (response: any) => {
+  // 개발 환경에서 테스트를 위한 설정
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  // reCAPTCHA Enterprise 지원을 위한 설정
+  const recaptchaConfig = {
+    'size': isDevelopment ? 'normal' : 'invisible', // 개발 환경에서는 visible로 설정
+    'callback': () => {
       // reCAPTCHA solved
       console.log('reCAPTCHA solved');
     },
     'expired-callback': () => {
       // Response expired
       console.log('reCAPTCHA expired');
+    },
+    // reCAPTCHA Enterprise 호환성을 위한 추가 설정
+    'hl': 'ko', // 한국어 설정
+    'isolated': true // 격리 모드로 설정
+  };
+
+  try {
+    const verifier = new RecaptchaVerifier(auth, containerId, recaptchaConfig);
+    
+    // 개발 환경에서 테스트 모드 활성화 (선택사항)
+    if (isDevelopment && typeof window !== 'undefined') {
+      // 개발 환경에서 reCAPTCHA 테스트 모드 설정
+      // 이는 Firebase 콘솔에서 테스트 번호를 설정한 경우에만 작동
+      console.log('개발 환경: reCAPTCHA 설정 완료');
     }
-  });
+    
+    return verifier;
+  } catch (error) {
+    console.error('reCAPTCHA 인증기 생성 실패:', error);
+    // fallback으로 기본 설정 시도
+    return new RecaptchaVerifier(auth, containerId, {
+      'size': 'invisible',
+      'callback': () => {
+        console.log('reCAPTCHA solved (fallback)');
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired (fallback)');
+      }
+    });
+  }
 };
 
 /**

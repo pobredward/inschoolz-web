@@ -51,13 +51,39 @@ export function SimpleLoginForm() {
   useEffect(() => {
     // reCAPTCHA 컨테이너 설정
     if (loginMethod === 'phone' && !recaptchaVerifier) {
-      try {
-        const verifier = createRecaptchaVerifier('login-recaptcha-container');
-        setRecaptchaVerifier(verifier);
-      } catch (error) {
-        console.error('reCAPTCHA 설정 오류:', error);
-      }
+      // DOM이 렌더링된 후 reCAPTCHA 설정
+      const timer = setTimeout(() => {
+        try {
+          const container = document.getElementById('login-recaptcha-container');
+          if (container) {
+            const verifier = createRecaptchaVerifier('login-recaptcha-container');
+            setRecaptchaVerifier(verifier);
+          } else {
+            console.warn('reCAPTCHA 컨테이너를 찾을 수 없습니다');
+          }
+        } catch (error) {
+          console.error('reCAPTCHA 설정 오류:', error);
+          // Enterprise 설정 오류 시 사용자에게 알림
+          if (error instanceof Error && error.message.includes('Enterprise')) {
+            console.warn('reCAPTCHA Enterprise 설정 오류 - v2로 fallback');
+          }
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
+
+    // 정리 함수: 로그인 방식이 변경되면 기존 verifier 정리
+    return () => {
+      if (loginMethod !== 'phone' && recaptchaVerifier) {
+        try {
+          recaptchaVerifier.clear();
+          setRecaptchaVerifier(null);
+        } catch (error) {
+          console.warn('reCAPTCHA verifier 정리 중 오류:', error);
+        }
+      }
+    };
   }, [loginMethod, recaptchaVerifier]);
 
   // 휴대폰 번호 포맷팅
@@ -115,7 +141,27 @@ export function SimpleLoginForm() {
       
     } catch (error) {
       console.error('인증번호 발송 실패:', error);
-      toast.error(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.');
+      if (error instanceof Error) {
+        // reCAPTCHA Enterprise fallback 오류 처리
+        if (error.message === 'RECAPTCHA_ENTERPRISE_FALLBACK') {
+          toast.warning('reCAPTCHA 설정이 v2로 전환되었습니다. 다시 시도해주세요.');
+          // reCAPTCHA verifier 재설정
+          try {
+            if (recaptchaVerifier) {
+              recaptchaVerifier.clear();
+            }
+            const newVerifier = createRecaptchaVerifier('login-recaptcha-container');
+            setRecaptchaVerifier(newVerifier);
+          } catch (resetError) {
+            console.error('reCAPTCHA verifier 재설정 실패:', resetError);
+            toast.error('보안 인증을 다시 설정 중입니다. 잠시 후 다시 시도해주세요.');
+          }
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.error('인증번호 발송에 실패했습니다.');
+      }
     } finally {
       setIsLoading(false);
     }

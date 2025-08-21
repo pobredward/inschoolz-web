@@ -87,22 +87,48 @@ export function SimpleSignupForm() {
   useEffect(() => {
     // reCAPTCHA 컨테이너 설정
     if (signupMethod === 'phone' && !recaptchaVerifier) {
-      try {
-        const verifier = createRecaptchaVerifier('recaptcha-container');
-        setRecaptchaVerifier(verifier);
-      } catch (error) {
-        console.error('reCAPTCHA 설정 오류:', error);
-      }
+      // DOM이 렌더링된 후 reCAPTCHA 설정
+      const timer = setTimeout(() => {
+        try {
+          const container = document.getElementById('recaptcha-container');
+          if (container) {
+            const verifier = createRecaptchaVerifier('recaptcha-container');
+            setRecaptchaVerifier(verifier);
+          } else {
+            console.warn('reCAPTCHA 컨테이너를 찾을 수 없습니다');
+          }
+        } catch (error) {
+          console.error('reCAPTCHA 설정 오류:', error);
+          // Enterprise 설정 오류 시 사용자에게 알림
+          if (error instanceof Error && error.message.includes('Enterprise')) {
+            console.warn('reCAPTCHA Enterprise 설정 오류 - v2로 fallback');
+          }
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
     }
+
+    // 정리 함수: 회원가입 방식이 변경되면 기존 verifier 정리
+    return () => {
+      if (signupMethod !== 'phone' && recaptchaVerifier) {
+        try {
+          recaptchaVerifier.clear();
+          setRecaptchaVerifier(null);
+        } catch (verifierError) {
+          console.warn('reCAPTCHA verifier 정리 중 오류:', verifierError);
+        }
+      }
+    };
   }, [signupMethod, recaptchaVerifier]);
 
   // 이메일 폼 데이터 업데이트
-  const updateEmailFormData = (key: keyof EmailSignupFormData, value: any) => {
+  const updateEmailFormData = (key: keyof EmailSignupFormData, value: EmailSignupFormData[keyof EmailSignupFormData]) => {
     setEmailFormData(prev => ({ ...prev, [key]: value }));
   };
 
   // 휴대폰 폼 데이터 업데이트
-  const updatePhoneFormData = (key: keyof PhoneSignupFormData, value: any) => {
+  const updatePhoneFormData = (key: keyof PhoneSignupFormData, value: PhoneSignupFormData[keyof PhoneSignupFormData]) => {
     setPhoneFormData(prev => ({ ...prev, [key]: value }));
   };
 
@@ -125,7 +151,7 @@ export function SimpleSignupForm() {
       } else {
         toast.error('이미 사용 중인 닉네임입니다.');
       }
-    } catch (error) {
+    } catch {
       setEmailUserNameStatus('idle');
       toast.error('중복 확인 중 오류가 발생했습니다.');
     }
@@ -150,7 +176,7 @@ export function SimpleSignupForm() {
       } else {
         toast.error('이미 사용 중인 닉네임입니다.');
       }
-    } catch (error) {
+    } catch {
       setPhoneUserNameStatus('idle');
       toast.error('중복 확인 중 오류가 발생했습니다.');
     }
@@ -257,7 +283,27 @@ export function SimpleSignupForm() {
       
     } catch (error) {
       console.error('인증번호 발송 실패:', error);
-      toast.error(error instanceof Error ? error.message : '인증번호 발송에 실패했습니다.');
+      if (error instanceof Error) {
+        // reCAPTCHA Enterprise fallback 오류 처리
+        if (error.message === 'RECAPTCHA_ENTERPRISE_FALLBACK') {
+          toast.warning('reCAPTCHA 설정이 v2로 전환되었습니다. 다시 시도해주세요.');
+          // reCAPTCHA verifier 재설정
+          try {
+            if (recaptchaVerifier) {
+              recaptchaVerifier.clear();
+            }
+            const newVerifier = createRecaptchaVerifier('recaptcha-container');
+            setRecaptchaVerifier(newVerifier);
+          } catch (resetError) {
+            console.error('reCAPTCHA verifier 재설정 실패:', resetError);
+            toast.error('보안 인증을 다시 설정 중입니다. 잠시 후 다시 시도해주세요.');
+          }
+        } else {
+          toast.error(error.message);
+        }
+      } else {
+        toast.error('인증번호 발송에 실패했습니다.');
+      }
     } finally {
       setIsLoading(false);
     }
