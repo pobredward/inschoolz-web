@@ -204,7 +204,7 @@ export const convertKakaoUserToUser = (kakaoUser: KakaoUserInfo, accessToken: st
  * Firebase Custom Token 생성 요청
  */
 const createFirebaseCustomToken = async (accessToken: string): Promise<string> => {
-  const response = await fetch('/api/auth/kakao/firebase-token', {
+  const response = await fetch('/api/auth/callback/kakao/firebase-token', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
