@@ -31,12 +31,28 @@ import { Camera, Loader2, ArrowLeft } from 'lucide-react';
 // 휴대폰 번호 포맷팅 함수
 const formatPhoneNumber = (value: string): string => {
   if (!value) return '';
+  
+  // +82 형식 처리
+  if (value.startsWith('+82')) {
+    const numbers = value.replace(/\D/g, '');
+    const koreanNumber = numbers.slice(2); // +82 제거
+    // 첫 번째 0이 없으면 추가
+    const normalizedNumber = koreanNumber.startsWith('1') ? `0${koreanNumber}` : koreanNumber;
+    
+    if (normalizedNumber.length === 11) {
+      return `${normalizedNumber.slice(0, 3)}-${normalizedNumber.slice(3, 7)}-${normalizedNumber.slice(7)}`;
+    }
+  }
+  
+  // 일반적인 숫자만 포함된 경우
   const numbers = value.replace(/\D/g, '');
   
   if (numbers.length <= 3) {
     return numbers;
   } else if (numbers.length <= 7) {
     return numbers.replace(/(\d{3})(\d{1,4})/, '$1-$2');
+  } else if (numbers.length === 11) {
+    return numbers.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
   } else {
     return numbers.replace(/(\d{3})(\d{4})(\d{1,4})/, '$1-$2-$3');
   }
