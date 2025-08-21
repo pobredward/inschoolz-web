@@ -120,10 +120,6 @@ export interface User {
   lastLoginAt?: FirebaseTimestamp;
   referrerId?: string; // 추천인 ID
   
-  // 카카오 로그인 관련 정보
-  kakaoId?: string; // 카카오 사용자 고유 ID
-  kakaoAccessToken?: string; // 카카오 액세스 토큰 (관리용)
-  
   // 기타 정보
   social?: {
     followers: number;

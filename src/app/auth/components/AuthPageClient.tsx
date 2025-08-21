@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { SimpleLoginForm } from './simple-login-form';
 import { SimpleSignupForm } from './simple-signup-form';
-import { KakaoLoginButton } from '@/components/ui/kakao-login-button';
 
 export default function AuthPageClient() {
   const [activeTab, setActiveTab] = useState('login');
@@ -61,22 +60,6 @@ export default function AuthPageClient() {
 
             {/* 탭 내용 */}
             <div className="p-6">
-              {/* 카카오 로그인 버튼 */}
-              <div className="mb-6">
-                <KakaoLoginButton size="lg" />
-              </div>
-
-              {/* 구분선 */}
-              <div className="relative mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500">또는</span>
-                </div>
-              </div>
-
-              {/* 기존 로그인/회원가입 폼 */}
               {activeTab === 'login' ? <SimpleLoginForm /> : <SimpleSignupForm />}
             </div>
           </div>
