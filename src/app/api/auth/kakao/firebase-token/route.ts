@@ -7,18 +7,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 
-// Firebase Admin SDK 초기화
-if (!getApps().length) {
-  const serviceAccount = {
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  };
+// Firebase Admin SDK 초기화 (빌드 시 안전한 초기화)
+function initializeFirebaseAdmin() {
+  if (getApps().length > 0) {
+    return; // 이미 초기화됨
+  }
 
-  initializeApp({
-    credential: cert(serviceAccount),
-    projectId: process.env.FIREBASE_PROJECT_ID,
-  });
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+  // 환경 변수가 모두 설정되어 있는지 확인
+  if (!projectId || !clientEmail || !privateKey) {
+    console.warn('[FIREBASE ADMIN] 환경 변수가 설정되지 않았습니다. Firebase Admin SDK를 초기화할 수 없습니다.');
+    return;
+  }
+
+  try {
+    const serviceAccount = {
+      projectId,
+      clientEmail,
+      privateKey,
+    };
+
+    initializeApp({
+      credential: cert(serviceAccount),
+      projectId,
+    });
+
+    console.log('[FIREBASE ADMIN] Firebase Admin SDK 초기화 완료');
+  } catch (error) {
+    console.error('[FIREBASE ADMIN] 초기화 실패:', error);
+  }
 }
 
 interface KakaoUserInfo {
@@ -68,6 +88,18 @@ async function getKakaoUserInfo(accessToken: string): Promise<KakaoUserInfo> {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Firebase Admin SDK 초기화 시도
+    initializeFirebaseAdmin();
+
+    // Firebase Admin이 초기화되지 않은 경우 에러 반환
+    if (getApps().length === 0) {
+      console.error('[FIREBASE TOKEN] Firebase Admin SDK가 초기화되지 않았습니다.');
+      return NextResponse.json(
+        { error: 'Firebase Admin SDK 설정이 필요합니다. 환경 변수를 확인해주세요.' },
+        { status: 500 }
+      );
+    }
+
     const { accessToken } = await request.json();
 
     if (!accessToken) {
