@@ -542,7 +542,7 @@ export const createRecaptchaVerifier = (containerId: string): RecaptchaVerifier 
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   // reCAPTCHA Enterprise 사이트 키 설정
-  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LfwZ60rAAAAABCOxuHmdobkjQVCsxzlH8xmaoyN';
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6LdWZqwrAAAAAGwzb3hss860jQgsCiOX_XnnypHr';
   
   // reCAPTCHA Enterprise 지원을 위한 설정
   const recaptchaConfig = {

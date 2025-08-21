@@ -29,7 +29,7 @@
 `.env.local` 파일에 다음 변수 추가 (이미 코드에 하드코딩되어 있음):
 ```env
 # reCAPTCHA Enterprise 사이트 키
-NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6LfwZ60rAAAAABCOxuHmdobkjQVCsxzlH8xmaoyN
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6LdWZqwrAAAAAGwzb3hss860jQgsCiOX_XnnypHr
 
 # 모바일 앱용 (선택사항)
 EXPO_PUBLIC_RECAPTCHA_ANDROID_SITE_KEY=6LdlSKwrAAAAAEcg9AiaKngSIWIUaRycF4-OHFXB
