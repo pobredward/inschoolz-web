@@ -8,13 +8,13 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { processKakaoLogin } from '@/lib/kakao-auth';
-import { useAuth } from '@/lib/AuthContext';
+import { useAuthStore } from '@/store/authStore';
 import { Loader2 } from 'lucide-react';
 
 function KakaoSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser } = useAuth();
+  const { setUser } = useAuthStore();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [error, setError] = useState<string>('');
 

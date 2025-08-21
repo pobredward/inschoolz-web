@@ -5,8 +5,7 @@
 
 import { User } from '@/types';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { signInWithCustomToken } from 'firebase/auth';
-import { db, auth } from './firebase';
+import { db } from './firebase';
 
 // 카카오 SDK 타입 정의
 declare global {
@@ -201,52 +200,37 @@ export const convertKakaoUserToUser = (kakaoUser: KakaoUserInfo, accessToken: st
 };
 
 /**
- * Firebase Custom Token 생성 요청
- */
-const createFirebaseCustomToken = async (accessToken: string): Promise<string> => {
-  const response = await fetch('/api/auth/callback/kakao/firebase-token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ accessToken }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Firebase 토큰 생성 실패');
-  }
-
-  const data = await response.json();
-  return data.customToken;
-};
-
-/**
- * 카카오 로그인으로 사용자 생성 또는 로그인 처리 (Firebase Auth 연동)
+ * 카카오 로그인으로 사용자 생성 또는 로그인 처리 (Firestore 직접 연동)
  */
 export const processKakaoLogin = async (accessToken: string): Promise<User> => {
   try {
-    // 액세스 토큰 설정
+    console.log('[KAKAO LOGIN] 카카오 로그인 프로세스 시작', { accessToken: accessToken.substring(0, 20) + '...' });
+
+    // 카카오 SDK 초기화 확인
     if (typeof window !== 'undefined') {
+      if (!window.Kakao || !window.Kakao.isInitialized()) {
+        console.log('[KAKAO LOGIN] 카카오 SDK 초기화 시작...');
+        initializeKakao();
+      }
+      
+      // 액세스 토큰 설정
       window.Kakao.Auth.setAccessToken(accessToken);
+      console.log('[KAKAO LOGIN] 액세스 토큰 설정 완료');
     }
 
-    console.log('[KAKAO LOGIN] 카카오 로그인 프로세스 시작');
-
-    // 1. Firebase Custom Token 생성
-    const customToken = await createFirebaseCustomToken(accessToken);
-    console.log('[KAKAO LOGIN] Firebase Custom Token 생성 완료');
-
-    // 2. Firebase Auth에 로그인
-    const userCredential = await signInWithCustomToken(auth, customToken);
-    const firebaseUser = userCredential.user;
-    console.log('[KAKAO LOGIN] Firebase Auth 로그인 완료:', firebaseUser.uid);
-
-    // 3. 카카오 사용자 정보 가져오기
+    // 1. 카카오 사용자 정보 가져오기
+    console.log('[KAKAO LOGIN] 카카오 사용자 정보 요청 시작...');
     const kakaoUser = await getKakaoUserInfo();
-    const userId = firebaseUser.uid;
+    const kakaoId = kakaoUser.id.toString();
+    const userId = `kakao_${kakaoId}`;
 
-    // 4. Firestore에서 기존 사용자 확인
+    console.log('[KAKAO LOGIN] 카카오 사용자 정보 획득 성공:', {
+      id: kakaoId,
+      nickname: kakaoUser.properties.nickname,
+      email: kakaoUser.kakao_account.email,
+    });
+
+    // 2. Firestore에서 기존 사용자 확인
     const userDoc = await getDoc(doc(db, 'users', userId));
 
     if (userDoc.exists()) {
@@ -264,8 +248,6 @@ export const processKakaoLogin = async (accessToken: string): Promise<User> => {
     } else {
       // 신규 사용자: 계정 생성
       const newUser = convertKakaoUserToUser(kakaoUser, accessToken);
-      // Firebase Auth에서 생성된 UID 사용
-      newUser.uid = userId;
       
       await setDoc(doc(db, 'users', userId), newUser);
       
@@ -274,6 +256,18 @@ export const processKakaoLogin = async (accessToken: string): Promise<User> => {
     }
   } catch (error) {
     console.error('[KAKAO LOGIN] 로그인 처리 실패:', error);
+    
+    // 더 구체적인 에러 정보 제공
+    if (error instanceof Error) {
+      if (error.message.includes('Firebase')) {
+        throw new Error('Firebase 연결 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (error.message.includes('카카오')) {
+        throw new Error('카카오 서버 연결 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (error.message.includes('network')) {
+        throw new Error('네트워크 연결을 확인해주세요.');
+      }
+    }
+    
     throw new Error('카카오 로그인 처리 중 오류가 발생했습니다.');
   }
 };
