@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import { processKakaoLogin } from '@/lib/auth';
 import { useAuthStore } from '@/store/authStore';
+import { Timestamp } from 'firebase/firestore';
+import { signInWithCustomToken } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 interface KakaoUserData {
   id: number;
@@ -15,6 +17,8 @@ interface KakaoUserData {
   nickname?: string;
   profile_image?: string;
   access_token: string;
+  userId?: string; // DB에 저장된 사용자 ID
+  firebaseCustomToken?: string; // Firebase 커스텀 토큰
 }
 
 export default function KakaoSuccessPage() {
@@ -39,13 +43,156 @@ export default function KakaoSuccessPage() {
         const kakaoData = await response.json();
         setUserData(kakaoData);
 
-        // 카카오 로그인 데이터로 사용자 생성/로그인 처리
-        const user = await processKakaoLogin(kakaoData);
-        
-        // AuthContext에 사용자 정보 설정
-        setUser(user);
-        
-        toast.success('카카오 로그인이 완료되었습니다!');
+        // Firebase Auth 커스텀 토큰으로 로그인
+        if (kakaoData.firebaseCustomToken) {
+          try {
+            const firebaseUserCredential = await signInWithCustomToken(auth, kakaoData.firebaseCustomToken);
+            const firebaseUser = firebaseUserCredential.user;
+            
+            console.log('Firebase Auth 로그인 성공:', {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName
+            });
+
+            // Firebase Auth 로그인 성공 시 AuthStore에도 설정
+            if (kakaoData.userId) {
+              const simpleUser = {
+                uid: kakaoData.userId,
+                email: kakaoData.email || '',
+                kakaoId: kakaoData.id.toString(),
+                profile: {
+                  userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
+                  profileImageUrl: kakaoData.profile_image || '',
+                  realName: '',
+                  gender: '',
+                  birthYear: 0,
+                  birthMonth: 0,
+                  birthDay: 0,
+                  phoneNumber: '',
+                  createdAt: Timestamp.now(),
+                  isAdmin: false
+                },
+                role: 'student' as const,
+                isVerified: false,
+                stats: {
+                  level: 1,
+                  currentExp: 0,
+                  totalExperience: 0,
+                  currentLevelRequiredXp: 10,
+                  postCount: 0,
+                  commentCount: 0,
+                  likeCount: 0,
+                  streak: 0
+                },
+                agreements: {
+                  terms: true,
+                  privacy: true,
+                  location: false,
+                  marketing: false
+                },
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now()
+              };
+              
+              setUser(simpleUser);
+            }
+
+            toast.success('카카오 로그인 및 Firebase 인증이 완료되었습니다!');
+          } catch (firebaseError) {
+            console.error('Firebase Auth 로그인 실패:', firebaseError);
+            toast.error('Firebase 인증에 실패했습니다. Firestore 로그인만 유지됩니다.');
+            
+            // Firebase Auth 실패해도 Firestore 로그인은 유지
+            if (kakaoData.userId) {
+              const simpleUser = {
+                uid: kakaoData.userId,
+                email: kakaoData.email || '',
+                kakaoId: kakaoData.id.toString(),
+                profile: {
+                  userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
+                  profileImageUrl: kakaoData.profile_image || '',
+                  realName: '',
+                  gender: '',
+                  birthYear: 0,
+                  birthMonth: 0,
+                  birthDay: 0,
+                  phoneNumber: '',
+                  createdAt: Timestamp.now(),
+                  isAdmin: false
+                },
+                role: 'student' as const,
+                isVerified: false,
+                stats: {
+                  level: 1,
+                  currentExp: 0,
+                  totalExperience: 0,
+                  currentLevelRequiredXp: 10,
+                  postCount: 0,
+                  commentCount: 0,
+                  likeCount: 0,
+                  streak: 0
+                },
+                agreements: {
+                  terms: true,
+                  privacy: true,
+                  location: false,
+                  marketing: false
+                },
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now()
+              };
+              
+              setUser(simpleUser);
+            }
+          }
+        } else {
+          console.warn('Firebase 커스텀 토큰이 없습니다. Firestore 로그인만 진행합니다.');
+          toast.warning('Firebase 인증 토큰이 없습니다. 기본 로그인을 진행합니다.');
+          
+          // 커스텀 토큰 없이도 Firestore 로그인 진행
+          if (kakaoData.userId) {
+            const simpleUser = {
+              uid: kakaoData.userId,
+              email: kakaoData.email || '',
+              kakaoId: kakaoData.id.toString(),
+              profile: {
+                userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
+                profileImageUrl: kakaoData.profile_image || '',
+                realName: '',
+                gender: '',
+                birthYear: 0,
+                birthMonth: 0,
+                birthDay: 0,
+                phoneNumber: '',
+                createdAt: Timestamp.now(),
+                isAdmin: false
+              },
+              role: 'student' as const,
+              isVerified: false,
+              stats: {
+                level: 1,
+                currentExp: 0,
+                totalExperience: 0,
+                currentLevelRequiredXp: 10,
+                postCount: 0,
+                commentCount: 0,
+                likeCount: 0,
+                streak: 0
+              },
+              agreements: {
+                terms: true,
+                privacy: true,
+                location: false,
+                marketing: false
+              },
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now()
+            };
+            
+            setUser(simpleUser);
+          }
+        }
         
         // 3초 후 대시보드로 리다이렉트
         setTimeout(() => {

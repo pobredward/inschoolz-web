@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { doc, setDoc, updateDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { User } from '@/types';
+import { createKakaoFirebaseToken } from '@/lib/auth/kakao-firebase';
 
 /**
  * 환경에 따른 카카오 Redirect URI 반환
@@ -79,20 +83,121 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json();
     console.log('카카오 사용자 정보:', userData);
 
-    // 사용자 정보를 쿠키에 임시 저장 (보안상 JWT 토큰 사용 권장)
-    const cookieStore = cookies();
-    cookieStore.set('kakao_user_data', JSON.stringify({
-      id: userData.id,
-      email: userData.kakao_account?.email,
-      nickname: userData.properties?.nickname,
-      profile_image: userData.properties?.profile_image,
-      access_token: access_token,
-    }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24시간
-    });
+    // 카카오 사용자 정보로 Firestore에 사용자 생성/업데이트
+    const kakaoUserId = userData.id.toString();
+    const email = userData.kakao_account?.email || '';
+    const nickname = userData.properties?.nickname || `카카오사용자${userData.id}`;
+    const profileImage = userData.properties?.profile_image || '';
+
+    try {
+      // 기존 카카오 사용자 확인
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('kakaoId', '==', kakaoUserId));
+      const querySnapshot = await getDocs(q);
+
+      let user: User;
+      let userId: string;
+
+      if (!querySnapshot.empty) {
+        // 기존 사용자 업데이트
+        const userDoc = querySnapshot.docs[0];
+        userId = userDoc.id;
+        user = userDoc.data() as User;
+
+        // 마지막 로그인 시간 업데이트
+        await updateDoc(doc(db, 'users', userId), {
+          lastLoginAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          'profile.profileImageUrl': profileImage // 프로필 이미지 업데이트
+        });
+
+        console.log('기존 카카오 사용자 로그인:', { userId, userName: user.profile?.userName });
+      } else {
+        // 새 사용자 생성
+        userId = `kakao_${kakaoUserId}`;
+        
+        user = {
+          uid: userId,
+          email: email,
+          kakaoId: kakaoUserId,
+          profile: {
+            userName: nickname,
+            realName: '',
+            gender: '',
+            birthYear: 0,
+            birthMonth: 0,
+            birthDay: 0,
+            phoneNumber: '',
+            profileImageUrl: profileImage,
+            createdAt: Timestamp.now(),
+            isAdmin: false
+          },
+          role: 'student',
+          isVerified: false,
+          stats: {
+            level: 1,
+            currentExp: 0,
+            totalExperience: 0,
+            currentLevelRequiredXp: 10,
+            postCount: 0,
+            commentCount: 0,
+            likeCount: 0,
+            streak: 0
+          },
+          agreements: {
+            terms: true, // 카카오 로그인 시 기본 동의로 처리
+            privacy: true,
+            location: false,
+            marketing: false
+          },
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp()
+        };
+
+        // Firestore에 사용자 정보 저장
+        await setDoc(doc(db, 'users', userId), user);
+        
+        console.log('새 카카오 사용자 생성:', { userId, userName: nickname });
+      }
+
+      console.log('카카오 로그인 DB 처리 완료:', { userId, isNewUser: querySnapshot.empty });
+
+      // Firebase Auth 커스텀 토큰 생성
+      let firebaseCustomToken: string | null = null;
+      try {
+        firebaseCustomToken = await createKakaoFirebaseToken(kakaoUserId, {
+          email: email,
+          nickname: nickname,
+          profileImage: profileImage,
+        });
+        console.log('Firebase 커스텀 토큰 생성 완료');
+      } catch (firebaseError) {
+        console.error('Firebase 커스텀 토큰 생성 실패:', firebaseError);
+        // Firebase Auth 실패해도 Firestore 로그인은 유지 (선택적)
+      }
+
+      // 사용자 정보를 쿠키에 저장 (성공 페이지에서 사용)
+      const cookieStore = await cookies();
+      cookieStore.set('kakao_user_data', JSON.stringify({
+        id: userData.id,
+        email: email,
+        nickname: nickname,
+        profile_image: profileImage,
+        access_token: access_token,
+        userId: userId, // DB에 저장된 사용자 ID 추가
+        firebaseCustomToken: firebaseCustomToken, // Firebase 커스텀 토큰 추가
+      }), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24, // 24시간
+      });
+
+    } catch (dbError) {
+      console.error('카카오 로그인 DB 처리 오류:', dbError);
+      return NextResponse.redirect(new URL('/auth?error=db_processing_failed', request.url));
+    }
 
     // 성공 페이지로 리다이렉트
     return NextResponse.redirect(new URL('/auth/kakao/success', request.url));
