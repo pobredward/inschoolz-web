@@ -3,11 +3,11 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/providers/AuthProvider';
+import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
-  const { user, signOut } = useAuth();
+  const { user, clearAuth } = useAuthStore();
   const router = useRouter();
 
   // 인증되지 않은 사용자 리디렉션
@@ -19,7 +19,19 @@ export default function DashboardPage() {
 
   // 로그아웃 처리
   const handleSignOut = async () => {
-    await signOut();
+    // 쿠키 삭제
+    const deleteCookie = (name: string) => {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    };
+    
+    deleteCookie('authToken');
+    deleteCookie('uid');
+    deleteCookie('userId');
+    deleteCookie('userRole');
+    
+    // AuthStore 초기화
+    clearAuth();
+    
     router.push('/');
   };
 

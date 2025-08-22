@@ -8,8 +8,6 @@ import { Loader2, CheckCircle, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/authStore';
 import { Timestamp } from 'firebase/firestore';
-import { signInWithCustomToken } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 
 interface KakaoUserData {
   id: number;
@@ -18,7 +16,6 @@ interface KakaoUserData {
   profile_image?: string;
   access_token: string;
   userId?: string; // DB에 저장된 사용자 ID
-  firebaseCustomToken?: string; // Firebase 커스텀 토큰
 }
 
 export default function KakaoSuccessPage() {
@@ -43,155 +40,73 @@ export default function KakaoSuccessPage() {
         const kakaoData = await response.json();
         setUserData(kakaoData);
 
-        // Firebase Auth 커스텀 토큰으로 로그인
-        if (kakaoData.firebaseCustomToken) {
-          try {
-            const firebaseUserCredential = await signInWithCustomToken(auth, kakaoData.firebaseCustomToken);
-            const firebaseUser = firebaseUserCredential.user;
-            
-            console.log('Firebase Auth 로그인 성공:', {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName
-            });
+        console.log('카카오 사용자 데이터 받음:', kakaoData);
 
-            // Firebase Auth 로그인 성공 시 AuthStore에도 설정
-            if (kakaoData.userId) {
-              const simpleUser = {
-                uid: kakaoData.userId,
-                email: kakaoData.email || '',
-                kakaoId: kakaoData.id.toString(),
-                profile: {
-                  userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
-                  profileImageUrl: kakaoData.profile_image || '',
-                  realName: '',
-                  gender: '',
-                  birthYear: 0,
-                  birthMonth: 0,
-                  birthDay: 0,
-                  phoneNumber: '',
-                  createdAt: Timestamp.now(),
-                  isAdmin: false
-                },
-                role: 'student' as const,
-                isVerified: false,
-                stats: {
-                  level: 1,
-                  currentExp: 0,
-                  totalExperience: 0,
-                  currentLevelRequiredXp: 10,
-                  postCount: 0,
-                  commentCount: 0,
-                  likeCount: 0,
-                  streak: 0
-                },
-                agreements: {
-                  terms: true,
-                  privacy: true,
-                  location: false,
-                  marketing: false
-                },
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now()
-              };
-              
-              setUser(simpleUser);
-            }
-
-            toast.success('카카오 로그인 및 Firebase 인증이 완료되었습니다!');
-          } catch (firebaseError) {
-            console.error('Firebase Auth 로그인 실패:', firebaseError);
-            toast.error('Firebase 인증에 실패했습니다. Firestore 로그인만 유지됩니다.');
-            
-            // Firebase Auth 실패해도 Firestore 로그인은 유지
-            if (kakaoData.userId) {
-              const simpleUser = {
-                uid: kakaoData.userId,
-                email: kakaoData.email || '',
-                kakaoId: kakaoData.id.toString(),
-                profile: {
-                  userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
-                  profileImageUrl: kakaoData.profile_image || '',
-                  realName: '',
-                  gender: '',
-                  birthYear: 0,
-                  birthMonth: 0,
-                  birthDay: 0,
-                  phoneNumber: '',
-                  createdAt: Timestamp.now(),
-                  isAdmin: false
-                },
-                role: 'student' as const,
-                isVerified: false,
-                stats: {
-                  level: 1,
-                  currentExp: 0,
-                  totalExperience: 0,
-                  currentLevelRequiredXp: 10,
-                  postCount: 0,
-                  commentCount: 0,
-                  likeCount: 0,
-                  streak: 0
-                },
-                agreements: {
-                  terms: true,
-                  privacy: true,
-                  location: false,
-                  marketing: false
-                },
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now()
-              };
-              
-              setUser(simpleUser);
-            }
-          }
-        } else {
-          console.warn('Firebase 커스텀 토큰이 없습니다. Firestore 로그인만 진행합니다.');
-          toast.warning('Firebase 인증 토큰이 없습니다. 기본 로그인을 진행합니다.');
-          
-          // 커스텀 토큰 없이도 Firestore 로그인 진행
-          if (kakaoData.userId) {
-            const simpleUser = {
-              uid: kakaoData.userId,
-              email: kakaoData.email || '',
-              kakaoId: kakaoData.id.toString(),
-              profile: {
-                userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
-                profileImageUrl: kakaoData.profile_image || '',
-                realName: '',
-                gender: '',
-                birthYear: 0,
-                birthMonth: 0,
-                birthDay: 0,
-                phoneNumber: '',
-                createdAt: Timestamp.now(),
-                isAdmin: false
-              },
-              role: 'student' as const,
-              isVerified: false,
-              stats: {
-                level: 1,
-                currentExp: 0,
-                totalExperience: 0,
-                currentLevelRequiredXp: 10,
-                postCount: 0,
-                commentCount: 0,
-                likeCount: 0,
-                streak: 0
-              },
-              agreements: {
-                terms: true,
-                privacy: true,
-                location: false,
-                marketing: false
-              },
+        // AuthStore에 사용자 정보 설정 (Firestore 기반)
+        if (kakaoData.userId) {
+          const simpleUser = {
+            uid: kakaoData.userId,
+            email: kakaoData.email || '',
+            kakaoId: kakaoData.id.toString(),
+            profile: {
+              userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
+              profileImageUrl: kakaoData.profile_image || '',
+              realName: '',
+              gender: '',
+              birthYear: 0,
+              birthMonth: 0,
+              birthDay: 0,
+              phoneNumber: '',
               createdAt: Timestamp.now(),
-              updatedAt: Timestamp.now()
-            };
+              isAdmin: false
+            },
+            role: 'student' as const,
+            isVerified: false,
+            stats: {
+              level: 1,
+              currentExp: 0,
+              totalExperience: 0,
+              currentLevelRequiredXp: 10,
+              postCount: 0,
+              commentCount: 0,
+              likeCount: 0,
+              streak: 0
+            },
+            agreements: {
+              terms: true,
+              privacy: true,
+              location: false,
+              marketing: false
+            },
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+          };
+          
+          console.log('AuthStore에 사용자 설정:', simpleUser);
+          setUser(simpleUser);
+          
+          // 미들웨어를 통과하기 위한 쿠키 설정
+          const setCookie = (name: string, value: string, days = 7) => {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             
-            setUser(simpleUser);
-          }
+            const isProduction = process.env.NODE_ENV === 'production';
+            const secureOption = isProduction ? '; secure' : '';
+            
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+          };
+          
+          // 인증 쿠키들 설정
+          setCookie('authToken', `kakao_${kakaoData.access_token}`); // 미들웨어용
+          setCookie('uid', kakaoData.userId);
+          setCookie('userId', kakaoData.userId);
+          setCookie('userRole', 'student');
+          
+          console.log('카카오 로그인 쿠키 설정 완료');
+          
+          toast.success('카카오 로그인이 완료되었습니다!');
+        } else {
+          throw new Error('사용자 ID가 없습니다.');
         }
         
         // 3초 후 대시보드로 리다이렉트

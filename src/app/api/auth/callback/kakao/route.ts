@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import { doc, setDoc, updateDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User } from '@/types';
-import { createKakaoFirebaseToken } from '@/lib/auth/kakao-firebase';
 
 /**
  * 환경에 따른 카카오 Redirect URI 반환
@@ -163,22 +162,6 @@ export async function GET(request: NextRequest) {
 
       console.log('카카오 로그인 DB 처리 완료:', { userId, isNewUser: querySnapshot.empty });
 
-      // Firebase Auth 커스텀 토큰 생성
-      let firebaseCustomToken: string | null = null;
-      try {
-        console.log('🔥 Firebase 커스텀 토큰 생성 시도 중...', { kakaoUserId, email, nickname });
-        firebaseCustomToken = await createKakaoFirebaseToken(kakaoUserId, {
-          email: email,
-          nickname: nickname,
-          profileImage: profileImage,
-        });
-        console.log('✅ Firebase 커스텀 토큰 생성 완료:', { tokenLength: firebaseCustomToken?.length });
-      } catch (firebaseError) {
-        console.error('❌ Firebase 커스텀 토큰 생성 실패:', firebaseError);
-        console.error('Firebase 오류 상세:', JSON.stringify(firebaseError, null, 2));
-        // Firebase Auth 실패해도 Firestore 로그인은 유지 (선택적)
-      }
-
       // 사용자 정보를 쿠키에 저장 (성공 페이지에서 사용)
       const cookieStore = await cookies();
       cookieStore.set('kakao_user_data', JSON.stringify({
@@ -187,8 +170,8 @@ export async function GET(request: NextRequest) {
         nickname: nickname,
         profile_image: profileImage,
         access_token: access_token,
-        userId: userId, // DB에 저장된 사용자 ID 추가
-        firebaseCustomToken: firebaseCustomToken, // Firebase 커스텀 토큰 추가
+        userId: userId, // DB에 저장된 사용자 ID
+        // Firebase Admin SDK 없이 일단 제거
       }), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
