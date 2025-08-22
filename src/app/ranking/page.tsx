@@ -378,7 +378,7 @@ export default function RankingPage() {
                 <div className="text-center py-8 text-gray-500">
                   <p className="mb-4 text-sm">지역 랭킹을 보려면 로그인이 필요합니다.</p>
                   <Button asChild size="sm">
-                    <a href="/auth?tab=login">로그인하기</a>
+                    <a href="/login">로그인하기</a>
                   </Button>
                 </div>
               ) : user.regions?.sido && user.regions?.sigungu ? (
@@ -418,7 +418,7 @@ export default function RankingPage() {
                 <div className="text-center py-8 text-gray-500">
                   <p className="mb-4 text-sm">학교 랭킹을 보려면 로그인이 필요합니다.</p>
                   <Button asChild size="sm">
-                    <a href="/auth?tab=login">로그인하기</a>
+                    <a href="/login">로그인하기</a>
                   </Button>
                 </div>
               ) : user.school?.id ? (

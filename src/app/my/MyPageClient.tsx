@@ -223,7 +223,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
       toast.success('계정이 완전히 삭제되었습니다.');
       
       // 계정 삭제 후 로그인 페이지로 리디렉션
-      router.push('/auth');
+      router.push('/login');
     } catch (error) {
       console.error('계정 삭제 오류:', error);
       if (error instanceof Error) {

@@ -22,7 +22,7 @@ export default async function ProfileEditPage({ params }: { params: Promise<{ us
   
   // 로그인되지 않은 경우 로그인 페이지로 리디렉션
   if (!authToken) {
-    return redirect('/auth?redirect=/' + userName + '/edit');
+    return redirect('/login?redirect=/' + userName + '/edit');
   }
 
   try {
@@ -42,14 +42,14 @@ export default async function ProfileEditPage({ params }: { params: Promise<{ us
     // 쿠키에서 사용자 ID를 찾을 수 없는 경우
     if (!currentUserId) {
       console.log('사용자 ID를 쿠키에서 찾을 수 없음');
-      return redirect('/auth?redirect=/' + userName + '/edit');
+      return redirect('/login?redirect=/' + userName + '/edit');
     }
     
     // 사용자 정보 조회
     const currentUser = await getUserById(currentUserId);
     
     if (!currentUser) {
-      return redirect('/auth?redirect=/' + userName + '/edit');
+      return redirect('/login?redirect=/' + userName + '/edit');
     }
     
     // 본인 프로필인지 확인 - 본인 프로필만 수정 가능
@@ -66,7 +66,7 @@ export default async function ProfileEditPage({ params }: { params: Promise<{ us
     // serializedUserData가 null이면 에러 (이론적으로는 발생하지 않아야 함)
     if (!serializedUserData) {
       console.error('사용자 데이터 직렬화 실패');
-      return redirect('/auth?redirect=/' + userName + '/edit');
+      return redirect('/login?redirect=/' + userName + '/edit');
     }
 
     // 프로필 수정 컴포넌트 렌더링
@@ -78,6 +78,6 @@ export default async function ProfileEditPage({ params }: { params: Promise<{ us
     );
   } catch (error) {
     console.error('사용자 정보 조회 오류:', error);
-    return redirect('/auth?redirect=/' + userName + '/edit');
+    return redirect('/login?redirect=/' + userName + '/edit');
   }
 } 

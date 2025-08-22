@@ -13,7 +13,7 @@ export default function MyEditPage() {
   useEffect(() => {
     // 로딩이 완료되고 사용자가 없는 경우 로그인 페이지로 리디렉션
     if (!isLoading && !user) {
-      router.push('/auth?redirect=/my/edit');
+      router.push('/login?redirect=/my/edit');
     }
   }, [user, isLoading, router]);
 

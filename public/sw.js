@@ -22,6 +22,8 @@ const STATIC_ASSETS = [
 const NETWORK_FIRST_PATHS = [
   '/api/',
   '/auth',
+  '/login',
+  '/signup',
   '/notifications',
 ];
 

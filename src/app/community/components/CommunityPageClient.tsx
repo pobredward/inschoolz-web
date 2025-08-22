@@ -623,7 +623,7 @@ export default function CommunityPageClient() {
           {selectedTab === 'school' ? '학교' : '지역'} 게시판을 보려면 로그인해주세요.
         </p>
         <Button 
-          onClick={() => router.push('/auth')}
+          onClick={() => router.push('/login')}
           className="w-full bg-green-500 hover:bg-green-600 text-white"
         >
           로그인하기

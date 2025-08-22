@@ -5,6 +5,8 @@ import type { NextRequest } from 'next/server';
 const publicRoutes = [
   '/auth',
   '/auth/reset-password',
+  '/login',
+  '/signup',
   '/',
   '/about',
   '/terms',
@@ -24,15 +26,21 @@ export function middleware(request: NextRequest) {
   
   console.log(`🚀 Middleware: ${path} - 요청 시작`);
   
-  // 기존 /login 및 /signup 경로를 /auth로 리디렉션
-  if (path === '/login') {
-    console.log(`🔄 Middleware: ${path} -> /auth?tab=login 리다이렉트`);
-    return NextResponse.redirect(new URL('/auth?tab=login', request.url));
-  }
-  
-  if (path === '/signup') {
-    console.log(`🔄 Middleware: ${path} -> /auth?tab=signup 리다이렉트`);
-    return NextResponse.redirect(new URL('/auth?tab=signup', request.url));
+  // 레거시 로그인/회원가입 쿼리 파라미터 처리
+  if (path === '/auth') {
+    const tab = request.nextUrl.searchParams.get('tab');
+    const redirect = request.nextUrl.searchParams.get('redirect');
+    
+    if (tab === 'signup') {
+      const redirectUrl = redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : '/signup';
+      console.log(`🔄 Middleware: ${path}?tab=signup -> ${redirectUrl} 리다이렉트`);
+      return NextResponse.redirect(new URL(redirectUrl, request.url));
+    } else {
+      // tab=login 또는 tab이 없는 경우 모두 로그인으로
+      const redirectUrl = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login';
+      console.log(`🔄 Middleware: ${path} -> ${redirectUrl} 리다이렉트`);
+      return NextResponse.redirect(new URL(redirectUrl, request.url));
+    }
   }
   
   // SEO용 커뮤니티 게시글 경로는 공개 접근 허용
@@ -54,8 +62,8 @@ export function middleware(request: NextRequest) {
   
   // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
   if (!authCookie) {
-    console.log(`🚫 Middleware: ${path} -> /auth?tab=login 리다이렉트 (인증 필요)`);
-    return NextResponse.redirect(new URL(`/auth?tab=login&redirect=${encodeURIComponent(path)}`, request.url));
+    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (인증 필요)`);
+    return NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(path)}`, request.url));
   }
   
   // 관리자 페이지 접근 제한 (관리자 역할 확인)

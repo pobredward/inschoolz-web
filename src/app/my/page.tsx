@@ -30,7 +30,7 @@ export default function MyPage() {
       
       const timer = setTimeout(() => {
         console.log('🚪 MyPage: 로그인 페이지로 리다이렉트');
-        router.push('/auth?tab=login&redirect=/my');
+        router.push('/login?redirect=/my');
       }, 500); // 500ms 추가 대기
 
       setRedirectTimer(timer);

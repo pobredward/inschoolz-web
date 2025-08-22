@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { SimpleLoginForm } from '@/app/login/components/simple-login-form';
+import { SimpleSignupForm } from '@/app/signup/components/simple-signup-form';
 
-export default function LoginPageClient() {
+export default function SignupPageClient() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100">
       <div className="flex flex-col items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
@@ -26,25 +26,25 @@ export default function LoginPageClient() {
             {/* 헤더 */}
             <div className="border-b border-gray-100">
               <div className="py-4 px-6 text-center">
-                <h2 className="text-lg font-semibold text-gray-900">로그인</h2>
+                <h2 className="text-lg font-semibold text-gray-900">회원가입</h2>
               </div>
             </div>
 
-            {/* 로그인 폼 */}
+            {/* 회원가입 폼 */}
             <div className="p-6">
-              <SimpleLoginForm />
+              <SimpleSignupForm />
             </div>
           </div>
 
-          {/* 회원가입 링크 */}
+          {/* 로그인 링크 */}
           <div className="text-center mt-6">
             <p className="text-sm text-gray-600">
-              아직 계정이 없으신가요?{' '}
+              이미 계정이 있으신가요?{' '}
               <Link 
-                href="/signup" 
+                href="/login" 
                 className="font-medium text-green-600 hover:text-green-500 transition-colors"
               >
-                회원가입하기
+                로그인하기
               </Link>
             </p>
           </div>

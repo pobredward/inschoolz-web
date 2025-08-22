@@ -26,7 +26,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
   
   // 로그인되지 않은 경우 로그인 페이지로 리디렉션
   if (!authToken) {
-    return redirect('/auth?redirect=/' + userName);
+    return redirect('/login?redirect=/' + userName);
   }
 
   try {
@@ -46,14 +46,14 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
     
     // 쿠키에서 사용자 ID를 찾을 수 없는 경우 로그인 페이지로 리디렉션
     if (!currentUserId) {
-      return redirect('/auth?redirect=/' + userName);
+      return redirect('/login?redirect=/' + userName);
     }
     
     // 사용자 정보 조회
     const currentUser = await getUserById(currentUserId);
     
     if (!currentUser) {
-      return redirect('/auth?redirect=/' + userName);
+      return redirect('/login?redirect=/' + userName);
     }
 
     // Firebase 타임스탬프를 포함한 객체를 직렬화
@@ -122,6 +122,6 @@ export default async function UserProfilePage({ params }: { params: Promise<{ us
     }
   } catch (error) {
     console.error('프로필 페이지 사용자 정보 조회 오류:', error);
-    return redirect('/auth?redirect=/' + userName);
+    return redirect('/login?redirect=/' + userName);
   }
 } 

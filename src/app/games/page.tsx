@@ -64,7 +64,7 @@ export default function GamesPage() {
     
     if (!user) {
       if (confirm('게임을 플레이하려면 로그인이 필요합니다. 로그인 페이지로 이동하시겠습니까?')) {
-        router.push('/auth?tab=login');
+        router.push('/login');
       }
       return;
     }

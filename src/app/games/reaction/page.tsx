@@ -282,7 +282,7 @@ export default function ReactionGamePage() {
                 반응속도 게임을 플레이하려면 로그인해주세요.
               </p>
               <Button asChild>
-                <Link href="/auth">로그인하기</Link>
+                <Link href="/login">로그인하기</Link>
               </Button>
             </div>
           </CardContent>

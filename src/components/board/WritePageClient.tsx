@@ -115,7 +115,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
     if (!user) {
       // 로그인되지 않음
       console.log('로그인되지 않음, 로그인 페이지로 리디렉션');
-      router.push('/auth?tab=login');
+      router.push('/login');
       return;
     }
   }, [user, router]);
@@ -539,7 +539,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
                 <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">로그인이 필요합니다</h2>
                 <p className="text-sm md:text-base text-gray-600 mb-6">게시글을 작성하려면 로그인해주세요.</p>
                 <Button 
-                  onClick={() => router.push('/auth?tab=login')}
+                  onClick={() => router.push('/login')}
                   className="bg-green-500 hover:bg-green-600 text-white h-12 md:h-10 px-6"
                 >
                   로그인하기

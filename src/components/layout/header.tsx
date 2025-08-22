@@ -443,13 +443,13 @@ export function Header() {
                 ) : (
                   <>
                     <DropdownMenuItem asChild>
-                      <Link href="/auth?tab=login" className="cursor-pointer">
+                      <Link href="/login" className="cursor-pointer">
                         <LogIn className="mr-2 h-4 w-4" />
                         <span>로그인</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href="/auth?tab=signup" className="cursor-pointer">
+                      <Link href="/signup" className="cursor-pointer">
                         <UserPlus className="mr-2 h-4 w-4" />
                         <span>회원가입</span>
                       </Link>

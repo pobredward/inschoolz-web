@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
                 </p>
               </div>
               <Button asChild className="mt-4">
-                <Link href="/auth?tab=login">
+                <Link href="/login">
                   로그인 페이지로 돌아가기
                 </Link>
               </Button>
@@ -127,7 +127,7 @@ export default function ResetPasswordPage() {
               
               <div className="text-center mt-4">
                 <Button variant="link" asChild>
-                  <Link href="/auth?tab=login" className="flex items-center text-green-600">
+                  <Link href="/login" className="flex items-center text-green-600">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     로그인으로 돌아가기
                   </Link>
