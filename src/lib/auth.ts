@@ -383,6 +383,47 @@ export const loginWithGoogle = async (): Promise<User> => {
 };
 
 /**
+ * 카카오 로그인 완료 처리 (쿠키에서 사용자 정보 가져와서 AuthProvider 방식으로 처리)
+ */
+export const loginWithKakao = async (): Promise<User> => {
+  try {
+    // 서버에서 설정한 카카오 사용자 정보 쿠키 읽기
+    const response = await fetch('/api/auth/kakao/user-data', {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('카카오 사용자 데이터를 가져올 수 없습니다.');
+    }
+
+    const kakaoData = await response.json();
+    
+    if (!kakaoData.userId) {
+      throw new Error('카카오 사용자 ID가 없습니다.');
+    }
+
+    // Firestore에서 사용자 정보 가져오기
+    const userDoc = await getDoc(doc(db, 'users', kakaoData.userId));
+    
+    if (userDoc.exists()) {
+      // 마지막 로그인 시간 업데이트
+      await updateDoc(doc(db, 'users', kakaoData.userId), {
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      return userDoc.data() as User;
+    } else {
+      throw new Error('카카오 사용자 정보를 찾을 수 없습니다.');
+    }
+  } catch (error) {
+    console.error('카카오 로그인 오류:', error);
+    throw new Error('카카오 로그인 중 오류가 발생했습니다.');
+  }
+};
+
+/**
  * 카카오 로그인 시작 (리다이렉트 방식)
  */
 export const startKakaoLogin = () => {

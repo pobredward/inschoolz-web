@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuthStore } from '@/store/authStore';
-import { Timestamp } from 'firebase/firestore';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface KakaoUserData {
   id: number;
@@ -18,104 +17,32 @@ interface KakaoUserData {
   userId?: string; // DB에 저장된 사용자 ID
 }
 
-export default function KakaoSuccessPage() {
+function KakaoSuccessContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<KakaoUserData | null>(null);
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const searchParams = useSearchParams();
+  const { signInWithKakao } = useAuth();
 
   useEffect(() => {
     const handleKakaoLogin = async () => {
       try {
-        // 서버에서 카카오 사용자 데이터 가져오기
-        const response = await fetch('/api/auth/kakao/user-data', {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('사용자 데이터를 가져올 수 없습니다.');
-        }
-
-        const kakaoData = await response.json();
-        setUserData(kakaoData);
-
-        console.log('카카오 사용자 데이터 받음:', kakaoData);
-
-        // AuthStore에 사용자 정보 설정 (Firestore 기반)
-        if (kakaoData.userId) {
-          const simpleUser = {
-            uid: kakaoData.userId,
-            email: kakaoData.email || '',
-            kakaoId: kakaoData.id.toString(),
-            profile: {
-              userName: kakaoData.nickname || `카카오사용자${kakaoData.id}`,
-              profileImageUrl: kakaoData.profile_image || '',
-              realName: '',
-              gender: '',
-              birthYear: 0,
-              birthMonth: 0,
-              birthDay: 0,
-              phoneNumber: '',
-              createdAt: Timestamp.now(),
-              isAdmin: false
-            },
-            role: 'student' as const,
-            isVerified: false,
-            stats: {
-              level: 1,
-              currentExp: 0,
-              totalExperience: 0,
-              currentLevelRequiredXp: 10,
-              postCount: 0,
-              commentCount: 0,
-              likeCount: 0,
-              streak: 0
-            },
-            agreements: {
-              terms: true,
-              privacy: true,
-              location: false,
-              marketing: false
-            },
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now()
-          };
-          
-          console.log('AuthStore에 사용자 설정:', simpleUser);
-          setUser(simpleUser);
-          
-          // 미들웨어를 통과하기 위한 쿠키 설정
-          const setCookie = (name: string, value: string, days = 7) => {
-            const expires = new Date();
-            expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-            
-            const isProduction = process.env.NODE_ENV === 'production';
-            const secureOption = isProduction ? '; secure' : '';
-            
-            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
-          };
-          
-          // 인증 쿠키들 설정
-          setCookie('authToken', `kakao_${kakaoData.access_token}`); // 미들웨어용
-          setCookie('uid', kakaoData.userId);
-          setCookie('userId', kakaoData.userId);
-          setCookie('userRole', 'student');
-          
-          console.log('카카오 로그인 쿠키 설정 완료');
-          
-          toast.success('카카오 로그인이 완료되었습니다!');
-        } else {
-          throw new Error('사용자 ID가 없습니다.');
-        }
+        console.log('🚀 카카오 로그인 성공 페이지: AuthProvider 방식으로 로그인 처리 시작');
         
-        // 3초 후 대시보드로 리다이렉트
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 3000);
+        // AuthProvider의 signInWithKakao 호출 (이메일 로그인과 동일한 방식)
+        await signInWithKakao();
+        
+        console.log('✅ 카카오 로그인 완료, 리다이렉트 준비');
+        
+        // 이메일 로그인과 동일한 방식으로 리다이렉트
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const redirectUrl = searchParams.get('redirect') || '/';
+        
+        console.log('🔄 리다이렉트:', redirectUrl);
+        router.push(redirectUrl);
 
       } catch (error) {
-        console.error('카카오 로그인 처리 오류:', error);
+        console.error('❌ 카카오 로그인 처리 오류:', error);
         toast.error('로그인 처리 중 오류가 발생했습니다.');
         
         setTimeout(() => {
@@ -127,7 +54,7 @@ export default function KakaoSuccessPage() {
     };
 
     handleKakaoLogin();
-  }, [router, setUser]);
+  }, [router, searchParams, signInWithKakao]);
 
   if (isLoading) {
     return (
@@ -199,5 +126,29 @@ export default function KakaoSuccessPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+export default function KakaoSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Loader2 className="h-12 w-12 text-green-500 animate-spin" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-green-800">
+              카카오 로그인 처리 중
+            </CardTitle>
+            <CardDescription>
+              잠시만 기다려주세요...
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <KakaoSuccessContent />
+    </Suspense>
   );
 }

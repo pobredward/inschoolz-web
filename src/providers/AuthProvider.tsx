@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getUserById } from '@/lib/api/users';
-import { loginWithEmail, loginWithGoogle, registerWithEmail } from '@/lib/auth';
+import { loginWithEmail, loginWithGoogle, registerWithEmail, loginWithKakao } from '@/lib/auth';
 import { signUp as signUpAPI } from '@/lib/api/auth';
 import { User, FormDataType } from '@/types';
 import { checkSuspensionStatus, SuspensionStatus } from '@/lib/auth/suspension-check';
@@ -23,6 +23,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (emailOrFormData: string | FormDataType, password?: string, userName?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  signInWithKakao: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   checkSuspension: () => void;
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   // 사용자 정보와 쿠키 설정
-  const setUserAndCookies = async (userData: User, firebaseUser: FirebaseUser) => {
+  const setUserAndCookies = async (userData: User, firebaseUser: FirebaseUser | null) => {
     try {
       console.log('🍪 AuthProvider: 사용자 상태 및 쿠키 설정 시작', { 
         uid: userData.uid, 
@@ -82,18 +83,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       setUser(userData);
       
-      // Firebase ID 토큰 가져오기
-      const idToken = await firebaseUser.getIdToken();
-      console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
+      let authToken: string;
+      
+      if (firebaseUser) {
+        // Firebase 사용자의 경우 ID 토큰 사용
+        authToken = await firebaseUser.getIdToken();
+        console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
+      } else {
+        // 카카오 등 외부 로그인의 경우 임시 토큰 생성
+        authToken = `external_${userData.uid}_${Date.now()}`;
+        console.log('🔑 AuthProvider: 외부 로그인 임시 토큰 생성');
+      }
       
       // 쿠키 설정
-      setCookie('authToken', idToken);
+      setCookie('authToken', authToken);
       setCookie('uid', userData.uid);
       setCookie('userId', userData.uid); // 백업용
       setCookie('userRole', userData.role);
       
       console.log('✅ AuthProvider: 모든 쿠키 설정 완료', {
-        authToken: '설정됨',
+        authToken: firebaseUser ? 'Firebase 토큰' : '외부 로그인 토큰',
         uid: userData.uid,
         userRole: userData.role
       });
@@ -221,6 +230,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const signInWithKakao = async () => {
+    try {
+      setError(null);
+      console.log('🚀 AuthProvider: 카카오 signIn 시작');
+      const userData = await loginWithKakao();
+      console.log('✅ AuthProvider: loginWithKakao 완료, 사용자 데이터 설정 중...');
+      
+      // 카카오는 Firebase Auth를 사용하지 않으므로 직접 사용자 상태와 쿠키 설정
+      await setUserAndCookies(userData, null); // firebaseUser는 null
+      
+      console.log('🎉 AuthProvider: 카카오 로그인 프로세스 완전히 완료');
+      toast.success('카카오 로그인되었습니다.');
+    } catch (error) {
+      console.error('❌ AuthProvider: 카카오 로그인 오류:', error);
+      setError(error instanceof Error ? error.message : '카카오 로그인 중 오류가 발생했습니다.');
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
@@ -317,6 +345,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         signIn,
         signUp,
         signInWithGoogle,
+        signInWithKakao,
         signOut,
         refreshUser,
         checkSuspension,
