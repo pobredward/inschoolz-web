@@ -57,4 +57,9 @@ export function getAuth() {
 
 export function getStorage() {
   return getFirebaseAdmin().storage;
-} 
+}
+
+// 편의를 위한 직접 export
+export const adminAuth = getAuth();
+export const adminFirestore = getFirestore();
+export const adminStorage = getStorage(); 

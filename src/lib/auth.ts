@@ -4,6 +4,7 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithCustomToken,
   signOut,
   onAuthStateChanged,
   RecaptchaVerifier,
@@ -615,5 +616,109 @@ export const registerWithPhoneNumber = async (
     }
     
     throw new Error('휴대폰 회원가입 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 카카오 커스텀 토큰으로 로그인
+ */
+export const loginWithKakaoToken = async (customToken: string): Promise<User> => {
+  try {
+    // Firebase 커스텀 토큰으로 로그인
+    const userCredential = await signInWithCustomToken(auth, customToken);
+    const firebaseUser = userCredential.user;
+    
+    // Firestore에서 사용자 정보 확인
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    
+    if (userDoc.exists()) {
+      // 기존 사용자: 마지막 로그인 시간 업데이트
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      
+      return userDoc.data() as User;
+    } else {
+      // 신규 사용자의 경우 별도로 사용자 정보를 생성해야 함
+      throw new Error('사용자 정보를 찾을 수 없습니다. 회원가입을 진행해주세요.');
+    }
+  } catch (error) {
+    console.error('카카오 로그인 오류:', error);
+    
+    if (error instanceof Error && 'code' in error) {
+      const firebaseError = error as { code: string };
+      if (firebaseError.code === 'auth/invalid-custom-token') {
+        throw new Error('유효하지 않은 인증 토큰입니다.');
+      } else if (firebaseError.code === 'auth/custom-token-mismatch') {
+        throw new Error('인증 토큰이 일치하지 않습니다.');
+      }
+    }
+    
+    throw new Error('카카오 로그인 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 카카오 사용자 정보로 Firestore 사용자 생성
+ */
+export const createKakaoUser = async (
+  uid: string,
+  kakaoUserInfo: {
+    id: number;
+    email?: string;
+    nickname?: string;
+    profileImage?: string;
+    gender?: string;
+    birthyear?: string;
+    birthday?: string;
+    phoneNumber?: string;
+  }
+): Promise<User> => {
+  try {
+    const newUser: User = {
+      uid,
+      email: kakaoUserInfo.email || '',
+      role: 'student',
+      isVerified: true,
+      profile: {
+        userName: kakaoUserInfo.nickname || `카카오사용자${kakaoUserInfo.id}`,
+        realName: '',
+        gender: kakaoUserInfo.gender === 'female' ? '여성' : 
+                kakaoUserInfo.gender === 'male' ? '남성' : '',
+        birthYear: kakaoUserInfo.birthyear ? parseInt(kakaoUserInfo.birthyear) : 0,
+        birthMonth: kakaoUserInfo.birthday ? parseInt(kakaoUserInfo.birthday.substring(0, 2)) : 0,
+        birthDay: kakaoUserInfo.birthday ? parseInt(kakaoUserInfo.birthday.substring(2, 4)) : 0,
+        phoneNumber: kakaoUserInfo.phoneNumber || '',
+        profileImageUrl: kakaoUserInfo.profileImage || '',
+        createdAt: Timestamp.now(),
+        isAdmin: false
+      },
+      stats: {
+        level: 1,
+        currentExp: 0,
+        totalExperience: 0,
+        currentLevelRequiredXp: 10,
+        postCount: 0,
+        commentCount: 0,
+        likeCount: 0,
+        streak: 0
+      },
+      agreements: {
+        terms: true,
+        privacy: true,
+        location: false,
+        marketing: false
+      },
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    await setDoc(doc(db, 'users', uid), newUser);
+    
+    return newUser;
+  } catch (error) {
+    console.error('카카오 사용자 생성 오류:', error);
+    throw new Error('사용자 정보 생성 중 오류가 발생했습니다.');
   }
 };
