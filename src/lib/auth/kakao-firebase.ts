@@ -13,10 +13,13 @@ export async function createKakaoFirebaseToken(
   }
 ): Promise<string> {
   try {
+    console.log('🔧 getAdminAuth() 호출 중...');
     const adminAuth = getAdminAuth();
     if (!adminAuth) {
+      console.error('❌ Firebase Admin SDK 초기화 실패 - adminAuth가 null');
       throw new Error('Firebase Admin SDK가 초기화되지 않았습니다.');
     }
+    console.log('✅ Firebase Admin Auth 객체 획득 성공');
 
     // Firebase Auth에서 카카오 ID를 기반으로 사용자 확인
     const firebaseUid = `kakao_${kakaoUserId}`;

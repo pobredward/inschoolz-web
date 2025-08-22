@@ -26,15 +26,32 @@ export const initializeFirebaseAdmin = () => {
     const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
       console.warn(`⚠️ Firebase Admin SDK 환경 변수 누락: ${missingVars.join(', ')}`);
+      console.warn('📋 현재 환경 변수 상태:', requiredEnvVars.map(varName => 
+        `${varName}: ${process.env[varName] ? '✅' : '❌'}`).join(', '));
       return null;
     }
 
+    console.log('✅ Firebase Admin SDK 환경 변수 모두 확인됨');
+    console.log(`📋 Project ID: ${process.env.FIREBASE_PROJECT_ID}`);
+    console.log(`📋 Client Email: ${process.env.FIREBASE_CLIENT_EMAIL}`);
+    console.log(`📋 Private Key 길이: ${process.env.FIREBASE_PRIVATE_KEY?.length} 문자`);
+    console.log(`📋 Private Key 시작 부분: ${process.env.FIREBASE_PRIVATE_KEY?.substring(0, 50)}...`);
+
     // 환경 변수에서 서비스 계정 키 정보 가져오기
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    
+    // private key 형식 정리 (\\n을 실제 줄바꿈으로 변환)
+    if (privateKey) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+      console.log(`📋 Private Key 변환 후 길이: ${privateKey.length} 문자`);
+      console.log(`📋 Private Key 변환 후 시작: ${privateKey.substring(0, 30)}...`);
+    }
+    
     const serviceAccount = {
       type: 'service_account',
       project_id: process.env.FIREBASE_PROJECT_ID,
       private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-      private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      private_key: privateKey,
       client_email: process.env.FIREBASE_CLIENT_EMAIL,
       client_id: process.env.FIREBASE_CLIENT_ID,
       auth_uri: 'https://accounts.google.com/o/oauth2/auth',

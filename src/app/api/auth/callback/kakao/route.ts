@@ -166,14 +166,16 @@ export async function GET(request: NextRequest) {
       // Firebase Auth 커스텀 토큰 생성
       let firebaseCustomToken: string | null = null;
       try {
+        console.log('🔥 Firebase 커스텀 토큰 생성 시도 중...', { kakaoUserId, email, nickname });
         firebaseCustomToken = await createKakaoFirebaseToken(kakaoUserId, {
           email: email,
           nickname: nickname,
           profileImage: profileImage,
         });
-        console.log('Firebase 커스텀 토큰 생성 완료');
+        console.log('✅ Firebase 커스텀 토큰 생성 완료:', { tokenLength: firebaseCustomToken?.length });
       } catch (firebaseError) {
-        console.error('Firebase 커스텀 토큰 생성 실패:', firebaseError);
+        console.error('❌ Firebase 커스텀 토큰 생성 실패:', firebaseError);
+        console.error('Firebase 오류 상세:', JSON.stringify(firebaseError, null, 2));
         // Firebase Auth 실패해도 Firestore 로그인은 유지 (선택적)
       }
 
