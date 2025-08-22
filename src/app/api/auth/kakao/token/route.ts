@@ -67,7 +67,7 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
     };
 
     // Firebase 커스텀 토큰 생성
-    const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
+    const customToken = await adminAuth().createCustomToken(uid, additionalClaims);
     
     console.log('✅ Firebase 커스텀 토큰 생성 성공:', { uid });
     return customToken;

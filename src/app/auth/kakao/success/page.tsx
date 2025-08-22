@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getFirebaseTokenFromKakao } from '@/lib/kakao';
@@ -95,7 +95,7 @@ function convertKakaoUserToFirebaseUser(kakaoUser: KakaoUserInfo, uid: string): 
   };
 }
 
-export default function KakaoSuccessPage() {
+function KakaoSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isProcessing, setIsProcessing] = useState(true);
@@ -219,5 +219,30 @@ export default function KakaoSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function KakaoSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100 flex items-center justify-center">
+        <div className="max-w-md w-full mx-auto p-8">
+          <div className="text-center space-y-6">
+            <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-10 h-10 text-brown-600" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3C7.03 3 3 6.58 3 11c0 2.91 2.05 5.47 5 6.48v2.58c0 .25.33.4.55.26L11.09 18H12c4.97 0 9-3.58 9-8s-4.03-8-9-8z"/>
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">카카오 로그인 처리 중</h1>
+            <p className="text-gray-600">잠시만 기다려주세요...</p>
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <KakaoSuccessContent />
+    </Suspense>
   );
 }
