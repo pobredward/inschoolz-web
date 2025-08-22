@@ -27,6 +27,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   checkSuspension: () => void;
   resetError: () => void;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -320,6 +321,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         refreshUser,
         checkSuspension,
         resetError,
+        setUser,
       }}
     >
       {children}

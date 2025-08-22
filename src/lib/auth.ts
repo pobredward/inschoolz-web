@@ -8,11 +8,25 @@ import {
   onAuthStateChanged,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult
+  ConfirmationResult,
+  signInWithCustomToken
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User } from '../types';
+
+/**
+ * 환경에 따른 카카오 Redirect URI 반환
+ */
+const getKakaoRedirectUri = (): string => {
+  // 개발 환경에서는 localhost 사용
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://127.0.0.1:3000/api/auth/callback/kakao';
+  }
+  
+  // 프로덕션에서는 환경 변수 사용
+  return process.env.NEXT_PUBLIC_KAKAO_REDIRECT_URI || 'https://inschoolz.com/api/auth/callback/kakao';
+};
 
 /**
  * userName 중복 확인 (대소문자 구분)
@@ -365,6 +379,177 @@ export const loginWithGoogle = async (): Promise<User> => {
   } catch (error) {
     console.error('Google 로그인 오류:', error);
     throw new Error('Google 로그인 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 카카오 로그인 시작 (리다이렉트 방식)
+ */
+export const startKakaoLogin = () => {
+  try {
+    if (typeof window === 'undefined') {
+      throw new Error('카카오 로그인은 브라우저에서만 실행할 수 있습니다.');
+    }
+
+    const kakaoAppKey = process.env.NEXT_PUBLIC_KAKAO_APP_KEY;
+    const redirectUri = getKakaoRedirectUri();
+
+    if (!kakaoAppKey) {
+      throw new Error('카카오 앱 키가 설정되지 않았습니다.');
+    }
+
+    console.log('카카오 로그인 설정:', {
+      environment: process.env.NODE_ENV,
+      redirectUri,
+      appKey: kakaoAppKey?.substring(0, 8) + '...'
+    });
+
+    // 카카오 OAuth 인가 코드 요청 URL 생성
+    const kakaoAuthUrl = new URL('https://kauth.kakao.com/oauth/authorize');
+    kakaoAuthUrl.searchParams.append('client_id', kakaoAppKey);
+    kakaoAuthUrl.searchParams.append('redirect_uri', redirectUri);
+    kakaoAuthUrl.searchParams.append('response_type', 'code');
+    kakaoAuthUrl.searchParams.append('scope', 'profile_nickname,profile_image,account_email');
+
+    console.log('카카오 로그인 URL:', kakaoAuthUrl.toString());
+
+    // 카카오 로그인 페이지로 리다이렉트
+    window.location.href = kakaoAuthUrl.toString();
+  } catch (error) {
+    console.error('카카오 로그인 시작 오류:', error);
+    throw new Error('카카오 로그인을 시작할 수 없습니다.');
+  }
+};
+
+/**
+ * 카카오 JavaScript SDK를 사용한 로그인 (팝업 방식)
+ */
+export const loginWithKakaoSDK = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    try {
+      if (typeof window === 'undefined') {
+        reject(new Error('카카오 로그인은 브라우저에서만 실행할 수 있습니다.'));
+        return;
+      }
+
+      if (!window.Kakao || !window.Kakao.isInitialized()) {
+        reject(new Error('카카오 SDK가 초기화되지 않았습니다.'));
+        return;
+      }
+
+      window.Kakao.Auth.login({
+        success: (authObj: any) => {
+          console.log('카카오 로그인 성공:', authObj);
+          
+          // 사용자 정보 요청
+          window.Kakao.API.request({
+            url: '/v2/user/me',
+            success: (res: any) => {
+              console.log('카카오 사용자 정보:', res);
+              // 여기서 Firebase Auth와 연동하거나 자체 처리 로직 구현
+              resolve();
+            },
+            fail: (error: any) => {
+              console.error('카카오 사용자 정보 요청 실패:', error);
+              reject(new Error('사용자 정보를 가져올 수 없습니다.'));
+            }
+          });
+        },
+        fail: (error: any) => {
+          console.error('카카오 로그인 실패:', error);
+          reject(new Error('카카오 로그인에 실패했습니다.'));
+        }
+      });
+    } catch (error) {
+      console.error('카카오 SDK 로그인 오류:', error);
+      reject(new Error('카카오 로그인 중 오류가 발생했습니다.'));
+    }
+  });
+};
+
+/**
+ * 카카오 사용자 데이터로 Firebase Auth 및 Firestore에 사용자 생성/로그인
+ */
+export const processKakaoLogin = async (kakaoUserData: {
+  id: number;
+  email?: string;
+  nickname?: string;
+  profile_image?: string;
+  access_token: string;
+}): Promise<User> => {
+  try {
+    // 카카오 ID를 기반으로 기존 사용자 확인
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('kakaoId', '==', kakaoUserData.id.toString()));
+    const querySnapshot = await getDocs(q);
+
+    let user: User;
+
+    if (!querySnapshot.empty) {
+      // 기존 사용자 로그인
+      const userDoc = querySnapshot.docs[0];
+      user = userDoc.data() as User;
+
+      // 마지막 로그인 시간 업데이트
+      await updateDoc(doc(db, 'users', userDoc.id), {
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      console.log('기존 카카오 사용자 로그인:', user);
+    } else {
+      // 새 사용자 생성
+      const newUserId = `kakao_${kakaoUserData.id}`;
+      
+      user = {
+        uid: newUserId,
+        email: kakaoUserData.email || '',
+        kakaoId: kakaoUserData.id.toString(),
+        profile: {
+          userName: kakaoUserData.nickname || `카카오사용자${kakaoUserData.id}`,
+          realName: '',
+          gender: '',
+          birthYear: 0,
+          birthMonth: 0,
+          birthDay: 0,
+          phoneNumber: '',
+          profileImageUrl: kakaoUserData.profile_image || '',
+          createdAt: Timestamp.now(),
+          isAdmin: false
+        },
+        role: 'student',
+        isVerified: false,
+        stats: {
+          level: 1,
+          currentExp: 0,
+          totalExperience: 0,
+          currentLevelRequiredXp: 10,
+          postCount: 0,
+          commentCount: 0,
+          likeCount: 0,
+          streak: 0
+        },
+        agreements: {
+          terms: true, // 카카오 로그인 시 기본 동의로 처리
+          privacy: true,
+          location: false,
+          marketing: false
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp()
+      };
+
+      // Firestore에 사용자 정보 저장
+      await setDoc(doc(db, 'users', newUserId), user);
+      
+      console.log('새 카카오 사용자 생성:', user);
+    }
+
+    return user;
+  } catch (error) {
+    console.error('카카오 로그인 처리 오류:', error);
+    throw new Error('카카오 로그인 처리 중 오류가 발생했습니다.');
   }
 };
 

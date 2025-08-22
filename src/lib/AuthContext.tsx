@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
-  User, 
+  User as FirebaseUser, 
   onAuthStateChanged, 
   signOut as firebaseSignOut,
   GoogleAuthProvider, 
@@ -11,6 +11,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { useRouter } from 'next/navigation';
+import { User } from '../types';
 
 // 인증 컨텍스트 타입 정의
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  setUser: (user: User | null) => void;
   isAdmin: boolean;
 }
 
@@ -27,6 +29,7 @@ const initialAuthContext: AuthContextType = {
   loading: true,
   signOut: async () => {},
   signInWithGoogle: async () => {},
+  setUser: () => {},
   isAdmin: false,
 };
 
@@ -38,32 +41,44 @@ export const useAuth = () => useContext(AuthContext);
 
 // 인증 제공자 컴포넌트
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
 
-  // 사용자 권한 정보 가져오기
-  const fetchUserRole = async (uid: string) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setIsAdmin(userData.role === 'admin');
-      }
-    } catch (error) {
-      console.error('사용자 권한 정보 조회 오류:', error);
+  // setUser 함수 (외부에서 사용)
+  const setUser = (userData: User | null) => {
+    setUserState(userData);
+    if (userData) {
+      setIsAdmin(userData.profile?.isAdmin || false);
+    } else {
+      setIsAdmin(false);
     }
   };
 
-  // 인증 상태 변경 감지
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        await fetchUserRole(user.uid);
+  // 사용자 권한 정보 가져오기
+  const fetchUserData = async (firebaseUser: FirebaseUser) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+        setUser(userData);
       } else {
-        setIsAdmin(false);
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('사용자 데이터 조회 오류:', error);
+      setUser(null);
+    }
+  };
+
+  // 인증 상태 변경 감지 (Firebase Auth와 연동)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        await fetchUserData(firebaseUser);
+      } else {
+        setUser(null);
       }
       setLoading(false);
     });
@@ -125,6 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loading,
     signOut,
     signInWithGoogle,
+    setUser,
     isAdmin,
   };
 

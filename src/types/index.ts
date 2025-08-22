@@ -64,6 +64,9 @@ export interface User {
   isVerified: boolean;
   status?: 'active' | 'inactive' | 'suspended';
   
+  // 소셜 로그인 ID
+  kakaoId?: string;
+  
   // 프로필 정보
   profile: UserProfile;
   
