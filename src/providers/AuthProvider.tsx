@@ -13,6 +13,7 @@ import { signUp as signUpAPI } from '@/lib/api/auth';
 import { User, FormDataType } from '@/types';
 import { checkSuspensionStatus, SuspensionStatus } from '@/lib/auth/suspension-check';
 import { toast } from 'sonner';
+import { logAuthPersistenceStatus, testAuthPersistence } from '@/lib/auth-persistence';
 
 interface AuthContextType {
   user: User | null;
@@ -39,8 +40,8 @@ export const useAuth = () => {
   return context;
 };
 
-// 쿠키 설정 함수
-const setCookie = (name: string, value: string, days = 7) => {
+// 쿠키 설정 함수 (기본 30일 지속)
+const setCookie = (name: string, value: string, days = 30) => {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
   
@@ -49,11 +50,48 @@ const setCookie = (name: string, value: string, days = 7) => {
   const secureOption = isProduction ? '; secure' : '';
   
   document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+  
+  console.log(`🍪 쿠키 설정: ${name} (${days}일 지속)`);
 };
 
 // 쿠키 삭제 함수
 const deleteCookie = (name: string) => {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+};
+
+// 토큰 자동 갱신 타이머 저장
+let tokenRefreshTimer: NodeJS.Timeout | null = null;
+
+// 토큰 자동 갱신 설정
+const setupTokenRefresh = (firebaseUser: FirebaseUser) => {
+  // 기존 타이머 정리
+  if (tokenRefreshTimer) {
+    clearInterval(tokenRefreshTimer);
+  }
+  
+  // 50분마다 토큰 갱신 (Firebase ID 토큰은 1시간 만료)
+  tokenRefreshTimer = setInterval(async () => {
+    try {
+      console.log('🔄 토큰 자동 갱신 시작');
+      const newToken = await firebaseUser.getIdToken(true);
+      setCookie('authToken', newToken, 1);
+      console.log('✅ 토큰 자동 갱신 완료');
+    } catch (error) {
+      console.error('❌ 토큰 자동 갱신 실패:', error);
+      // 갱신 실패 시 로그아웃 처리할 수도 있음
+    }
+  }, 50 * 60 * 1000); // 50분
+  
+  console.log('⏰ 토큰 자동 갱신 타이머 설정 완료 (50분 간격)');
+};
+
+// 토큰 갱신 타이머 정리
+const clearTokenRefresh = () => {
+  if (tokenRefreshTimer) {
+    clearInterval(tokenRefreshTimer);
+    tokenRefreshTimer = null;
+    console.log('🛑 토큰 자동 갱신 타이머 정리 완료');
+  }
 };
 
 interface AuthProviderProps {
@@ -81,21 +119,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       setUser(userData);
       
-      // Firebase ID 토큰 가져오기
-      const idToken = await firebaseUser.getIdToken();
+      // Firebase ID 토큰 가져오기 (강제 새로고침)
+      const idToken = await firebaseUser.getIdToken(true);
       console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
       
-      // 쿠키 설정
-      setCookie('authToken', idToken);
-      setCookie('uid', userData.uid);
-      setCookie('userId', userData.uid); // 백업용
-      setCookie('userRole', userData.role);
+      // 쿠키 설정 (토큰은 1시간마다 갱신되므로 쿠키도 1시간으로 설정)
+      setCookie('authToken', idToken, 1); // 1일
+      setCookie('uid', userData.uid, 30); // 30일
+      setCookie('userId', userData.uid, 30); // 백업용, 30일
+      setCookie('userRole', userData.role, 30); // 30일
       
       console.log('✅ AuthProvider: 모든 쿠키 설정 완료', {
-        authToken: '설정됨',
+        authToken: '설정됨 (1일)',
         uid: userData.uid,
         userRole: userData.role
       });
+      
+      // 토큰 자동 갱신 설정 (50분마다 갱신)
+      setupTokenRefresh(firebaseUser);
       
       // 사용자 정지 상태 확인
       const suspensionStatus = checkSuspensionStatus(userData);
@@ -118,11 +159,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setSuspensionStatus(null);
     setError(null);
     
+    // 토큰 갱신 타이머 정리
+    clearTokenRefresh();
+    
     // 쿠키 삭제
     deleteCookie('authToken');
     deleteCookie('uid');
     deleteCookie('userId');
     deleteCookie('userRole');
+    
+    console.log('🧹 AuthProvider: 모든 인증 정보 및 타이머 정리 완료');
   };
 
   const signIn = async (email: string, password: string) => {
@@ -304,6 +350,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     return () => unsubscribe();
   }, []);
+
+  // 개발 환경에서 인증 지속성 테스트 도구 활성화
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      console.log('🛠️ 개발 모드: 인증 지속성 테스트 도구 활성화');
+      testAuthPersistence();
+      
+      // 인증 상태 변경 시 로그
+      const interval = setInterval(() => {
+        if (user) {
+          logAuthPersistenceStatus();
+        }
+      }, 5 * 60 * 1000); // 5분마다
+      
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   return (
     <AuthContext.Provider

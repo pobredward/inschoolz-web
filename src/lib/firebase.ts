@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,6 +20,17 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
+
+// Firebase Auth 지속성 설정 (브라우저 환경에서만 실행)
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      console.log('✅ Firebase Auth 지속성 설정 완료 (LocalStorage)');
+    })
+    .catch((error) => {
+      console.warn('⚠️ Firebase Auth 지속성 설정 실패:', error);
+    });
+}
 
 // 클라이언트 측 분석 설정 (SSR 환경에서는 실행되지 않음)
 let analytics = null;

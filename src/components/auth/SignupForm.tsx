@@ -45,7 +45,12 @@ const phoneSignupSchema = z.object({
 type EmailSignupFormData = z.infer<typeof emailSignupSchema>;
 type PhoneSignupFormData = z.infer<typeof phoneSignupSchema>;
 
-export function SimpleSignupForm() {
+interface SignupFormProps {
+  showTitle?: boolean;
+  containerId?: string;
+}
+
+export function SignupForm({ showTitle = false, containerId = 'signup-recaptcha-container' }: SignupFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -90,9 +95,9 @@ export function SimpleSignupForm() {
       // DOM이 렌더링된 후 reCAPTCHA 설정
       const timer = setTimeout(() => {
         try {
-          const container = document.getElementById('recaptcha-container');
+          const container = document.getElementById(containerId);
           if (container) {
-            const verifier = createRecaptchaVerifier('recaptcha-container');
+            const verifier = createRecaptchaVerifier(containerId);
             setRecaptchaVerifier(verifier);
           } else {
             console.warn('reCAPTCHA 컨테이너를 찾을 수 없습니다');
@@ -120,7 +125,7 @@ export function SimpleSignupForm() {
         }
       }
     };
-  }, [signupMethod, recaptchaVerifier]);
+  }, [signupMethod, recaptchaVerifier, containerId]);
 
   // 이메일 폼 데이터 업데이트
   const updateEmailFormData = (key: keyof EmailSignupFormData, value: EmailSignupFormData[keyof EmailSignupFormData]) => {
@@ -292,7 +297,7 @@ export function SimpleSignupForm() {
             if (recaptchaVerifier) {
               recaptchaVerifier.clear();
             }
-            const newVerifier = createRecaptchaVerifier('recaptcha-container');
+            const newVerifier = createRecaptchaVerifier(containerId);
             setRecaptchaVerifier(newVerifier);
           } catch (resetError) {
             console.error('reCAPTCHA verifier 재설정 실패:', resetError);
@@ -366,13 +371,28 @@ export function SimpleSignupForm() {
     }
   };
 
+  // 키보드 엔터 핸들러
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault();
+      if (signupMethod === 'email') {
+        handleEmailSignup();
+      } else if (codeSent) {
+        handlePhoneSignup();
+      } else {
+        handleSendPhoneCode();
+      }
+    }
+  };
+
   return (
-    <div className="w-full max-w-md mx-auto space-y-6">
-      {/* 헤더 */}
-      <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold text-gray-900">회원가입</h1>
-        <p className="text-gray-600">인스쿨즈에 오신 것을 환영합니다</p>
-      </div>
+    <div className="w-full space-y-6">
+      {showTitle && (
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl font-bold text-gray-900">회원가입</h1>
+          <p className="text-gray-600">인스쿨즈에 오신 것을 환영합니다</p>
+        </div>
+      )}
 
       {/* 회원가입 방법 선택 */}
       <div className="grid grid-cols-2 gap-3 p-1 bg-green-100 rounded-lg">
@@ -423,6 +443,7 @@ export function SimpleSignupForm() {
                 placeholder="name@example.com"
                 value={emailFormData.email || ''}
                 onChange={(e) => updateEmailFormData('email', e.target.value)}
+                onKeyDown={handleKeyDown}
                 className="h-11"
               />
             </div>
@@ -444,6 +465,7 @@ export function SimpleSignupForm() {
                       updateEmailFormData('userName', value);
                       setEmailUserNameStatus('idle');
                     }}
+                    onKeyDown={handleKeyDown}
                     className={`h-11 pr-10 ${
                       emailUserNameStatus === 'available' ? 'border-green-500' :
                       emailUserNameStatus === 'taken' ? 'border-red-500' : ''
@@ -494,6 +516,7 @@ export function SimpleSignupForm() {
                   placeholder="비밀번호 (6자 이상)"
                   value={emailFormData.password || ''}
                   onChange={(e) => updateEmailFormData('password', e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="h-11 pr-10"
                 />
                 <Button
@@ -520,6 +543,7 @@ export function SimpleSignupForm() {
                   placeholder="비밀번호를 다시 입력하세요"
                   value={emailFormData.confirmPassword || ''}
                   onChange={(e) => updateEmailFormData('confirmPassword', e.target.value)}
+                  onKeyDown={handleKeyDown}
                   className="h-11 pr-10"
                 />
                 <Button
@@ -584,6 +608,7 @@ export function SimpleSignupForm() {
                   updatePhoneFormData('phoneNumber', formatted);
                   setPhoneNumberExists(false);
                 }}
+                onKeyDown={handleKeyDown}
                 maxLength={13}
                 className={`h-11 ${phoneNumberExists ? 'border-red-500' : ''}`}
               />
@@ -609,6 +634,7 @@ export function SimpleSignupForm() {
                       updatePhoneFormData('userName', value);
                       setPhoneUserNameStatus('idle');
                     }}
+                    onKeyDown={handleKeyDown}
                     className={`h-11 pr-10 ${
                       phoneUserNameStatus === 'available' ? 'border-green-500' :
                       phoneUserNameStatus === 'taken' ? 'border-red-500' : ''
@@ -698,6 +724,7 @@ export function SimpleSignupForm() {
                       const value = e.target.value.replace(/[^\d]/g, '').slice(0, 6);
                       updatePhoneFormData('verificationCode', value);
                     }}
+                    onKeyDown={handleKeyDown}
                     maxLength={6}
                     className="h-11 text-center tracking-widest text-lg"
                   />
@@ -717,7 +744,7 @@ export function SimpleSignupForm() {
       </div>
 
       {/* reCAPTCHA 컨테이너 */}
-      <div id="recaptcha-container" ref={recaptchaRef}></div>
+      <div id={containerId} ref={recaptchaRef}></div>
       
       {/* 구분선 */}
       <div className="relative">

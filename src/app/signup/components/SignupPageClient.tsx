@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { SimpleSignupForm } from '@/app/signup/components/simple-signup-form';
+import { SignupForm } from '@/components/auth/SignupForm';
 
 export default function SignupPageClient() {
   return (
@@ -32,7 +32,7 @@ export default function SignupPageClient() {
 
             {/* 회원가입 폼 */}
             <div className="p-6">
-              <SimpleSignupForm />
+              <SignupForm showTitle={false} containerId="signup-page-recaptcha-container" />
             </div>
           </div>
 

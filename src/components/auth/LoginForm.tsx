@@ -23,7 +23,12 @@ const phoneLoginSchema = z.object({
   verificationCode: z.string().length(6, '인증번호는 6자리여야 합니다.'),
 });
 
-export function SimpleLoginForm() {
+interface LoginFormProps {
+  showTitle?: boolean;
+  containerId?: string;
+}
+
+export function LoginForm({ showTitle = false, containerId = 'login-recaptcha-container' }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
@@ -54,9 +59,9 @@ export function SimpleLoginForm() {
       // DOM이 렌더링된 후 reCAPTCHA 설정
       const timer = setTimeout(() => {
         try {
-          const container = document.getElementById('login-recaptcha-container');
+          const container = document.getElementById(containerId);
           if (container) {
-            const verifier = createRecaptchaVerifier('login-recaptcha-container');
+            const verifier = createRecaptchaVerifier(containerId);
             setRecaptchaVerifier(verifier);
           } else {
             console.warn('reCAPTCHA 컨테이너를 찾을 수 없습니다');
@@ -84,7 +89,7 @@ export function SimpleLoginForm() {
         }
       }
     };
-  }, [loginMethod, recaptchaVerifier]);
+  }, [loginMethod, recaptchaVerifier, containerId]);
 
   // 휴대폰 번호 포맷팅
   const formatPhoneNumber = (value: string) => {
@@ -150,7 +155,7 @@ export function SimpleLoginForm() {
             if (recaptchaVerifier) {
               recaptchaVerifier.clear();
             }
-            const newVerifier = createRecaptchaVerifier('login-recaptcha-container');
+            const newVerifier = createRecaptchaVerifier(containerId);
             setRecaptchaVerifier(newVerifier);
           } catch (resetError) {
             console.error('reCAPTCHA verifier 재설정 실패:', resetError);
@@ -199,8 +204,29 @@ export function SimpleLoginForm() {
     }
   };
 
+  // 키보드 엔터 핸들러
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault();
+      if (loginMethod === 'email') {
+        handleEmailLogin();
+      } else if (codeSent) {
+        handlePhoneLogin();
+      } else {
+        handleSendPhoneCode();
+      }
+    }
+  };
+
   return (
     <div className="w-full space-y-6">
+      {showTitle && (
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl font-bold text-gray-900">로그인</h1>
+          <p className="text-gray-600">계정에 로그인하여 인스쿨즈를 시작하세요</p>
+        </div>
+      )}
+
       {/* 로그인 방법 선택 */}
       <div className="grid grid-cols-2 gap-3 p-1 bg-green-100 rounded-lg">
         <button
@@ -247,6 +273,7 @@ export function SimpleLoginForm() {
                 placeholder="name@example.com"
                 value={emailForm.email}
                 onChange={(e) => setEmailForm(prev => ({ ...prev, email: e.target.value }))}
+                onKeyDown={handleKeyDown}
                 className="h-11"
               />
             </div>
@@ -262,6 +289,7 @@ export function SimpleLoginForm() {
                   placeholder="비밀번호를 입력하세요"
                   value={emailForm.password}
                   onChange={(e) => setEmailForm(prev => ({ ...prev, password: e.target.value }))}
+                  onKeyDown={handleKeyDown}
                   className="h-11 pr-10"
                 />
                 <Button
@@ -305,6 +333,7 @@ export function SimpleLoginForm() {
                   const formatted = formatPhoneNumber(e.target.value);
                   setPhoneForm(prev => ({ ...prev, phoneNumber: formatted }));
                 }}
+                onKeyDown={handleKeyDown}
                 maxLength={13}
                 className="h-11"
               />
@@ -333,6 +362,7 @@ export function SimpleLoginForm() {
                       const value = e.target.value.replace(/[^\d]/g, '').slice(0, 6);
                       setPhoneForm(prev => ({ ...prev, verificationCode: value }));
                     }}
+                    onKeyDown={handleKeyDown}
                     maxLength={6}
                     className="h-11 text-center tracking-widest text-lg"
                   />
@@ -352,7 +382,7 @@ export function SimpleLoginForm() {
       </div>
 
       {/* reCAPTCHA 컨테이너 */}
-      <div id="login-recaptcha-container" ref={recaptchaRef}></div>
+      <div id={containerId} ref={recaptchaRef}></div>
       
       {/* 구분선 */}
       <div className="relative">

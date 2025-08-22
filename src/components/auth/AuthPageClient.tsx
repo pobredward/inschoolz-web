@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { SimpleLoginForm } from './simple-login-form';
-import { SimpleSignupForm } from './simple-signup-form';
+import { LoginForm } from './LoginForm';
+import { SignupForm } from './SignupForm';
 
 export default function AuthPageClient() {
   const [activeTab, setActiveTab] = useState('login');
@@ -60,7 +60,11 @@ export default function AuthPageClient() {
 
             {/* 탭 내용 */}
             <div className="p-6">
-              {activeTab === 'login' ? <SimpleLoginForm /> : <SimpleSignupForm />}
+              {activeTab === 'login' ? (
+                <LoginForm containerId="auth-login-recaptcha-container" />
+              ) : (
+                <SignupForm containerId="auth-signup-recaptcha-container" />
+              )}
             </div>
           </div>
 
