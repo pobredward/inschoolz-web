@@ -288,6 +288,22 @@ export const loginWithKakao = async (): Promise<User> => {
     const userCredential = await signInWithCustomToken(auth, customToken);
     const firebaseUser = userCredential.user;
     
+    // 5.5. Firebase Auth 프로필 업데이트 (이메일과 displayName 설정)
+    try {
+      const { updateProfile } = await import('firebase/auth');
+      await updateProfile(firebaseUser, {
+        displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
+        photoURL: kakaoUser.kakao_account.profile?.profile_image_url || null,
+      });
+      console.log('✅ Firebase Auth 프로필 업데이트 성공:', {
+        displayName: firebaseUser.displayName,
+        email: firebaseUser.email,
+        photoURL: firebaseUser.photoURL
+      });
+    } catch (profileError) {
+      console.warn('⚠️ Firebase Auth 프로필 업데이트 실패 (무시하고 계속):', profileError);
+    }
+    
     // 6. Firestore에서 사용자 정보 확인/생성
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
     

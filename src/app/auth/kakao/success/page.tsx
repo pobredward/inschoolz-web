@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getFirebaseTokenFromKakao } from '@/lib/kakao';
-import { signInWithCustomToken } from 'firebase/auth';
+import { signInWithCustomToken, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
@@ -122,6 +122,21 @@ function KakaoSuccessContent() {
         const userCredential = await signInWithCustomToken(auth, customToken);
         const firebaseUser = userCredential.user;
         
+        // 3.5. Firebase Auth 프로필 업데이트 (이메일과 displayName 설정)
+        try {
+          await updateProfile(firebaseUser, {
+            displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
+            photoURL: kakaoUser.kakao_account.profile?.profile_image_url || null,
+          });
+          console.log('✅ Firebase Auth 프로필 업데이트 성공:', {
+            displayName: firebaseUser.displayName,
+            email: firebaseUser.email,
+            photoURL: firebaseUser.photoURL
+          });
+        } catch (profileError) {
+          console.warn('⚠️ Firebase Auth 프로필 업데이트 실패 (무시하고 계속):', profileError);
+        }
+        
         // 4. Firestore에서 사용자 정보 확인/생성
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         
@@ -144,7 +159,7 @@ function KakaoSuccessContent() {
 
         setStatus('success');
         
-        // 저장된 리다이렉트 URL로 이동하거나 홈으로 이동
+        // 메인 페이지로 이동 (기본값을 메인 페이지로 설정)
         const redirectUrl = sessionStorage.getItem('kakao_login_redirect') || '/';
         sessionStorage.removeItem('kakao_login_redirect');
         

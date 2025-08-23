@@ -70,6 +70,23 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
     const adminAuth = getAuth();
     const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
     
+    // Firebase Auth에서 사용자 프로필 정보 업데이트 (이메일과 displayName 설정)
+    try {
+      await adminAuth.updateUser(uid, {
+        email: kakaoUser.kakao_account.email || undefined,
+        displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
+        photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
+      });
+      console.log('✅ Firebase Auth 프로필 업데이트 성공:', { 
+        uid, 
+        email: kakaoUser.kakao_account.email,
+        displayName: kakaoUser.kakao_account.profile?.nickname 
+      });
+    } catch (updateError) {
+      // 사용자가 존재하지 않는 경우, 커스텀 토큰으로 로그인 후 클라이언트에서 업데이트
+      console.log('ℹ️ 사용자가 아직 존재하지 않음, 클라이언트에서 프로필 업데이트 필요:', updateError);
+    }
+    
     console.log('✅ Firebase 커스텀 토큰 생성 성공:', { uid });
     return customToken;
   } catch (error) {
