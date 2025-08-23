@@ -645,7 +645,12 @@ export default function CommentSection({
         setLikeStatuses(statuses);
       }
       
-      onCommentCountChange?.(fetchedComments.length);
+      // 실제 댓글 수 계산 (부모 댓글 + 모든 대댓글)
+      const totalCommentCount = fetchedComments.reduce((count, comment) => {
+        return count + 1 + (comment.replies?.length || 0);
+      }, 0);
+      
+      onCommentCountChange?.(totalCommentCount);
     } catch (error) {
       console.error('댓글 조회 실패:', error);
       toast('댓글을 불러오는데 실패했습니다.');
@@ -705,8 +710,10 @@ export default function CommentSection({
       toast.success('댓글이 작성되었습니다.');
       setReplyingTo(null);
       
-      // 즉시 카운트 업데이트
-      onCommentCountChange?.(comments.length + 1);
+      // 즉시 카운트 업데이트 (정확한 댓글 수 계산)
+      onCommentCountChange?.(comments.reduce((count, comment) => {
+        return count + 1 + (comment.replies?.length || 0);
+      }, 0) + 1);
       
       fetchComments();
     } catch (error) {
@@ -739,6 +746,12 @@ export default function CommentSection({
       toast.success('익명 댓글이 작성되었습니다.');
       setShowAnonymousForm(false);
       setReplyingTo(null);
+      
+      // 즉시 카운트 업데이트 (UI 반응성 향상)
+      onCommentCountChange?.(comments.reduce((count, comment) => {
+        return count + 1 + (comment.replies?.length || 0);
+      }, 0) + 1);
+      
       fetchComments();
     } catch (error) {
       console.error('익명 댓글 작성 오류:', error);
@@ -814,6 +827,12 @@ export default function CommentSection({
       } else if (action === 'delete') {
         await deleteAnonymousComment(postId, commentId, password);
         toast.success('댓글이 삭제되었습니다.');
+        
+        // 즉시 카운트 업데이트 (추정치로 먼저 감소)
+        onCommentCountChange?.(Math.max(0, comments.reduce((count, comment) => {
+          return count + 1 + (comment.replies?.length || 0);
+        }, 0) - 1));
+        
         fetchComments();
         return true;
       }
