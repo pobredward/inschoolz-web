@@ -54,14 +54,16 @@ async function validateKakaoToken(accessToken: string): Promise<KakaoUserInfo> {
  */
 async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<string> {
   try {
-    // 카카오 사용자 ID를 Firebase UID로 사용 (접두사 추가로 고유성 보장)
-    const uid = `kakao_${kakaoUser.id}`;
+    // 이메일을 포함한 Firebase UID 생성 (안전한 문자만 사용)
+    const email = kakaoUser.kakao_account.email;
+    const emailSafe = email ? email.replace(/[^a-zA-Z0-9@._-]/g, '') : '';
+    const uid = email ? `kakao_${emailSafe}_${kakaoUser.id}` : `kakao_${kakaoUser.id}`;
     
     // 추가 클레임 설정
     const additionalClaims = {
       provider: 'kakao',
       kakao_id: kakaoUser.id,
-      email: kakaoUser.kakao_account.email || '',
+      email: email || '',
       nickname: kakaoUser.kakao_account.profile?.nickname || '',
       profile_image: kakaoUser.kakao_account.profile?.profile_image_url || '',
     };
@@ -70,7 +72,7 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
     const adminAuth = getAuth();
     const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
     
-    console.log('✅ Firebase 커스텀 토큰 생성 성공:', { uid });
+    console.log('✅ Firebase 커스텀 토큰 생성 성공:', { uid, email: email || 'no-email' });
     return customToken;
   } catch (error) {
     console.error('❌ Firebase 커스텀 토큰 생성 실패:', error);

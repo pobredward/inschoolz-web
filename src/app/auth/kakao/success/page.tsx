@@ -112,32 +112,40 @@ function KakaoSuccessContent() {
 
         setStatus('processing');
 
-        // 1. 카카오 사용자 정보 조회
-        const kakaoUser = await getKakaoUserInfo(accessToken);
-
-        // 2. 서버에서 Firebase 커스텀 토큰 받기
-        const customToken = await getFirebaseTokenFromKakao(accessToken);
+        // 1. 서버에서 Firebase 커스텀 토큰과 사용자 정보 받기 (최적화)
+        const response = await getFirebaseTokenFromKakao(accessToken);
         
-        // 3. Firebase 로그인
-        const userCredential = await signInWithCustomToken(auth, customToken);
+        // 2. Firebase 로그인
+        const userCredential = await signInWithCustomToken(auth, response.customToken);
         const firebaseUser = userCredential.user;
         
-        // 4. Firestore에서 사용자 정보 확인/생성
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        // 3. Firestore에서 사용자 정보 확인/생성 (최적화)
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
         
         if (userDoc.exists()) {
-          // 기존 사용자: 마지막 로그인 시간 업데이트
-          await updateDoc(doc(db, 'users', firebaseUser.uid), {
+          // 기존 사용자: 마지막 로그인 시간 업데이트 (비동기 처리)
+          updateDoc(userDocRef, {
             lastLoginAt: serverTimestamp(),
             updatedAt: serverTimestamp()
-          });
+          }).catch(error => console.warn('로그인 시간 업데이트 실패:', error));
           
           console.log('✅ 기존 사용자 로그인 완료');
         } else {
-          // 신규 사용자: Firestore에 정보 저장
-          const newUser = convertKakaoUserToFirebaseUser(kakaoUser, firebaseUser.uid);
-          await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+          // 신규 사용자: 서버에서 받은 사용자 정보 사용
+          const newUser: User = {
+            uid: firebaseUser.uid,
+            email: response.user.email || '',
+            nickname: response.user.nickname || '',
+            profileImage: response.user.profileImage || '',
+            provider: 'kakao',
+            kakaoId: response.user.id.toString(),
+            createdAt: serverTimestamp(),
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
           
+          await setDoc(userDocRef, newUser);
           console.log('✅ 신규 사용자 가입 완료');
           toast.success('카카오 계정으로 회원가입이 완료되었습니다!');
         }
