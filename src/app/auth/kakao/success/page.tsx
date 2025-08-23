@@ -123,22 +123,47 @@ function KakaoSuccessContent() {
 
         console.log('📧 카카오 이메일로 Firebase 로그인 시도:', kakaoEmail);
         
-        // 3. Firebase 이메일 로그인 (카카오 ID 기반 고정 비밀번호)
-        const kakaoPassword = `KakaoAuth2025_${kakaoUser.id}_${kakaoEmail.split('@')[0]}_SecurePass`;
+        // 3. Firebase 이메일 로그인 (카카오 ID 기반 고정 비밀번호, 6자 이상)
+        const emailPrefix = kakaoEmail.split('@')[0];
+        const kakaoPassword = `KakaoAuth${kakaoUser.id}${emailPrefix}2025!`;
+        
+        console.log('🔐 생성된 비밀번호 정보:', {
+          kakaoId: kakaoUser.id,
+          emailPrefix,
+          passwordLength: kakaoPassword.length,
+          password: kakaoPassword // 개발용, 나중에 제거 필요
+        });
         let firebaseUser;
         
         try {
           // 기존 사용자로 로그인 시도
+          console.log('🔍 기존 사용자 로그인 시도:', kakaoEmail);
           const userCredential = await signInWithEmailAndPassword(auth, kakaoEmail, kakaoPassword);
           firebaseUser = userCredential.user;
           console.log('✅ 기존 카카오 사용자 로그인 성공');
         } catch (loginError: any) {
-          console.log('ℹ️ 기존 사용자 없음, 신규 가입 진행');
+          console.log('ℹ️ 기존 사용자 로그인 실패:', loginError.code, loginError.message);
           
-          // 신규 사용자 생성
-          const userCredential = await createUserWithEmailAndPassword(auth, kakaoEmail, kakaoPassword);
-          firebaseUser = userCredential.user;
-          console.log('✅ 신규 카카오 사용자 생성 성공');
+          if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/invalid-login-credentials') {
+            console.log('📝 신규 사용자 생성 시도');
+            try {
+              // 신규 사용자 생성
+              const userCredential = await createUserWithEmailAndPassword(auth, kakaoEmail, kakaoPassword);
+              firebaseUser = userCredential.user;
+              console.log('✅ 신규 카카오 사용자 생성 성공');
+            } catch (createError: any) {
+              console.error('❌ 신규 사용자 생성 실패:', createError.code, createError.message);
+              
+              if (createError.code === 'auth/email-already-in-use') {
+                // 이메일이 이미 존재하지만 비밀번호가 다른 경우
+                throw new Error('해당 이메일은 이미 다른 방식으로 가입된 계정입니다. 일반 로그인을 사용해주세요.');
+              } else {
+                throw createError;
+              }
+            }
+          } else {
+            throw loginError;
+          }
         }
         
         // 3.5. Firebase Auth 프로필 업데이트 (이메일과 displayName 설정)
