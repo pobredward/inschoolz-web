@@ -77,11 +77,8 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
       profile_image: kakaoUser.kakao_account.profile?.profile_image_url || '',
     };
 
-    // Firebase 커스텀 토큰 생성
+    // Firebase Auth에서 사용자 생성 또는 업데이트 (커스텀 토큰 생성 전에 먼저 처리)
     const adminAuth = getAuth();
-    const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
-    
-    // Firebase Auth에서 사용자 생성 또는 업데이트
     try {
       // 먼저 사용자가 존재하는지 확인
       let userExists = false;
@@ -103,29 +100,50 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
         action: userExists ? 'update' : 'create'
       });
 
-      // 이메일이 유효한 경우에만 설정, 없으면 아예 전달하지 않음
+      // Firebase Auth 사용자 데이터 준비
+      const userEmail = kakaoUser.kakao_account.email && kakaoUser.kakao_account.email.trim() 
+        ? kakaoUser.kakao_account.email.trim()
+        : `kakao_${kakaoUser.id}@temp.inschoolz.com`;
+
       const updateData: any = {
+        email: userEmail,
+        emailVerified: true, // 카카오 인증을 통한 이메일이므로 verified로 설정
         displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
         photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
       };
       
-      // 이메일 설정 로직
-      if (kakaoUser.kakao_account.email && kakaoUser.kakao_account.email.trim()) {
-        updateData.email = kakaoUser.kakao_account.email.trim();
-        console.log('📧 카카오 이메일 설정:', updateData.email);
-      } else {
-        // 카카오에서 이메일이 없는 경우, 임시 이메일 생성 (나중에 사용자가 설정 가능)
-        const tempEmail = `kakao_${kakaoUser.id}@temp.inschoolz.com`;
-        updateData.email = tempEmail;
-        console.log('⚠️ 카카오에서 이메일 정보 없음 - 임시 이메일 설정:', tempEmail);
-      }
+      console.log('📧 Firebase Auth 이메일 설정:', {
+        email: userEmail,
+        isKakaoEmail: !!kakaoUser.kakao_account.email,
+        emailVerified: true
+      });
 
-      const userRecord = userExists 
-        ? await adminAuth.updateUser(uid, updateData)
-        : await adminAuth.createUser({
-            uid,
-            ...updateData
-          });
+      let userRecord;
+      try {
+        userRecord = userExists 
+          ? await adminAuth.updateUser(uid, updateData)
+          : await adminAuth.createUser({
+              uid,
+              ...updateData
+            });
+      } catch (emailError: any) {
+        console.warn('⚠️ 이메일 설정 실패, 이메일 없이 재시도:', emailError.message);
+        
+        // 이메일 충돌 등의 문제가 있으면 이메일 없이 사용자 생성/업데이트
+        const updateDataWithoutEmail = {
+          displayName: updateData.displayName,
+          photoURL: updateData.photoURL,
+        };
+        
+        userRecord = userExists 
+          ? await adminAuth.updateUser(uid, updateDataWithoutEmail)
+          : await adminAuth.createUser({
+              uid,
+              ...updateDataWithoutEmail
+            });
+        
+        console.log('✅ 이메일 없이 사용자 생성/업데이트 성공');
+      }
 
       console.log('✅ Firebase Auth 사용자 생성/업데이트 성공:', { 
         uid, 
@@ -133,10 +151,28 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
         displayName: userRecord.displayName,
         action: userExists ? 'updated' : 'created'
       });
+
+      // 추가: 사용자 생성/업데이트 후 이메일이 제대로 설정되었는지 확인하고 필요시 재설정
+      if (!userRecord.email || userRecord.email === '-') {
+        console.log('🔄 이메일이 설정되지 않음, 강제 재설정 시도');
+        try {
+          const finalUserRecord = await adminAuth.updateUser(uid, { 
+            email: userEmail,
+            emailVerified: true 
+          });
+          console.log('✅ 이메일 강제 재설정 성공:', finalUserRecord.email);
+        } catch (retryError) {
+          console.error('❌ 이메일 강제 재설정 실패:', retryError);
+        }
+      }
     } catch (authError) {
       console.error('❌ Firebase Auth 사용자 생성/업데이트 실패:', authError);
       // 실패해도 커스텀 토큰은 생성하여 클라이언트에서 처리할 수 있도록 함
     }
+
+    // Firebase 커스텀 토큰 생성 (사용자 생성/업데이트 후에 처리)
+    console.log('🔑 Firebase 커스텀 토큰 생성 시작');
+    const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
     
     console.log('✅ Firebase 커스텀 토큰 생성 성공:', { uid });
     return customToken;
