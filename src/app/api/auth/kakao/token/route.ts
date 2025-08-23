@@ -39,7 +39,10 @@ async function validateKakaoToken(accessToken: string): Promise<KakaoUserInfo> {
     console.log('✅ 카카오 사용자 정보 검증 성공:', {
       id: userInfo.id,
       email: userInfo.kakao_account.email,
-      nickname: userInfo.kakao_account.profile?.nickname
+      hasEmail: !!userInfo.kakao_account.email,
+      emailType: typeof userInfo.kakao_account.email,
+      nickname: userInfo.kakao_account.profile?.nickname,
+      fullKakaoAccount: userInfo.kakao_account
     });
 
     return userInfo;
@@ -58,10 +61,18 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
     const uid = `kakao_${kakaoUser.id}`;
     
     // 추가 클레임 설정
+    const userEmail = kakaoUser.kakao_account.email;
+    console.log('🔍 커스텀 토큰 생성 시 이메일 확인:', {
+      originalEmail: userEmail,
+      hasEmail: !!userEmail,
+      emailLength: userEmail ? userEmail.length : 0,
+      emailType: typeof userEmail
+    });
+
     const additionalClaims = {
       provider: 'kakao',
       kakao_id: kakaoUser.id,
-      email: kakaoUser.kakao_account.email || '',
+      email: userEmail || '',
       nickname: kakaoUser.kakao_account.profile?.nickname || '',
       profile_image: kakaoUser.kakao_account.profile?.profile_image_url || '',
     };
@@ -82,17 +93,38 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
         console.log('ℹ️ 신규 사용자, 생성 필요:', uid);
       }
 
+      console.log('🔍 Firebase Auth 사용자 생성/업데이트 시도:', {
+        uid,
+        emailValue: kakaoUser.kakao_account.email,
+        hasEmail: !!kakaoUser.kakao_account.email,
+        emailUndefined: kakaoUser.kakao_account.email === undefined,
+        emailNull: kakaoUser.kakao_account.email === null,
+        emailEmpty: kakaoUser.kakao_account.email === '',
+        action: userExists ? 'update' : 'create'
+      });
+
+      // 이메일이 유효한 경우에만 설정, 없으면 아예 전달하지 않음
+      const updateData: any = {
+        displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
+        photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
+      };
+      
+      // 이메일 설정 로직
+      if (kakaoUser.kakao_account.email && kakaoUser.kakao_account.email.trim()) {
+        updateData.email = kakaoUser.kakao_account.email.trim();
+        console.log('📧 카카오 이메일 설정:', updateData.email);
+      } else {
+        // 카카오에서 이메일이 없는 경우, 임시 이메일 생성 (나중에 사용자가 설정 가능)
+        const tempEmail = `kakao_${kakaoUser.id}@temp.inschoolz.com`;
+        updateData.email = tempEmail;
+        console.log('⚠️ 카카오에서 이메일 정보 없음 - 임시 이메일 설정:', tempEmail);
+      }
+
       const userRecord = userExists 
-        ? await adminAuth.updateUser(uid, {
-            email: kakaoUser.kakao_account.email || undefined,
-            displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
-            photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
-          })
+        ? await adminAuth.updateUser(uid, updateData)
         : await adminAuth.createUser({
             uid,
-            email: kakaoUser.kakao_account.email || undefined,
-            displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
-            photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
+            ...updateData
           });
 
       console.log('✅ Firebase Auth 사용자 생성/업데이트 성공:', { 
