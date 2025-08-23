@@ -192,20 +192,9 @@ export const getKakaoUserInfo = (): Promise<KakaoUserInfo> => {
 };
 
 /**
- * 카카오 액세스 토큰으로 서버에서 Firebase 커스텀 토큰과 사용자 정보 받기
+ * 카카오 액세스 토큰으로 서버에서 Firebase 커스텀 토큰 받기
  */
-interface KakaoAuthResponse {
-  success: boolean;
-  customToken: string;
-  user: {
-    id: number;
-    email: string | null;
-    nickname: string | null;
-    profileImage: string | null;
-  };
-}
-
-export const getFirebaseTokenFromKakao = async (accessToken: string): Promise<KakaoAuthResponse> => {
+export const getFirebaseTokenFromKakao = async (accessToken: string): Promise<string> => {
   try {
     const response = await fetch('/api/auth/kakao/token', {
       method: 'POST',
@@ -220,8 +209,8 @@ export const getFirebaseTokenFromKakao = async (accessToken: string): Promise<Ka
       throw new Error(errorData.error || 'Firebase 토큰 생성 실패');
     }
 
-    const data: KakaoAuthResponse = await response.json();
-    return data;
+    const data = await response.json();
+    return data.customToken;
   } catch (error) {
     console.error('❌ Firebase 토큰 생성 실패:', error);
     throw error;
@@ -276,7 +265,7 @@ export const convertKakaoUserToFirebaseUser = (kakaoUser: KakaoUserInfo, uid: st
 };
 
 /**
- * 통합 카카오 로그인 함수 - 최적화 버전
+ * 통합 카카오 로그인 함수
  */
 export const loginWithKakao = async (): Promise<User> => {
   try {
@@ -289,40 +278,32 @@ export const loginWithKakao = async (): Promise<User> => {
     // 2. 카카오 로그인 (팝업 방식)
     const authResponse = await loginWithKakaoPopup();
     
-    // 3. 서버에서 Firebase 커스텀 토큰 받기 (카카오 사용자 정보도 함께 처리)
-    const response = await getFirebaseTokenFromKakao(authResponse.access_token);
+    // 3. 카카오 사용자 정보 가져오기
+    const kakaoUser = await getKakaoUserInfo();
     
-    // 4. Firebase 로그인
-    const userCredential = await signInWithCustomToken(auth, response.customToken);
+    // 4. 서버에서 Firebase 커스텀 토큰 받기
+    const customToken = await getFirebaseTokenFromKakao(authResponse.access_token);
+    
+    // 5. Firebase 로그인
+    const userCredential = await signInWithCustomToken(auth, customToken);
     const firebaseUser = userCredential.user;
     
-    // 5. Firestore에서 사용자 정보 확인/생성 (병렬 처리로 최적화)
-    const userDocRef = doc(db, 'users', firebaseUser.uid);
-    const userDoc = await getDoc(userDocRef);
+    // 6. Firestore에서 사용자 정보 확인/생성
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
     
     if (userDoc.exists()) {
-      // 기존 사용자: 마지막 로그인 시간 업데이트 (비동기로 처리)
-      updateDoc(userDocRef, {
+      // 기존 사용자: 마지막 로그인 시간 업데이트
+      await updateDoc(doc(db, 'users', firebaseUser.uid), {
         lastLoginAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }).catch(error => console.warn('로그인 시간 업데이트 실패:', error));
+      });
       
       return userDoc.data() as User;
     } else {
-      // 신규 사용자: 서버에서 받은 사용자 정보 사용
-      const newUser: User = {
-        uid: firebaseUser.uid,
-        email: response.user.email || '',
-        nickname: response.user.nickname || '',
-        profileImage: response.user.profileImage || '',
-        provider: 'kakao',
-        kakaoId: response.user.id.toString(),
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
+      // 신규 사용자: Firestore에 정보 저장
+      const newUser = convertKakaoUserToFirebaseUser(kakaoUser, firebaseUser.uid);
+      await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
       
-      await setDoc(userDocRef, newUser);
       return newUser;
     }
   } catch (error) {
