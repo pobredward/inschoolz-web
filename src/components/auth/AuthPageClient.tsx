@@ -61,9 +61,9 @@ export default function AuthPageClient() {
             {/* 탭 내용 */}
             <div className="p-6">
               {activeTab === 'login' ? (
-                <LoginForm containerId="auth-login-recaptcha-container" />
+                <LoginForm />
               ) : (
-                <SignupForm containerId="auth-signup-recaptcha-container" />
+                <SignupForm />
               )}
             </div>
           </div>

@@ -32,7 +32,7 @@ export default function LoginPageClient() {
 
             {/* 로그인 폼 */}
             <div className="p-6">
-              <LoginForm showTitle={false} containerId="login-page-recaptcha-container" />
+              <LoginForm showTitle={false} />
             </div>
           </div>
 

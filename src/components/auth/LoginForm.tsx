@@ -1,38 +1,29 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Phone, Mail } from 'lucide-react';
+import { Eye, EyeOff, Mail } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { loginWithEmail, sendPhoneVerificationCode, confirmPhoneVerificationCode, createRecaptchaVerifier } from '@/lib/auth';
+import { loginWithEmail } from '@/lib/auth';
 import { loginWithKakaoRedirect } from '@/lib/kakao';
 import Link from 'next/link';
-import type { ConfirmationResult, RecaptchaVerifier } from 'firebase/auth';
-
 // 스키마 정의
 const emailLoginSchema = z.object({
   email: z.string().email('올바른 이메일 형식이 아닙니다.'),
   password: z.string().min(1, '비밀번호를 입력해주세요.'),
 });
 
-const phoneLoginSchema = z.object({
-  phoneNumber: z.string().regex(/^01[0-9]-\d{4}-\d{4}$/, '올바른 휴대폰 번호 형식이 아닙니다. (예: 010-1234-5678)'),
-  verificationCode: z.string().length(6, '인증번호는 6자리여야 합니다.'),
-});
-
 interface LoginFormProps {
   showTitle?: boolean;
-  containerId?: string;
 }
 
-export function LoginForm({ showTitle = false, containerId = 'login-recaptcha-container' }: LoginFormProps) {
+export function LoginForm({ showTitle = false }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -41,64 +32,6 @@ export function LoginForm({ showTitle = false, containerId = 'login-recaptcha-co
     email: '',
     password: ''
   });
-  
-  // 휴대폰 로그인 폼 상태
-  const [phoneForm, setPhoneForm] = useState({
-    phoneNumber: '',
-    verificationCode: ''
-  });
-
-  // 휴대폰 인증 관련 상태
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);
-  const [codeSent, setCodeSent] = useState(false);
-  const recaptchaRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // reCAPTCHA 컨테이너 설정
-    if (loginMethod === 'phone' && !recaptchaVerifier) {
-      // DOM이 렌더링된 후 reCAPTCHA 설정
-      const timer = setTimeout(() => {
-        try {
-          const container = document.getElementById(containerId);
-          if (container) {
-            const verifier = createRecaptchaVerifier(containerId);
-            setRecaptchaVerifier(verifier);
-          } else {
-            console.warn('reCAPTCHA 컨테이너를 찾을 수 없습니다');
-          }
-        } catch (error) {
-          console.error('reCAPTCHA 설정 오류:', error);
-          // Enterprise 설정 오류 시 사용자에게 알림
-          if (error instanceof Error && error.message.includes('Enterprise')) {
-            console.warn('reCAPTCHA Enterprise 설정 오류 - v2로 fallback');
-          }
-        }
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-
-    // 정리 함수: 로그인 방식이 변경되면 기존 verifier 정리
-    return () => {
-      if (loginMethod !== 'phone' && recaptchaVerifier) {
-        try {
-          recaptchaVerifier.clear();
-          setRecaptchaVerifier(null);
-        } catch (error) {
-          console.warn('reCAPTCHA verifier 정리 중 오류:', error);
-        }
-      }
-    };
-  }, [loginMethod, recaptchaVerifier, containerId]);
-
-  // 휴대폰 번호 포맷팅
-  const formatPhoneNumber = (value: string) => {
-    const numbers = value.replace(/[^\d]/g, '');
-    if (numbers.length <= 3) return numbers;
-    if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
-    return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
-  };
 
   // 이메일 로그인
   const handleEmailLogin = async () => {
@@ -125,86 +58,6 @@ export function LoginForm({ showTitle = false, containerId = 'login-recaptcha-co
     }
   };
 
-  // 휴대폰 인증번호 발송
-  const handleSendPhoneCode = async () => {
-    try {
-      if (!phoneForm.phoneNumber) {
-        toast.error('휴대폰 번호를 입력해주세요.');
-        return;
-      }
-
-      if (!recaptchaVerifier) {
-        toast.error('reCAPTCHA 인증을 다시 시도해주세요.');
-        return;
-      }
-
-      setIsLoading(true);
-      
-      const result = await sendPhoneVerificationCode(phoneForm.phoneNumber, recaptchaVerifier);
-      setConfirmationResult(result);
-      setCodeSent(true);
-      toast.success('인증번호가 발송되었습니다.');
-      
-    } catch (error) {
-      console.error('인증번호 발송 실패:', error);
-      if (error instanceof Error) {
-        // reCAPTCHA Enterprise fallback 오류 처리
-        if (error.message === 'RECAPTCHA_ENTERPRISE_FALLBACK') {
-          toast.warning('reCAPTCHA 설정이 v2로 전환되었습니다. 다시 시도해주세요.');
-          // reCAPTCHA verifier 재설정
-          try {
-            if (recaptchaVerifier) {
-              recaptchaVerifier.clear();
-            }
-            const newVerifier = createRecaptchaVerifier(containerId);
-            setRecaptchaVerifier(newVerifier);
-          } catch (resetError) {
-            console.error('reCAPTCHA verifier 재설정 실패:', resetError);
-            toast.error('보안 인증을 다시 설정 중입니다. 잠시 후 다시 시도해주세요.');
-          }
-        } else {
-          toast.error(error.message);
-        }
-      } else {
-        toast.error('인증번호 발송에 실패했습니다.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 휴대폰 로그인 완료
-  const handlePhoneLogin = async () => {
-    try {
-      const validated = phoneLoginSchema.parse(phoneForm);
-      
-      if (!confirmationResult) {
-        toast.error('먼저 인증번호를 요청해주세요.');
-        return;
-      }
-
-      setIsLoading(true);
-      
-      await confirmPhoneVerificationCode(confirmationResult, validated.verificationCode);
-      
-      // 로그인 성공 후 리디렉션
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const redirectUrl = searchParams.get('redirect') || '/';
-      router.push(redirectUrl);
-      
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const firstError = error.errors[0];
-        toast.error(firstError.message);
-      } else {
-        console.error('휴대폰 로그인 실패:', error);
-        toast.error(error instanceof Error ? error.message : '로그인에 실패했습니다.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // 카카오 로그인 핸들러
   const handleKakaoLogin = () => {
     try {
@@ -219,13 +72,7 @@ export function LoginForm({ showTitle = false, containerId = 'login-recaptcha-co
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !isLoading) {
       e.preventDefault();
-      if (loginMethod === 'email') {
-        handleEmailLogin();
-      } else if (codeSent) {
-        handlePhoneLogin();
-      } else {
-        handleSendPhoneCode();
-      }
+      handleEmailLogin();
     }
   };
 
@@ -238,42 +85,8 @@ export function LoginForm({ showTitle = false, containerId = 'login-recaptcha-co
         </div>
       )}
 
-      {/* 로그인 방법 선택 */}
-      <div className="grid grid-cols-2 gap-3 p-1 bg-green-100 rounded-lg">
-        <button
-          onClick={() => {
-            setLoginMethod('email');
-            setCodeSent(false);
-          }}
-          className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-            loginMethod === 'email'
-              ? 'bg-white text-green-700 shadow-sm'
-              : 'text-green-600 hover:text-green-700'
-          }`}
-        >
-          <Mail className="h-4 w-4" />
-          이메일
-        </button>
-        <button
-          onClick={() => {
-            setLoginMethod('phone');
-            setCodeSent(false);
-          }}
-          className={`flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-            loginMethod === 'phone'
-              ? 'bg-white text-green-700 shadow-sm'
-              : 'text-green-600 hover:text-green-700'
-          }`}
-        >
-          <Phone className="h-4 w-4" />
-          휴대폰
-        </button>
-      </div>
-
       {/* 로그인 폼 */}
       <div className="space-y-4">
-        {loginMethod === 'email' ? (
-          <>
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                 이메일
@@ -328,72 +141,7 @@ export function LoginForm({ showTitle = false, containerId = 'login-recaptcha-co
             >
               {isLoading ? '로그인 중...' : '로그인'}
             </Button>
-          </>
-        ) : (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
-                휴대폰 번호
-              </Label>
-              <Input
-                id="phoneNumber"
-                type="tel"
-                placeholder="010-1234-5678"
-                value={phoneForm.phoneNumber}
-                onChange={(e) => {
-                  const formatted = formatPhoneNumber(e.target.value);
-                  setPhoneForm(prev => ({ ...prev, phoneNumber: formatted }));
-                }}
-                onKeyDown={handleKeyDown}
-                maxLength={13}
-                className="h-11"
-              />
-            </div>
-            
-            {!codeSent ? (
-              <Button 
-                onClick={handleSendPhoneCode} 
-                className="w-full h-11 bg-green-600 hover:bg-green-700" 
-                disabled={isLoading}
-              >
-                {isLoading ? '발송 중...' : '인증번호 발송'}
-              </Button>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="verificationCode" className="text-sm font-medium text-gray-700">
-                    인증번호
-                  </Label>
-                  <Input
-                    id="verificationCode"
-                    type="text"
-                    placeholder="6자리 인증번호"
-                    value={phoneForm.verificationCode}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^\d]/g, '').slice(0, 6);
-                      setPhoneForm(prev => ({ ...prev, verificationCode: value }));
-                    }}
-                    onKeyDown={handleKeyDown}
-                    maxLength={6}
-                    className="h-11 text-center tracking-widest text-lg"
-                  />
-                </div>
-                
-                <Button 
-                  onClick={handlePhoneLogin} 
-                  className="w-full h-11 bg-green-600 hover:bg-green-700" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? '로그인 중...' : '로그인'}
-                </Button>
-              </>
-            )}
-          </>
-        )}
       </div>
-
-      {/* reCAPTCHA 컨테이너 */}
-      <div id={containerId} ref={recaptchaRef}></div>
       
       {/* 구분선 */}
       <div className="relative">

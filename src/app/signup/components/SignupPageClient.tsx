@@ -32,7 +32,7 @@ export default function SignupPageClient() {
 
             {/* 회원가입 폼 */}
             <div className="p-6">
-              <SignupForm showTitle={false} containerId="signup-page-recaptcha-container" />
+              <SignupForm showTitle={false} />
             </div>
           </div>
 
