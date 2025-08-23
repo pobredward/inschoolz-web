@@ -3,8 +3,8 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { getFirebaseTokenFromKakao } from '@/lib/kakao';
+import { signInWithCustomToken, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
@@ -115,56 +115,12 @@ function KakaoSuccessContent() {
         // 1. 카카오 사용자 정보 조회
         const kakaoUser = await getKakaoUserInfo(accessToken);
 
-        // 2. 카카오 이메일로 Firebase 이메일 로그인 시도
-        const kakaoEmail = kakaoUser.kakao_account.email;
-        if (!kakaoEmail) {
-          throw new Error('카카오에서 이메일 정보를 제공하지 않습니다. 카카오 계정 설정을 확인해주세요.');
-        }
-
-        console.log('📧 카카오 이메일로 Firebase 로그인 시도:', kakaoEmail);
+        // 2. 서버에서 Firebase 커스텀 토큰 받기
+        const customToken = await getFirebaseTokenFromKakao(accessToken);
         
-        // 3. Firebase 이메일 로그인 (카카오 ID 기반 고정 비밀번호, 6자 이상)
-        const emailPrefix = kakaoEmail.split('@')[0];
-        const kakaoPassword = `KakaoAuth${kakaoUser.id}${emailPrefix}2025!`;
-        
-        console.log('🔐 생성된 비밀번호 정보:', {
-          kakaoId: kakaoUser.id,
-          emailPrefix,
-          passwordLength: kakaoPassword.length,
-          password: kakaoPassword // 개발용, 나중에 제거 필요
-        });
-        let firebaseUser;
-        
-        try {
-          // 기존 사용자로 로그인 시도
-          console.log('🔍 기존 사용자 로그인 시도:', kakaoEmail);
-          const userCredential = await signInWithEmailAndPassword(auth, kakaoEmail, kakaoPassword);
-          firebaseUser = userCredential.user;
-          console.log('✅ 기존 카카오 사용자 로그인 성공');
-        } catch (loginError: any) {
-          console.log('ℹ️ 기존 사용자 로그인 실패:', loginError.code, loginError.message);
-          
-          if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/invalid-login-credentials') {
-            console.log('📝 신규 사용자 생성 시도');
-            try {
-              // 신규 사용자 생성
-              const userCredential = await createUserWithEmailAndPassword(auth, kakaoEmail, kakaoPassword);
-              firebaseUser = userCredential.user;
-              console.log('✅ 신규 카카오 사용자 생성 성공');
-            } catch (createError: any) {
-              console.error('❌ 신규 사용자 생성 실패:', createError.code, createError.message);
-              
-              if (createError.code === 'auth/email-already-in-use') {
-                // 이메일이 이미 존재하지만 비밀번호가 다른 경우
-                throw new Error('해당 이메일은 이미 다른 방식으로 가입된 계정입니다. 일반 로그인을 사용해주세요.');
-              } else {
-                throw createError;
-              }
-            }
-          } else {
-            throw loginError;
-          }
-        }
+        // 3. Firebase 로그인
+        const userCredential = await signInWithCustomToken(auth, customToken);
+        const firebaseUser = userCredential.user;
         
         // 3.5. Firebase Auth 프로필 업데이트 (이메일과 displayName 설정)
         try {
@@ -214,12 +170,8 @@ function KakaoSuccessContent() {
           userRole = userData.role;
           console.log('✅ 기존 사용자 로그인 완료');
         } else {
-          // 신규 사용자: Firestore에 정보 저장 (Firebase UID 사용)
+          // 신규 사용자: Firestore에 정보 저장
           const newUser = convertKakaoUserToFirebaseUser(kakaoUser, firebaseUser.uid);
-          
-          // 이메일 정보는 Firebase Auth에서 자동으로 설정되므로 카카오 이메일로 덮어쓰기
-          newUser.email = kakaoEmail;
-          
           await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
           
           userRole = newUser.role;
@@ -247,17 +199,37 @@ function KakaoSuccessContent() {
 
         setStatus('success');
         
-        // 이메일 로그인이므로 AuthProvider가 즉시 인식함
-        console.log('✅ 카카오 이메일 로그인 완료, AuthProvider 자동 동기화됨');
+        // AuthProvider가 인증 상태를 인식할 수 있도록 대기
+        console.log('⏳ AuthProvider 상태 업데이트 대기 중...');
+        
+        // onAuthStateChanged가 트리거될 때까지 대기 (더 확실한 방법)
+        await new Promise<void>((resolve) => {
+          const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user && user.uid === firebaseUser.uid) {
+              console.log('✅ AuthProvider onAuthStateChanged 감지됨:', user.uid);
+              unsubscribe();
+              resolve();
+            }
+          });
+          
+          // 최대 3초 대기 후 강제 진행
+          setTimeout(() => {
+            console.log('⏰ AuthProvider 대기 시간 초과, 강제 진행');
+            unsubscribe();
+            resolve();
+          }, 3000);
+        });
         
         // 메인 페이지로 이동 (기본값을 메인 페이지로 설정)
         const redirectUrl = sessionStorage.getItem('kakao_login_redirect') || '/';
         sessionStorage.removeItem('kakao_login_redirect');
         
-        // 이메일 로그인이므로 즉시 리다이렉트 가능
         console.log('🔄 리다이렉트 준비:', redirectUrl);
+        
+        // 쿠키 설정 완료 후 페이지 새로고침으로 리다이렉트 (AuthProvider 상태 완전 동기화)
+        console.log('🔄 페이지 새로고침으로 리다이렉트:', redirectUrl);
         setTimeout(() => {
-          router.push(redirectUrl);
+          window.location.href = redirectUrl;
         }, 1000);
 
       } catch (error) {
