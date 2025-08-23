@@ -159,13 +159,37 @@ function KakaoSuccessContent() {
 
         setStatus('success');
         
+        // AuthProvider가 인증 상태를 인식할 수 있도록 대기
+        console.log('⏳ AuthProvider 상태 업데이트 대기 중...');
+        
+        // onAuthStateChanged가 트리거될 때까지 대기 (더 확실한 방법)
+        await new Promise<void>((resolve) => {
+          const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user && user.uid === firebaseUser.uid) {
+              console.log('✅ AuthProvider onAuthStateChanged 감지됨:', user.uid);
+              unsubscribe();
+              resolve();
+            }
+          });
+          
+          // 최대 3초 대기 후 강제 진행
+          setTimeout(() => {
+            console.log('⏰ AuthProvider 대기 시간 초과, 강제 진행');
+            unsubscribe();
+            resolve();
+          }, 3000);
+        });
+        
         // 메인 페이지로 이동 (기본값을 메인 페이지로 설정)
         const redirectUrl = sessionStorage.getItem('kakao_login_redirect') || '/';
         sessionStorage.removeItem('kakao_login_redirect');
         
+        console.log('🔄 리다이렉트 준비:', redirectUrl);
+        
+        // 추가 안전장치: 짧은 대기 후 리다이렉트
         setTimeout(() => {
           router.push(redirectUrl);
-        }, 1500);
+        }, 500);
 
       } catch (error) {
         console.error('❌ 카카오 로그인 처리 실패:', error);
@@ -215,7 +239,7 @@ function KakaoSuccessContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p className="text-sm text-gray-500">페이지를 이동하고 있습니다...</p>
+              <p className="text-sm text-gray-500">인증 상태를 업데이트하고 있습니다...</p>
             </>
           )}
 

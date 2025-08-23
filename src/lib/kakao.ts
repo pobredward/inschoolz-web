@@ -161,7 +161,18 @@ export const loginWithKakaoRedirect = () => {
   
   // 현재 페이지 URL을 저장하여 로그인 후 리다이렉트
   if (typeof window !== 'undefined') {
-    sessionStorage.setItem('kakao_login_redirect', window.location.href);
+    const currentPath = window.location.pathname;
+    // 로그인/회원가입 페이지에서 카카오 로그인하면 메인 페이지로 이동
+    const shouldRedirectToHome = currentPath === '/login' || currentPath === '/signup' || currentPath.startsWith('/auth');
+    const redirectUrl = shouldRedirectToHome ? '/' : window.location.href;
+    
+    console.log('🔗 카카오 로그인 리다이렉트 설정:', {
+      currentPath,
+      shouldRedirectToHome,
+      redirectUrl
+    });
+    
+    sessionStorage.setItem('kakao_login_redirect', redirectUrl);
   }
   
   window.location.href = kakaoAuthUrl;

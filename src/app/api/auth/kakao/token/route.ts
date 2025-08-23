@@ -70,21 +70,40 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
     const adminAuth = getAuth();
     const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
     
-    // Firebase Auth에서 사용자 프로필 정보 업데이트 (이메일과 displayName 설정)
+    // Firebase Auth에서 사용자 생성 또는 업데이트
     try {
-      await adminAuth.updateUser(uid, {
-        email: kakaoUser.kakao_account.email || undefined,
-        displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
-        photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
-      });
-      console.log('✅ Firebase Auth 프로필 업데이트 성공:', { 
+      // 먼저 사용자가 존재하는지 확인
+      let userExists = false;
+      try {
+        await adminAuth.getUser(uid);
+        userExists = true;
+        console.log('ℹ️ 기존 사용자 발견:', uid);
+      } catch {
+        console.log('ℹ️ 신규 사용자, 생성 필요:', uid);
+      }
+
+      const userRecord = userExists 
+        ? await adminAuth.updateUser(uid, {
+            email: kakaoUser.kakao_account.email || undefined,
+            displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
+            photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
+          })
+        : await adminAuth.createUser({
+            uid,
+            email: kakaoUser.kakao_account.email || undefined,
+            displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
+            photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
+          });
+
+      console.log('✅ Firebase Auth 사용자 생성/업데이트 성공:', { 
         uid, 
-        email: kakaoUser.kakao_account.email,
-        displayName: kakaoUser.kakao_account.profile?.nickname 
+        email: userRecord.email,
+        displayName: userRecord.displayName,
+        action: userExists ? 'updated' : 'created'
       });
-    } catch (updateError) {
-      // 사용자가 존재하지 않는 경우, 커스텀 토큰으로 로그인 후 클라이언트에서 업데이트
-      console.log('ℹ️ 사용자가 아직 존재하지 않음, 클라이언트에서 프로필 업데이트 필요:', updateError);
+    } catch (authError) {
+      console.error('❌ Firebase Auth 사용자 생성/업데이트 실패:', authError);
+      // 실패해도 커스텀 토큰은 생성하여 클라이언트에서 처리할 수 있도록 함
     }
     
     console.log('✅ Firebase 커스텀 토큰 생성 성공:', { uid });
