@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebase-admin';
+import { getAuth } from '@/lib/firebase-admin';
 
 interface KakaoUserInfo {
   id: number;
@@ -67,7 +67,8 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
     };
 
     // Firebase 커스텀 토큰 생성
-    const customToken = await adminAuth().createCustomToken(uid, additionalClaims);
+    const adminAuth = getAuth();
+    const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
     
     console.log('✅ Firebase 커스텀 토큰 생성 성공:', { uid });
     return customToken;
@@ -82,23 +83,35 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
  * 카카오 액세스 토큰을 받아 Firebase 커스텀 토큰 반환
  */
 export async function POST(request: NextRequest) {
+  console.log('🚀 카카오 토큰 교환 API 시작');
+  
   try {
+    // 요청 본문 파싱
     const body = await request.json();
     const { accessToken } = body;
+    
+    console.log('📝 요청 데이터:', {
+      hasAccessToken: !!accessToken,
+      accessTokenLength: accessToken?.length || 0
+    });
 
     if (!accessToken) {
+      console.log('❌ accessToken이 누락됨');
       return NextResponse.json(
         { error: 'accessToken이 필요합니다.' },
         { status: 400 }
       );
     }
 
+    console.log('1️⃣ 카카오 액세스 토큰 검증 시작...');
     // 1. 카카오 액세스 토큰 검증 및 사용자 정보 조회
     const kakaoUser = await validateKakaoToken(accessToken);
 
+    console.log('2️⃣ Firebase 커스텀 토큰 생성 시작...');
     // 2. Firebase 커스텀 토큰 생성
     const customToken = await createFirebaseCustomToken(kakaoUser);
 
+    console.log('3️⃣ 성공 응답 준비 중...');
     // 3. 성공 응답
     return NextResponse.json({
       success: true,
@@ -112,7 +125,12 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ 카카오 토큰 교환 API 오류:', error);
+    console.error('❌ 카카오 토큰 교환 API 오류 상세:', {
+      error: error instanceof Error ? error.message : '알 수 없는 오류',
+      stack: error instanceof Error ? error.stack : null,
+      type: typeof error,
+      name: error instanceof Error ? error.name : 'Unknown'
+    });
     
     return NextResponse.json(
       { 
