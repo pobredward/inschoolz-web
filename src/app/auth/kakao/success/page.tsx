@@ -136,10 +136,29 @@ function KakaoSuccessContent() {
         } catch (profileError) {
           console.warn('⚠️ Firebase Auth 프로필 업데이트 실패 (무시하고 계속):', profileError);
         }
+
+        // 3.6. 쿠키 즉시 설정 (middleware 인증을 위해)
+        try {
+          const idToken = await firebaseUser.getIdToken(true);
+          const setCookieForAuth = (name: string, value: string, days = 1) => {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+            const isProduction = process.env.NODE_ENV === 'production';
+            const secureOption = isProduction ? '; secure' : '';
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+          };
+          
+          setCookieForAuth('authToken', idToken, 1);
+          console.log('🍪 카카오 로그인: 인증 쿠키 즉시 설정 완료');
+        } catch (cookieError) {
+          console.warn('⚠️ 쿠키 설정 실패 (무시하고 계속):', cookieError);
+        }
         
         // 4. Firestore에서 사용자 정보 확인/생성
         const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
         
+        let userRole = 'student'; // 기본값
+
         if (userDoc.exists()) {
           // 기존 사용자: 마지막 로그인 시간 업데이트
           await updateDoc(doc(db, 'users', firebaseUser.uid), {
@@ -147,14 +166,35 @@ function KakaoSuccessContent() {
             updatedAt: serverTimestamp()
           });
           
+          const userData = userDoc.data() as User;
+          userRole = userData.role;
           console.log('✅ 기존 사용자 로그인 완료');
         } else {
           // 신규 사용자: Firestore에 정보 저장
           const newUser = convertKakaoUserToFirebaseUser(kakaoUser, firebaseUser.uid);
           await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
           
+          userRole = newUser.role;
           console.log('✅ 신규 사용자 가입 완료');
           toast.success('카카오 계정으로 회원가입이 완료되었습니다!');
+        }
+
+        // 4.5. 추가 쿠키 설정 (사용자 role과 uid)
+        try {
+          const setCookieForAuth = (name: string, value: string, days = 30) => {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+            const isProduction = process.env.NODE_ENV === 'production';
+            const secureOption = isProduction ? '; secure' : '';
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+          };
+          
+          setCookieForAuth('uid', firebaseUser.uid, 30);
+          setCookieForAuth('userId', firebaseUser.uid, 30);
+          setCookieForAuth('userRole', userRole, 30);
+          console.log('🍪 카카오 로그인: 추가 쿠키 설정 완료', { uid: firebaseUser.uid, userRole });
+        } catch (cookieError) {
+          console.warn('⚠️ 추가 쿠키 설정 실패 (무시하고 계속):', cookieError);
         }
 
         setStatus('success');
@@ -186,10 +226,11 @@ function KakaoSuccessContent() {
         
         console.log('🔄 리다이렉트 준비:', redirectUrl);
         
-        // 추가 안전장치: 짧은 대기 후 리다이렉트
+        // 쿠키 설정 완료 후 페이지 새로고침으로 리다이렉트 (AuthProvider 상태 완전 동기화)
+        console.log('🔄 페이지 새로고침으로 리다이렉트:', redirectUrl);
         setTimeout(() => {
-          router.push(redirectUrl);
-        }, 500);
+          window.location.href = redirectUrl;
+        }, 1000);
 
       } catch (error) {
         console.error('❌ 카카오 로그인 처리 실패:', error);
