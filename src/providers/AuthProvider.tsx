@@ -45,11 +45,19 @@ const setCookie = (name: string, value: string, days = 30) => {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
   
-  // 개발 환경에서는 secure 옵션 제외
+  // 프로덕션 환경에서는 secure 옵션 포함, SameSite=Lax로 변경하여 클라이언트 라우팅 허용
   const isProduction = process.env.NODE_ENV === 'production';
   const secureOption = isProduction ? '; secure' : '';
+  const sameSiteOption = '; samesite=lax'; // strict에서 lax로 변경
   
-  document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+  const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}${sameSiteOption}`;
+  document.cookie = cookieString;
+  
+  // 프로덕션에서도 중요한 쿠키 로그는 유지 (에러 추적용)
+  if (typeof window !== 'undefined') {
+    (window as any).__authDebug = (window as any).__authDebug || [];
+    (window as any).__authDebug.push(`🍪 쿠키 설정: ${name} (${days}일 지속) at ${new Date().toISOString()}`);
+  }
   
   console.log(`🍪 쿠키 설정: ${name} (${days}일 지속)`);
 };
@@ -98,6 +106,33 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// 프로덕션 환경에서 디버깅을 위한 전역 함수
+if (typeof window !== 'undefined') {
+  (window as any).__getAuthDebug = () => {
+    return (window as any).__authDebug || [];
+  };
+  
+  (window as any).__clearAuthDebug = () => {
+    (window as any).__authDebug = [];
+  };
+  
+  (window as any).__checkCookies = () => {
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [name, value] = cookie.trim().split('=');
+      acc[name] = value;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    return {
+      authToken: !!cookies.authToken,
+      uid: !!cookies.uid,
+      userId: !!cookies.userId,
+      userRole: !!cookies.userRole,
+      raw: cookies
+    };
+  };
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -138,8 +173,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // 쿠키 설정 완료 후 상태 업데이트
         setUser(userData);
         
-        // 쿠키 설정이 완료되었음을 브라우저에 알리기 위한 작은 지연
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // 프로덕션 환경에서 쿠키 설정이 완료될 때까지 더 오래 대기
+        const isProduction = process.env.NODE_ENV === 'production';
+        const waitTime = isProduction ? 500 : 100; // 프로덕션에서는 500ms
+        await new Promise(resolve => setTimeout(resolve, waitTime));
         
         // 토큰 자동 갱신 설정 (50분마다 갱신)
         setupTokenRefresh(firebaseUser);
@@ -346,13 +383,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
             console.log('✅ AuthProvider: 사용자 정보 조회 성공, 쿠키 설정 중...');
             await setUserAndCookies(userData, firebaseUser);
             
-            // 상태 동기화를 위한 추가 검증
-            await new Promise(resolve => setTimeout(resolve, 200)); // 쿠키 전파 대기
+            // 상태 동기화를 위한 추가 검증 (프로덕션 환경에서 더 오래 대기)
+            const isProduction = process.env.NODE_ENV === 'production';
+            const verifyWaitTime = isProduction ? 800 : 200; // 프로덕션에서는 800ms
+            await new Promise(resolve => setTimeout(resolve, verifyWaitTime));
             
             // 쿠키가 제대로 설정되었는지 확인
             if (typeof window !== 'undefined') {
               const authCookieCheck = document.cookie.includes('authToken=');
               const uidCookieCheck = document.cookie.includes('uid=');
+              
+              // 프로덕션에서도 확인 가능한 디버그 정보 저장
+              if (typeof window !== 'undefined') {
+                (window as any).__authDebug = (window as any).__authDebug || [];
+                (window as any).__authDebug.push(`🔍 쿠키 설정 검증: authToken=${authCookieCheck}, uid=${uidCookieCheck} at ${new Date().toISOString()}`);
+              }
+              
               console.log('🔍 AuthProvider: 쿠키 설정 검증', { 
                 authToken: authCookieCheck, 
                 uid: uidCookieCheck 
@@ -360,14 +406,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
               
               if (!authCookieCheck || !uidCookieCheck) {
                 console.warn('⚠️ AuthProvider: 쿠키 설정 실패, 재시도...');
-                // 쿠키 재설정 시도
+                // 쿠키 재설정 시도 (프로덕션에서는 더 강력하게)
                 try {
                   const idToken = await firebaseUser.getIdToken(true);
                   setCookie('authToken', idToken, 1);
                   setCookie('uid', userData.uid, 30);
                   setCookie('userRole', userData.role, 30);
+                  
+                  // 재설정 후 한 번 더 검증
+                  if (isProduction) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    const reCheckAuth = document.cookie.includes('authToken=');
+                    const reCheckUid = document.cookie.includes('uid=');
+                    
+                    if (typeof window !== 'undefined') {
+                      (window as any).__authDebug.push(`🔄 재설정 후 검증: authToken=${reCheckAuth}, uid=${reCheckUid} at ${new Date().toISOString()}`);
+                    }
+                  }
                 } catch (retryError) {
                   console.error('❌ AuthProvider: 쿠키 재설정 실패:', retryError);
+                  if (typeof window !== 'undefined') {
+                    (window as any).__authDebug.push(`❌ 쿠키 재설정 실패: ${retryError} at ${new Date().toISOString()}`);
+                  }
                 }
               }
             }

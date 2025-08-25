@@ -38,13 +38,16 @@ export default function MyPage() {
       
       if (authCookie && uidCookie) {
         console.log('🍪 MyPage: 인증 쿠키들 발견, AuthProvider 업데이트 대기');
-        // 두 쿠키 모두 있으면 AuthProvider 상태 업데이트 대기
+        // 두 쿠키 모두 있으면 AuthProvider 상태 업데이트 대기 (프로덕션에서 더 오래)
+        const isProduction = process.env.NODE_ENV === 'production';
+        const waitTime = isProduction ? 5000 : 3000; // 프로덕션에서는 5초
+        
         const timer = setTimeout(() => {
           if (!user) { // 아직도 user가 없으면
             console.log('🚪 MyPage: AuthProvider 대기 시간 초과, 로그인 페이지로 리다이렉트');
             router.push('/login?redirect=/my');
           }
-        }, 3000); // 3초로 늘림
+        }, waitTime);
 
         setRedirectTimer(timer);
       } else {
@@ -52,7 +55,7 @@ export default function MyPage() {
         // 필수 쿠키가 없으면 빠르게 리다이렉트
         const timer = setTimeout(() => {
           router.push('/login?redirect=/my');
-        }, 300); // 더 빠르게
+        }, 300);
 
         setRedirectTimer(timer);
       }

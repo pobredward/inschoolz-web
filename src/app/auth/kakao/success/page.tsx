@@ -186,7 +186,8 @@ function KakaoSuccessContent() {
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             const isProduction = process.env.NODE_ENV === 'production';
             const secureOption = isProduction ? '; secure' : '';
-            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+            const sameSiteOption = '; samesite=lax'; // strict에서 lax로 변경
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}${sameSiteOption}`;
           };
           
           setCookieForAuth('uid', firebaseUser.uid, 30);

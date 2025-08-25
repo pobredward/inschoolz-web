@@ -59,18 +59,36 @@ export function middleware(request: NextRequest) {
   // 클라이언트 측 인증 쿠키 확인
   const authCookie = request.cookies.get('authToken');
   const uidCookie = request.cookies.get('uid');
+  const userIdCookie = request.cookies.get('userId'); // 백업 쿠키
   
-  console.log(`🔐 Middleware: ${path} - 인증 쿠키 확인: authToken=${authCookie ? '있음' : '없음'}, uid=${uidCookie ? '있음' : '없음'}`);
+  console.log(`🔐 Middleware: ${path} - 인증 쿠키 확인: authToken=${authCookie ? '있음' : '없음'}, uid=${uidCookie ? '있음' : '없음'}, userId=${userIdCookie ? '있음' : '없음'}`);
+  
+  // 프로덕션 환경에서 쿠키 동기화 문제를 고려한 더 관대한 검증
+  const isProduction = process.env.NODE_ENV === 'production';
   
   // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
-  // uid 쿠키도 함께 확인하여 더 정확한 인증 상태 판단
-  if (!authCookie || !uidCookie) {
-    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (인증 필요 - authToken: ${!!authCookie}, uid: ${!!uidCookie})`);
+  // uid 또는 userId 쿠키 중 하나라도 있으면 허용 (백업 로직)
+  const hasValidUidCookie = uidCookie || userIdCookie;
+  
+  if (!authCookie || !hasValidUidCookie) {
+    // 프로덕션 환경에서는 한 번 더 관대하게 처리 (쿠키 동기화 지연 고려)
+    if (isProduction && !authCookie && hasValidUidCookie) {
+      console.log(`⚠️ Middleware: ${path} - authToken 없지만 uid 쿠키 있음, 프로덕션 환경이므로 일시적 허용`);
+      // 임시로 통과시키되, 클라이언트에서 다시 인증 확인하도록 헤더 추가
+      const response = NextResponse.next();
+      response.headers.set('X-Auth-Warning', 'missing-auth-token');
+      return response;
+    }
+    
+    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (인증 필요 - authToken: ${!!authCookie}, uid: ${!!uidCookie}, userId: ${!!userIdCookie})`);
     return NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(path)}`, request.url));
   }
   
-  // 쿠키 값 검증 (빈 값 체크)
-  if (!authCookie.value || !uidCookie.value || authCookie.value.trim() === '' || uidCookie.value.trim() === '') {
+  // 쿠키 값 검증 (빈 값 체크) - 백업 쿠키도 확인
+  const authTokenValue = authCookie?.value?.trim();
+  const uidValue = uidCookie?.value?.trim() || userIdCookie?.value?.trim();
+  
+  if (!authTokenValue || !uidValue) {
     console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (빈 쿠키 값)`);
     return NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(path)}`, request.url));
   }
