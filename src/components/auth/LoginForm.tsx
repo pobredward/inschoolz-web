@@ -8,8 +8,8 @@ import { Eye, EyeOff, Mail } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { loginWithEmail } from '@/lib/auth';
 import { loginWithKakaoRedirect } from '@/lib/kakao';
+import { useAuth } from '@/providers/AuthProvider';
 import Link from 'next/link';
 // 스키마 정의
 const emailLoginSchema = z.object({
@@ -26,6 +26,7 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { signIn } = useAuth();
   
   // 이메일 로그인 폼 상태
   const [emailForm, setEmailForm] = useState({
@@ -39,11 +40,16 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
       const validated = emailLoginSchema.parse(emailForm);
       setIsLoading(true);
       
-      await loginWithEmail(validated.email, validated.password);
+      console.log('🚀 LoginForm: 이메일 로그인 시작');
       
-      // 로그인 성공 후 리디렉션
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // AuthProvider의 signIn 메서드를 통해 완전한 로그인 프로세스 수행
+      // 이는 내부적으로 AuthProvider 상태가 완전히 업데이트될 때까지 대기함
+      await signIn(validated.email, validated.password);
+      console.log('🎉 LoginForm: AuthProvider signIn 완료');
+      
+      // 로그인 성공 후 리디렉션 (추가 대기 시간 없이 즉시)
       const redirectUrl = searchParams.get('redirect') || '/';
+      console.log(`🔄 LoginForm: ${redirectUrl}로 리다이렉트`);
       router.push(redirectUrl);
     } catch (error) {
       if (error instanceof z.ZodError) {
