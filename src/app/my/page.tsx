@@ -34,7 +34,42 @@ export default function MyPage() {
       const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith('authToken='));
       const uidCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith('uid='));
       
-      if (authCookie && uidCookie && !initialAuthCheckComplete) {
+      // localStorage에서 유효한 토큰 확인 (쿠키가 없는 경우)
+      let hasValidLocalStorageAuth = false;
+      if (!authCookie) {
+        try {
+          const localAuthToken = localStorage.getItem('auth_authToken');
+          const localAuthExpires = localStorage.getItem('auth_authToken_expires');
+          
+          if (localAuthToken && localAuthExpires) {
+            const expiresTime = parseInt(localAuthExpires);
+            const now = new Date().getTime();
+            
+            if (expiresTime > now) {
+              hasValidLocalStorageAuth = true;
+              console.log('🔄 MyPage: localStorage에서 유효한 토큰 발견, 쿠키로 복원 시도');
+              
+              // 쿠키로 복원 시도
+              const isProduction = process.env.NODE_ENV === 'production';
+              const secureOption = isProduction ? '; secure' : '';
+              const sameSiteOption = isProduction ? '; samesite=lax' : '; samesite=strict';
+              
+              document.cookie = `authToken=${localAuthToken}; expires=${new Date(expiresTime).toUTCString()}; path=/${secureOption}${sameSiteOption}`;
+              
+              const uid = localStorage.getItem('auth_uid');
+              if (uid) {
+                document.cookie = `uid=${uid}; expires=${new Date(now + 30 * 24 * 60 * 60 * 1000).toUTCString()}; path=/${secureOption}${sameSiteOption}`;
+              }
+              
+              console.log('✅ MyPage: localStorage에서 쿠키 복원 완료');
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ MyPage: localStorage 확인 실패:', error);
+        }
+      }
+      
+      if ((authCookie && uidCookie) || (hasValidLocalStorageAuth && !initialAuthCheckComplete)) {
         console.log('🍪 MyPage: 인증 쿠키 발견, AuthProvider 업데이트 대기 (이메일/카카오 로그인 후 가능성)', {
           hasAuthToken: !!authCookie,
           hasUid: !!uidCookie,
