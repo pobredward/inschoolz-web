@@ -28,6 +28,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   checkSuspension: () => void;
   resetError: () => void;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -314,14 +315,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // 회원가입 직후에는 Firestore 데이터 저장이 약간의 지연이 있을 수 있으므로 재시도 로직 추가
           let userData = null;
           let retryCount = 0;
-          const maxRetries = 3;
+          const maxRetries = 5; // 재시도 횟수 증가
           
           while (!userData && retryCount < maxRetries) {
             userData = await getUserById(firebaseUser.uid);
             
             if (!userData && retryCount < maxRetries - 1) {
               console.log(`⏳ AuthProvider: 사용자 정보 조회 실패, 재시도 중... (${retryCount + 1}/${maxRetries})`);
-              await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
+              await new Promise(resolve => setTimeout(resolve, 500)); // 대기 시간 단축
               retryCount++;
             } else {
               break;
@@ -368,6 +369,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [user]);
 
+  // 인증 상태 계산 (사용자가 있고 로딩 중이 아닌 경우)
+  const isAuthenticated = !!user && !isLoading;
+
   return (
     <AuthContext.Provider
       value={{
@@ -383,6 +387,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         refreshUser,
         checkSuspension,
         resetError,
+        isAuthenticated,
       }}
     >
       {children}

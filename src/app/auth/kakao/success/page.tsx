@@ -220,17 +220,18 @@ function KakaoSuccessContent() {
           }, 3000);
         });
         
-        // 메인 페이지로 이동 (기본값을 메인 페이지로 설정)
+        // AuthProvider 상태 완전 동기화를 위해 추가 대기
+        console.log('⏳ AuthProvider 완전 동기화를 위한 추가 대기...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 리다이렉트 URL 결정
         const redirectUrl = sessionStorage.getItem('kakao_login_redirect') || '/';
         sessionStorage.removeItem('kakao_login_redirect');
         
-        console.log('🔄 리다이렉트 준비:', redirectUrl);
+        console.log('🔄 Next.js Router로 리다이렉트:', redirectUrl);
         
-        // 쿠키 설정 완료 후 페이지 새로고침으로 리다이렉트 (AuthProvider 상태 완전 동기화)
-        console.log('🔄 페이지 새로고침으로 리다이렉트:', redirectUrl);
-        setTimeout(() => {
-          window.location.href = redirectUrl;
-        }, 1000);
+        // Next.js Router 사용하여 부드러운 네비게이션 (새로고침 없이)
+        router.push(redirectUrl);
 
       } catch (error) {
         console.error('❌ 카카오 로그인 처리 실패:', error);

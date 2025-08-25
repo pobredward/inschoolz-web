@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { loginWithEmail } from '@/lib/auth';
 import { loginWithKakaoRedirect } from '@/lib/kakao';
+import { useAuth } from '@/providers/AuthProvider';
 import Link from 'next/link';
 // 스키마 정의
 const emailLoginSchema = z.object({
@@ -26,12 +27,22 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
   
   // 이메일 로그인 폼 상태
   const [emailForm, setEmailForm] = useState({
     email: '',
     password: ''
   });
+
+  // 인증 상태 변경 감지하여 즉시 리디렉션
+  useEffect(() => {
+    if (isAuthenticated) {
+      const redirectUrl = searchParams.get('redirect') || '/';
+      console.log('✅ LoginForm: 인증 완료, 즉시 리디렉션:', redirectUrl);
+      router.push(redirectUrl);
+    }
+  }, [isAuthenticated, router, searchParams]);
 
   // 이메일 로그인
   const handleEmailLogin = async () => {
@@ -41,10 +52,9 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
       
       await loginWithEmail(validated.email, validated.password);
       
-      // 로그인 성공 후 리디렉션
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const redirectUrl = searchParams.get('redirect') || '/';
-      router.push(redirectUrl);
+      // AuthProvider의 useEffect에서 인증 상태 변경을 감지하여 자동 리디렉션됨
+      // 별도의 수동 리디렉션 불필요
+      console.log('✅ LoginForm: 이메일 로그인 완료, 인증 상태 감지 대기');
     } catch (error) {
       if (error instanceof z.ZodError) {
         const firstError = error.errors[0];
@@ -53,8 +63,7 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
         console.error('이메일 로그인 실패:', error);
         toast.error(error instanceof Error ? error.message : '로그인에 실패했습니다.');
       }
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // 에러 시에만 로딩 상태 해제
     }
   };
 
