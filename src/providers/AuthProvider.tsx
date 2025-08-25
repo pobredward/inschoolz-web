@@ -41,85 +41,22 @@ export const useAuth = () => {
 };
 
 // 쿠키 설정 함수 (기본 30일 지속)
-const setCookie = (name: string, value: string, days = 30): Promise<void> => {
-  return new Promise((resolve) => {
-    const expires = new Date();
-    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    
-    // 프로덕션과 개발 환경에 따른 쿠키 설정
-    const isProduction = process.env.NODE_ENV === 'production';
-    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    
-    let cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/`;
-    
-    if (isProduction) {
-      // 프로덕션 환경: secure, samesite=lax
-      cookieString += '; secure; samesite=lax';
-      
-      // 도메인이 inschoolz.com인 경우 명시적으로 설정
-      if (hostname.includes('inschoolz.com')) {
-        cookieString += '; domain=.inschoolz.com';
-      }
-    } else {
-      // 개발 환경: samesite=strict
-      cookieString += '; samesite=strict';
-    }
-    
-    document.cookie = cookieString;
-    
-    console.log(`🍪 쿠키 설정: ${name} (${days}일 지속)`, {
-      isProduction,
-      hostname,
-      cookieString: cookieString.replace(value, '[값숨김]')
-    });
-    
-    // localStorage에도 백업 저장 (쿠키 실패 시 대안)
-    try {
-      localStorage.setItem(`auth_${name}`, value);
-      localStorage.setItem(`auth_${name}_expires`, expires.getTime().toString());
-      console.log(`💾 localStorage 백업: auth_${name}`);
-    } catch (error) {
-      console.warn(`⚠️ localStorage 설정 실패: ${name}`, error);
-    }
-    
-    // 쿠키 설정이 완료되었는지 확인
-    setTimeout(() => {
-      const cookieSet = document.cookie.split(';').some(cookie => 
-        cookie.trim().startsWith(`${name}=`)
-      );
-      
-      if (cookieSet) {
-        console.log(`✅ 쿠키 설정 확인: ${name}`);
-        resolve();
-      } else {
-        console.warn(`⚠️ 쿠키 설정 실패: ${name} - localStorage 백업 사용 가능`);
-        resolve(); // 실패해도 진행 (localStorage 백업 있음)
-      }
-    }, 200); // 200ms 대기 후 확인 (프로덕션에서 더 긴 시간)
-  });
+const setCookie = (name: string, value: string, days = 30) => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  
+  // 개발 환경에서는 secure 옵션 제외
+  const isProduction = process.env.NODE_ENV === 'production';
+  const secureOption = isProduction ? '; secure' : '';
+  
+  document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+  
+  console.log(`🍪 쿠키 설정: ${name} (${days}일 지속)`);
 };
 
 // 쿠키 삭제 함수
 const deleteCookie = (name: string) => {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  
-  // 기본 쿠키 삭제
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-  
-  // 프로덕션에서 도메인 쿠키도 삭제
-  if (isProduction && hostname.includes('inschoolz.com')) {
-    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.inschoolz.com`;
-  }
-  
-  // localStorage 백업도 삭제
-  try {
-    localStorage.removeItem(`auth_${name}`);
-    localStorage.removeItem(`auth_${name}_expires`);
-    console.log(`🗑️ localStorage 백업 삭제: auth_${name}`);
-  } catch (error) {
-    console.warn(`⚠️ localStorage 삭제 실패: ${name}`, error);
-  }
 };
 
 // 토큰 자동 갱신 타이머 저장
@@ -161,63 +98,12 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// localStorage에서 만료되지 않은 토큰 복원
-const restoreAuthFromLocalStorage = () => {
-  try {
-    const authToken = localStorage.getItem('auth_authToken');
-    const authTokenExpires = localStorage.getItem('auth_authToken_expires');
-    const uid = localStorage.getItem('auth_uid');
-    const userRole = localStorage.getItem('auth_userRole');
-    
-    if (authToken && authTokenExpires) {
-      const expiresTime = parseInt(authTokenExpires);
-      const now = new Date().getTime();
-      
-      // 토큰이 아직 유효한 경우에만 복원
-      if (expiresTime > now) {
-        console.log('🔄 localStorage에서 인증 정보 복원 중...');
-        
-        // 쿠키로 복원
-        document.cookie = `authToken=${authToken}; expires=${new Date(expiresTime).toUTCString()}; path=/; secure; samesite=lax`;
-        if (uid) {
-          document.cookie = `uid=${uid}; expires=${new Date(now + 30 * 24 * 60 * 60 * 1000).toUTCString()}; path=/; secure; samesite=lax`;
-        }
-        if (userRole) {
-          document.cookie = `userRole=${userRole}; expires=${new Date(now + 30 * 24 * 60 * 60 * 1000).toUTCString()}; path=/; secure; samesite=lax`;
-        }
-        
-        console.log('✅ localStorage에서 쿠키 복원 완료');
-        return true;
-      } else {
-        console.log('🗑️ localStorage의 토큰이 만료됨, 정리 중...');
-        localStorage.removeItem('auth_authToken');
-        localStorage.removeItem('auth_authToken_expires');
-        localStorage.removeItem('auth_uid');
-        localStorage.removeItem('auth_userRole');
-      }
-    }
-  } catch (error) {
-    console.warn('⚠️ localStorage 복원 실패:', error);
-  }
-  return false;
-};
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suspensionStatus, setSuspensionStatus] = useState<SuspensionStatus | null>(null);
-
-  // 컴포넌트 마운트 시 localStorage에서 인증 정보 복원 시도
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const restored = restoreAuthFromLocalStorage();
-      if (restored) {
-        console.log('📱 페이지 로드 시 localStorage에서 인증 정보 복원됨');
-      }
-    }
-  }, []);
 
   const resetError = () => {
     setError(null);
@@ -237,11 +123,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const idToken = await firebaseUser.getIdToken(true);
       console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
       
-      // 쿠키 설정을 순차적으로 처리하여 완료 보장 (프로덕션 환경에서 중요)
-      await setCookie('authToken', idToken, 1); // 1일
-      await setCookie('uid', userData.uid, 30); // 30일
-      await setCookie('userId', userData.uid, 30); // 백업용, 30일
-      await setCookie('userRole', userData.role, 30); // 30일
+      // 쿠키 설정 (토큰은 1시간마다 갱신되므로 쿠키도 1시간으로 설정)
+      setCookie('authToken', idToken, 1); // 1일
+      setCookie('uid', userData.uid, 30); // 30일
+      setCookie('userId', userData.uid, 30); // 백업용, 30일
+      setCookie('userRole', userData.role, 30); // 30일
       
       console.log('✅ AuthProvider: 모든 쿠키 설정 완료', {
         authToken: '설정됨 (1일)',
@@ -288,7 +174,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signIn = async (email: string, password: string) => {
     try {
       setError(null);
-      // 프로덕션에서도 중요한 로그 유지
       console.log('🚀 AuthProvider: signIn 시작');
       await loginWithEmail(email, password);
       console.log('✅ AuthProvider: loginWithEmail 완료, onAuthStateChanged 대기 중...');
@@ -296,22 +181,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Firebase Auth의 onAuthStateChanged가 트리거되어 사용자 상태가 업데이트될 때까지 대기
       // 이는 로그인 직후 즉시 라우팅할 때 사용자 상태가 확실히 설정되도록 함
       await new Promise<void>((resolve) => {
-        let attempts = 0;
-        const maxAttempts = 50; // 5초 최대 대기 (100ms × 50)
-        
         const checkAuth = () => {
-          attempts++;
-          
-          if (auth.currentUser && !isLoading && user) {
-            console.log('✅ AuthProvider: 인증 상태 확인 완료 (사용자 정보 + 쿠키 설정 완료)');
-            resolve();
-          } else if (attempts >= maxAttempts) {
-            console.warn('⚠️ AuthProvider: 인증 상태 확인 시간 초과, 진행 계속');
+          if (auth.currentUser && !isLoading) {
+            console.log('✅ AuthProvider: 인증 상태 확인 완료');
             resolve();
           } else {
-            if (attempts % 10 === 0) { // 1초마다 로그
-              console.log(`⏳ AuthProvider: 인증 상태 확인 중... (${attempts}/${maxAttempts})`);
-            }
             setTimeout(checkAuth, 100);
           }
         };

@@ -58,36 +58,12 @@ export function middleware(request: NextRequest) {
   
   // 클라이언트 측 인증 쿠키 확인
   const authCookie = request.cookies.get('authToken');
-  const uidCookie = request.cookies.get('uid');
-  const userRoleCookie = request.cookies.get('userRole');
+  console.log(`🔐 Middleware: ${path} - 인증 쿠키 확인: ${authCookie ? '있음' : '없음'}`);
   
-  // 원시 쿠키 헤더도 확인 (NextJS cookies API가 실패할 경우 대비)
-  const rawCookieHeader = request.headers.get('cookie') || '';
-  const hasAuthTokenInRaw = rawCookieHeader.includes('authToken=');
-  const hasUidInRaw = rawCookieHeader.includes('uid=');
-  
-  // 모든 쿠키 정보 상세 로그 (프로덕션에서도 확인 가능)
-  console.log(`🔐 Middleware: ${path} - 쿠키 상태 확인:`, {
-    authToken: authCookie ? `있음 (길이: ${authCookie.value.length})` : '없음',
-    uid: uidCookie ? `있음 (${uidCookie.value})` : '없음',
-    userRole: userRoleCookie ? `있음 (${userRoleCookie.value})` : '없음',
-    allCookieNames: Object.keys(Object.fromEntries(request.cookies.entries())),
-    rawCookieHeader: rawCookieHeader.substring(0, 100) + '...',
-    hasAuthTokenInRaw,
-    hasUidInRaw,
-    userAgent: request.headers.get('user-agent')?.slice(0, 50) + '...'
-  });
-  
-  // 인증 토큰이 없는 경우에만 리디렉션 (원시 헤더에서도 확인)
-  if (!authCookie && !hasAuthTokenInRaw) {
-    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (authToken 쿠키 없음)`);
+  // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
+  if (!authCookie) {
+    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (인증 필요)`);
     return NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(path)}`, request.url));
-  }
-  
-  // NextJS API가 쿠키를 못 읽었지만 원시 헤더에는 있는 경우 경고
-  if (!authCookie && hasAuthTokenInRaw) {
-    console.warn(`⚠️ Middleware: ${path} - NextJS cookies API 실패, 하지만 원시 헤더에 authToken 존재`);
-    // 이 경우에는 통과시키고 클라이언트에서 처리하도록 함
   }
   
   // 관리자 페이지 접근 제한 (관리자 역할 확인)
