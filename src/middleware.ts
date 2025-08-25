@@ -58,11 +58,20 @@ export function middleware(request: NextRequest) {
   
   // 클라이언트 측 인증 쿠키 확인
   const authCookie = request.cookies.get('authToken');
-  console.log(`🔐 Middleware: ${path} - 인증 쿠키 확인: ${authCookie ? '있음' : '없음'}`);
+  const uidCookie = request.cookies.get('uid');
+  
+  console.log(`🔐 Middleware: ${path} - 인증 쿠키 확인: authToken=${authCookie ? '있음' : '없음'}, uid=${uidCookie ? '있음' : '없음'}`);
   
   // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
-  if (!authCookie) {
-    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (인증 필요)`);
+  // uid 쿠키도 함께 확인하여 더 정확한 인증 상태 판단
+  if (!authCookie || !uidCookie) {
+    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (인증 필요 - authToken: ${!!authCookie}, uid: ${!!uidCookie})`);
+    return NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(path)}`, request.url));
+  }
+  
+  // 쿠키 값 검증 (빈 값 체크)
+  if (!authCookie.value || !uidCookie.value || authCookie.value.trim() === '' || uidCookie.value.trim() === '') {
+    console.log(`🚫 Middleware: ${path} -> /login 리다이렉트 (빈 쿠키 값)`);
     return NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(path)}`, request.url));
   }
   

@@ -412,7 +412,18 @@ export function Header() {
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href="/my" className="cursor-pointer">
+                      <Link 
+                        href="/my" 
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          // 인증 상태 확인 후 안전하게 라우팅
+                          if (!user) {
+                            e.preventDefault();
+                            console.log('🚫 Header: 비인증 상태에서 마이페이지 접근 시도 차단');
+                            router.push('/login?redirect=/my');
+                          }
+                        }}
+                      >
                         <UserIcon className="mr-2 h-4 w-4" />
                         <span>내 프로필</span>
                       </Link>
@@ -478,34 +489,77 @@ export function Header() {
         aria-label="하단 네비게이션"
       >
         <div className="flex justify-around items-center h-16 px-4 pb-2">
-          {allMenuItems.map((item) => (
-            <Link 
-              key={item.path} 
-              href={item.path} 
-              className="flex-1 min-w-0"
-              aria-label={item.ariaLabel}
-            >
-              <div 
-                className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 rounded-lg mx-1 ${
-                  pathname === item.path 
-                    ? 'text-pastel-green-600 bg-pastel-green-50 scale-105 shadow-sm' 
-                    : 'text-gray-500 hover:text-pastel-green-500 hover:bg-pastel-green-50/50'
-                }`}
+          {allMenuItems.map((item) => {
+            // 마이페이지 항목인 경우 특별한 처리
+            if (item.path === '/my') {
+              return (
+                <Link 
+                  key={item.path} 
+                  href={item.path} 
+                  className="flex-1 min-w-0"
+                  aria-label={item.ariaLabel}
+                  onClick={(e) => {
+                    // 인증 상태 확인 후 안전하게 라우팅
+                    if (!user) {
+                      e.preventDefault();
+                      console.log('🚫 MobileNav: 비인증 상태에서 마이페이지 접근 시도 차단');
+                      router.push('/login?redirect=/my');
+                    }
+                  }}
+                >
+                  <div 
+                    className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 rounded-lg mx-1 ${
+                      pathname === item.path 
+                        ? 'text-pastel-green-600 bg-pastel-green-50 scale-105 shadow-sm' 
+                        : 'text-gray-500 hover:text-pastel-green-500 hover:bg-pastel-green-50/50'
+                    }`}
+                  >
+                    <div className={`transition-transform duration-200 ${pathname === item.path ? 'scale-110' : ''}`}>
+                      {item.icon}
+                    </div>
+                    <span className={`text-xs mt-1 font-medium transition-all duration-200 ${
+                      pathname === item.path ? 'font-semibold' : ''
+                    }`}>
+                      {item.name}
+                    </span>
+                    {pathname === item.path && (
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pastel-green-600 rounded-full" />
+                    )}
+                  </div>
+                </Link>
+              );
+            }
+            
+            // 일반 항목들은 기본 처리
+            return (
+              <Link 
+                key={item.path} 
+                href={item.path} 
+                className="flex-1 min-w-0"
+                aria-label={item.ariaLabel}
               >
-                <div className={`transition-transform duration-200 ${pathname === item.path ? 'scale-110' : ''}`}>
-                  {item.icon}
+                <div 
+                  className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 rounded-lg mx-1 ${
+                    pathname === item.path 
+                      ? 'text-pastel-green-600 bg-pastel-green-50 scale-105 shadow-sm' 
+                      : 'text-gray-500 hover:text-pastel-green-500 hover:bg-pastel-green-50/50'
+                  }`}
+                >
+                  <div className={`transition-transform duration-200 ${pathname === item.path ? 'scale-110' : ''}`}>
+                    {item.icon}
+                  </div>
+                  <span className={`text-xs mt-1 font-medium transition-all duration-200 ${
+                    pathname === item.path ? 'font-semibold' : ''
+                  }`}>
+                    {item.name}
+                  </span>
+                  {pathname === item.path && (
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pastel-green-600 rounded-full" />
+                  )}
                 </div>
-                <span className={`text-xs mt-1 font-medium transition-all duration-200 ${
-                  pathname === item.path ? 'font-semibold' : ''
-                }`}>
-                  {item.name}
-                </span>
-                {pathname === item.path && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pastel-green-600 rounded-full" />
-                )}
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       </nav>
     </>

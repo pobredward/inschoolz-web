@@ -117,35 +117,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
         userName: userData.profile?.userName 
       });
       
-      setUser(userData);
-      
-      // Firebase ID 토큰 가져오기 (강제 새로고침)
-      const idToken = await firebaseUser.getIdToken(true);
-      console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
-      
-      // 쿠키 설정 (토큰은 1시간마다 갱신되므로 쿠키도 1시간으로 설정)
-      setCookie('authToken', idToken, 1); // 1일
-      setCookie('uid', userData.uid, 30); // 30일
-      setCookie('userId', userData.uid, 30); // 백업용, 30일
-      setCookie('userRole', userData.role, 30); // 30일
-      
-      console.log('✅ AuthProvider: 모든 쿠키 설정 완료', {
-        authToken: '설정됨 (1일)',
-        uid: userData.uid,
-        userRole: userData.role
-      });
-      
-      // 토큰 자동 갱신 설정 (50분마다 갱신)
-      setupTokenRefresh(firebaseUser);
-      
-      // 사용자 정지 상태 확인
-      const suspensionStatus = checkSuspensionStatus(userData);
-      setSuspensionStatus(suspensionStatus);
-      
-      if (suspensionStatus.isSuspended) {
-        console.log('⚠️ 정지된 사용자 감지:', suspensionStatus);
-      } else {
-        console.log('✅ 정지되지 않은 사용자');
+      // 쿠키를 먼저 설정하여 미들웨어와의 동기화 문제 해결
+      try {
+        // Firebase ID 토큰 가져오기 (강제 새로고침)
+        const idToken = await firebaseUser.getIdToken(true);
+        console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
+        
+        // 쿠키 즉시 설정 (미들웨어 동기화를 위해)
+        setCookie('authToken', idToken, 1); // 1일
+        setCookie('uid', userData.uid, 30); // 30일
+        setCookie('userId', userData.uid, 30); // 백업용, 30일
+        setCookie('userRole', userData.role, 30); // 30일
+        
+        console.log('✅ AuthProvider: 모든 쿠키 설정 완료 (상태 설정 전)', {
+          authToken: '설정됨 (1일)',
+          uid: userData.uid,
+          userRole: userData.role
+        });
+
+        // 쿠키 설정 완료 후 상태 업데이트
+        setUser(userData);
+        
+        // 쿠키 설정이 완료되었음을 브라우저에 알리기 위한 작은 지연
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // 토큰 자동 갱신 설정 (50분마다 갱신)
+        setupTokenRefresh(firebaseUser);
+        
+        // 사용자 정지 상태 확인
+        const suspensionStatus = checkSuspensionStatus(userData);
+        setSuspensionStatus(suspensionStatus);
+        
+        if (suspensionStatus.isSuspended) {
+          console.log('⚠️ 정지된 사용자 감지:', suspensionStatus);
+        } else {
+          console.log('✅ 정지되지 않은 사용자');
+        }
+      } catch (tokenError) {
+        console.error('❌ AuthProvider: 토큰 및 쿠키 설정 실패:', tokenError);
+        // 토큰 획득 실패 시에도 최소한의 정보 설정
+        setCookie('uid', userData.uid, 30);
+        setCookie('userRole', userData.role, 30);
+        setUser(userData);
+        throw tokenError;
       }
     } catch (error) {
       console.error('❌ AuthProvider: 쿠키 설정 오류:', error);
@@ -331,6 +345,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (userData) {
             console.log('✅ AuthProvider: 사용자 정보 조회 성공, 쿠키 설정 중...');
             await setUserAndCookies(userData, firebaseUser);
+            
+            // 상태 동기화를 위한 추가 검증
+            await new Promise(resolve => setTimeout(resolve, 200)); // 쿠키 전파 대기
+            
+            // 쿠키가 제대로 설정되었는지 확인
+            if (typeof window !== 'undefined') {
+              const authCookieCheck = document.cookie.includes('authToken=');
+              const uidCookieCheck = document.cookie.includes('uid=');
+              console.log('🔍 AuthProvider: 쿠키 설정 검증', { 
+                authToken: authCookieCheck, 
+                uid: uidCookieCheck 
+              });
+              
+              if (!authCookieCheck || !uidCookieCheck) {
+                console.warn('⚠️ AuthProvider: 쿠키 설정 실패, 재시도...');
+                // 쿠키 재설정 시도
+                try {
+                  const idToken = await firebaseUser.getIdToken(true);
+                  setCookie('authToken', idToken, 1);
+                  setCookie('uid', userData.uid, 30);
+                  setCookie('userRole', userData.role, 30);
+                } catch (retryError) {
+                  console.error('❌ AuthProvider: 쿠키 재설정 실패:', retryError);
+                }
+              }
+            }
+            
             console.log('✅ AuthProvider: 인증 완료', { userName: userData.profile?.userName });
           } else {
             console.warn('⚠️ AuthProvider: Firestore에서 사용자 정보를 찾을 수 없음 (재시도 완료)');
