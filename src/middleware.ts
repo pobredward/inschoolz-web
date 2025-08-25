@@ -56,20 +56,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   
-  // 클라이언트 측 인증 쿠키 확인 (상세 디버깅)
+  // 클라이언트 측 인증 쿠키 확인
   const authCookie = request.cookies.get('authToken');
-  const uidCookie = request.cookies.get('uid');
-  const userRoleCookie = request.cookies.get('userRole');
-  
-  // 프로덕션 환경에서 상세 쿠키 디버깅
-  console.log(`🔐 Middleware: ${path} - 쿠키 상태 확인:`, {
-    authToken: authCookie ? `있음 (${authCookie.value?.substring(0, 20)}...)` : '없음',
-    uid: uidCookie ? `있음 (${uidCookie.value})` : '없음',
-    userRole: userRoleCookie ? `있음 (${userRoleCookie.value})` : '없음',
-    allCookies: request.cookies.getAll().map(c => c.name).join(', '),
-    userAgent: request.headers.get('user-agent')?.substring(0, 50),
-    referer: request.headers.get('referer')
-  });
+  console.log(`🔐 Middleware: ${path} - 인증 쿠키 확인: ${authCookie ? '있음' : '없음'}`);
   
   // 인증 토큰이 없는 경우 로그인 페이지로 리디렉션
   if (!authCookie) {

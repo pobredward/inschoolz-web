@@ -331,43 +331,23 @@ export function Header() {
 
           {/* 데스크탑 네비게이션 - 중간 사이즈 이상에서만 표시 */}
           <nav className="hidden md:flex items-center space-x-1" role="navigation" aria-label="주 메뉴">
-            {allMenuItems.map((item) => {
-              // 마이페이지 링크는 인증 상태에 따라 다르게 처리
-              if (item.path === '/my') {
-                if (!user) {
-                  return (
-                    <Link key={item.path} href="/login?redirect=/my">
-                      <Button
-                        variant="ghost"
-                        className="flex items-center gap-1 px-3 transition-colors hover:bg-pastel-green-100 hover:text-pastel-green-700"
-                        aria-label={item.ariaLabel}
-                      >
-                        {item.icon}
-                        <span>{item.name}</span>
-                      </Button>
-                    </Link>
-                  );
-                }
-              }
-              
-              return (
-                <Link key={item.path} href={item.path}>
-                  <Button
-                    variant={pathname === item.path ? "default" : "ghost"}
-                    className={`flex items-center gap-1 px-3 transition-colors ${
-                      pathname === item.path 
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300' 
-                        : 'hover:bg-pastel-green-100 hover:text-pastel-green-700'
-                    }`}
-                    aria-label={item.ariaLabel}
-                    aria-current={pathname === item.path ? 'page' : undefined}
-                  >
-                    {item.icon}
-                    <span>{item.name}</span>
-                  </Button>
-                </Link>
-              );
-            })}
+            {allMenuItems.map((item) => (
+              <Link key={item.path} href={item.path}>
+                <Button
+                  variant={pathname === item.path ? "default" : "ghost"}
+                  className={`flex items-center gap-1 px-3 transition-colors ${
+                    pathname === item.path 
+                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300' 
+                      : 'hover:bg-pastel-green-100 hover:text-pastel-green-700'
+                  }`}
+                  aria-label={item.ariaLabel}
+                  aria-current={pathname === item.path ? 'page' : undefined}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </Button>
+              </Link>
+            ))}
           </nav>
 
           {/* 헤더 오른쪽 - 경험치, 알림, 프로필 */}

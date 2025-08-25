@@ -145,16 +145,7 @@ function KakaoSuccessContent() {
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             const isProduction = process.env.NODE_ENV === 'production';
             const secureOption = isProduction ? '; secure' : '';
-            // 모든 쿠키를 lax로 설정하여 호환성 향상
-            const sameSitePolicy = 'lax';
-            const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
-            document.cookie = cookieString;
-            
-            // 즉시 쿠키 설정 검증
-            setTimeout(() => {
-              const hasCookie = document.cookie.includes(`${name}=`);
-              console.log(`🔍 카카오 로그인 쿠키 검증: ${name} = ${hasCookie ? '성공' : '실패'}`);
-            }, 10);
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
           };
           
           setCookieForAuth('authToken', idToken, 1);
@@ -195,10 +186,7 @@ function KakaoSuccessContent() {
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             const isProduction = process.env.NODE_ENV === 'production';
             const secureOption = isProduction ? '; secure' : '';
-            // 모든 쿠키를 lax로 설정하여 호환성 향상
-            const sameSitePolicy = 'lax';
-            const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
-            document.cookie = cookieString;
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
           };
           
           setCookieForAuth('uid', firebaseUser.uid, 30);
@@ -224,28 +212,25 @@ function KakaoSuccessContent() {
             }
           });
           
-          // 프로덕션 환경에서는 더 오래 대기 (네트워크 지연 고려)
-          const waitTime = process.env.NODE_ENV === 'production' ? 5000 : 3000;
+          // 최대 3초 대기 후 강제 진행
           setTimeout(() => {
-            console.log(`⏰ AuthProvider 대기 시간 초과 (${waitTime}ms), 강제 진행`);
+            console.log('⏰ AuthProvider 대기 시간 초과, 강제 진행');
             unsubscribe();
             resolve();
-          }, waitTime);
+          }, 3000);
         });
         
-        // AuthProvider 상태 완전 동기화를 위해 추가 대기 (프로덕션에서는 더 오래)
-        const additionalWait = process.env.NODE_ENV === 'production' ? 1000 : 500;
-        console.log(`⏳ AuthProvider 완전 동기화를 위한 추가 대기... (${additionalWait}ms)`);
-        await new Promise(resolve => setTimeout(resolve, additionalWait));
-        
-        // 리다이렉트 URL 결정
+        // 메인 페이지로 이동 (기본값을 메인 페이지로 설정)
         const redirectUrl = sessionStorage.getItem('kakao_login_redirect') || '/';
         sessionStorage.removeItem('kakao_login_redirect');
         
-        console.log('🔄 Next.js Router로 리다이렉트:', redirectUrl);
+        console.log('🔄 리다이렉트 준비:', redirectUrl);
         
-        // Next.js Router 사용하여 부드러운 네비게이션 (새로고침 없이)
-        router.push(redirectUrl);
+        // 쿠키 설정 완료 후 페이지 새로고침으로 리다이렉트 (AuthProvider 상태 완전 동기화)
+        console.log('🔄 페이지 새로고침으로 리다이렉트:', redirectUrl);
+        setTimeout(() => {
+          window.location.href = redirectUrl;
+        }, 1000);
 
       } catch (error) {
         console.error('❌ 카카오 로그인 처리 실패:', error);

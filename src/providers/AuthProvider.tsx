@@ -28,7 +28,6 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   checkSuspension: () => void;
   resetError: () => void;
-  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,31 +45,13 @@ const setCookie = (name: string, value: string, days = 30) => {
   const expires = new Date();
   expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
   
-  // 프로덕션/개발 환경 구분
+  // 개발 환경에서는 secure 옵션 제외
   const isProduction = process.env.NODE_ENV === 'production';
   const secureOption = isProduction ? '; secure' : '';
   
-  // SameSite 정책을 모두 Lax로 변경하여 호환성 개선
-  // strict 정책은 일부 상황에서 쿠키 전송을 차단할 수 있음
-  const sameSitePolicy = 'lax';
+  document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
   
-  // 쿠키 문자열 생성 (도메인 설정 제거 - 호환성 개선)
-  const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
-  document.cookie = cookieString;
-  
-  console.log(`🍪 쿠키 설정: ${name} (${days}일 지속, SameSite=${sameSitePolicy})`);
-  
-  // 프로덕션 환경에서 쿠키 설정 즉시 검증
-  if (isProduction && typeof window !== 'undefined') {
-    setTimeout(() => {
-      const allCookies = document.cookie;
-      const hasCookie = allCookies.includes(`${name}=`);
-      console.log(`🔍 [PROD] 쿠키 설정 검증: ${name} = ${hasCookie ? '성공' : '실패'}`);
-      if (!hasCookie) {
-        console.error(`❌ [PROD] 쿠키 설정 실패: ${name}`);
-      }
-    }, 50);
-  }
+  console.log(`🍪 쿠키 설정: ${name} (${days}일 지속)`);
 };
 
 // 쿠키 삭제 함수
@@ -133,8 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('🍪 AuthProvider: 사용자 상태 및 쿠키 설정 시작', { 
         uid: userData.uid, 
-        userName: userData.profile?.userName,
-        environment: process.env.NODE_ENV 
+        userName: userData.profile?.userName 
       });
       
       setUser(userData);
@@ -148,24 +128,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setCookie('uid', userData.uid, 30); // 30일
       setCookie('userId', userData.uid, 30); // 백업용, 30일
       setCookie('userRole', userData.role, 30); // 30일
-      
-      // 프로덕션 환경에서 쿠키 설정 검증
-      if (process.env.NODE_ENV === 'production') {
-        setTimeout(() => {
-          const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-            const [name, value] = cookie.trim().split('=');
-            acc[name] = value;
-            return acc;
-          }, {} as Record<string, string>);
-          
-          console.log('🔍 [PROD] 쿠키 설정 검증:', {
-            authToken: cookies.authToken ? '설정됨' : '누락',
-            uid: cookies.uid ? '설정됨' : '누락',
-            userRole: cookies.userRole ? '설정됨' : '누락',
-            timestamp: new Date().toISOString()
-          });
-        }, 100);
-      }
       
       console.log('✅ AuthProvider: 모든 쿠키 설정 완료', {
         authToken: '설정됨 (1일)',
@@ -352,16 +314,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // 회원가입 직후에는 Firestore 데이터 저장이 약간의 지연이 있을 수 있으므로 재시도 로직 추가
           let userData = null;
           let retryCount = 0;
-          const maxRetries = 5; // 재시도 횟수 증가
+          const maxRetries = 3;
           
           while (!userData && retryCount < maxRetries) {
             userData = await getUserById(firebaseUser.uid);
             
             if (!userData && retryCount < maxRetries - 1) {
               console.log(`⏳ AuthProvider: 사용자 정보 조회 실패, 재시도 중... (${retryCount + 1}/${maxRetries})`);
-              // 프로덕션 환경에서는 더 오래 대기 (네트워크 지연 고려)
-              const retryDelay = process.env.NODE_ENV === 'production' ? 1000 : 500;
-              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              await new Promise(resolve => setTimeout(resolve, 1000)); // 1초 대기
               retryCount++;
             } else {
               break;
@@ -408,9 +368,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [user]);
 
-  // 인증 상태 계산 (사용자가 있고 로딩 중이 아닌 경우)
-  const isAuthenticated = !!user && !isLoading;
-
   return (
     <AuthContext.Provider
       value={{
@@ -426,7 +383,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         refreshUser,
         checkSuspension,
         resetError,
-        isAuthenticated,
       }}
     >
       {children}
