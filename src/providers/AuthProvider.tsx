@@ -41,17 +41,35 @@ export const useAuth = () => {
 };
 
 // 쿠키 설정 함수 (기본 30일 지속)
-const setCookie = (name: string, value: string, days = 30) => {
-  const expires = new Date();
-  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-  
-  // 개발 환경에서는 secure 옵션 제외
-  const isProduction = process.env.NODE_ENV === 'production';
-  const secureOption = isProduction ? '; secure' : '';
-  
-  document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
-  
-  console.log(`🍪 쿠키 설정: ${name} (${days}일 지속)`);
+const setCookie = (name: string, value: string, days = 30): Promise<void> => {
+  return new Promise((resolve) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    
+    // 개발 환경에서는 secure 옵션 제외, 프로덕션에서는 secure 및 domain 설정
+    const isProduction = process.env.NODE_ENV === 'production';
+    const secureOption = isProduction ? '; secure' : '';
+    const sameSiteOption = isProduction ? '; samesite=lax' : '; samesite=strict';
+    
+    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}${sameSiteOption}`;
+    
+    console.log(`🍪 쿠키 설정: ${name} (${days}일 지속)`);
+    
+    // 쿠키 설정이 완료되었는지 확인 (비동기적으로 처리됨)
+    setTimeout(() => {
+      const cookieSet = document.cookie.split(';').some(cookie => 
+        cookie.trim().startsWith(`${name}=`)
+      );
+      
+      if (cookieSet) {
+        console.log(`✅ 쿠키 설정 확인: ${name}`);
+        resolve();
+      } else {
+        console.warn(`⚠️ 쿠키 설정 실패: ${name}`);
+        resolve(); // 실패해도 진행
+      }
+    }, 100); // 100ms 대기 후 확인
+  });
 };
 
 // 쿠키 삭제 함수
@@ -123,11 +141,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const idToken = await firebaseUser.getIdToken(true);
       console.log('🔑 AuthProvider: Firebase ID 토큰 획득 완료');
       
-      // 쿠키 설정 (토큰은 1시간마다 갱신되므로 쿠키도 1시간으로 설정)
-      setCookie('authToken', idToken, 1); // 1일
-      setCookie('uid', userData.uid, 30); // 30일
-      setCookie('userId', userData.uid, 30); // 백업용, 30일
-      setCookie('userRole', userData.role, 30); // 30일
+      // 쿠키 설정을 순차적으로 처리하여 완료 보장 (프로덕션 환경에서 중요)
+      await setCookie('authToken', idToken, 1); // 1일
+      await setCookie('uid', userData.uid, 30); // 30일
+      await setCookie('userId', userData.uid, 30); // 백업용, 30일
+      await setCookie('userRole', userData.role, 30); // 30일
       
       console.log('✅ AuthProvider: 모든 쿠키 설정 완료', {
         authToken: '설정됨 (1일)',
@@ -174,6 +192,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signIn = async (email: string, password: string) => {
     try {
       setError(null);
+      // 프로덕션에서도 중요한 로그 유지
       console.log('🚀 AuthProvider: signIn 시작');
       await loginWithEmail(email, password);
       console.log('✅ AuthProvider: loginWithEmail 완료, onAuthStateChanged 대기 중...');
@@ -181,11 +200,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Firebase Auth의 onAuthStateChanged가 트리거되어 사용자 상태가 업데이트될 때까지 대기
       // 이는 로그인 직후 즉시 라우팅할 때 사용자 상태가 확실히 설정되도록 함
       await new Promise<void>((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 50; // 5초 최대 대기 (100ms × 50)
+        
         const checkAuth = () => {
-          if (auth.currentUser && !isLoading) {
-            console.log('✅ AuthProvider: 인증 상태 확인 완료');
+          attempts++;
+          
+          if (auth.currentUser && !isLoading && user) {
+            console.log('✅ AuthProvider: 인증 상태 확인 완료 (사용자 정보 + 쿠키 설정 완료)');
+            resolve();
+          } else if (attempts >= maxAttempts) {
+            console.warn('⚠️ AuthProvider: 인증 상태 확인 시간 초과, 진행 계속');
             resolve();
           } else {
+            if (attempts % 10 === 0) { // 1초마다 로그
+              console.log(`⏳ AuthProvider: 인증 상태 확인 중... (${attempts}/${maxAttempts})`);
+            }
             setTimeout(checkAuth, 100);
           }
         };

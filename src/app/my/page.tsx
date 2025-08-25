@@ -32,16 +32,24 @@ export default function MyPage() {
       
       // 쿠키 확인 (이메일 로그인 후 AuthProvider보다 빠를 수 있음)
       const authCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith('authToken='));
+      const uidCookie = document.cookie.split(';').find(cookie => cookie.trim().startsWith('uid='));
       
-      if (authCookie && !initialAuthCheckComplete) {
-        console.log('🍪 MyPage: 인증 쿠키 발견, AuthProvider 업데이트 대기 (이메일/카카오 로그인 후 가능성)');
+      if (authCookie && uidCookie && !initialAuthCheckComplete) {
+        console.log('🍪 MyPage: 인증 쿠키 발견, AuthProvider 업데이트 대기 (이메일/카카오 로그인 후 가능성)', {
+          hasAuthToken: !!authCookie,
+          hasUid: !!uidCookie,
+          initialCheckComplete: initialAuthCheckComplete
+        });
+        
         // 인증 쿠키가 있고 초기 인증 확인이 완료되지 않았으면 더 오래 대기
-        // 이메일 로그인 후 AuthProvider가 상태를 업데이트할 시간을 제공
+        // 프로덕션 환경에서는 네트워크 지연이 있을 수 있으므로 더 긴 대기 시간 제공
+        const waitTime = process.env.NODE_ENV === 'production' ? 5000 : 3000; // 프로덕션에서 5초
+        
         const timer = setTimeout(() => {
           console.log('🚪 MyPage: AuthProvider 대기 시간 초과, 로그인 페이지로 리다이렉트');
           setInitialAuthCheckComplete(true);
           router.push('/login?redirect=/my');
-        }, 3000); // 3초 대기 (이메일 로그인 후 충분한 시간)
+        }, waitTime);
 
         setRedirectTimer(timer);
       } else if (!authCookie) {
