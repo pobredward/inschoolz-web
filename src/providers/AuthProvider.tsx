@@ -50,27 +50,27 @@ const setCookie = (name: string, value: string, days = 30) => {
   const isProduction = process.env.NODE_ENV === 'production';
   const secureOption = isProduction ? '; secure' : '';
   
-  // SameSite 정책을 Lax로 변경하여 크로스 도메인 호환성 개선
-  // authToken의 경우 더 엄격한 정책 적용, 나머지는 Lax
-  const sameSitePolicy = name === 'authToken' ? 'strict' : 'lax';
+  // SameSite 정책을 모두 Lax로 변경하여 호환성 개선
+  // strict 정책은 일부 상황에서 쿠키 전송을 차단할 수 있음
+  const sameSitePolicy = 'lax';
   
-  // 프로덕션 환경에서 도메인 명시적 설정 (선택사항)
-  let domainOption = '';
-  if (isProduction && typeof window !== 'undefined') {
-    // 현재 도메인의 상위 도메인 추출 (예: .inschoolz.com)
-    const hostname = window.location.hostname;
-    if (hostname.includes('.')) {
-      const parts = hostname.split('.');
-      if (parts.length >= 2) {
-        domainOption = `; domain=.${parts.slice(-2).join('.')}`;
-      }
-    }
-  }
-  
-  const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}${domainOption}`;
+  // 쿠키 문자열 생성 (도메인 설정 제거 - 호환성 개선)
+  const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
   document.cookie = cookieString;
   
-  console.log(`🍪 쿠키 설정: ${name} (${days}일 지속, SameSite=${sameSitePolicy}${domainOption ? ', Domain=' + domainOption.replace('; domain=', '') : ''})`);
+  console.log(`🍪 쿠키 설정: ${name} (${days}일 지속, SameSite=${sameSitePolicy})`);
+  
+  // 프로덕션 환경에서 쿠키 설정 즉시 검증
+  if (isProduction && typeof window !== 'undefined') {
+    setTimeout(() => {
+      const allCookies = document.cookie;
+      const hasCookie = allCookies.includes(`${name}=`);
+      console.log(`🔍 [PROD] 쿠키 설정 검증: ${name} = ${hasCookie ? '성공' : '실패'}`);
+      if (!hasCookie) {
+        console.error(`❌ [PROD] 쿠키 설정 실패: ${name}`);
+      }
+    }, 50);
+  }
 };
 
 // 쿠키 삭제 함수

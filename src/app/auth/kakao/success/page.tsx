@@ -145,9 +145,16 @@ function KakaoSuccessContent() {
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             const isProduction = process.env.NODE_ENV === 'production';
             const secureOption = isProduction ? '; secure' : '';
-            // authToken은 strict, 나머지는 lax
-            const sameSitePolicy = name === 'authToken' ? 'strict' : 'lax';
-            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
+            // 모든 쿠키를 lax로 설정하여 호환성 향상
+            const sameSitePolicy = 'lax';
+            const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
+            document.cookie = cookieString;
+            
+            // 즉시 쿠키 설정 검증
+            setTimeout(() => {
+              const hasCookie = document.cookie.includes(`${name}=`);
+              console.log(`🔍 카카오 로그인 쿠키 검증: ${name} = ${hasCookie ? '성공' : '실패'}`);
+            }, 10);
           };
           
           setCookieForAuth('authToken', idToken, 1);
@@ -188,9 +195,10 @@ function KakaoSuccessContent() {
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             const isProduction = process.env.NODE_ENV === 'production';
             const secureOption = isProduction ? '; secure' : '';
-            // authToken은 strict, 나머지는 lax
-            const sameSitePolicy = name === 'authToken' ? 'strict' : 'lax';
-            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
+            // 모든 쿠키를 lax로 설정하여 호환성 향상
+            const sameSitePolicy = 'lax';
+            const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
+            document.cookie = cookieString;
           };
           
           setCookieForAuth('uid', firebaseUser.uid, 30);
