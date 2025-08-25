@@ -19,6 +19,7 @@ const publicRoutes = [
   '/community', // 커뮤니티 메인 페이지는 공개 접근 허용
   '/ranking', // 랭킹 페이지는 공개 접근 허용 (전국 랭킹은 누구나 볼 수 있음)
   '/games', // 게임 메인 페이지는 공개 접근 허용 (게임 목록은 누구나 볼 수 있음)
+  '/my', // 마이페이지도 일단 공개 경로로 설정 (클라이언트에서 인증 처리)
 ];
 
 export function middleware(request: NextRequest) {
