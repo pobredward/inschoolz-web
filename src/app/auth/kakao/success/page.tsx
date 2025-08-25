@@ -145,7 +145,9 @@ function KakaoSuccessContent() {
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             const isProduction = process.env.NODE_ENV === 'production';
             const secureOption = isProduction ? '; secure' : '';
-            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+            // authToken은 strict, 나머지는 lax
+            const sameSitePolicy = name === 'authToken' ? 'strict' : 'lax';
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
           };
           
           setCookieForAuth('authToken', idToken, 1);
@@ -186,7 +188,9 @@ function KakaoSuccessContent() {
             expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
             const isProduction = process.env.NODE_ENV === 'production';
             const secureOption = isProduction ? '; secure' : '';
-            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=strict`;
+            // authToken은 strict, 나머지는 lax
+            const sameSitePolicy = name === 'authToken' ? 'strict' : 'lax';
+            document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/${secureOption}; samesite=${sameSitePolicy}`;
           };
           
           setCookieForAuth('uid', firebaseUser.uid, 30);
@@ -212,17 +216,19 @@ function KakaoSuccessContent() {
             }
           });
           
-          // 최대 3초 대기 후 강제 진행
+          // 프로덕션 환경에서는 더 오래 대기 (네트워크 지연 고려)
+          const waitTime = process.env.NODE_ENV === 'production' ? 5000 : 3000;
           setTimeout(() => {
-            console.log('⏰ AuthProvider 대기 시간 초과, 강제 진행');
+            console.log(`⏰ AuthProvider 대기 시간 초과 (${waitTime}ms), 강제 진행`);
             unsubscribe();
             resolve();
-          }, 3000);
+          }, waitTime);
         });
         
-        // AuthProvider 상태 완전 동기화를 위해 추가 대기
-        console.log('⏳ AuthProvider 완전 동기화를 위한 추가 대기...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // AuthProvider 상태 완전 동기화를 위해 추가 대기 (프로덕션에서는 더 오래)
+        const additionalWait = process.env.NODE_ENV === 'production' ? 1000 : 500;
+        console.log(`⏳ AuthProvider 완전 동기화를 위한 추가 대기... (${additionalWait}ms)`);
+        await new Promise(resolve => setTimeout(resolve, additionalWait));
         
         // 리다이렉트 URL 결정
         const redirectUrl = sessionStorage.getItem('kakao_login_redirect') || '/';

@@ -39,8 +39,14 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
   useEffect(() => {
     if (isAuthenticated) {
       const redirectUrl = searchParams.get('redirect') || '/';
-      console.log('✅ LoginForm: 인증 완료, 즉시 리디렉션:', redirectUrl);
-      router.push(redirectUrl);
+      console.log('✅ LoginForm: 인증 완료, 리디렉션 준비:', redirectUrl);
+      
+      // 프로덕션 환경에서는 쿠키 동기화를 위해 약간 대기
+      const redirectDelay = process.env.NODE_ENV === 'production' ? 300 : 100;
+      setTimeout(() => {
+        console.log('🔄 LoginForm: 리디렉션 실행:', redirectUrl);
+        router.push(redirectUrl);
+      }, redirectDelay);
     }
   }, [isAuthenticated, router, searchParams]);
 
