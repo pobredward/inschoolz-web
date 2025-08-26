@@ -43,7 +43,7 @@
 1. **앱 설정** → **앱 키**에서 다음 키 확인:
    - **JavaScript 키**: 현재 사용 중인 키가 맞는지 확인
    ```
-   JavaScript 키: 7aa469d3bb62d3e03652579878c8e7b3
+   JavaScript 키: 380177b185226c4935a7f293190afc46
    ```
 
 ## 2. 환경 변수 설정
@@ -52,7 +52,7 @@
 
 ```env
 # 카카오 로그인 설정
-NEXT_PUBLIC_KAKAO_APP_KEY=7aa469d3bb62d3e03652579878c8e7b3
+NEXT_PUBLIC_KAKAO_APP_KEY=380177b185226c4935a7f293190afc46
 NEXT_PUBLIC_KAKAO_REDIRECT_URI=https://inschoolz.com/api/auth/callback/kakao
 
 # Firebase 관련 환경 변수들도 필요
