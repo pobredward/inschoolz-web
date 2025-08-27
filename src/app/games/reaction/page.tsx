@@ -34,6 +34,7 @@ export default function ReactionGamePage() {
   const [currentAttempt, setCurrentAttempt] = useState(1);
   const [remainingAttempts, setRemainingAttempts] = useState(5);
   const [result, setResult] = useState<GameResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [startTime, setStartTime] = useState(0);
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [rankings, setRankings] = useState<RankingUser[]>([]);
@@ -184,14 +185,24 @@ export default function ReactionGamePage() {
       // 게임 결과 저장
       finishGame(reactionTime);
     } else if (gameState === 'ready') {
-      // 너무 빨리 클릭한 경우
+      // 너무 빨리 클릭한 경우 - 기회 소모 및 게임 종료
       if (timeoutId) {
         clearTimeout(timeoutId);
         setTimeoutId(null);
       }
       
-      toast.error('너무 빨리 클릭했습니다! 초록색으로 변할 때까지 기다리세요.');
-      setGameState('waiting');
+      setErrorMessage('너무 빨라요! 😅 초록색으로 변할 때까지 기다려야 해요. 기회가 하나 차감됩니다. 다시 시도해주세요!');
+      setGameState('finished');
+      
+      // 실패한 게임으로 처리 (특별한 값으로 실패 표시)
+      const failedReactionTime = -1; // -1로 설정하여 실패 표시
+      setResult({
+        reactionTime: failedReactionTime,
+        round: currentAttempt
+      });
+      
+      // 기회 소모를 위해 게임 결과 저장 (실제로는 높은 값으로 저장하여 경험치 없음 처리)
+      finishGame(10000);
     }
   };
 
@@ -250,6 +261,7 @@ export default function ReactionGamePage() {
     }
     setGameState('waiting');
     setResult(null);
+    setErrorMessage(null);
     
     // 남은 기회 새로고침
     loadRemainingAttempts();
@@ -266,7 +278,10 @@ export default function ReactionGamePage() {
     if (gameState === 'waiting') return '게임 시작 (클릭하세요!)';
     if (gameState === 'ready') return '초록색으로 변하면 클릭!';
     if (gameState === 'active') return '지금 클릭!';
-    if (gameState === 'finished') return '게임 완료';
+    if (gameState === 'finished') {
+      if (errorMessage) return errorMessage;
+      return '게임 완료';
+    }
     return '게임 시작';
   };
 
@@ -327,7 +342,7 @@ export default function ReactionGamePage() {
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <button
             onClick={handleGameClick}
-            disabled={remainingAttempts <= 0 || gameState === 'ready'}
+            disabled={remainingAttempts <= 0}
             className={`w-full h-48 rounded-lg text-white font-bold text-xl transition-colors duration-200 ${
               remainingAttempts <= 0 
                 ? 'bg-gray-400 cursor-not-allowed' 
@@ -347,19 +362,11 @@ export default function ReactionGamePage() {
           {result && (
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <h3 className="text-lg font-semibold mb-4">게임 결과</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {(result.reactionTime / 1000).toFixed(3)}초
-                  </div>
-                  <div className="text-sm text-gray-600">반응 시간</div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {result.reactionTime === -1 ? '-초' : `${(result.reactionTime / 1000).toFixed(3)}초`}
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {Math.round(100000 / result.reactionTime)}점
-                  </div>
-                  <div className="text-sm text-gray-600">점수</div>
-                </div>
+                <div className="text-sm text-gray-600">반응 시간</div>
               </div>
             </div>
           )}
