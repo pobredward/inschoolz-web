@@ -12,12 +12,14 @@ import { z } from 'zod';
 import { registerWithEmail, checkUserNameAvailability, checkEmailExists } from '@/lib/auth';
 import { loginWithKakaoRedirect } from '@/lib/kakao';
 import Link from 'next/link';
+import { ReferralSearch } from '@/components/ui/referral-search';
 // 스키마 정의
 const emailSignupSchema = z.object({
   email: z.string().email('올바른 이메일 형식이 아닙니다.'),
   password: z.string().min(6, '비밀번호는 최소 6자 이상이어야 합니다.'),
   confirmPassword: z.string(),
   userName: z.string().min(2, '닉네임은 최소 2자 이상이어야 합니다.'),
+  referral: z.string().optional(),
   agreeTerms: z.boolean().refine(val => val === true, {
     message: '이용약관에 동의해주세요.',
   }),
@@ -47,9 +49,13 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
     password: '',
     confirmPassword: '',
     userName: '',
+    referral: '',
     agreeTerms: false,
     agreePrivacy: false,
   });
+
+  // 추천인 검색 상태
+  const [selectedReferralUser, setSelectedReferralUser] = useState<any>(null);
 
   // userName 중복 확인 상태
   const [emailUserNameStatus, setEmailUserNameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
@@ -121,7 +127,12 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
         return;
       }
       
-      await registerWithEmail(validated.email, validated.password, validated.userName);
+      await registerWithEmail({
+        email: validated.email,
+        password: validated.password,
+        userName: validated.userName,
+        referral: selectedReferralUser?.userName || validated.referral
+      });
       
       toast.success('회원가입이 완료되었습니다!');
       
@@ -295,6 +306,26 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
                   {showConfirmPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
                 </Button>
               </div>
+            </div>
+
+            {/* 추천인 아이디 */}
+            <div className="space-y-2">
+              <Label htmlFor="signup-referral" className="text-sm font-medium text-gray-700">
+                추천인 아이디 (선택사항)
+              </Label>
+              <ReferralSearch
+                value={emailFormData.referral || ''}
+                onSelect={(user) => {
+                  setSelectedReferralUser(user);
+                  if (user) {
+                    updateEmailFormData('referral', user.userName);
+                  } else {
+                    updateEmailFormData('referral', '');
+                  }
+                }}
+                placeholder="추천인 아이디를 검색하세요"
+                className="w-full"
+              />
             </div>
 
             {/* 약관 동의 */}

@@ -487,6 +487,8 @@ export interface SystemSettings {
   };
   gameSettings: {
     reactionGame: {
+      enabled?: boolean;
+      dailyLimit?: number;
       rewardThreshold: number;
       rewardAmount: number;
       thresholds?: Array<{
@@ -495,6 +497,8 @@ export interface SystemSettings {
       }>;
     };
     tileGame: {
+      enabled?: boolean;
+      dailyLimit?: number;
       rewardThreshold: number;
       rewardAmount: number;
       thresholds?: Array<{

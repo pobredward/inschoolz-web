@@ -133,10 +133,9 @@ export const checkEmailExists = async (email: string): Promise<boolean> => {
  * 이메일/비밀번호로 회원가입
  */
 export const registerWithEmail = async (
-  email: string,
-  password: string,
-  userName: string
+  userData: { email: string; password: string; userName: string; referral?: string }
 ): Promise<User> => {
+  const { email, password, userName, referral } = userData;
   try {
     // Firebase 인증으로 계정 생성
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -184,6 +183,71 @@ export const registerWithEmail = async (
     };
     
     await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+    
+    // 추천인 처리
+    if (referral && referral.trim() !== '') {
+      try {
+        // 추천인 찾기
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('profile.userName', '==', referral.trim()));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const referrerDoc = querySnapshot.docs[0];
+          const referrerId = referrerDoc.id;
+          
+          // 자기 자신 추천 방지
+          if (referrerId !== firebaseUser.uid) {
+            // 시스템 설정에서 추천인 경험치 값 가져오기
+            const { getExperienceSettings } = await import('./api/admin');
+            const expSettings = await getExperienceSettings();
+            
+            const referrerExp = expSettings.referral?.referrerXP || 30; // 추천인이 받는 경험치
+            const refereeExp = expSettings.referral?.refereeXP || 20;   // 추천받은 사람이 받는 경험치
+            
+            // 추천인 경험치 업데이트 (레벨업 계산 포함)
+            const { updateUserExperience } = await import('./experience');
+            await updateUserExperience(referrerId, referrerExp);
+            
+            // 신규 사용자 경험치 업데이트 (레벨업 계산 포함)
+            await updateUserExperience(firebaseUser.uid, refereeExp);
+
+            // 신규 사용자에게 추천인 정보 저장
+            await updateDoc(doc(db, 'users', firebaseUser.uid), {
+              referrerId: referrerId,
+              updatedAt: serverTimestamp()
+            });
+
+            // 알림 발송
+            try {
+              const { createReferralNotification, createReferralSuccessNotification } = await import('./api/notifications');
+              
+              // 추천인에게 알림
+              await createReferralNotification(
+                referrerId,
+                userName,
+                firebaseUser.uid,
+                referrerExp
+              );
+              
+              // 신규 사용자에게 알림
+              await createReferralSuccessNotification(
+                firebaseUser.uid,
+                referral.trim(),
+                referrerId,
+                refereeExp
+              );
+            } catch (notificationError) {
+              console.error('추천인 알림 발송 오류:', notificationError);
+              // 알림 실패해도 회원가입은 성공으로 처리
+            }
+          }
+        }
+      } catch (referralError) {
+        console.error('추천인 처리 오류:', referralError);
+        // 추천인 처리 실패해도 회원가입은 성공으로 처리
+      }
+    }
     
     return newUser;
   } catch (error) {

@@ -88,29 +88,36 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
           postReward: firebaseSettings.community?.postXP || 10, // 기본값 10
           commentReward: firebaseSettings.community?.commentXP || 5, // 기본값 5
           likeReward: firebaseSettings.community?.likeXP || 1, // 기본값 1
-          attendanceReward: firebaseSettings.attendance?.dailyXP || 5, // 기본값 5
-          attendanceStreakReward: firebaseSettings.attendance?.streakBonus || 10, // 기본값 10
-          referralReward: 50, // 기본값 50
+          attendanceReward: firebaseSettings.attendance?.dailyXP || 10, // 기본값 10 (Firestore와 맞춤)
+          attendanceStreakReward: firebaseSettings.attendance?.streakBonus || 5, // 기본값 5 (Firestore와 맞춤)
+          referralReward: firebaseSettings.referral?.referrerXP || 30, // 기본값 30 (Firestore와 맞춤)
           levelRequirements: LEVEL_REQUIREMENTS, // 시스템 설정에서 로드된 값 사용
         },
         dailyLimits: {
           postsForReward: firebaseSettings.community?.dailyPostLimit || 3, // 기본값 3
           commentsForReward: firebaseSettings.community?.dailyCommentLimit || 5, // 기본값 5
-          gamePlayCount: firebaseSettings.games?.reactionGame?.dailyLimit || 5 // 기본값 5
+          gamePlayCount: Math.max(
+            firebaseSettings.games?.reactionGame?.dailyLimit || 5,
+            firebaseSettings.games?.tileGame?.dailyLimit || 5
+          ) // 두 게임 중 더 높은 제한 사용
         },
         gameSettings: {
           reactionGame: {
-            rewardThreshold: 500, // 기본값 유지 (thresholds 배열로 대체됨)
-            rewardAmount: 15, // 기본값 15
+            enabled: firebaseSettings.games?.reactionGame?.enabled ?? true,
+            dailyLimit: firebaseSettings.games?.reactionGame?.dailyLimit || 5,
+            rewardThreshold: 100, // 최소 점수 (Firestore thresholds의 최소값)
+            rewardAmount: 15, // 기본 보상
             thresholds: firebaseSettings.games?.reactionGame?.thresholds || [
-              { minScore: 200, xpReward: 15 },
-              { minScore: 300, xpReward: 10 },
-              { minScore: 400, xpReward: 5 }
+              { minScore: 100, xpReward: 15 },
+              { minScore: 200, xpReward: 10 },
+              { minScore: 300, xpReward: 5 }
             ]
           },
           tileGame: {
-            rewardThreshold: 800, // 기본값 유지 (thresholds 배열로 대체됨)
-            rewardAmount: 20, // 기본값 20
+            enabled: firebaseSettings.games?.tileGame?.enabled ?? true,
+            dailyLimit: firebaseSettings.games?.tileGame?.dailyLimit || 5,
+            rewardThreshold: 50, // 최소 점수 (Firestore thresholds의 최소값)
+            rewardAmount: 15, // 기본 보상
             thresholds: firebaseSettings.games?.tileGame?.thresholds || [
               { minScore: 50, xpReward: 5 },
               { minScore: 100, xpReward: 10 },
@@ -152,15 +159,15 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     console.error('getSystemSettings - Error loading Firebase settings:', error);
   }
   
-  // 기본값 반환
+  // 기본값 반환 (Firestore 설정과 동일하게)
   return {
     experience: {
       postReward: 10,
       commentReward: 5,
       likeReward: 1,
-      attendanceReward: 5,
-      attendanceStreakReward: 10,
-      referralReward: 50,
+      attendanceReward: 10,
+      attendanceStreakReward: 5,
+      referralReward: 30,
       levelRequirements: LEVEL_REQUIREMENTS
     },
     dailyLimits: {
@@ -170,7 +177,9 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
     },
     gameSettings: {
       reactionGame: {
-        rewardThreshold: 500,
+        enabled: true,
+        dailyLimit: 5,
+        rewardThreshold: 100,
         rewardAmount: 15,
         thresholds: [
           { minScore: 100, xpReward: 15 },
@@ -179,8 +188,10 @@ export const getSystemSettings = async (): Promise<SystemSettings> => {
         ]
       },
       tileGame: {
-        rewardThreshold: 800,
-        rewardAmount: 20,
+        enabled: true,
+        dailyLimit: 5,
+        rewardThreshold: 50,
+        rewardAmount: 15,
         thresholds: [
           { minScore: 50, xpReward: 5 },
           { minScore: 100, xpReward: 10 },
