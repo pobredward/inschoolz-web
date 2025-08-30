@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Notification, NotificationType } from '@/types';
+import { sendPushNotificationToUser } from '@/lib/push-notification-sender';
 
 // 알림 생성
 export async function createNotification(data: {
@@ -677,10 +678,33 @@ export async function sendBroadcastNotification(data: {
             createdAt: serverTimestamp(),
           };
 
+          // Firebase에 알림 저장과 푸시 알림 발송을 동시에 처리
+          const firebasePromise = addDoc(collection(db, 'notifications'), notificationData);
+          const pushPromise = sendPushNotificationToUser(
+            userId,
+            data.type,
+            data.title,
+            data.message,
+            data.data
+          );
+
           batchPromises.push(
-            addDoc(collection(db, 'notifications'), notificationData)
-              .then(() => ({ success: true, userId }))
-              .catch((error) => ({ success: false, userId, error }))
+            Promise.allSettled([firebasePromise, pushPromise])
+              .then((results) => {
+                const [firebaseResult, pushResult] = results;
+                const firebaseSuccess = firebaseResult.status === 'fulfilled';
+                const pushSuccess = pushResult.status === 'fulfilled' && pushResult.value.success;
+                
+                return { 
+                  success: firebaseSuccess, // Firebase 저장 성공 여부가 주요 기준
+                  userId,
+                  pushSent: pushSuccess,
+                  firebaseError: firebaseResult.status === 'rejected' ? firebaseResult.reason : null,
+                  pushError: pushResult.status === 'rejected' ? pushResult.reason : 
+                            (pushResult.status === 'fulfilled' ? pushResult.value.error : null)
+                };
+              })
+              .catch((error) => ({ success: false, userId, error, pushSent: false }))
           );
         } catch (error) {
           results.errors.push(`사용자 ${userId} 준비 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
@@ -697,8 +721,14 @@ export async function sendBroadcastNotification(data: {
               const batchResult = result.value;
               if (batchResult.success) {
                 results.sentCount++;
+                
+                // 푸시 알림 발송 실패 시 경고 추가 (Firebase 저장은 성공)
+                if (!batchResult.pushSent && batchResult.pushError) {
+                  results.errors.push(`사용자 ${batchResult.userId}: 알림 저장 성공, 푸시 발송 실패 - ${batchResult.pushError}`);
+                }
               } else {
-                const error = 'error' in batchResult ? batchResult.error : '알 수 없는 오류';
+                const error = 'error' in batchResult ? batchResult.error : 
+                             batchResult.firebaseError || '알 수 없는 오류';
                 results.errors.push(`사용자 ${batchResult.userId}: ${error instanceof Error ? error.message : error}`);
               }
             } else {

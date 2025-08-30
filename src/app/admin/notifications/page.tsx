@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Send, X, Search, Users, User, School } from 'lucide-react';
 import { sendBroadcastNotification, searchUsers, searchSchools } from '@/lib/api/notifications';
 import { NotificationType } from '@/types';
+import { PushNotificationTester } from '@/components/admin/PushNotificationTester';
 
 type TargetType = 'all' | 'specific_users' | 'specific_school';
 
@@ -510,6 +511,13 @@ export default function AdminNotificationsPage() {
           </Card>
         )}
       </form>
+
+      {/* 푸시 알림 테스터 추가 */}
+      <div className="mt-12 pt-8 border-t border-gray-200">
+        <h2 className="text-2xl font-bold text-green-800 mb-6">🧪 푸시 알림 테스터</h2>
+        <p className="text-gray-600 mb-6">개별 사용자에게 직접 푸시 알림을 발송하여 테스트할 수 있습니다.</p>
+        <PushNotificationTester />
+      </div>
     </div>
   );
 } 
