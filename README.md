@@ -169,3 +169,4 @@ Vercel 대시보드에서 다음 환경 변수를 설정하세요:
 ---
 
 **Inschoolz** - 학생들을 위한 안전하고 재미있는 커뮤니티 플랫폼
+# Git sync test for web
