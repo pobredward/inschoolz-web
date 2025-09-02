@@ -135,6 +135,13 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <meta name="robots" content="index, follow" />
         <meta name="googlebot" content="index, follow" />
+        {/* Google AdSense */}
+        <meta name="google-adsense-account" content="ca-pub-5100840159526765" />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5100840159526765"
+          crossOrigin="anonymous"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

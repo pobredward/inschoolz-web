@@ -26,6 +26,7 @@ import PostListItem from '@/components/board/PostListItem';
 import CommunityPagination, { PaginationInfo } from '@/components/ui/community-pagination';
 import { RegionSetupModal } from '@/components/community/RegionSetupModal';
 import { SchoolSetupModal } from '@/components/community/SchoolSetupModal';
+import { ResponsiveAd, InFeedAd } from '@/components/ads/GoogleAdsense';
 
 interface CommunityPost extends Post {
   boardName: string;
@@ -800,6 +801,11 @@ export default function CommunityPageClient() {
             </div>
           </div>
 
+          {/* 상단 배너 광고 */}
+          <div className="container mx-auto px-4 py-4">
+            <ResponsiveAd className="max-w-full" />
+          </div>
+
           {/* 게시글 리스트 */}
           <div className="container mx-auto px-4 pb-4">
             {isLoading ? (
@@ -828,7 +834,17 @@ export default function CommunityPageClient() {
             ) : (
               <>
                 <div className="space-y-3">
-                  {posts.map((post) => renderPost(post))}
+                  {posts.map((post, index) => (
+                    <React.Fragment key={post.id}>
+                      {renderPost(post)}
+                      {/* 게시글 3개마다 광고 삽입 (첫 번째 광고는 2번째 게시글 다음에) */}
+                      {((index + 1) % 3 === 0 && index > 0) && (
+                        <div className="my-6">
+                          <InFeedAd className="max-w-full" />
+                        </div>
+                      )}
+                    </React.Fragment>
+                  ))}
                 </div>
                 
                 {/* 페이지네이션 */}
@@ -848,6 +864,11 @@ export default function CommunityPageClient() {
                     />
                   </div>
                 )}
+
+                {/* 하단 광고 */}
+                <div className="mt-8">
+                  <ResponsiveAd className="max-w-full" />
+                </div>
               </>
             )}
           </div>
