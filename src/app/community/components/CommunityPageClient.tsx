@@ -837,8 +837,8 @@ export default function CommunityPageClient() {
                   {posts.map((post, index) => (
                     <React.Fragment key={post.id}>
                       {renderPost(post)}
-                      {/* 게시글 3개마다 광고 삽입 (첫 번째 광고는 2번째 게시글 다음에) */}
-                      {((index + 1) % 3 === 0 && index > 0) && (
+                      {/* 게시글 5개마다 광고 삽입 (첫 번째 광고는 4번째 게시글 다음에) */}
+                      {((index + 1) % 5 === 0 && index > 3) && (
                         <div className="my-6">
                           <InFeedAd className="max-w-full" />
                         </div>
