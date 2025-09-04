@@ -5,7 +5,7 @@
 google.com, pub-5100840159526765, DIRECT, f08c47fec0942fa0
 
 # Google AdSense (웹사이트용) - 동일한 Publisher ID 사용 가능
-# google.com, pub-5100840159526765, DIRECT, f08c47fec0942fa0
+google.com, pub-5100840159526765, DIRECT, f08c47fec0942fa0
 
 # 추가 광고 네트워크가 있을 경우 여기에 추가
 # 예시:
