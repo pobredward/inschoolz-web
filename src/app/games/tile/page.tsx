@@ -32,12 +32,12 @@ export default function TileGamePage() {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [finalScore, setFinalScore] = useState(0);
   const [gameStartTime, setGameStartTime] = useState<number>(0);
-  const [remainingAttempts, setRemainingAttempts] = useState(5);
+  const [remainingAttempts, setRemainingAttempts] = useState(3);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  const totalPairs = 8; // 4x4 grid with 8 pairs
+  const totalPairs = 6; // 3x4 grid with 6 pairs
   const maxTime = 120; // 2 minutes
-  const maxAttempts = 5;
+  const maxAttempts = 3;
 
   // 남은 기회 실시간 조회
   const loadRemainingAttempts = async () => {
@@ -49,7 +49,7 @@ export default function TileGamePage() {
       
       if (statsResponse.success && statsResponse.data) {
         const todayPlays = statsResponse.data.todayPlays.tileGame || 0;
-        const maxPlays = statsResponse.data.maxPlays || 5;
+        const maxPlays = 3; // 타일 게임은 3번으로 고정
         const remaining = Math.max(0, maxPlays - todayPlays);
         
         setRemainingAttempts(remaining);
@@ -92,28 +92,37 @@ export default function TileGamePage() {
       return;
     }
     
-    // 플레이 전 제한 재확인
-    try {
-      const { checkDailyLimit } = await import('@/lib/experience');
-      const limitCheck = await checkDailyLimit(user.uid, 'games', 'tileGame');
-      if (!limitCheck.canEarnExp) {
-        toast.error(`오늘의 타일 게임 플레이 횟수를 모두 사용했습니다. (${limitCheck.currentCount}/${limitCheck.limit})`);
+    // 플레이 전 제한 재확인 (새 게임 시작시에만)
+    if (gameState !== 'finished') {
+      try {
+        const { checkDailyLimit } = await import('@/lib/experience');
+        const limitCheck = await checkDailyLimit(user.uid, 'games', 'tileGame');
+        if (!limitCheck.canEarnExp) {
+          toast.error(`오늘의 타일 게임 플레이 횟수를 모두 사용했습니다. (${limitCheck.currentCount}/${limitCheck.limit})`);
+          return;
+        }
+      } catch (error) {
+        console.error('제한 확인 오류:', error);
+        toast.error('게임을 시작할 수 없습니다.');
         return;
       }
-    } catch (error) {
-      console.error('제한 확인 오류:', error);
-      toast.error('게임을 시작할 수 없습니다.');
-      return;
     }
+    
+    // 게임 상태 완전 초기화
+    setFlippedTiles([]);
+    setMoves(0);
+    setMatches(0);
+    setTimeElapsed(0);
+    setFinalScore(0);
+    setGameStartTime(performance.now());
     
     initializeGame();
     setGameState('playing');
-    setGameStartTime(performance.now());
   };
 
   // 타일 클릭 처리
   const handleTileClick = (tileId: number) => {
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || flippedTiles.length >= 2) return;
     
     const tile = tiles.find(t => t.id === tileId);
     if (!tile || tile.isFlipped || tile.isMatched) return;
@@ -141,13 +150,16 @@ export default function TileGamePage() {
               ? { ...t, isMatched: true }
               : t
           ));
-          setMatches(prev => prev + 1);
+          setMatches(prev => {
+            const newMatches = prev + 1;
+            // 모든 매치 완료 체크
+            if (newMatches === totalPairs) {
+              // 약간의 지연을 두고 게임 완료
+              setTimeout(() => finishGame(), 500);
+            }
+            return newMatches;
+          });
           setFlippedTiles([]);
-          
-          // 모든 매치 완료 체크
-          if (matches + 1 === totalPairs) {
-            finishGame();
-          }
         }, 1000);
       } else {
         // 매치 실패
@@ -169,10 +181,10 @@ export default function TileGamePage() {
     const totalTime = Math.floor((endTime - gameStartTime) / 1000);
     setTimeElapsed(totalTime);
     
-    // 점수 계산: 기본 점수 1000에서 시간과 움직임에 따라 감점
-    const timeBonus = Math.max(0, maxTime - totalTime) * 10;
-    const moveBonus = Math.max(0, (totalPairs * 2) - moves) * 20;
-    const score = Math.max(100, 1000 + timeBonus + moveBonus);
+    // 움직임 횟수 기반 점수 계산 (시간 제거)
+    const optimalMoves = totalPairs; // 최적 움직임 = 쌍의 개수 (6번)
+    const moveScore = Math.max(0, (optimalMoves * 2 - moves + optimalMoves) * 100); // 움직임이 적을수록 높은 점수
+    const score = Math.max(100, moveScore);
     
     setFinalScore(score);
     setGameState('finished');
@@ -180,7 +192,8 @@ export default function TileGamePage() {
     // Firebase에 점수 저장
     if (user?.uid) {
       try {
-        const result = await updateGameScore(user.uid, 'tileGame', score);
+        // 움직임 횟수를 점수로 전달 (경험치 계산용)
+        const result = await updateGameScore(user.uid, 'tileGame', moves);
         if (result.success) {
           // 경험치 모달 표시
           if (result.leveledUp && result.oldLevel && result.newLevel) {
@@ -209,9 +222,9 @@ export default function TileGamePage() {
 
   // 타이머
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: NodeJS.Timeout | null = null;
     
-    if (gameState === 'playing') {
+    if (gameState === 'playing' && gameStartTime > 0) {
       interval = setInterval(() => {
         const elapsed = Math.floor((performance.now() - gameStartTime) / 1000);
         setTimeElapsed(elapsed);
@@ -223,9 +236,12 @@ export default function TileGamePage() {
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
     };
-  }, [gameState, gameStartTime]);
+  }, [gameState, gameStartTime, maxTime]);
 
   // 게임 초기화 및 사용자 데이터 로드 (컴포넌트 마운트 시)
   useEffect(() => {
@@ -236,7 +252,7 @@ export default function TileGamePage() {
   }, [initializeGame, user?.uid]);
 
   const getEmojiForValue = (value: number) => {
-    const emojis = ['🍎', '🍌', '🍇', '🍊', '🍓', '🥝', '🍑', '🥭'];
+    const emojis = ['🍎', '🍌', '🍇', '🍊', '🍓', '🥝'];
     return emojis[value - 1] || '❓';
   };
 
@@ -244,17 +260,23 @@ export default function TileGamePage() {
   const timeProgress = ((maxTime - timeElapsed) / maxTime) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto px-4">
         {/* 헤더 */}
-        <div className="flex items-center justify-between mb-6">
-          <Link href="/games">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              게임 목록
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" asChild>
+              <Link href="/games">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                게임 홈
+              </Link>
             </Button>
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900">🧩 타일 매칭 게임</h1>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">🧩 타일 매칭 게임</h1>
+              <p className="text-gray-600">같은 그림의 타일을 찾아 매칭하세요!</p>
+            </div>
+          </div>
+          
           <div className="flex items-center gap-4">
             {isLoadingStats ? (
               <div className="text-sm text-gray-500">로딩 중...</div>
@@ -313,52 +335,58 @@ export default function TileGamePage() {
         )}
 
         {/* 게임 영역 */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            {gameState === 'waiting' && (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">🧩</div>
-                <h2 className="text-2xl font-bold mb-4">타일 매칭 게임</h2>
-                <p className="text-gray-600 mb-6">
-                  같은 그림의 타일 두 개를 찾아 매칭하세요!<br />
-                  빠른 시간과 적은 움직임으로 높은 점수를 획득하세요.
-                </p>
-                
-                {!user ? (
-                  <div className="space-y-4">
-                    <p className="text-amber-600 font-medium">로그인이 필요합니다</p>
-                    <Button asChild size="lg" className="gap-2">
-                      <Link href="/login">
-                        <Zap className="w-5 h-5" />
-                        로그인하기
-                      </Link>
-                    </Button>
-                  </div>
-                ) : remainingAttempts <= 0 ? (
-                  <div className="space-y-4">
-                    <p className="text-red-600 font-medium">오늘의 기회를 모두 사용했습니다</p>
-                    <Button disabled size="lg" className="gap-2">
-                      <Zap className="w-5 h-5" />
-                      기회 소진
-                    </Button>
-                  </div>
-                ) : (
-                  <Button onClick={startGame} size="lg" className="gap-2">
-                    <Zap className="w-5 h-5" />
-                    게임 시작
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          {gameState === 'waiting' && (
+            <div className="text-center py-12">
+              {!user ? (
+                <div className="space-y-4">
+                  <div className="text-6xl mb-4">🧩</div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">로그인이 필요합니다</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    타일 매칭 게임을 플레이하려면 로그인해주세요.
+                  </p>
+                  <Button asChild>
+                    <Link href="/login">로그인하기</Link>
                   </Button>
-                )}
-              </div>
-            )}
+                </div>
+              ) : remainingAttempts <= 0 ? (
+                <div className="space-y-4">
+                  <div className="text-6xl mb-4">😴</div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">오늘의 기회 소진</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    내일 다시 도전해보세요!
+                  </p>
+                  <Button disabled size="lg">
+                    기회 소진
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="text-6xl mb-4">🧩</div>
+                  <h2 className="text-2xl font-bold mb-4">타일 매칭 게임</h2>
+                  <p className="text-gray-600 mb-6">
+                    3x4 격자에서 6쌍의 타일을 모두 매칭하세요!<br />
+                    적은 움직임으로 완료할수록 더 많은 경험치를 획득합니다.
+                  </p>
+                  <button
+                    onClick={startGame}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors"
+                  >
+                    🎮 게임 시작 (클릭하세요!)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
             {gameState === 'playing' && (
-              <div className="grid grid-cols-4 gap-3 max-w-md mx-auto">
+              <div className="grid grid-cols-3 gap-4 max-w-md mx-auto justify-items-center">
                 {tiles.map((tile) => (
                   <button
                     key={tile.id}
                     onClick={() => handleTileClick(tile.id)}
                     className={`
-                      aspect-square rounded-lg border-2 text-3xl font-bold transition-all duration-300
+                      aspect-square rounded-lg border-2 text-4xl font-bold transition-all duration-300 h-20 w-20
                       ${tile.isMatched 
                         ? 'bg-green-100 border-green-300 text-green-600' 
                         : tile.isFlipped 
@@ -408,39 +436,36 @@ export default function TileGamePage() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </div>
 
-        {/* 게임 설명 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="w-5 h-5" />
-              게임 방법
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">🎯 목표</h4>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• 4x4 격자에서 8쌍의 타일을 모두 매칭</li>
-                  <li>• 빠른 시간과 적은 움직임으로 고득점 달성</li>
-                  <li>• 800점 이상으로 경험치를 획득하세요!</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">📊 점수 계산</h4>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• 기본 점수: 1000점</li>
-                  <li>• 시간 보너스: 남은 시간 × 10점</li>
-                  <li>• 움직임 보너스: 최소 움직임 대비 × 20점</li>
-                  <li>• 제한 시간: 2분</li>
-                </ul>
-              </div>
+        {/* 경험치 정보 */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-xl font-bold text-center mb-4">⭐ 경험치 정보</h3>
+          <p className="text-center text-gray-600 mb-6">
+            움직임 횟수가 적을수록 더 많은 경험치를 획득할 수 있습니다!
+          </p>
+          <div className="space-y-3 max-w-md mx-auto">
+            <div className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg">
+              <span className="font-medium text-gray-700">7번 이하</span>
+              <Badge className="bg-yellow-100 text-yellow-800">+15 XP</Badge>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg">
+              <span className="font-medium text-gray-700">8-10번</span>
+              <Badge className="bg-yellow-100 text-yellow-800">+10 XP</Badge>
+            </div>
+            <div className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg">
+              <span className="font-medium text-gray-700">11-13번</span>
+              <Badge className="bg-yellow-100 text-yellow-800">+5 XP</Badge>
+            </div>
+            <div className="flex justify-between items-center bg-gray-50 px-4 py-2 rounded-lg">
+              <span className="font-medium text-gray-700">14번 이상</span>
+              <Badge className="bg-yellow-100 text-yellow-800">+0 XP</Badge>
+            </div>
+          </div>
+          <p className="text-center text-sm text-gray-500 italic mt-4">
+            💡 팁: 최적 움직임은 6번입니다. 7번 이하로 완료하면 경험치를 획득할 수 있어요!
+          </p>
+        </div>
       </div>
     </div>
   );
