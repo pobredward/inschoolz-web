@@ -29,10 +29,10 @@ const games: Game[] = [
   {
     id: 'tile',
     name: '타일 매칭 게임',
-    description: '곧 출시 예정입니다',
+    description: '같은 그림을 찾아 매칭하고 경험치를 획득하세요!',
     icon: Grid3X3,
     route: '/games/tile',
-    isActive: false
+    isActive: true
   },
   {
     id: 'calculation',

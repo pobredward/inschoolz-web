@@ -13,6 +13,7 @@ const publicRoutes = [
   '/privacy',
   '/sitemap.xml',
   '/robots.txt',
+  '/ads.txt',
   '/youth-protection',
   '/help',
   '/support',

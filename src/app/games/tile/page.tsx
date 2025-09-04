@@ -7,8 +7,9 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, RotateCcw, Trophy, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { updateGameScore } from '@/lib/api/games';
+import { updateGameScore, getUserGameStats } from '@/lib/api/games';
 import { useAuth } from '@/providers/AuthProvider';
+import { useExperience } from '@/providers/experience-provider';
 import { toast } from 'sonner';
 
 type GameState = 'waiting' | 'playing' | 'finished';
@@ -22,6 +23,7 @@ interface Tile {
 
 export default function TileGamePage() {
   const { user } = useAuth();
+  const { showExpGain, showLevelUp, refreshUserStats } = useExperience();
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [flippedTiles, setFlippedTiles] = useState<number[]>([]);
@@ -30,9 +32,34 @@ export default function TileGamePage() {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [finalScore, setFinalScore] = useState(0);
   const [gameStartTime, setGameStartTime] = useState<number>(0);
+  const [remainingAttempts, setRemainingAttempts] = useState(5);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   const totalPairs = 8; // 4x4 grid with 8 pairs
   const maxTime = 120; // 2 minutes
+  const maxAttempts = 5;
+
+  // 남은 기회 실시간 조회
+  const loadRemainingAttempts = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      setIsLoadingStats(true);
+      const statsResponse = await getUserGameStats(user.uid);
+      
+      if (statsResponse.success && statsResponse.data) {
+        const todayPlays = statsResponse.data.todayPlays.tileGame || 0;
+        const maxPlays = statsResponse.data.maxPlays || 5;
+        const remaining = Math.max(0, maxPlays - todayPlays);
+        
+        setRemainingAttempts(remaining);
+      }
+    } catch (error) {
+      console.error('게임 통계 로드 실패:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
   
   // 게임 초기화
   const initializeGame = useCallback(() => {
@@ -155,10 +182,27 @@ export default function TileGamePage() {
       try {
         const result = await updateGameScore(user.uid, 'tileGame', score);
         if (result.success) {
-          // 성공 처리는 UI에서 표시됨
+          // 경험치 모달 표시
+          if (result.leveledUp && result.oldLevel && result.newLevel) {
+            showLevelUp(result.xpEarned || 0, result.oldLevel, result.newLevel);
+          } else if (result.xpEarned && result.xpEarned > 0) {
+            showExpGain(
+              result.xpEarned, 
+              `타일 게임 완료! ${score}점 획득`
+            );
+          } else {
+            toast.info(`게임 완료! ${score}점 획득 (경험치 없음)`);
+          }
+          
+          // 성공 시 남은 기회 업데이트
+          loadRemainingAttempts();
+          refreshUserStats(); // 실시간 사용자 통계 새로고침
+        } else {
+          toast.error(result.message || '점수 저장에 실패했습니다.');
         }
       } catch (error) {
         console.error('게임 점수 저장 실패:', error);
+        toast.error('게임 결과 저장 중 오류가 발생했습니다.');
       }
     }
   };
@@ -183,10 +227,13 @@ export default function TileGamePage() {
     };
   }, [gameState, gameStartTime]);
 
-  // 게임 초기화 (컴포넌트 마운트 시)
+  // 게임 초기화 및 사용자 데이터 로드 (컴포넌트 마운트 시)
   useEffect(() => {
     initializeGame();
-  }, [initializeGame]);
+    if (user?.uid) {
+      loadRemainingAttempts();
+    }
+  }, [initializeGame, user?.uid]);
 
   const getEmojiForValue = (value: number) => {
     const emojis = ['🍎', '🍌', '🍇', '🍊', '🍓', '🥝', '🍑', '🥭'];
@@ -208,7 +255,18 @@ export default function TileGamePage() {
             </Button>
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">🧩 타일 매칭 게임</h1>
-          <div className="w-20" /> {/* 스페이서 */}
+          <div className="flex items-center gap-4">
+            {isLoadingStats ? (
+              <div className="text-sm text-gray-500">로딩 중...</div>
+            ) : (
+              <div className="text-right">
+                <div className="text-sm text-gray-500">오늘 남은 기회</div>
+                <div className="text-xl font-bold text-blue-600">
+                  {remainingAttempts}/{maxAttempts}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 게임 상태 */}
@@ -265,10 +323,31 @@ export default function TileGamePage() {
                   같은 그림의 타일 두 개를 찾아 매칭하세요!<br />
                   빠른 시간과 적은 움직임으로 높은 점수를 획득하세요.
                 </p>
-                <Button onClick={startGame} size="lg" className="gap-2">
-                  <Zap className="w-5 h-5" />
-                  게임 시작
-                </Button>
+                
+                {!user ? (
+                  <div className="space-y-4">
+                    <p className="text-amber-600 font-medium">로그인이 필요합니다</p>
+                    <Button asChild size="lg" className="gap-2">
+                      <Link href="/login">
+                        <Zap className="w-5 h-5" />
+                        로그인하기
+                      </Link>
+                    </Button>
+                  </div>
+                ) : remainingAttempts <= 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-red-600 font-medium">오늘의 기회를 모두 사용했습니다</p>
+                    <Button disabled size="lg" className="gap-2">
+                      <Zap className="w-5 h-5" />
+                      기회 소진
+                    </Button>
+                  </div>
+                ) : (
+                  <Button onClick={startGame} size="lg" className="gap-2">
+                    <Zap className="w-5 h-5" />
+                    게임 시작
+                  </Button>
+                )}
               </div>
             )}
 
@@ -316,11 +395,7 @@ export default function TileGamePage() {
                   </div>
                 </div>
 
-                {finalScore >= 800 && (
-                  <Badge variant="secondary" className="mb-4">
-                    ⭐ 경험치 +20 XP 획득!
-                  </Badge>
-                )}
+                {/* Firebase 설정에서 실제 경험치 계산됨 */}
 
                 <div className="flex gap-3 justify-center">
                   <Button onClick={startGame} className="gap-2">
@@ -351,7 +426,7 @@ export default function TileGamePage() {
                 <ul className="space-y-1 text-gray-600">
                   <li>• 4x4 격자에서 8쌍의 타일을 모두 매칭</li>
                   <li>• 빠른 시간과 적은 움직임으로 고득점 달성</li>
-                  <li>• 800점 이상 시 경험치 +20 XP 획득</li>
+                  <li>• 800점 이상으로 경험치를 획득하세요!</li>
                 </ul>
               </div>
               <div>
