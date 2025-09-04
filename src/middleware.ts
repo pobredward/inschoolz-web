@@ -14,6 +14,7 @@ const publicRoutes = [
   '/sitemap.xml',
   '/robots.txt',
   '/ads.txt',
+  '/app-ads.txt',
   '/youth-protection',
   '/help',
   '/support',
