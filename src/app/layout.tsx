@@ -135,23 +135,24 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <meta name="robots" content="index, follow" />
         <meta name="googlebot" content="index, follow" />
-        {/* Google AdSense */}
-        <meta name="google-adsense-account" content="ca-pub-5100840159526765" />
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5100840159526765"
-          crossOrigin="anonymous"
-        />
+        {/* 리워드 광고는 모바일 앱에서만 제공 */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                if (localStorage.getItem('inschoolz-theme') === 'dark') {
-                  document.documentElement.classList.add('dark')
+                if (typeof window !== 'undefined' && window.localStorage) {
+                  const theme = localStorage.getItem('inschoolz-theme');
+                  if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.add('light');
+                  }
                 } else {
-                  document.documentElement.classList.add('light')
+                  document.documentElement.classList.add('light');
                 }
-              } catch (_) {}
+              } catch (_) {
+                document.documentElement.classList.add('light');
+              }
             `,
           }}
         />

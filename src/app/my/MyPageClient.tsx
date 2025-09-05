@@ -382,6 +382,29 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                           ></div>
                         </div>
                       </div>
+
+                      {/* 모바일 앱 리워드 광고 안내 */}
+                      <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">📱</span>
+                          <h4 className="font-semibold text-gray-800 text-sm">모바일 앱에서 경험치 받기</h4>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-xs text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <span className="text-amber-500">🎁</span>
+                            <span>+50 XP</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-green-500">⏰</span>
+                            <span>15분 간격</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-blue-500">🚀</span>
+                            <span>하루 5회</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

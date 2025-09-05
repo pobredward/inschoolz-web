@@ -26,7 +26,7 @@ import PostListItem from '@/components/board/PostListItem';
 import CommunityPagination, { PaginationInfo } from '@/components/ui/community-pagination';
 import { RegionSetupModal } from '@/components/community/RegionSetupModal';
 import { SchoolSetupModal } from '@/components/community/SchoolSetupModal';
-import { ResponsiveAd, InFeedAd } from '@/components/ads/GoogleAdsense';
+// 광고 제거: 리워디드 광고만 사용
 
 interface CommunityPost extends Post {
   boardName: string;
@@ -801,9 +801,31 @@ export default function CommunityPageClient() {
             </div>
           </div>
 
-          {/* 상단 배너 광고 */}
-          <div className="container mx-auto px-4 py-4">
-            <ResponsiveAd className="max-w-full" />
+          {/* 모바일 앱 리워드 광고 안내 */}
+          <div className="container mx-auto px-4 py-2">
+            <div className="max-w-2xl mx-auto p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-lg">📱</span>
+                  <h3 className="font-semibold text-gray-800 text-sm">모바일 앱에서 경험치 받기</h3>
+                </div>
+                
+                <div className="flex items-center justify-center gap-4 text-xs text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <span className="text-amber-500">🎁</span>
+                    <span>+50 XP</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-green-500">⏰</span>
+                    <span>15분 간격</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-blue-500">🚀</span>
+                    <span>하루 5회</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* 게시글 리스트 */}
@@ -837,12 +859,7 @@ export default function CommunityPageClient() {
                   {posts.map((post, index) => (
                     <React.Fragment key={post.id}>
                       {renderPost(post)}
-                      {/* 게시글 5개마다 광고 삽입 (첫 번째 광고는 4번째 게시글 다음에) */}
-                      {((index + 1) % 5 === 0 && index > 3) && (
-                        <div className="my-6">
-                          <InFeedAd className="max-w-full" />
-                        </div>
-                      )}
+                      {/* 피드 광고 제거 - 리워디드 광고만 사용 */}
                     </React.Fragment>
                   ))}
                 </div>
@@ -865,10 +882,7 @@ export default function CommunityPageClient() {
                   </div>
                 )}
 
-                {/* 하단 광고 */}
-                <div className="mt-8">
-                  <ResponsiveAd className="max-w-full" />
-                </div>
+                {/* 하단 광고 제거 - 리워디드 광고만 사용 */}
               </>
             )}
           </div>

@@ -333,12 +333,13 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
           </div>
           
           {/* 경험치 프로그레스 바 */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
             <div 
               className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${levelInfo.percentage}%` }}
             />
           </div>
+          
         </CardContent>
       </Card>
 
