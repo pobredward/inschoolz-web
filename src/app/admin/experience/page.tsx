@@ -51,6 +51,14 @@ interface ExperienceSettings {
     refereeXP: number;     // 추천받은 사람(B)이 받는 경험치
     enabled: boolean;      // 추천인 시스템 활성화 여부
   };
+  
+  ads: {
+    rewardedVideo: {
+      experienceReward: number;
+      dailyLimit: number;
+      cooldownMinutes: number;
+    };
+  };
 }
 
 export default function ExperienceManagementPage() {
@@ -76,11 +84,11 @@ export default function ExperienceManagementPage() {
       },
       tileGame: {
         enabled: true,
-        dailyLimit: 5,
+        dailyLimit: 3,
         thresholds: [
-          { minScore: 50, xpReward: 5 },
-          { minScore: 100, xpReward: 10 },
-          { minScore: 150, xpReward: 15 },
+          { minScore: 7, xpReward: 15 },
+          { minScore: 10, xpReward: 10 },
+          { minScore: 13, xpReward: 5 },
         ],
       },
     },
@@ -95,6 +103,14 @@ export default function ExperienceManagementPage() {
       referrerXP: 30,     // 추천인이 받는 경험치 (기본값)
       refereeXP: 30,      // 추천받은 사람이 받는 경험치 (기본값)
       enabled: true,      // 추천인 시스템 활성화
+    },
+    
+    ads: {
+      rewardedVideo: {
+        experienceReward: 30,
+        dailyLimit: 5,
+        cooldownMinutes: 30,
+      },
     },
   });
 
@@ -127,11 +143,11 @@ export default function ExperienceManagementPage() {
           },
           tileGame: {
             enabled: true,
-            dailyLimit: 5,
+            dailyLimit: 3,
             thresholds: [
-              { minScore: 50, xpReward: 5 },
-              { minScore: 100, xpReward: 10 },
-              { minScore: 150, xpReward: 15 },
+              { minScore: 7, xpReward: 15 },
+              { minScore: 10, xpReward: 10 },
+              { minScore: 13, xpReward: 5 },
             ],
           },
         },
@@ -144,6 +160,13 @@ export default function ExperienceManagementPage() {
           referrerXP: 30,
           refereeXP: 30,
           enabled: true,
+        },
+        ads: {
+          rewardedVideo: {
+            experienceReward: 30,
+            dailyLimit: 5,
+            cooldownMinutes: 30,
+          },
         },
       };
 
