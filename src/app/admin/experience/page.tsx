@@ -93,7 +93,7 @@ export default function ExperienceManagementPage() {
     
     referral: {
       referrerXP: 30,     // 추천인이 받는 경험치 (기본값)
-      refereeXP: 20,      // 추천받은 사람이 받는 경험치 (기본값)
+      refereeXP: 30,      // 추천받은 사람이 받는 경험치 (기본값)
       enabled: true,      // 추천인 시스템 활성화
     },
   });
@@ -142,7 +142,7 @@ export default function ExperienceManagementPage() {
         },
         referral: {
           referrerXP: 30,
-          refereeXP: 20,
+          refereeXP: 30,
           enabled: true,
         },
       };
@@ -291,7 +291,7 @@ export default function ExperienceManagementPage() {
     setSettings(prev => {
       const currentReferral = prev.referral || {
         referrerXP: 30,
-        refereeXP: 20,
+        refereeXP: 30,
         enabled: true,
       };
       
@@ -606,7 +606,7 @@ export default function ExperienceManagementPage() {
                   <Input
                     id="refereeXP"
                     type="number"
-                    value={settings.referral?.refereeXP ?? 20}
+                    value={settings.referral?.refereeXP ?? 30}
                     onChange={(e) => updateReferralSettings('refereeXP', parseInt(e.target.value) || 0)}
                   />
                   <p className="text-xs text-gray-500">
