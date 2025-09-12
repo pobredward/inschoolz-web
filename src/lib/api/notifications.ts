@@ -60,6 +60,17 @@ export async function createNotification(data: {
 
     const docRef = await addDoc(collection(db, 'notifications'), notificationData);
     
+    // 푸시 알림 발송 (비동기로 처리하여 에러가 발생해도 알림 생성은 성공)
+    sendPushNotificationToUser(
+      data.userId,
+      data.type,
+      data.title,
+      data.message,
+      data.data
+    ).catch(error => {
+      console.warn('푸시 알림 발송 실패 (무시하고 계속):', error);
+    });
+    
     return {
       id: docRef.id,
       userId: data.userId,
