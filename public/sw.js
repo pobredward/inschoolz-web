@@ -264,18 +264,29 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// 푸시 메시지 처리 (추후 구현 예정)
+// 푸시 메시지 처리 - 인스쿨즈 사용자 정의 아이콘
 self.addEventListener('push', (event) => {
   console.log('Push message received');
   
+  let notificationData = {};
+  if (event.data) {
+    try {
+      notificationData = event.data.json();
+    } catch (e) {
+      console.log('푸시 데이터 파싱 실패:', e);
+    }
+  }
+  
   const options = {
-    body: '새로운 알림이 있습니다!',
-    icon: '/android-icon-192x192.png',
-    badge: '/android-icon-96x96.png',
+    body: notificationData.body || '새로운 알림이 있습니다!',
+    icon: '/android-icon-192x192.png', // 인스쿨즈 로고
+    badge: '/android-icon-96x96.png',  // 작은 뱃지 아이콘
+    image: '/android-icon-192x192.png', // 큰 이미지
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: 1
+      primaryKey: 1,
+      ...notificationData.data
     },
     actions: [
       {
@@ -287,11 +298,18 @@ self.addEventListener('push', (event) => {
         action: 'close',
         title: '닫기'
       }
-    ]
+    ],
+    // 추가 시각적 개선
+    requireInteraction: false, // 자동으로 사라지지 않도록
+    tag: 'inschoolz-notification', // 중복 알림 방지
+    renotify: true // 같은 태그의 알림이 와도 다시 알림
   };
   
   event.waitUntil(
-    self.registration.showNotification('인스쿨즈', options)
+    self.registration.showNotification(
+      notificationData.title || '인스쿨즈', 
+      options
+    )
   );
 });
 
