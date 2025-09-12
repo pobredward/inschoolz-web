@@ -42,7 +42,7 @@ export async function sendExpoPushNotification(message: ExpoMessage): Promise<{
 }> {
   try {
     console.log('📡 [DEBUG] Expo API 호출 시작:', {
-      to: message.to.substring(0, 30) + '...',
+      to: Array.isArray(message.to) ? message.to[0]?.substring(0, 30) + '...' : message.to.substring(0, 30) + '...',
       title: message.title,
       url: 'https://exp.host/--/api/v2/push/send'
     });
@@ -116,14 +116,16 @@ export async function sendPushNotificationToUser(
 
     if (!pushTokens) {
       console.error('❌ [DEBUG] 푸시 토큰이 없음:', userId);
-      return { success: false, error: 'No push tokens found' };
+      console.log('💡 [INFO] 해당 사용자는 앱을 설치하지 않았거나 푸시 권한을 허용하지 않았습니다.');
+      console.log('💡 [INFO] 향후 개선: 웹 푸시 알림 또는 이메일 알림 시스템 구축 권장');
+      return { success: false, error: 'No push tokens found - user may not have app installed or push permission denied' };
     }
 
     console.log('📊 [DEBUG] 푸시 토큰 개수:', Object.keys(pushTokens).length);
     Object.entries(pushTokens).forEach(([platform, tokenData]) => {
       console.log(`📱 [DEBUG] ${platform}:`, {
-        hasToken: !!tokenData?.token,
-        tokenPreview: tokenData?.token?.substring(0, 30) + '...'
+        hasToken: !!(tokenData as any)?.token,
+        tokenPreview: (tokenData as any)?.token?.substring(0, 30) + '...'
       });
     });
 
@@ -293,17 +295,25 @@ export async function sendPushNotificationToMultipleUsers(
  */
 function getChannelIdForNotificationType(type: NotificationType): string {
   const channelMap: Record<NotificationType, string> = {
-    post_comment: 'comments',
-    comment_reply: 'comments',
-    system: 'system',
-    referral: 'referral',
-    warning: 'system',
-    suspension: 'system',
-    report_received: 'system',
-    report_resolved: 'default',
+    post_comment: 'comments',      // 게시글 댓글
+    comment_reply: 'comments',     // 댓글 대댓글
+    system: 'system',              // 시스템 알림
+    general: 'general',            // 일반 알림
+    event: 'events',               // 이벤트 알림
+    referral: 'social',            // 추천인 설정
+    warning: 'warnings',           // 경고 조치
+    suspension: 'warnings',        // 정지 조치
+    report_received: 'reports',    // 신고 접수
+    report_resolved: 'reports',    // 신고 처리
+    like: 'social',                // 좋아요 (미구현)
+    comment: 'comments',           // 댓글 (미구현)
+    reply: 'comments',             // 답글 (미구현)
+    follow: 'social',              // 팔로우 (미구현)
   };
 
-  return channelMap[type] || 'default';
+  const channelId = channelMap[type] || 'default';
+  console.log(`📱 [DEBUG] 알림 타입 ${type} → 채널 ${channelId}`);
+  return channelId;
 }
 
 /**

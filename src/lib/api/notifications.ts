@@ -67,8 +67,18 @@ export async function createNotification(data: {
       data.title,
       data.message,
       data.data
-    ).catch(error => {
-      console.warn('푸시 알림 발송 실패 (무시하고 계속):', error);
+    ).then(result => {
+      if (result.success) {
+        console.log('✅ 푸시 알림 발송 성공:', data.userId);
+      } else {
+        console.warn('⚠️ 푸시 알림 발송 실패:', result.error);
+        // 앱 푸시 토큰이 없을 경우, 웹 푸시도 시도해볼 수 있음
+        if (result.error === 'No push tokens found') {
+          console.log('💡 향후 개선: 웹 푸시 알림 시스템 구축 필요');
+        }
+      }
+    }).catch(error => {
+      console.warn('푸시 알림 발송 중 예외 발생 (무시하고 계속):', error);
     });
     
     return {
