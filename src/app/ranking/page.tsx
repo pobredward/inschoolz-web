@@ -10,7 +10,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/providers/AuthProvider';
-import { getRankings, RankingUser, RankingType } from '@/lib/api/ranking';
+import { 
+  getRankings, 
+  RankingUser, 
+  RankingType, 
+  getAggregatedRankings,
+  AggregatedRegion,
+  AggregatedSchool,
+  AggregatedRankingResponse
+} from '@/lib/api/ranking';
 import { DocumentSnapshot } from 'firebase/firestore';
 
 // 랭킹 상태 타입
@@ -18,6 +26,15 @@ interface RankingState {
   users: RankingUser[];
   hasMore: boolean;
   lastDoc?: DocumentSnapshot;
+  isLoading: boolean;
+  error?: string;
+}
+
+// 집계된 랭킹 상태 타입
+interface AggregatedRankingState {
+  regions?: AggregatedRegion[];
+  schools?: AggregatedSchool[];
+  hasMore: boolean;
   isLoading: boolean;
   error?: string;
 }
@@ -101,6 +118,176 @@ function RankingItem({ user, index, showSchool = true }: {
           </span>
         </div>
         <span className="text-xs text-gray-500">총 경험치</span>
+      </div>
+    </button>
+  );
+}
+
+// 집계된 지역 랭킹 아이템 컴포넌트
+function AggregatedRegionItem({ region, index }: { 
+  region: AggregatedRegion; 
+  index: number; 
+}) {
+  const rank = index + 1;
+  
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />;
+      case 2:
+        return <Medal className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400" />;
+      case 3:
+        return <Medal className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />;
+      default:
+        return <span className="text-base sm:text-lg font-bold text-pastel-green-600">#{rank}</span>;
+    }
+  };
+
+  const getRankBg = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200';
+      case 2:
+        return 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200';
+      case 3:
+        return 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200';
+      default:
+        return 'bg-white border-pastel-green-100 hover:bg-pastel-green-50';
+    }
+  };
+
+  return (
+    <button 
+      onClick={() => window.location.href = `/ranking/region/${region.sido}/${region.sigungu}`}
+      className={`w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all hover:shadow-md ${getRankBg(rank)}`}
+    >
+      <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12">
+        {getRankIcon(rank)}
+      </div>
+      
+      <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full">
+        <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base hover:text-blue-600 transition-colors">
+            {region.sido} {region.sigungu}
+          </h3>
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          <Users className="h-3 w-3 text-gray-500 flex-shrink-0" />
+          <span className="text-xs sm:text-sm text-gray-600">
+            {region.userCount.toLocaleString()}명 참여
+          </span>
+        </div>
+        <div className="flex items-center gap-1 mt-0.5">
+          <span className="text-xs text-gray-600">
+            평균 {region.averageExperience.toLocaleString()}XP
+          </span>
+        </div>
+      </div>
+
+      <div className="text-right flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <Star className="h-3 w-3 sm:h-4 sm:w-4 text-pastel-green-500" />
+          <span className="font-bold text-pastel-green-600 text-sm sm:text-base">
+            {region.totalExperience.toLocaleString()}
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">총 경험치</span>
+        <div className="flex items-center gap-1 mt-1">
+          <ChevronRight className="h-3 w-3 text-gray-400" />
+          <span className="text-xs text-gray-400">상세보기</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// 집계된 학교 랭킹 아이템 컴포넌트
+function AggregatedSchoolItem({ school, index }: { 
+  school: AggregatedSchool; 
+  index: number; 
+}) {
+  const rank = index + 1;
+  
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return <Crown className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-500" />;
+      case 2:
+        return <Medal className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400" />;
+      case 3:
+        return <Medal className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />;
+      default:
+        return <span className="text-base sm:text-lg font-bold text-pastel-green-600">#{rank}</span>;
+    }
+  };
+
+  const getRankBg = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200';
+      case 2:
+        return 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200';
+      case 3:
+        return 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200';
+      default:
+        return 'bg-white border-pastel-green-100 hover:bg-pastel-green-50';
+    }
+  };
+
+  return (
+    <button 
+      onClick={() => window.location.href = `/ranking/school/${school.id}`}
+      className={`w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border transition-all hover:shadow-md ${getRankBg(rank)}`}
+    >
+      <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12">
+        {getRankIcon(rank)}
+      </div>
+      
+      <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-full">
+        <School className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base hover:text-blue-600 transition-colors">
+            {school.name}
+          </h3>
+        </div>
+        <div className="flex items-center gap-1 mt-1">
+          <Users className="h-3 w-3 text-gray-500 flex-shrink-0" />
+          <span className="text-xs sm:text-sm text-gray-600">
+            {school.userCount.toLocaleString()}명 참여
+          </span>
+        </div>
+        {school.regions && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+            <span className="text-xs text-gray-600">{school.regions.sido} {school.regions.sigungu}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1 mt-0.5">
+          <span className="text-xs text-gray-600">
+            평균 {school.averageExperience.toLocaleString()}XP
+          </span>
+        </div>
+      </div>
+
+      <div className="text-right flex-shrink-0">
+        <div className="flex items-center gap-1">
+          <Star className="h-3 w-3 sm:h-4 sm:w-4 text-pastel-green-500" />
+          <span className="font-bold text-pastel-green-600 text-sm sm:text-base">
+            {school.totalExperience.toLocaleString()}
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">총 경험치</span>
+        <div className="flex items-center gap-1 mt-1">
+          <ChevronRight className="h-3 w-3 text-gray-400" />
+          <span className="text-xs text-gray-400">상세보기</span>
+        </div>
       </div>
     </button>
   );
@@ -278,6 +465,88 @@ function RankingList({
   );
 }
 
+// 집계된 랭킹 리스트 컴포넌트
+function AggregatedRankingList({ 
+  type
+}: { 
+  type: 'regional_aggregated' | 'school_aggregated';
+}) {
+  const [state, setState] = useState<AggregatedRankingState>({
+    hasMore: false,
+    isLoading: true,
+  });
+
+  const loadAggregatedRankings = async () => {
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: undefined }));
+      
+      const result = await getAggregatedRankings(type, 20);
+
+      setState(prev => ({
+        ...prev,
+        regions: type === 'regional_aggregated' ? result.regions : undefined,
+        schools: type === 'school_aggregated' ? result.schools : undefined,
+        hasMore: result.hasMore,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error('집계된 랭킹 로드 오류:', error);
+      setState(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        error: '랭킹을 불러오는 중 오류가 발생했습니다.' 
+      }));
+    }
+  };
+
+  useEffect(() => {
+    loadAggregatedRankings();
+  }, [type]);
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      {/* 랭킹 리스트 */}
+      {state.isLoading ? (
+        <RankingListSkeleton />
+      ) : state.error ? (
+        <div className="text-center py-8 text-red-500 text-sm">{state.error}</div>
+      ) : (
+        <div className="space-y-2 sm:space-y-3">
+          {type === 'regional_aggregated' && state.regions ? (
+            state.regions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                지역 랭킹 데이터가 없습니다.
+              </div>
+            ) : (
+              state.regions.map((region, index) => (
+                <AggregatedRegionItem
+                  key={region.id}
+                  region={region}
+                  index={index}
+                />
+              ))
+            )
+          ) : type === 'school_aggregated' && state.schools ? (
+            state.schools.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                학교 랭킹 데이터가 없습니다.
+              </div>
+            ) : (
+              state.schools.map((school, index) => (
+                <AggregatedSchoolItem
+                  key={school.id}
+                  school={school}
+                  index={index}
+                />
+              ))
+            )
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RankingPage() {
   const { user } = useAuth();
   const [searchQueries, setSearchQueries] = useState({
@@ -299,14 +568,14 @@ export default function RankingPage() {
       {/* 헤더 섹션 */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">랭킹</h1>
-        <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">경험치 기준 사용자 랭킹을 확인해보세요!</p>
-        {!user && (
-          <div className="p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 text-sm leading-relaxed">
-              💡 전국 랭킹은 누구나 볼 수 있지만, 학교와 지역 랭킹은 로그인이 필요합니다.
-            </p>
-          </div>
-        )}
+        <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
+          경험치 기준 랭킹을 확인해보세요! 지역/학교 탭에서는 각 지역과 학교별 총 경험치 순위를 볼 수 있습니다.
+        </p>
+        <div className="p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-green-800 text-sm leading-relaxed">
+            🏆 지역/학교 랭킹을 클릭하면 해당 지역이나 학교 내 개인 랭킹을 자세히 볼 수 있습니다!
+          </p>
+        </div>
       </div>
 
       {/* 랭킹 탭 */}
@@ -320,7 +589,6 @@ export default function RankingPage() {
           <TabsTrigger 
             value="regional" 
             className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2"
-            disabled={!user}
           >
             <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden xs:inline">지역</span>
@@ -329,7 +597,6 @@ export default function RankingPage() {
           <TabsTrigger 
             value="school" 
             className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2"
-            disabled={!user}
           >
             <School className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             <span className="hidden xs:inline">학교</span>
@@ -367,34 +634,11 @@ export default function RankingPage() {
                 지역 랭킹
               </CardTitle>
               <CardDescription className="text-sm">
-                {user?.regions?.sido && user?.regions?.sigungu 
-                  ? `${user.regions.sido} ${user.regions.sigungu} 지역 순위`
-                  : user ? '지역 정보가 없습니다' : '로그인이 필요합니다'
-                }
+                각 지역별 총 경험치 랭킹 (클릭하면 해당 지역 내 개인 랭킹을 볼 수 있습니다)
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0 sm:px-6">
-              {!user ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="mb-4 text-sm">지역 랭킹을 보려면 로그인이 필요합니다.</p>
-                  <Button asChild size="sm">
-                    <a href="/login">로그인하기</a>
-                  </Button>
-                </div>
-              ) : user.regions?.sido && user.regions?.sigungu ? (
-                <RankingList
-                  type="regional"
-                  sido={user.regions.sido}
-                  sigungu={user.regions.sigungu}
-                  searchQuery={searchQueries.regional}
-                  onSearchChange={(query) => handleSearchChange('regional', query)}
-                  currentUserId={user.uid}
-                />
-              ) : (
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  지역 정보를 설정하면 지역 랭킹을 확인할 수 있습니다.
-                </div>
-              )}
+              <AggregatedRankingList type="regional_aggregated" />
             </CardContent>
           </Card>
         </TabsContent>
@@ -407,33 +651,11 @@ export default function RankingPage() {
                 학교 랭킹
               </CardTitle>
               <CardDescription className="text-sm">
-                {user?.school?.name 
-                  ? `${user.school.name} 학교 순위`
-                  : user ? '학교 정보가 없습니다' : '로그인이 필요합니다'
-                }
+                각 학교별 총 경험치 랭킹 (클릭하면 해당 학교 내 개인 랭킹을 볼 수 있습니다)
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0 sm:px-6">
-              {!user ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="mb-4 text-sm">학교 랭킹을 보려면 로그인이 필요합니다.</p>
-                  <Button asChild size="sm">
-                    <a href="/login">로그인하기</a>
-                  </Button>
-                </div>
-              ) : user.school?.id ? (
-                <RankingList
-                  type="school"
-                  schoolId={user.school.id}
-                  searchQuery={searchQueries.school}
-                  onSearchChange={(query) => handleSearchChange('school', query)}
-                  currentUserId={user.uid}
-                />
-              ) : (
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  학교 정보를 설정하면 학교 랭킹을 확인할 수 있습니다.
-                </div>
-              )}
+              <AggregatedRankingList type="school_aggregated" />
             </CardContent>
           </Card>
         </TabsContent>

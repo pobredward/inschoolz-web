@@ -13,7 +13,7 @@ import { db } from '../firebase';
 import { z } from 'zod';
 
 // 랭킹 타입 정의
-export const RankingTypeSchema = z.enum(['national', 'regional', 'school']);
+export const RankingTypeSchema = z.enum(['national', 'regional', 'school', 'regional_aggregated', 'school_aggregated']);
 export type RankingType = z.infer<typeof RankingTypeSchema>;
 
 // 랭킹 사용자 스키마
@@ -49,6 +49,42 @@ export const RankingResponseSchema = z.object({
 });
 
 export type RankingResponse = z.infer<typeof RankingResponseSchema>;
+
+// 집계된 지역 랭킹 스키마
+export const AggregatedRegionSchema = z.object({
+  id: z.string(), // "sido-sigungu" 형태
+  sido: z.string(),
+  sigungu: z.string(),
+  totalExperience: z.number(),
+  userCount: z.number(),
+  averageExperience: z.number(),
+});
+
+export type AggregatedRegion = z.infer<typeof AggregatedRegionSchema>;
+
+// 집계된 학교 랭킹 스키마
+export const AggregatedSchoolSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  totalExperience: z.number(),
+  userCount: z.number(),
+  averageExperience: z.number(),
+  regions: z.object({
+    sido: z.string(),
+    sigungu: z.string(),
+  }).optional(),
+});
+
+export type AggregatedSchool = z.infer<typeof AggregatedSchoolSchema>;
+
+// 집계된 랭킹 응답 스키마
+export const AggregatedRankingResponseSchema = z.object({
+  regions: z.array(AggregatedRegionSchema).optional(),
+  schools: z.array(AggregatedSchoolSchema).optional(),
+  hasMore: z.boolean(),
+});
+
+export type AggregatedRankingResponse = z.infer<typeof AggregatedRankingResponseSchema>;
 
 // 랭킹 쿼리 옵션
 export interface RankingQueryOptions {
@@ -333,4 +369,147 @@ export async function getRankingPreview(
     console.error('Error fetching ranking preview:', error);
     throw error;
   }
-} 
+}
+
+/**
+ * 지역별 집계 랭킹을 조회합니다.
+ */
+export async function getAggregatedRegionalRankings(limit: number = 20): Promise<AggregatedRegion[]> {
+  try {
+    // Firebase의 '!=' 제한을 피하기 위해 모든 사용자를 가져온 후 클라이언트에서 필터링
+    // 필요한 필드만 선택하여 네트워크 사용량 최적화
+    const usersQuery = query(collection(db, 'users'));
+    
+    const querySnapshot = await getDocs(usersQuery);
+    const regionMap = new Map<string, {
+      sido: string;
+      sigungu: string;
+      totalExperience: number;
+      userCount: number;
+    }>();
+
+    querySnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const regions = data.regions;
+      const experience = data.stats?.totalExperience || 0;
+      
+      // 클라이언트에서 지역 정보가 있는 사용자만 필터링
+      if (regions?.sido && regions?.sigungu) {
+        const regionKey = `${regions.sido}-${regions.sigungu}`;
+        
+        if (regionMap.has(regionKey)) {
+          const existing = regionMap.get(regionKey)!;
+          existing.totalExperience += experience;
+          existing.userCount += 1;
+        } else {
+          regionMap.set(regionKey, {
+            sido: regions.sido,
+            sigungu: regions.sigungu,
+            totalExperience: experience,
+            userCount: 1,
+          });
+        }
+      }
+    });
+
+    // 지역별 데이터를 배열로 변환하고 총 경험치 순으로 정렬
+    const aggregatedRegions: AggregatedRegion[] = Array.from(regionMap.entries()).map(([key, data]) => ({
+      id: key,
+      sido: data.sido,
+      sigungu: data.sigungu,
+      totalExperience: data.totalExperience,
+      userCount: data.userCount,
+      averageExperience: Math.round(data.totalExperience / data.userCount),
+    })).sort((a, b) => b.totalExperience - a.totalExperience);
+
+    return aggregatedRegions.slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching aggregated regional rankings:', error);
+    throw error;
+  }
+}
+
+/**
+ * 학교별 집계 랭킹을 조회합니다.
+ */
+export async function getAggregatedSchoolRankings(limit: number = 20): Promise<AggregatedSchool[]> {
+  try {
+    // 모든 사용자 데이터를 가져온 후 클라이언트에서 학교 정보가 있는 사용자만 필터링
+    const usersQuery = query(collection(db, 'users'));
+    
+    const querySnapshot = await getDocs(usersQuery);
+    const schoolMap = new Map<string, {
+      name: string;
+      totalExperience: number;
+      userCount: number;
+      regions?: {
+        sido: string;
+        sigungu: string;
+      };
+    }>();
+
+    querySnapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const school = data.school;
+      const experience = data.stats?.totalExperience || 0;
+      
+      // 클라이언트에서 학교 정보가 있는 사용자만 필터링
+      if (school?.id && school?.name) {
+        if (schoolMap.has(school.id)) {
+          const existing = schoolMap.get(school.id)!;
+          existing.totalExperience += experience;
+          existing.userCount += 1;
+        } else {
+          schoolMap.set(school.id, {
+            name: school.name,
+            totalExperience: experience,
+            userCount: 1,
+            regions: data.regions ? {
+              sido: data.regions.sido,
+              sigungu: data.regions.sigungu,
+            } : undefined,
+          });
+        }
+      }
+    });
+
+    // 학교별 데이터를 배열로 변환하고 총 경험치 순으로 정렬
+    const aggregatedSchools: AggregatedSchool[] = Array.from(schoolMap.entries()).map(([id, data]) => ({
+      id,
+      name: data.name,
+      totalExperience: data.totalExperience,
+      userCount: data.userCount,
+      averageExperience: Math.round(data.totalExperience / data.userCount),
+      regions: data.regions,
+    })).sort((a, b) => b.totalExperience - a.totalExperience);
+
+    return aggregatedSchools.slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching aggregated school rankings:', error);
+    throw error;
+  }
+}
+
+/**
+ * 집계된 랭킹 데이터를 조회합니다.
+ */
+export async function getAggregatedRankings(type: 'regional_aggregated' | 'school_aggregated', limit: number = 20): Promise<AggregatedRankingResponse> {
+  try {
+    if (type === 'regional_aggregated') {
+      const regions = await getAggregatedRegionalRankings(limit);
+      return {
+        regions,
+        hasMore: regions.length === limit,
+      };
+    } else {
+      const schools = await getAggregatedSchoolRankings(limit);
+      return {
+        schools,
+        hasMore: schools.length === limit,
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching aggregated rankings:', error);
+    throw error;
+  }
+}
