@@ -513,3 +513,73 @@ export async function getAggregatedRankings(type: 'regional_aggregated' | 'schoo
     throw error;
   }
 }
+
+/**
+ * 지역을 검색합니다.
+ */
+export async function searchRegions(keyword: string, limit: number = 20): Promise<AggregatedRegion[]> {
+  try {
+    console.log('지역 검색 시작:', { keyword, limit });
+    
+    // 전체 지역 랭킹을 가져온 후 키워드로 필터링
+    const allRegions = await getAggregatedRegionalRankings(1000); // 충분히 큰 수로 설정
+    
+    if (!keyword.trim()) {
+      return allRegions.slice(0, limit);
+    }
+    
+    const searchKeyword = keyword.toLowerCase().trim();
+    
+    const filteredRegions = allRegions.filter(region => {
+      const sidoMatch = region.sido.toLowerCase().includes(searchKeyword);
+      const sigunguMatch = region.sigungu.toLowerCase().includes(searchKeyword);
+      const fullNameMatch = `${region.sido} ${region.sigungu}`.toLowerCase().includes(searchKeyword);
+      
+      return sidoMatch || sigunguMatch || fullNameMatch;
+    });
+    
+    console.log('지역 검색 완료:', { 
+      keyword, 
+      totalRegions: allRegions.length, 
+      filteredCount: filteredRegions.length 
+    });
+    
+    return filteredRegions.slice(0, limit);
+  } catch (error) {
+    console.error('지역 검색 오류:', error);
+    throw error;
+  }
+}
+
+/**
+ * 학교를 검색합니다.
+ */
+export async function searchSchools(keyword: string, limit: number = 20): Promise<AggregatedSchool[]> {
+  try {
+    console.log('학교 검색 시작:', { keyword, limit });
+    
+    // 전체 학교 랭킹을 가져온 후 키워드로 필터링
+    const allSchools = await getAggregatedSchoolRankings(1000); // 충분히 큰 수로 설정
+    
+    if (!keyword.trim()) {
+      return allSchools.slice(0, limit);
+    }
+    
+    const searchKeyword = keyword.toLowerCase().trim();
+    
+    const filteredSchools = allSchools.filter(school => {
+      return school.name.toLowerCase().includes(searchKeyword);
+    });
+    
+    console.log('학교 검색 완료:', { 
+      keyword, 
+      totalSchools: allSchools.length, 
+      filteredCount: filteredSchools.length 
+    });
+    
+    return filteredSchools.slice(0, limit);
+  } catch (error) {
+    console.error('학교 검색 오류:', error);
+    throw error;
+  }
+}

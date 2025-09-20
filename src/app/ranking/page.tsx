@@ -17,7 +17,9 @@ import {
   getAggregatedRankings,
   AggregatedRegion,
   AggregatedSchool,
-  AggregatedRankingResponse
+  AggregatedRankingResponse,
+  searchRegions,
+  searchSchools
 } from '@/lib/api/ranking';
 import { DocumentSnapshot } from 'firebase/firestore';
 
@@ -37,6 +39,16 @@ interface AggregatedRankingState {
   hasMore: boolean;
   isLoading: boolean;
   error?: string;
+}
+
+// 검색 상태 타입
+interface SearchState {
+  keyword: string;
+  isSearching: boolean;
+  searchResults: {
+    regions: AggregatedRegion[];
+    schools: AggregatedSchool[];
+  };
 }
 
 // 랭킹 아이템 컴포넌트
@@ -476,6 +488,16 @@ function AggregatedRankingList({
     isLoading: true,
   });
 
+  // 검색 상태
+  const [searchState, setSearchState] = useState<SearchState>({
+    keyword: '',
+    isSearching: false,
+    searchResults: {
+      regions: [],
+      schools: [],
+    },
+  });
+
   const loadAggregatedRankings = async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: undefined }));
@@ -499,14 +521,125 @@ function AggregatedRankingList({
     }
   };
 
+  // 검색 함수
+  const handleSearch = async (keyword: string) => {
+    try {
+      console.log('검색 시작:', { keyword, type });
+      
+      setSearchState(prev => ({ 
+        ...prev, 
+        keyword, 
+        isSearching: true 
+      }));
+
+      if (type === 'regional_aggregated') {
+        const regions = await searchRegions(keyword, 20);
+        setSearchState(prev => ({
+          ...prev,
+          searchResults: { ...prev.searchResults, regions },
+          isSearching: false,
+        }));
+      } else if (type === 'school_aggregated') {
+        const schools = await searchSchools(keyword, 20);
+        setSearchState(prev => ({
+          ...prev,
+          searchResults: { ...prev.searchResults, schools },
+          isSearching: false,
+        }));
+      }
+      
+      console.log('검색 완료');
+    } catch (error) {
+      console.error('검색 오류:', error);
+      setSearchState(prev => ({ 
+        ...prev, 
+        isSearching: false 
+      }));
+    }
+  };
+
+  // 검색 초기화
+  const clearSearch = () => {
+    setSearchState({
+      keyword: '',
+      isSearching: false,
+      searchResults: {
+        regions: [],
+        schools: [],
+      },
+    });
+  };
+
   useEffect(() => {
     loadAggregatedRankings();
+    // 타입 변경 시 검색 상태 초기화
+    clearSearch();
   }, [type]);
 
   return (
     <div className="space-y-3 sm:space-y-4">
+      {/* 검색 바 */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Input
+          type="text"
+          placeholder={
+            type === 'regional_aggregated' 
+              ? "지역명으로 검색 (예: 서울, 강남구)"
+              : "학교명으로 검색"
+          }
+          value={searchState.keyword}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="pl-10 pr-10"
+        />
+        {searchState.keyword && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0"
+            onClick={clearSearch}
+          >
+            ×
+          </Button>
+        )}
+      </div>
+
       {/* 랭킹 리스트 */}
-      {state.isLoading ? (
+      {searchState.isSearching ? (
+        // 검색 중
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+      ) : searchState.keyword ? (
+        // 검색 결과 표시
+        type === 'regional_aggregated' ? (
+          searchState.searchResults.regions.length > 0 ? (
+            searchState.searchResults.regions.map((region, index) => (
+              <AggregatedRegionItem key={region.id} region={region} index={index} />
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <Search className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">검색 결과가 없습니다</h3>
+              <p className="text-gray-500">'{searchState.keyword}'와 일치하는 지역이 없습니다.</p>
+            </div>
+          )
+        ) : (
+          searchState.searchResults.schools.length > 0 ? (
+            searchState.searchResults.schools.map((school, index) => (
+              <AggregatedSchoolItem key={school.id} school={school} index={index} />
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <Search className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">검색 결과가 없습니다</h3>
+              <p className="text-gray-500">'{searchState.keyword}'와 일치하는 학교가 없습니다.</p>
+            </div>
+          )
+        )
+      ) : state.isLoading ? (
         <RankingListSkeleton />
       ) : state.error ? (
         <div className="text-center py-8 text-red-500 text-sm">{state.error}</div>
