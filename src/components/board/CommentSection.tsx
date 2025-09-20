@@ -228,13 +228,6 @@ function CommentForm({
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-3">
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={placeholder}
-          disabled={isSubmitting}
-          className="min-h-[80px] resize-none"
-        />
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input
@@ -243,8 +236,17 @@ function CommentForm({
               onChange={(e) => setIsAnonymous(e.target.checked)}
               className="rounded"
             />
-            익명으로 작성
+            익명
           </label>
+        </div>
+        <Textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder={placeholder}
+          disabled={isSubmitting}
+          className="min-h-[80px] resize-none"
+        />
+        <div className="flex items-center justify-end">
           <div className="flex gap-2">
             {onCancel && (
               <Button
