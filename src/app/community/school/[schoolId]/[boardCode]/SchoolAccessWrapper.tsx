@@ -14,7 +14,7 @@ interface SchoolAccessWrapperProps {
 }
 
 export default function SchoolAccessWrapper({ schoolId, children }: SchoolAccessWrapperProps) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [accessError, setAccessError] = useState<string>('');
   const [schoolName, setSchoolName] = useState<string>('');
@@ -22,6 +22,11 @@ export default function SchoolAccessWrapper({ schoolId, children }: SchoolAccess
 
   useEffect(() => {
     const checkAccess = async () => {
+      // 인증 로딩 중이면 대기
+      if (authLoading) {
+        return;
+      }
+      
       if (!user) {
         setHasAccess(false);
         setAccessError('로그인이 필요합니다.');
@@ -53,14 +58,16 @@ export default function SchoolAccessWrapper({ schoolId, children }: SchoolAccess
     };
 
     checkAccess();
-  }, [user, schoolId]);
+  }, [user, schoolId, authLoading]);
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="container mx-auto py-8 px-4 md:px-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">접근 권한을 확인하는 중...</p>
+          <p className="text-muted-foreground">
+            {authLoading ? '로그인 정보 확인 중...' : '접근 권한을 확인하는 중...'}
+          </p>
         </div>
       </div>
     );

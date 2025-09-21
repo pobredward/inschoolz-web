@@ -28,7 +28,7 @@ interface RankingUser {
 }
 
 export default function ReactionGamePage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { showExpGain, showLevelUp, refreshUserStats } = useExperience();
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [currentAttempt, setCurrentAttempt] = useState(1);
@@ -288,6 +288,26 @@ export default function ReactionGamePage() {
     return '게임 시작';
   };
 
+  // 로딩 중일 때 로딩 화면 표시
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">로그인 정보 확인 중...</h3>
+              <p className="text-sm text-gray-500">
+                잠시만 기다려주세요.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 로그인되지 않은 경우
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">

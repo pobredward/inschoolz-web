@@ -45,7 +45,7 @@ const SORT_OPTIONS = [
 export default function CommunityPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, suspensionStatus } = useAuth();
+  const { user, suspensionStatus, isLoading: authLoading } = useAuth();
   
   // 사용자 상태 디버깅
   useEffect(() => {
@@ -612,7 +612,20 @@ export default function CommunityPageClient() {
   };
 
   // 로그인이 필요한 탭인지 확인
-  const isLoginRequired = (selectedTab === 'school' || selectedTab === 'regional') && !user;
+  const isLoginRequired = (selectedTab === 'school' || selectedTab === 'regional') && !user && !authLoading;
+
+  // 로딩 화면 렌더링 (인증 상태 확인 중)
+  const renderAuthLoading = () => (
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">로그인 정보 확인 중...</h2>
+        <p className="text-gray-600">
+          {selectedTab === 'school' ? '학교' : '지역'} 게시판 접근 권한을 확인하고 있습니다.
+        </p>
+      </div>
+    </div>
+  );
 
   // 로그인 안내 화면 렌더링
   const renderLoginRequired = () => (
@@ -664,8 +677,10 @@ export default function CommunityPageClient() {
         </div>
       </div>
 
-      {/* 로그인이 필요한 탭에서는 로그인 안내 화면 표시 */}
-      {isLoginRequired ? (
+      {/* 인증 로딩 중일 때는 로딩 화면 표시 */}
+      {authLoading && (selectedTab === 'school' || selectedTab === 'regional') ? (
+        renderAuthLoading()
+      ) : isLoginRequired ? (
         renderLoginRequired()
       ) : (
         <>

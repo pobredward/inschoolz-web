@@ -31,7 +31,7 @@ interface RankingUser {
 }
 
 export default function TileGamePage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { showExpGain, showLevelUp, refreshUserStats } = useExperience();
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [tiles, setTiles] = useState<Tile[]>([]);
@@ -382,7 +382,18 @@ export default function TileGamePage() {
 
         {/* 게임 영역 */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          {gameState === 'waiting' && (
+          {/* 로딩 중일 때 */}
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="space-y-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">로그인 정보 확인 중...</h3>
+                <p className="text-sm text-gray-500">
+                  잠시만 기다려주세요.
+                </p>
+              </div>
+            </div>
+          ) : gameState === 'waiting' && (
             <div className="text-center py-12">
               {!user ? (
                 <div className="space-y-4">
