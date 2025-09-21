@@ -1211,8 +1211,12 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
       }
     }
 
-    // 정렬 추가
-    constraints.push(orderBy(sortBy, sortOrder));
+    // 정렬 추가 (필드 경로 매핑)
+    let sortField = sortBy;
+    if (sortBy === 'totalExperience') {
+      sortField = 'stats.totalExperience';
+    }
+    constraints.push(orderBy(sortField, sortOrder));
 
     // 페이지네이션
     const offset = (page - 1) * pageSize;
