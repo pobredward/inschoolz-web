@@ -9,7 +9,7 @@ import { getExperienceSettings } from '@/lib/api/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Home, Trophy, Medal, Zap } from 'lucide-react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 
@@ -49,6 +49,7 @@ export default function ReactionGamePage() {
       const usersRef = collection(db, 'users');
       const rankingQuery = query(
         usersRef,
+        where('gameStats.reactionGame.bestReactionTime', '>', 0),
         orderBy('gameStats.reactionGame.bestReactionTime', 'asc'),
         limit(10)
       );
@@ -58,11 +59,13 @@ export default function ReactionGamePage() {
       
       snapshot.forEach((doc) => {
         const userData = doc.data();
-        if (userData.gameStats?.reactionGame?.bestReactionTime && userData.gameStats.reactionGame.bestReactionTime > 0) {
+        const bestReactionTime = userData.gameStats?.reactionGame?.bestReactionTime;
+        
+        if (bestReactionTime) {
           rankingData.push({
             id: doc.id,
             nickname: userData.profile?.userName || userData.profile?.nickname || '익명',
-            bestReactionTime: userData.gameStats.reactionGame.bestReactionTime,
+            bestReactionTime: bestReactionTime,
             schoolName: userData.school?.name
           });
         }
