@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, RotateCcw, Trophy, Star, Zap } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Trophy, Star, Zap, Medal } from 'lucide-react';
 import Link from 'next/link';
 import { updateGameScore, getUserGameStats } from '@/lib/api/games';
 import { useAuth } from '@/providers/AuthProvider';
 import { useExperience } from '@/providers/experience-provider';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 
 type GameState = 'waiting' | 'playing' | 'finished';
@@ -19,6 +21,13 @@ interface Tile {
   value: number;
   isFlipped: boolean;
   isMatched: boolean;
+}
+
+interface RankingUser {
+  id: string;
+  nickname: string;
+  bestMoves: number; // 최소 움직임 횟수
+  schoolName?: string;
 }
 
 export default function TileGamePage() {
@@ -34,6 +43,7 @@ export default function TileGamePage() {
   const [gameStartTime, setGameStartTime] = useState<number>(0);
   const [remainingAttempts, setRemainingAttempts] = useState(3);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [rankings, setRankings] = useState<RankingUser[]>([]);
 
   const totalPairs = 6; // 3x4 grid with 6 pairs
   const maxTime = 120; // 2 minutes
@@ -58,6 +68,40 @@ export default function TileGamePage() {
       console.error('게임 통계 로드 실패:', error);
     } finally {
       setIsLoadingStats(false);
+    }
+  };
+
+  // 랭킹 데이터 로드 (최소 움직임 횟수 기준)
+  const loadRankings = async () => {
+    try {
+      const usersRef = collection(db, 'users');
+      const rankingQuery = query(
+        usersRef,
+        where('gameStats.tileGame.bestReactionTime', '>', 0),
+        orderBy('gameStats.tileGame.bestReactionTime', 'asc'),
+        limit(10)
+      );
+      
+      const snapshot = await getDocs(rankingQuery);
+      const rankingData: RankingUser[] = [];
+      
+      snapshot.forEach((doc) => {
+        const userData = doc.data();
+        const bestMoves = userData.gameStats?.tileGame?.bestReactionTime;
+        
+        if (bestMoves) {
+          rankingData.push({
+            id: doc.id,
+            nickname: userData.profile?.userName || userData.profile?.nickname || '익명',
+            bestMoves: bestMoves,
+            schoolName: userData.school?.name
+          });
+        }
+      });
+      
+      setRankings(rankingData);
+    } catch (error) {
+      console.error('랭킹 데이터 로드 실패:', error);
     }
   };
   
@@ -209,6 +253,7 @@ export default function TileGamePage() {
           
           // 성공 시 남은 기회 업데이트
           loadRemainingAttempts();
+          loadRankings(); // 랭킹 데이터 새로고침
           refreshUserStats(); // 실시간 사용자 통계 새로고침
         } else {
           toast.error(result.message || '점수 저장에 실패했습니다.');
@@ -246,6 +291,7 @@ export default function TileGamePage() {
   // 게임 초기화 및 사용자 데이터 로드 (컴포넌트 마운트 시)
   useEffect(() => {
     initializeGame();
+    loadRankings(); // 랭킹 데이터 로드
     if (user?.uid) {
       loadRemainingAttempts();
     }
@@ -437,6 +483,63 @@ export default function TileGamePage() {
               </div>
             )}
         </div>
+
+        {/* 랭킹 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+              TOP 10 랭킹
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {rankings.length > 0 ? (
+                rankings.map((rankUser, index) => (
+                  <div 
+                    key={rankUser.id} 
+                    className={`flex items-center justify-between py-2 border-b last:border-b-0 ${
+                      user?.uid === rankUser.id ? 'bg-blue-50 border-blue-200 rounded-lg px-3 -mx-3' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' :
+                        index === 1 ? 'bg-gray-400 text-white' :
+                        index === 2 ? 'bg-amber-600 text-white' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {index === 0 ? <Medal className="w-3 h-3" /> : index + 1}
+                      </div>
+                      <div>
+                        <div className={`font-medium text-sm ${
+                          user?.uid === rankUser.id ? 'text-blue-700 font-bold' : ''
+                        }`}>
+                          {rankUser.nickname}
+                          {user?.uid === rankUser.id && (
+                            <span className="ml-2 text-blue-600 text-xs">(나)</span>
+                          )}
+                        </div>
+                        {rankUser.schoolName && (
+                          <div className="text-xs text-gray-500">{rankUser.schoolName}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`text-sm font-bold ${
+                      user?.uid === rankUser.id ? 'text-blue-700' : ''
+                    }`}>
+                      {rankUser.bestMoves}번
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  아직 랭킹 데이터가 없습니다.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 경험치 정보 */}
         <div className="bg-white rounded-lg shadow-sm border p-6">

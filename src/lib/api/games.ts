@@ -106,17 +106,21 @@ export const updateGameScore = async (userId: string, gameType: GameType, score:
 
     const userData = userDoc.data() as User;
     
-    // 현재 최저 반응시간 확인 (반응속도 게임의 경우)
+    // 현재 최저 반응시간 확인 (반응속도 게임의 경우) 또는 최소 움직임 확인 (타일 게임의 경우)
     const currentBestReactionTime = userData.gameStats?.[gameType]?.bestReactionTime || null;
     const isBestReactionTime = gameType === 'reactionGame' && reactionTime && 
       (currentBestReactionTime === null || reactionTime < currentBestReactionTime);
+    const isHighScore = gameType === 'tileGame' && score && 
+      (currentBestReactionTime === null || score < currentBestReactionTime);
     
     // 게임 통계 업데이트
     const updateData: Record<string, number | string | FieldValue> = {};
     
-    // 최저 반응시간 업데이트 (반응속도 게임의 경우)
+    // 최저 반응시간 업데이트 (반응속도 게임의 경우) 또는 최소 움직임 업데이트 (타일 게임의 경우)
     if (isBestReactionTime && reactionTime) {
       updateData[`gameStats.${gameType}.bestReactionTime`] = reactionTime;
+    } else if (isHighScore && score) {
+      updateData[`gameStats.${gameType}.bestReactionTime`] = score; // 타일 게임은 최소 움직임 횟수를 저장
     }
     
     // 일일 플레이 카운트 증가
@@ -125,8 +129,8 @@ export const updateGameScore = async (userId: string, gameType: GameType, score:
     // Firestore 업데이트
     await updateDoc(userRef, updateData);
     
-    // 경험치 계산 및 지급 (반응시간 기반)
-    const xpEarned = await calculateGameXP(gameType, reactionTime || 1000);
+    // 경험치 계산 및 지급 (반응시간 또는 움직임 횟수 기반)
+    const xpEarned = await calculateGameXP(gameType, reactionTime || score || 1000);
     
     let result: { leveledUp: boolean; oldLevel?: number; newLevel?: number } = { 
       leveledUp: false, 

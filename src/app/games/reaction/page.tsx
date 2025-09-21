@@ -394,6 +394,63 @@ export default function ReactionGamePage() {
           </div>
         </div>
 
+        {/* 랭킹 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+              TOP 10 랭킹
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {rankings.length > 0 ? (
+                rankings.map((rankUser, index) => (
+                  <div 
+                    key={rankUser.id} 
+                    className={`flex items-center justify-between py-2 border-b last:border-b-0 ${
+                      user?.uid === rankUser.id ? 'bg-blue-50 border-blue-200 rounded-lg px-3 -mx-3' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        index === 0 ? 'bg-yellow-500 text-white' :
+                        index === 1 ? 'bg-gray-400 text-white' :
+                        index === 2 ? 'bg-amber-600 text-white' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {index === 0 ? <Medal className="w-3 h-3" /> : index + 1}
+                      </div>
+                      <div>
+                        <div className={`font-medium text-sm ${
+                          user?.uid === rankUser.id ? 'text-blue-700 font-bold' : ''
+                        }`}>
+                          {rankUser.nickname}
+                          {user?.uid === rankUser.id && (
+                            <span className="ml-2 text-blue-600 text-xs">(나)</span>
+                          )}
+                        </div>
+                        {rankUser.schoolName && (
+                          <div className="text-xs text-gray-500">{rankUser.schoolName}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`text-sm font-bold ${
+                      user?.uid === rankUser.id ? 'text-blue-700' : ''
+                    }`}>
+                      {rankUser.bestReactionTime.toFixed(2)}ms
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  아직 랭킹 데이터가 없습니다.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* 경험치 정보 */}
         {experienceThresholds.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
@@ -422,47 +479,6 @@ export default function ReactionGamePage() {
             </div>
           </div>
         )}
-
-        {/* 랭킹 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-              TOP 10 랭킹
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {rankings.length > 0 ? (
-                rankings.map((user, index) => (
-                  <div key={user.id} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        index === 0 ? 'bg-yellow-500 text-white' :
-                        index === 1 ? 'bg-gray-400 text-white' :
-                        index === 2 ? 'bg-amber-600 text-white' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {index === 0 ? <Medal className="w-3 h-3" /> : index + 1}
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm">{user.nickname}</div>
-                        {user.schoolName && (
-                          <div className="text-xs text-gray-500">{user.schoolName}</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-sm font-bold">{user.bestReactionTime.toFixed(2)}ms</div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center text-gray-500 py-4">
-                  아직 랭킹 데이터가 없습니다.
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
