@@ -8,8 +8,7 @@ import {
   ShieldIcon,
   MapPin,
   School,
-  Zap,
-  Utensils
+  Zap
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,7 +73,7 @@ interface RankingPreview {
 }
 
 export default function Home() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [popularPosts, setPopularPosts] = useState<PopularPost[]>([]);
   const [rankingPreview, setRankingPreview] = useState<RankingPreview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +84,7 @@ export default function Home() {
         setLoading(true);
         
         // 인기 게시글 로드
-        const posts = await getPopularPostsForHome(3);
+        const posts = await getPopularPostsForHome(2);
         setPopularPosts(posts);
         
         // 랭킹 미리보기 로드
@@ -120,7 +119,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col">
       <div className="container mx-auto px-4 py-6">
         {/* 관리자 대시보드 바로가기 */}
-        {isAdmin && (
+        {user && 'isAdmin' in user && Boolean((user as { isAdmin?: boolean }).isAdmin) && (
           <div className="mb-6">
             <Link 
               href="/admin" 
@@ -149,7 +148,7 @@ export default function Home() {
               </div>
               {loading ? (
                 <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
+                  {[...Array(2)].map((_, i) => (
                     <div key={i} className="space-y-2">
                       <Skeleton className="h-4 w-3/4" />
                       <Skeleton className="h-3 w-1/2" />
@@ -181,31 +180,31 @@ export default function Home() {
               <h2 className="text-xl font-bold text-gray-900">
                 💬 커뮤니티 바로가기
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <Link href="/community?tab=national">
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="p-4 text-center">
-                      <div className="text-3xl mb-2">🌍</div>
-                      <h3 className="font-medium mb-1">전국 커뮤니티</h3>
-                      <p className="text-xs text-gray-500">모든 학생들과 소통</p>
+                    <CardContent className="p-2 sm:p-4 text-center">
+                      <div className="text-2xl sm:text-3xl mb-1 sm:mb-2">🌍</div>
+                      <h3 className="font-medium mb-1 text-xs sm:text-base">전국 커뮤니티</h3>
+                      <p className="text-xs text-gray-500 hidden sm:block">모든 학생들과 소통</p>
                     </CardContent>
                   </Card>
                 </Link>
                 <Link href="/community?tab=regional">
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="p-4 text-center">
-                      <div className="text-3xl mb-2">🏘️</div>
-                      <h3 className="font-medium mb-1">지역 커뮤니티</h3>
-                      <p className="text-xs text-gray-500">우리 지역 친구들과</p>
+                    <CardContent className="p-2 sm:p-4 text-center">
+                      <div className="text-2xl sm:text-3xl mb-1 sm:mb-2">🏘️</div>
+                      <h3 className="font-medium mb-1 text-xs sm:text-base">지역 커뮤니티</h3>
+                      <p className="text-xs text-gray-500 hidden sm:block">우리 지역 친구들과</p>
                     </CardContent>
                   </Card>
                 </Link>
                 <Link href="/community?tab=school">
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="p-4 text-center">
-                      <div className="text-3xl mb-2">🏫</div>
-                      <h3 className="font-medium mb-1">학교 커뮤니티</h3>
-                      <p className="text-xs text-gray-500">우리 학교만의 공간</p>
+                    <CardContent className="p-2 sm:p-4 text-center">
+                      <div className="text-2xl sm:text-3xl mb-1 sm:mb-2">🏫</div>
+                      <h3 className="font-medium mb-1 text-xs sm:text-base">학교 커뮤니티</h3>
+                      <p className="text-xs text-gray-500 hidden sm:block">우리 학교만의 공간</p>
                     </CardContent>
                   </Card>
                 </Link>
@@ -217,7 +216,7 @@ export default function Home() {
               <h2 className="text-xl font-bold text-gray-900">
                 🎮 미니게임
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <Link href="/games/reaction">
                   <Card className="hover:shadow-md transition-shadow cursor-pointer">
                     <CardContent className="p-4 text-center">
@@ -227,24 +226,19 @@ export default function Home() {
                     </CardContent>
                   </Card>
                 </Link>
-                <Card className="opacity-60 cursor-not-allowed">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl mb-2">🧩</div>
-                    <h4 className="font-medium text-sm mb-1">타일 맞추기</h4>
-                    <p className="text-xs text-gray-500">곧 출시</p>
-                  </CardContent>
-                </Card>
+                <Link href="/games/tile">
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl mb-2">🧩</div>
+                      <h4 className="font-medium text-sm mb-1">타일 맞추기</h4>
+                      <p className="text-xs text-gray-500">+10 XP</p>
+                    </CardContent>
+                  </Card>
+                </Link>
                 <Card className="opacity-60 cursor-not-allowed">
                   <CardContent className="p-4 text-center">
                     <div className="text-2xl mb-2">🧮</div>
                     <h4 className="font-medium text-sm mb-1">빠른 계산</h4>
-                    <p className="text-xs text-gray-500">곧 출시</p>
-                  </CardContent>
-                </Card>
-                <Card className="opacity-60 cursor-not-allowed">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl mb-2">📝</div>
-                    <h4 className="font-medium text-sm mb-1">단어 맞추기</h4>
                     <p className="text-xs text-gray-500">곧 출시</p>
                   </CardContent>
                 </Card>
