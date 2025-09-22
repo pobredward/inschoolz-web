@@ -62,6 +62,7 @@ export default function CommunityPageClient() {
   const [selectedBoard, setSelectedBoard] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('latest');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showBoardSelector, setShowBoardSelector] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
@@ -510,6 +511,7 @@ export default function CommunityPageClient() {
       setTotalPages(1);
     } finally {
       setIsLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -845,22 +847,29 @@ export default function CommunityPageClient() {
 
           {/* 게시글 리스트 */}
           <div className="container mx-auto px-4 pb-4">
-            {isLoading ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="p-4">
-                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded w-full mb-1"></div>
-                      <div className="h-3 bg-gray-200 rounded w-2/3 mb-3"></div>
-                      <div className="flex items-center space-x-4">
-                        <div className="h-3 bg-gray-200 rounded w-16"></div>
-                        <div className="h-3 bg-gray-200 rounded w-12"></div>
-                        <div className="h-3 bg-gray-200 rounded w-12"></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+            {isLoading || isInitialLoading ? (
+              <div>
+                <div className="text-center py-8">
+                  <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
+                  <p className="text-muted-foreground font-medium">게시글을 가져오는 중...</p>
+                  <p className="text-sm text-muted-foreground/70 mt-1">잠시만 기다려 주세요</p>
+                </div>
+                <div className="space-y-4 opacity-50">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-4">
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-full mb-1"></div>
+                        <div className="h-3 bg-gray-200 rounded w-2/3 mb-3"></div>
+                        <div className="flex items-center space-x-4">
+                          <div className="h-3 bg-gray-200 rounded w-16"></div>
+                          <div className="h-3 bg-gray-200 rounded w-12"></div>
+                          <div className="h-3 bg-gray-200 rounded w-12"></div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             ) : posts.length === 0 ? (
               <div className="text-center py-12">

@@ -8,7 +8,8 @@ import {
   ShieldIcon,
   MapPin,
   School,
-  Zap
+  Zap,
+  Utensils
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,6 +19,7 @@ import { getRankingPreview } from '@/lib/api/ranking';
 import { FirebaseTimestamp } from '@/types';
 
 import PostListItem from '@/components/board/PostListItem';
+import TodayMeals from '@/components/meals/TodayMeals';
 
 interface PopularPost {
   id: string;
@@ -248,6 +250,28 @@ export default function Home() {
                 </Card>
               </div>
             </div>
+
+            {/* 급식 정보 */}
+            {user?.school?.id && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    🍽️ 오늘의 급식
+                  </h2>
+                  <Link 
+                    href="/meals" 
+                    className="text-sm text-green-600 hover:underline flex items-center gap-1"
+                  >
+                    전체보기 <ArrowRightIcon className="h-3 w-3" />
+                  </Link>
+                </div>
+                <TodayMeals 
+                  schoolId={user.school.id} 
+                  schoolName={user.school.name}
+                  showHeader={false}
+                />
+              </div>
+            )}
           </div>
 
           {/* 사이드바 */}
