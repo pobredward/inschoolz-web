@@ -114,22 +114,22 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     checkStatuses();
   }, [user, post.id, post.authorId]);
 
-  // board 정보는 가장 나중에 로딩 (필수가 아님)
-  useEffect(() => {
-    const fetchBoardInfo = async () => {
-      try {
-        const boards = await getBoardsByType(post.type);
-        const board = (boards as Board[]).find((b: Board) => b.code === post.boardCode);
-        setBoardInfo(board || null);
-      } catch (error) {
-        console.error('Board 정보 가져오기 실패:', error);
-      }
-    };
-    
-    // 약간의 지연을 두고 로딩 (다른 중요한 렌더링 완료 후)
-    const timer = setTimeout(fetchBoardInfo, 100);
-    return () => clearTimeout(timer);
-  }, [post.type, post.boardCode]);
+  // board 정보는 서버에서 이미 제공되므로 클라이언트에서 별도 로딩 불필요
+  // useEffect(() => {
+  //   const fetchBoardInfo = async () => {
+  //     try {
+  //       const boards = await getBoardsByType(post.type);
+  //       const board = (boards as Board[]).find((b: Board) => b.code === post.boardCode);
+  //       setBoardInfo(board || null);
+  //     } catch (error) {
+  //       console.error('Board 정보 가져오기 실패:', error);
+  //     }
+  //   };
+  //   
+  //   // 약간의 지연을 두고 로딩 (다른 중요한 렌더링 완료 후)
+  //   const timer = setTimeout(fetchBoardInfo, 100);
+  //   return () => clearTimeout(timer);
+  // }, [post.type, post.boardCode]);
 
   const handleLike = async () => {
     if (!user) {
@@ -338,7 +338,7 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
             {getBoardTypeLabel(post.type)}
           </Badge>
           <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-            {post.boardName || boardInfo?.name || post.boardCode}
+            {post.boardName || post.boardCode}
           </Badge>
           {post.attachments && post.attachments.length > 0 && (
             <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 h-5 text-xs bg-orange-50 text-orange-700 border-orange-200">

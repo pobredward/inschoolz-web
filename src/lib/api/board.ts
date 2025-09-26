@@ -574,24 +574,21 @@ export const incrementPostViewCount = async (postId: string): Promise<void> => {
   }
 };
 
-// 게시글에 달린 댓글 가져오기 (최적화된 버전)
+// 게시글에 달린 댓글 가져오기 (최적화된 버전 - N+1 쿼리 문제 해결)
 export const getCommentsByPost = async (postId: string) => {
   try {
     const commentsRef = collection(db, 'posts', postId, 'comments');
-    const q = query(
-      commentsRef,
-      where('parentId', '==', null),
-      orderBy('createdAt', 'asc')
-    );
     
-    const querySnapshot = await getDocs(q);
+    // 모든 댓글을 한 번에 가져오기 (부모 댓글과 대댓글 모두)
+    const allCommentsQuery = query(commentsRef, orderBy('createdAt', 'asc'));
+    const allCommentsSnapshot = await getDocs(allCommentsQuery);
+    
+    const allComments: any[] = [];
+    const allReplies: any[] = [];
     const comments: any[] = [];
     
-    // 모든 댓글과 대댓글을 먼저 수집
-    const allComments = [];
-    const allReplies = [];
-    
-    for (const commentDoc of querySnapshot.docs) {
+    // 댓글과 대댓글을 분리하여 수집
+    for (const commentDoc of allCommentsSnapshot.docs) {
       const commentData = commentDoc.data();
       const comment = { id: commentDoc.id, ...commentData } as any;
       
@@ -600,28 +597,12 @@ export const getCommentsByPost = async (postId: string) => {
         continue;
       }
       
-      allComments.push(comment);
-      
-      // 대댓글 가져오기
-      const repliesRef = collection(db, 'posts', postId, 'comments');
-      const repliesQuery = query(
-        repliesRef,
-        where('parentId', '==', comment.id),
-        orderBy('createdAt', 'asc')
-      );
-      
-      const repliesSnapshot = await getDocs(repliesQuery);
-      
-      for (const replyDoc of repliesSnapshot.docs) {
-        const replyData = replyDoc.data();
-        const reply = { id: replyDoc.id, ...replyData, parentCommentId: comment.id } as any;
-        
-        // 삭제된 대댓글이지만 내용이 "삭제된 댓글입니다."가 아닌 경우 건너뛰기
-        if (reply.status.isDeleted && reply.content !== '삭제된 댓글입니다.') {
-          continue;
-        }
-        
-        allReplies.push(reply);
+      if (comment.parentId === null || comment.parentId === undefined) {
+        // 부모 댓글
+        allComments.push(comment);
+      } else {
+        // 대댓글
+        allReplies.push({ ...comment, parentCommentId: comment.parentId });
       }
     }
     
@@ -746,7 +727,7 @@ export const getCommentsByPost = async (postId: string) => {
     }
     
     // 모든 댓글을 시간순으로 정렬
-    comments.sort((a, b) => a.createdAt - b.createdAt);
+    comments.sort((a: any, b: any) => a.createdAt - b.createdAt);
     
     return comments;
   } catch (error) {

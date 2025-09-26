@@ -5,7 +5,7 @@ import { Providers } from "@/providers/Providers";
 import { Header } from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
-import { PWAPrompt } from "@/components/ui/pwa-prompt";
+// import { PWAPrompt } from "@/components/ui/pwa-prompt";
 
 // 한글 폰트 - 잼민이체 스타일에 가까운 귀여운 폰트
 const notoSansKR = Noto_Sans_KR({
@@ -165,7 +165,7 @@ export default function RootLayout({
             <Footer />
           </div>
           <Toaster />
-          <PWAPrompt />
+          {/* <PWAPrompt /> */}
         </Providers>
       </body>
     </html>

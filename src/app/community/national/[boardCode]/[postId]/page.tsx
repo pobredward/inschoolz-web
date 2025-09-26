@@ -119,11 +119,12 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
   const { boardCode, postId } = await params;
   
   try {
-    // 게시글 상세 정보 가져오기 (이미 직렬화됨) - 댓글 포함
-    const { post, comments } = await getPostDetailOptimized(postId, true);
+    // 게시글 정보와 게시판 정보를 병렬로 가져오기
+    const [{ post, comments }, boards] = await Promise.all([
+      getPostDetailOptimized(postId, true),
+      getBoardsByType('national')
+    ]);
     
-    // 게시판 정보 가져오기
-    const boards = await getBoardsByType('national');
     const board = boards.find(b => b.code === boardCode);
     
     if (!board) {
