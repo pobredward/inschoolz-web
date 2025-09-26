@@ -47,6 +47,118 @@ import {
 } from './notifications';
 import { serializeObject, serializeTimestamp } from '@/lib/utils';
 
+// 게시글의 authorInfo 업데이트 (프로필 이미지 포함)
+const updatePostAuthorInfo = async (post: any) => {
+  if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+    try {
+      const userDoc = await getDocument('users', post.authorId);
+      if (userDoc && (userDoc as any).profile) {
+        post.authorInfo = {
+          ...post.authorInfo,
+          displayName: post.authorInfo?.displayName || (userDoc as any).profile.userName || '사용자',
+          profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
+          isAnonymous: post.authorInfo?.isAnonymous || false
+        };
+      } else {
+        // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
+        post.authorInfo = {
+          ...post.authorInfo,
+          displayName: '삭제된 계정',
+          profileImageUrl: '',
+          isAnonymous: true
+        };
+      }
+    } catch (userError) {
+      console.warn('사용자 정보 업데이트 실패 (계정 삭제 가능성):', userError);
+      // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
+      post.authorInfo = {
+        ...post.authorInfo,
+        displayName: '삭제된 계정',
+        profileImageUrl: '',
+        isAnonymous: true
+      };
+    }
+  }
+  return post;
+};
+
+// 여러 게시글의 authorInfo 일괄 업데이트
+const updatePostsAuthorInfo = async (posts: any[]) => {
+  // 프로필 이미지가 없는 게시글들의 사용자 ID 수집
+  const userIds = new Set<string>();
+  posts.forEach(post => {
+    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      userIds.add(post.authorId);
+    }
+  });
+
+  // 사용자 정보 일괄 조회
+  const userDataMap = new Map<string, any>();
+  if (userIds.size > 0) {
+    try {
+      const userPromises = Array.from(userIds).map(async (userId) => {
+        try {
+          const userDoc = await getDocument('users', userId);
+          if (userDoc && (userDoc as any).profile) {
+            return {
+              userId,
+              userData: {
+                displayName: (userDoc as any).profile.userName || '사용자',
+                profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
+                isAnonymous: false
+              }
+            };
+          } else {
+            return {
+              userId,
+              userData: {
+                displayName: '삭제된 계정',
+                profileImageUrl: '',
+                isAnonymous: true
+              }
+            };
+          }
+        } catch (error) {
+          console.warn(`사용자 ${userId} 정보 조회 실패:`, error);
+          return {
+            userId,
+            userData: {
+              displayName: '삭제된 계정',
+              profileImageUrl: '',
+              isAnonymous: true
+            }
+          };
+        }
+      });
+
+      const userResults = await Promise.all(userPromises);
+      userResults.forEach(result => {
+        if (result) {
+          userDataMap.set(result.userId, result.userData);
+        }
+      });
+    } catch (error) {
+      console.warn('사용자 정보 일괄 조회 실패:', error);
+    }
+  }
+
+  // 게시글에 사용자 정보 적용
+  return posts.map(post => {
+    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      const userData = userDataMap.get(post.authorId);
+      if (userData) {
+        post.authorInfo = {
+          ...post.authorInfo,
+          displayName: post.authorInfo?.displayName || userData.displayName,
+          profileImageUrl: userData.profileImageUrl,
+          isAnonymous: userData.isAnonymous
+        };
+      }
+    }
+    return post;
+  });
+};
+
 // 게시판 목록 가져오기
 export const getBoardsByType = async (type: BoardType) => {
   try {
@@ -244,7 +356,14 @@ export const getPostsByBoard = async (
       orderBy(sortField, sortDirection as 'asc' | 'desc')
     ];
     
-    return await getPaginatedDocuments<Post>('posts', [...constraints, ...orderConstraints], pageSize, lastDoc);
+    const result = await getPaginatedDocuments<Post>('posts', [...constraints, ...orderConstraints], pageSize, lastDoc);
+    
+    // 프로필 이미지 정보 업데이트
+    if (result.items && result.items.length > 0) {
+      result.items = await updatePostsAuthorInfo(result.items);
+    }
+    
+    return result;
   } catch (error) {
     console.error('게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -311,10 +430,17 @@ export const getPostDetail = async (postId: string) => {
       throw new Error('게시글을 찾을 수 없습니다.');
     }
     
+    console.log('=== getPostDetail 디버깅 ===');
+    console.log('게시글 ID:', postId);
+    console.log('작성자 ID:', post.authorId);
+    console.log('기존 authorInfo:', post.authorInfo);
+    
     // authorInfo가 없거나 profileImageUrl이 없는 경우 사용자 정보 업데이트
     if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      console.log('사용자 정보 업데이트 시도...');
       try {
         const userDoc = await getDocument('users', post.authorId);
+        console.log('사용자 문서:', userDoc);
         if (userDoc && (userDoc as any).profile) {
           post.authorInfo = {
             ...post.authorInfo,
@@ -322,6 +448,7 @@ export const getPostDetail = async (postId: string) => {
             profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
             isAnonymous: post.authorInfo?.isAnonymous || false
           };
+          console.log('업데이트된 authorInfo:', post.authorInfo);
         } else {
           // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
           post.authorInfo = {
@@ -330,6 +457,7 @@ export const getPostDetail = async (postId: string) => {
             profileImageUrl: '',
             isAnonymous: true
           };
+          console.log('삭제된 계정으로 처리:', post.authorInfo);
         }
       } catch (userError) {
         console.warn('사용자 정보 업데이트 실패 (계정 삭제 가능성):', userError);
@@ -341,6 +469,12 @@ export const getPostDetail = async (postId: string) => {
           isAnonymous: true
         };
       }
+    } else {
+      console.log('사용자 정보 업데이트 건너뜀 - 이유:', {
+        hasProfileImage: !!post.authorInfo?.profileImageUrl,
+        isAnonymous: !!post.authorInfo?.isAnonymous,
+        hasAuthorId: !!post.authorId
+      });
     }
     
     // 게시글 Timestamp 직렬화 - serializeObject 사용
@@ -365,10 +499,17 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
       throw new Error('게시글을 찾을 수 없습니다.');
     }
     
+    console.log('=== getPostDetailOptimized 디버깅 ===');
+    console.log('게시글 ID:', postId);
+    console.log('작성자 ID:', post.authorId);
+    console.log('기존 authorInfo:', post.authorInfo);
+    
     // authorInfo 처리 (getPostBasicInfo와 동일한 로직)
     if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      console.log('사용자 정보 업데이트 시도...');
       try {
         const userDoc = await getDocument('users', post.authorId);
+        console.log('사용자 문서:', userDoc);
         if (userDoc && (userDoc as any).profile) {
           post.authorInfo = {
             ...post.authorInfo,
@@ -376,6 +517,7 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
             profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
             isAnonymous: post.authorInfo?.isAnonymous || false
           };
+          console.log('업데이트된 authorInfo:', post.authorInfo);
         } else {
           post.authorInfo = {
             ...post.authorInfo,
@@ -383,6 +525,7 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
             profileImageUrl: '',
             isAnonymous: true
           };
+          console.log('삭제된 계정으로 처리:', post.authorInfo);
         }
       } catch (userError) {
         console.warn('사용자 정보 업데이트 실패:', userError);
@@ -393,6 +536,12 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
           isAnonymous: true
         };
       }
+    } else {
+      console.log('사용자 정보 업데이트 건너뜀 - 이유:', {
+        hasProfileImage: !!post.authorInfo?.profileImageUrl,
+        isAnonymous: !!post.authorInfo?.isAnonymous,
+        hasAuthorId: !!post.authorId
+      });
     }
     
     const serializedPost = serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']);
@@ -1136,7 +1285,14 @@ export const getPostsByBoardType = async (
       limit(pageSize)
     ];
     
-    return await getDocuments<Post>('posts', allConstraints);
+    const posts = await getDocuments<Post>('posts', allConstraints);
+    
+    // 프로필 이미지 정보 업데이트
+    if (posts && posts.length > 0) {
+      return await updatePostsAuthorInfo(posts);
+    }
+    
+    return posts;
   } catch (error) {
     console.error('게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -1158,7 +1314,14 @@ export const getAllPostsByType = async (
       limit(pageSize)
     ];
     
-    return await getDocuments<Post>('posts', constraints);
+    const posts = await getDocuments<Post>('posts', constraints);
+    
+    // 프로필 이미지 정보 업데이트
+    if (posts && posts.length > 0) {
+      return await updatePostsAuthorInfo(posts);
+    }
+    
+    return posts;
   } catch (error) {
     console.error('전체 게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -1195,7 +1358,14 @@ export const getAllPostsByTypeWithPagination = async (
         constraints.push(orderBy('createdAt', 'desc'));
     }
     
-    return await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+    const result = await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+    
+    // 프로필 이미지 정보 업데이트
+    if (result.items && result.items.length > 0) {
+      result.items = await updatePostsAuthorInfo(result.items);
+    }
+    
+    return result;
   } catch (error) {
     console.error('페이지네이션 전체 게시글 목록 가져오기 오류:', error);
     throw new Error('게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -1218,7 +1388,14 @@ export const getAllPostsBySchool = async (
       limit(pageSize)
     ];
     
-    return await getDocuments<Post>('posts', constraints);
+    const posts = await getDocuments<Post>('posts', constraints);
+    
+    // 프로필 이미지 정보 업데이트
+    if (posts && posts.length > 0) {
+      return await updatePostsAuthorInfo(posts);
+    }
+    
+    return posts;
   } catch (error) {
     console.error('학교별 게시글 목록 가져오기 오류:', error);
     throw new Error('학교별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -1256,7 +1433,14 @@ export const getAllPostsBySchoolWithPagination = async (
         constraints.push(orderBy('createdAt', 'desc'));
     }
     
-    return await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+    const result = await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+    
+    // 프로필 이미지 정보 업데이트
+    if (result.items && result.items.length > 0) {
+      result.items = await updatePostsAuthorInfo(result.items);
+    }
+    
+    return result;
   } catch (error) {
     console.error('페이지네이션 학교별 게시글 목록 가져오기 오류:', error);
     throw new Error('학교별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -1281,7 +1465,14 @@ export const getAllPostsByRegion = async (
       limit(pageSize)
     ];
     
-    return await getDocuments<Post>('posts', constraints);
+    const posts = await getDocuments<Post>('posts', constraints);
+    
+    // 프로필 이미지 정보 업데이트
+    if (posts && posts.length > 0) {
+      return await updatePostsAuthorInfo(posts);
+    }
+    
+    return posts;
   } catch (error) {
     console.error('지역별 게시글 목록 가져오기 오류:', error);
     throw new Error('지역별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -1321,7 +1512,14 @@ export const getAllPostsByRegionWithPagination = async (
         constraints.push(orderBy('createdAt', 'desc'));
     }
     
-    return await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+    const result = await getPaginatedDocumentsWithCount<Post>('posts', constraints, pageSize, page);
+    
+    // 프로필 이미지 정보 업데이트
+    if (result.items && result.items.length > 0) {
+      result.items = await updatePostsAuthorInfo(result.items);
+    }
+    
+    return result;
   } catch (error) {
     console.error('페이지네이션 지역별 게시글 목록 가져오기 오류:', error);
     throw new Error('지역별 게시글 목록을 가져오는 중 오류가 발생했습니다.');
@@ -1772,7 +1970,54 @@ export const getPostDetailFast = async (postId: string) => {
       throw new Error('게시글을 찾을 수 없습니다.');
     }
     
-    // 최소한의 authorInfo 처리 (사용자 문서 조회 생략으로 속도 향상)
+    console.log('=== getPostDetailFast 디버깅 ===');
+    console.log('게시글 ID:', postId);
+    console.log('작성자 ID:', post.authorId);
+    console.log('기존 authorInfo:', post.authorInfo);
+    
+    // authorInfo가 없거나 profileImageUrl이 없는 경우 사용자 정보 업데이트
+    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+      console.log('사용자 정보 업데이트 시도...');
+      try {
+        const userDoc = await getDocument('users', post.authorId);
+        console.log('사용자 문서:', userDoc);
+        if (userDoc && (userDoc as any).profile) {
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: post.authorInfo?.displayName || (userDoc as any).profile.userName || '사용자',
+            profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
+            isAnonymous: post.authorInfo?.isAnonymous || false
+          };
+          console.log('업데이트된 authorInfo:', post.authorInfo);
+        } else {
+          // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)
+          post.authorInfo = {
+            ...post.authorInfo,
+            displayName: '삭제된 계정',
+            profileImageUrl: '',
+            isAnonymous: true
+          };
+          console.log('삭제된 계정으로 처리:', post.authorInfo);
+        }
+      } catch (userError) {
+        console.warn('사용자 정보 업데이트 실패 (계정 삭제 가능성):', userError);
+        // 사용자를 찾을 수 없는 경우 삭제된 계정으로 처리
+        post.authorInfo = {
+          ...post.authorInfo,
+          displayName: '삭제된 계정',
+          profileImageUrl: '',
+          isAnonymous: true
+        };
+      }
+    } else {
+      console.log('사용자 정보 업데이트 건너뜀 - 이유:', {
+        hasProfileImage: !!post.authorInfo?.profileImageUrl,
+        isAnonymous: !!post.authorInfo?.isAnonymous,
+        hasAuthorId: !!post.authorId
+      });
+    }
+    
+    // 최소한의 authorInfo 처리 (fallback)
     if (!post.authorInfo) {
       post.authorInfo = {
         displayName: '사용자',
