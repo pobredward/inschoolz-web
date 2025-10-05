@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spawn } from 'child_process';
-import path from 'path';
+import { BotService, PostService, CleanupService, CommentService } from '@/lib/services';
 
 interface BulkOperation {
   id: string;
@@ -270,71 +269,46 @@ async function executeOperation(operationId: string, type: string, params: any) 
 async function executeBotCreation(operationId: string, params: any) {
   const { schoolCount = 100, schoolIds } = params;
   
-  return new Promise<void>((resolve, reject) => {
+  try {
     const operation = operations.get(operationId);
-    if (!operation) return reject(new Error('작업을 찾을 수 없습니다.'));
+    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
 
-    // 총 작업량 설정
-    operation.total = schoolIds ? schoolIds.length : schoolCount;
-    operation.message = `${operation.total}개 학교에 봇 계정을 생성하는 중...`;
-    operations.set(operationId, operation);
-
-    // Node.js 스크립트 실행 (상위 디렉토리의 scripts 폴더)
-    const scriptPath = path.join(process.cwd(), '..', 'scripts', 'create-school-bots.js');
-    const args = schoolIds ? 
-      ['--school-ids', schoolIds.join(',')] : 
-      [schoolCount.toString(), '3']; // 학교당 3개 봇
-
-    const child = spawn('node', [scriptPath, ...args], {
-      cwd: path.join(process.cwd(), '..'), // 상위 디렉토리에서 실행
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    let output = '';
+    // BotService 인스턴스 생성
+    const botService = new BotService();
     
-    child.stdout.on('data', (data) => {
-      output += data.toString();
-      
-      // 진행률 파싱 (스크립트에서 "Progress: X/Y" 형태로 출력한다고 가정)
-      const progressMatch = output.match(/Progress: (\d+)\/(\d+)/g);
-      if (progressMatch) {
-        const lastProgress = progressMatch[progressMatch.length - 1];
-        const [, current, total] = lastProgress.match(/Progress: (\d+)\/(\d+)/) || [];
-        
-        if (current && total) {
-          const updatedOperation = operations.get(operationId);
-          if (updatedOperation) {
-            updatedOperation.progress = parseInt(current);
-            updatedOperation.total = parseInt(total);
-            updatedOperation.message = `봇 계정 생성 중... (${current}/${total})`;
-            operations.set(operationId, updatedOperation);
-          }
-        }
+    // 진행률 콜백 함수
+    const onProgress = (current: number, total: number, message?: string) => {
+      const updatedOperation = operations.get(operationId);
+      if (updatedOperation) {
+        updatedOperation.progress = current;
+        updatedOperation.total = total;
+        updatedOperation.message = message || `봇 계정 생성 중... (${current}/${total})`;
+        operations.set(operationId, updatedOperation);
       }
-    });
+    };
 
-    child.stderr.on('data', (data) => {
-      console.error(`봇 생성 스크립트 오류: ${data}`);
-    });
+    // 봇 생성 실행
+    const result = await botService.createBotsForSchools(
+      schoolIds ? schoolIds.length : schoolCount, 
+      3, // 학교당 3개 봇
+      onProgress
+    );
 
-    child.on('close', (code) => {
-      if (code === 0) {
-        const finalOperation = operations.get(operationId);
-        if (finalOperation) {
-          finalOperation.progress = finalOperation.total;
-          finalOperation.message = `${finalOperation.total}개 학교에 봇 계정 생성 완료`;
-          operations.set(operationId, finalOperation);
-        }
-        resolve();
-      } else {
-        reject(new Error(`봇 생성 스크립트가 오류 코드 ${code}로 종료되었습니다.`));
-      }
-    });
+    // 최종 상태 업데이트
+    const finalOperation = operations.get(operationId);
+    if (finalOperation) {
+      finalOperation.progress = result.schoolsProcessed;
+      finalOperation.total = result.schoolsProcessed;
+      finalOperation.message = `${result.totalCreated}개 봇 계정 생성 완료 (${result.schoolsProcessed}개 학교)`;
+      operations.set(operationId, finalOperation);
+    }
 
-    child.on('error', (error) => {
-      reject(new Error(`봇 생성 스크립트 실행 오류: ${error.message}`));
-    });
-  });
+    console.log(`✅ 봇 생성 완료: ${result.totalCreated}개 봇, ${result.schoolsProcessed}개 학교`);
+    
+  } catch (error) {
+    console.error('❌ 봇 생성 실패:', error);
+    throw error;
+  }
 }
 
 /**
@@ -343,9 +317,9 @@ async function executeBotCreation(operationId: string, params: any) {
 async function executePostGeneration(operationId: string, params: any) {
   const { schoolLimit = 100, postsPerSchool = 1, schoolIds } = params;
   
-  return new Promise<void>((resolve, reject) => {
+  try {
     const operation = operations.get(operationId);
-    if (!operation) return reject(new Error('작업을 찾을 수 없습니다.'));
+    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
 
     const totalPosts = schoolIds ? 
       schoolIds.length * postsPerSchool : 
@@ -355,47 +329,43 @@ async function executePostGeneration(operationId: string, params: any) {
     operation.message = `${totalPosts}개 AI 게시글을 생성하는 중...`;
     operations.set(operationId, operation);
 
-    // 실제 게시글 생성 API 호출
-    const generatePosts = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/admin/fake-posts/generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            schoolLimit: schoolIds ? schoolIds.length : schoolLimit,
-            postsPerSchool,
-            delayBetweenPosts: 500, // 더 빠른 생성을 위해 딜레이 단축
-            operationId // 진행률 추적을 위해 operationId 전달
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`게시글 생성 API 오류: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          // API에서 실제 생성된 게시글 수 반환
-          const finalOperation = operations.get(operationId);
-          if (finalOperation) {
-            finalOperation.progress = result.data?.totalGenerated || totalPosts;
-            finalOperation.total = result.data?.totalGenerated || totalPosts;
-            finalOperation.message = `${result.data?.totalGenerated || totalPosts}개 AI 게시글 생성 완료`;
-            operations.set(operationId, finalOperation);
-          }
-          resolve();
-        } else {
-          throw new Error(result.error || '게시글 생성 실패');
-        }
-
-      } catch (error) {
-        reject(error);
+    // PostService 인스턴스 생성
+    const postService = new PostService();
+    
+    // 진행률 콜백 함수
+    const onProgress = (current: number, total: number, message?: string) => {
+      const updatedOperation = operations.get(operationId);
+      if (updatedOperation) {
+        updatedOperation.progress = current;
+        updatedOperation.total = total;
+        updatedOperation.message = message || `게시글 생성 중... (${current}/${total})`;
+        operations.set(operationId, updatedOperation);
       }
     };
 
-    generatePosts();
-  });
+    // 게시글 생성 실행
+    const result = await postService.generatePostsForSchools(
+      schoolIds ? schoolIds.length : schoolLimit,
+      postsPerSchool,
+      500, // 더 빠른 생성을 위해 딜레이 단축
+      onProgress
+    );
+
+    // 최종 상태 업데이트
+    const finalOperation = operations.get(operationId);
+    if (finalOperation) {
+      finalOperation.progress = result.totalGenerated;
+      finalOperation.total = result.totalGenerated;
+      finalOperation.message = `${result.totalGenerated}개 AI 게시글 생성 완료 (${result.schoolsProcessed}개 학교)`;
+      operations.set(operationId, finalOperation);
+    }
+
+    console.log(`✅ 게시글 생성 완료: ${result.totalGenerated}개 게시글, ${result.schoolsProcessed}개 학교`);
+    
+  } catch (error) {
+    console.error('❌ 게시글 생성 실패:', error);
+    throw error;
+  }
 }
 
 /**
@@ -404,61 +374,52 @@ async function executePostGeneration(operationId: string, params: any) {
 async function executePostDeletion(operationId: string, params: any) {
   const { all = false, olderThanDays } = params;
   
-  return new Promise<void>((resolve, reject) => {
+  try {
     const operation = operations.get(operationId);
-    if (!operation) return reject(new Error('작업을 찾을 수 없습니다.'));
+    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
 
     operation.total = 100; // 예상 삭제 수 (실제로는 먼저 카운트해야 함)
     operation.message = 'AI 게시글을 삭제하는 중...';
     operations.set(operationId, operation);
 
-    // 삭제 스크립트 실행 (상위 디렉토리의 scripts 폴더)
-    const scriptPath = path.join(process.cwd(), '..', 'scripts', 'cleanup-fake-posts.js');
-    const args = all ? ['--all'] : ['--days', olderThanDays.toString()];
-
-    const child = spawn('node', [scriptPath, ...args], {
-      cwd: path.join(process.cwd(), '..'), // 상위 디렉토리에서 실행
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    let deletedCount = 0;
-
-    child.stdout.on('data', (data) => {
-      const output = data.toString();
-      
-      // 삭제된 게시글 수 파싱
-      const deleteMatch = output.match(/삭제 완료: (\d+)개/);
-      if (deleteMatch) {
-        deletedCount = parseInt(deleteMatch[1]);
-        
-        const updatedOperation = operations.get(operationId);
-        if (updatedOperation) {
-          updatedOperation.progress = deletedCount;
-          updatedOperation.message = `AI 게시글 삭제 중... (${deletedCount}개 삭제됨)`;
-          operations.set(operationId, updatedOperation);
-        }
+    // CleanupService 인스턴스 생성
+    const cleanupService = new CleanupService();
+    
+    // 진행률 콜백 함수
+    const onProgress = (current: number, total: number, message?: string) => {
+      const updatedOperation = operations.get(operationId);
+      if (updatedOperation) {
+        updatedOperation.progress = current;
+        updatedOperation.total = total;
+        updatedOperation.message = message || `AI 게시글 삭제 중... (${current}/${total})`;
+        operations.set(operationId, updatedOperation);
       }
-    });
+    };
 
-    child.on('close', (code) => {
-      if (code === 0) {
-        const finalOperation = operations.get(operationId);
-        if (finalOperation) {
-          finalOperation.progress = deletedCount;
-          finalOperation.total = deletedCount;
-          finalOperation.message = `${deletedCount}개 AI 게시글 삭제 완료`;
-          operations.set(operationId, finalOperation);
-        }
-        resolve();
-      } else {
-        reject(new Error(`삭제 스크립트가 오류 코드 ${code}로 종료되었습니다.`));
-      }
-    });
+    let result;
+    if (all) {
+      // 모든 AI 게시글 삭제
+      result = await cleanupService.cleanupAllFakePosts(onProgress);
+    } else {
+      // 특정 날짜 이전 게시글 삭제
+      result = await cleanupService.cleanupFakePostsByDate(olderThanDays || 7, onProgress);
+    }
 
-    child.on('error', (error) => {
-      reject(new Error(`삭제 스크립트 실행 오류: ${error.message}`));
-    });
-  });
+    // 최종 상태 업데이트
+    const finalOperation = operations.get(operationId);
+    if (finalOperation) {
+      finalOperation.progress = result.deletedCount;
+      finalOperation.total = result.deletedCount;
+      finalOperation.message = `${result.deletedCount}개 AI 게시글 삭제 완료 (${result.protectedCount}개 보호됨)`;
+      operations.set(operationId, finalOperation);
+    }
+
+    console.log(`✅ 게시글 삭제 완료: ${result.deletedCount}개 삭제, ${result.protectedCount}개 보호`);
+    
+  } catch (error) {
+    console.error('❌ 게시글 삭제 실패:', error);
+    throw error;
+  }
 }
 
 /**
@@ -467,8 +428,43 @@ async function executePostDeletion(operationId: string, params: any) {
 async function executeCleanup(operationId: string, params: any) {
   const { olderThanDays = 30 } = params;
   
-  // 게시글 삭제와 동일한 로직 사용
-  return executePostDeletion(operationId, { olderThanDays });
+  try {
+    const operation = operations.get(operationId);
+    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
+
+    // CleanupService 인스턴스 생성
+    const cleanupService = new CleanupService();
+    
+    // 진행률 콜백 함수
+    const onProgress = (current: number, total: number, message?: string) => {
+      const updatedOperation = operations.get(operationId);
+      if (updatedOperation) {
+        updatedOperation.progress = current;
+        updatedOperation.total = total;
+        updatedOperation.message = message || `데이터 정리 중... (${current}/${total})`;
+        operations.set(operationId, updatedOperation);
+      }
+    };
+
+    // 전체 AI 데이터 정리
+    const result = await cleanupService.cleanupAllFakeData(onProgress);
+
+    // 최종 상태 업데이트
+    const finalOperation = operations.get(operationId);
+    if (finalOperation) {
+      const totalDeleted = result.deletedBots + result.deletedPosts + result.deletedComments;
+      finalOperation.progress = totalDeleted;
+      finalOperation.total = totalDeleted;
+      finalOperation.message = `전체 AI 데이터 정리 완료 (봇: ${result.deletedBots}, 게시글: ${result.deletedPosts}, 댓글: ${result.deletedComments})`;
+      operations.set(operationId, finalOperation);
+    }
+
+    console.log(`✅ 전체 데이터 정리 완료: 봇 ${result.deletedBots}개, 게시글 ${result.deletedPosts}개, 댓글 ${result.deletedComments}개`);
+    
+  } catch (error) {
+    console.error('❌ 데이터 정리 실패:', error);
+    throw error;
+  }
 }
 
 /**
@@ -477,155 +473,111 @@ async function executeCleanup(operationId: string, params: any) {
 async function executeBotDeletion(operationId: string, params: any): Promise<void> {
   const { withPosts = false } = params;
   
-  return new Promise<void>((resolve, reject) => {
+  try {
     const operation = operations.get(operationId);
-    if (!operation) return reject(new Error('작업을 찾을 수 없습니다.'));
+    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
 
     operation.total = 100; // 예상 봇 수 (실제로는 먼저 카운트해야 함)
     operation.message = withPosts ? '모든 봇과 게시글을 삭제하는 중...' : '모든 봇을 삭제하는 중...';
     operations.set(operationId, operation);
 
-    // 봇 삭제 스크립트 실행 (상위 디렉토리의 scripts 폴더)
-    const scriptPath = path.join(process.cwd(), '..', 'scripts', 'delete-all-bots.js');
-    const args = withPosts ? ['--with-posts'] : ['--bots-only'];
-
-    const child = spawn('node', [scriptPath, ...args], {
-      cwd: path.join(process.cwd(), '..'), // 상위 디렉토리에서 실행
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-
-    let deletedCount = 0;
-
-    child.stdout.on('data', (data) => {
-      const output = data.toString();
-      console.log('봇 삭제 출력:', output);
-
-      // 진행률 파싱
-      const progressMatch = output.match(/Progress: (\d+)\/(\d+)/);
-      if (progressMatch) {
-        const current = parseInt(progressMatch[1]);
-        const total = parseInt(progressMatch[2]);
-        operation.progress = current;
-        operation.total = total;
-        operation.message = withPosts 
+    // BotService 인스턴스 생성
+    const botService = new BotService();
+    
+    // 진행률 콜백 함수
+    const onProgress = (current: number, total: number, message?: string) => {
+      const updatedOperation = operations.get(operationId);
+      if (updatedOperation) {
+        updatedOperation.progress = current;
+        updatedOperation.total = total;
+        updatedOperation.message = message || (withPosts 
           ? `봇과 게시글 삭제 중... (${current}/${total})` 
-          : `봇 삭제 중... (${current}/${total})`;
-        operations.set(operationId, operation);
+          : `봇 삭제 중... (${current}/${total})`);
+        operations.set(operationId, updatedOperation);
       }
+    };
 
-      // 삭제된 봇 수 파싱
-      const deletedMatch = output.match(/삭제된 봇 계정: (\d+)개/);
-      if (deletedMatch) {
-        deletedCount = parseInt(deletedMatch[1]);
-      }
-    });
+    let result;
+    if (withPosts) {
+      // 봇과 게시글 모두 삭제
+      result = await botService.deleteBotsAndPosts(onProgress);
+    } else {
+      // 봇만 삭제
+      result = await botService.deleteAllBots(onProgress);
+    }
 
-    child.stderr.on('data', (data) => {
-      console.error('봇 삭제 오류:', data.toString());
-    });
+    // 최종 상태 업데이트
+    const finalOperation = operations.get(operationId);
+    if (finalOperation) {
+      finalOperation.progress = result.deletedCount;
+      finalOperation.total = result.deletedCount;
+      finalOperation.message = withPosts 
+        ? `${result.deletedCount}개 봇과 관련 데이터 삭제 완료` 
+        : `${result.deletedCount}개 봇 삭제 완료`;
+      operations.set(operationId, finalOperation);
+    }
 
-    child.on('close', (code) => {
-      if (code === 0) {
-        const finalOperation = operations.get(operationId);
-        if (finalOperation) {
-          finalOperation.progress = deletedCount;
-          finalOperation.total = deletedCount;
-          finalOperation.message = withPosts 
-            ? `${deletedCount}개 봇과 관련 게시글 삭제 완료` 
-            : `${deletedCount}개 봇 삭제 완료`;
-          operations.set(operationId, finalOperation);
-        }
-        resolve();
-      } else {
-        reject(new Error(`봇 삭제 스크립트가 오류 코드 ${code}로 종료되었습니다.`));
-      }
-    });
-
-    child.on('error', (error) => {
-      reject(new Error(`봇 삭제 스크립트 실행 오류: ${error.message}`));
-    });
-  });
+    console.log(`✅ 봇 삭제 완료: ${result.deletedCount}개 봇${withPosts ? ' 및 관련 데이터' : ''} 삭제`);
+    
+  } catch (error) {
+    console.error('❌ 봇 삭제 실패:', error);
+    throw error;
+  }
 }
 
 /**
  * 댓글 생성 실행
  */
 async function executeCommentGeneration(operationId: string, params: any) {
-  return new Promise<void>((resolve, reject) => {
-    try {
-      console.log(`💬 댓글 생성 시작 (${operationId}):`, params);
-      
-      const operation = operations.get(operationId);
-      if (!operation) return reject(new Error('작업을 찾을 수 없습니다.'));
+  try {
+    console.log(`💬 댓글 생성 시작 (${operationId}):`, params);
+    
+    const operation = operations.get(operationId);
+    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
 
-      const { schoolLimit = 5, commentsPerSchool = 3, maxCommentsPerPost = 2 } = params;
-      
-      // 예상 댓글 수 계산
-      const expectedComments = schoolLimit * commentsPerSchool * maxCommentsPerPost;
-      operation.total = expectedComments;
-      operation.message = `${expectedComments}개 AI 댓글을 생성하는 중...`;
-      operations.set(operationId, operation);
+    const { schoolLimit = 5, commentsPerSchool = 3, maxCommentsPerPost = 2 } = params;
+    
+    // 예상 댓글 수 계산
+    const expectedComments = schoolLimit * commentsPerSchool * maxCommentsPerPost;
+    operation.total = expectedComments;
+    operation.message = `${expectedComments}개 AI 댓글을 생성하는 중...`;
+    operations.set(operationId, operation);
 
-      const scriptPath = path.join(process.cwd(), '..', 'scripts', 'comment-generator.js');
-      const args = [schoolLimit.toString(), commentsPerSchool.toString(), maxCommentsPerPost.toString()];
-
-      const child = spawn('node', [scriptPath, ...args], {
-        cwd: path.join(process.cwd(), '..'),
-        stdio: 'pipe'
-      });
-
-      let generatedCount = 0;
-
-      child.stdout.on('data', (data) => {
-        const output = data.toString();
-        console.log('댓글 생성 출력:', output);
-        
-        // 진행률 파싱 (댓글 생성 완료 메시지 감지)
-        const commentMatch = output.match(/✅ (\d+)개 댓글 생성 완료/);
-        if (commentMatch) {
-          generatedCount += parseInt(commentMatch[1]);
-          const currentOperation = operations.get(operationId);
-          if (currentOperation) {
-            currentOperation.progress = generatedCount;
-            currentOperation.message = `${generatedCount}/${expectedComments}개 댓글 생성 중...`;
-            operations.set(operationId, currentOperation);
-          }
-        }
-      });
-
-      child.stderr.on('data', (data) => {
-        console.error('댓글 생성 오류:', data.toString());
-      });
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          console.log(`✅ 댓글 생성 완료 (${operationId}): ${generatedCount}개`);
-          const finalOperation = operations.get(operationId);
-          if (finalOperation) {
-            finalOperation.progress = generatedCount;
-            finalOperation.message = `${generatedCount}개 댓글 생성 완료`;
-            operations.set(operationId, finalOperation);
-          }
-          resolve();
-        } else {
-          reject(new Error(`댓글 생성 스크립트가 오류 코드 ${code}로 종료되었습니다.`));
-        }
-      });
-
-      child.on('error', (error) => {
-        reject(new Error(`댓글 생성 스크립트 실행 실패: ${error.message}`));
-      });
-
-    } catch (error) {
-      console.error(`❌ 댓글 생성 실패 (${operationId}):`, error);
-      const operation = operations.get(operationId);
-      if (operation) {
-        operation.status = 'failed';
-        operation.message = `작업 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`;
-        operation.completedAt = new Date().toISOString();
-        operations.set(operationId, operation);
+    // CommentService 인스턴스 생성
+    const commentService = new CommentService();
+    
+    // 진행률 콜백 함수
+    const onProgress = (current: number, total: number, message?: string) => {
+      const updatedOperation = operations.get(operationId);
+      if (updatedOperation) {
+        updatedOperation.progress = current;
+        updatedOperation.total = total;
+        updatedOperation.message = message || `댓글 생성 중... (${current}/${total})`;
+        operations.set(operationId, updatedOperation);
       }
-      reject(error);
+    };
+
+    // 댓글 생성 실행
+    const generatedCount = await commentService.generateCommentsForPosts(
+      schoolLimit,
+      commentsPerSchool,
+      maxCommentsPerPost,
+      onProgress
+    );
+
+    // 최종 상태 업데이트
+    const finalOperation = operations.get(operationId);
+    if (finalOperation) {
+      finalOperation.progress = generatedCount;
+      finalOperation.total = generatedCount;
+      finalOperation.message = `${generatedCount}개 AI 댓글 생성 완료`;
+      operations.set(operationId, finalOperation);
     }
-  });
+
+    console.log(`✅ 댓글 생성 완료: ${generatedCount}개 댓글`);
+    
+  } catch (error) {
+    console.error('❌ 댓글 생성 실패:', error);
+    throw error;
+  }
 }
