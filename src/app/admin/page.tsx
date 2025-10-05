@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
           size="sm"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? '로딩 중...' : '통계 새로고침'}
+          {isLoading ? '로딩 중... ' : '통계 새로고침'}
         </Button>
       </div>
 
