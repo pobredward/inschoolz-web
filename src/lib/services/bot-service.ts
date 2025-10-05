@@ -219,13 +219,15 @@ export class BotService {
       
       const existingCount = existingBotsQuery.size;
       
-      if (existingCount >= botCount) {
-        console.log(`   ⚠️ ${schoolName}에 이미 ${existingCount}개의 봇이 있습니다. 건너뜁니다.`);
+      // 기존 봇이 너무 많으면 제한 (예: 10개 이상)
+      if (existingCount >= 10) {
+        console.log(`   ⚠️ ${schoolName}에 이미 ${existingCount}개의 봇이 있습니다. 더 이상 생성하지 않습니다.`);
         return [];
       }
       
-      const needToCreate = botCount - existingCount;
-      console.log(`   📝 ${schoolName}: ${existingCount}개 존재, ${needToCreate}개 추가 생성`);
+      // 요청된 수만큼 추가 생성 (기존 봇 수와 관계없이)
+      const needToCreate = botCount;
+      console.log(`   📝 ${schoolName}: ${existingCount}개 존재, ${needToCreate}개 추가 생성 예정`);
       
       const createdBots: BotCreationResult[] = [];
 
@@ -327,7 +329,7 @@ export class BotService {
   }
 
   /**
-   * 여러 학교에 대해 봇 계정 생성
+   * 여러 학교에 대해 봇 계정 생성 (개선된 버전)
    */
   public async createBotsForSchools(
     schoolLimit: number = 50, 
@@ -338,24 +340,7 @@ export class BotService {
       console.log(`🤖 학교별 봇 계정 생성 시작...`);
       console.log(`📊 설정: ${schoolLimit}개 학교, 학교당 ${botsPerSchool}개 봇\n`);
 
-      // 1단계: 봇이 있는 학교들 조회
-      console.log('🔍 기존 봇이 있는 학교들 조회 중...');
-      const existingBotsQuery = await this.db
-        .collection('users')
-        .where('fake', '==', true)
-        .get();
-
-      const schoolsWithBots = new Set<string>();
-      existingBotsQuery.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.schoolId) {
-          schoolsWithBots.add(data.schoolId);
-        }
-      });
-
-      console.log(`📊 이미 봇이 있는 학교: ${schoolsWithBots.size}개`);
-
-      // 2단계: 전체 학교 목록 가져오기
+      // 1단계: 전체 학교 목록 가져오기
       console.log('🏫 전체 학교 목록 조회 중...');
       const allSchoolsQuery = await this.db
         .collection('schools')
@@ -370,36 +355,25 @@ export class BotService {
         };
       }
 
-      // 3단계: 봇이 없는 학교들만 필터링
-      const schoolsWithoutBots: Array<{id: string, name: string, address: string, region: string}> = [];
+      // 2단계: 학교 목록 준비
+      const allSchools: Array<{id: string, name: string, address: string, region: string}> = [];
       allSchoolsQuery.docs.forEach(doc => {
         const data = doc.data();
-        if (!schoolsWithBots.has(doc.id)) {
-          schoolsWithoutBots.push({
-            id: doc.id,
-            name: data.KOR_NAME,
-            address: data.ADDRESS,
-            region: data.REGION || '서울'
-          });
-        }
+        allSchools.push({
+          id: doc.id,
+          name: data.KOR_NAME,
+          address: data.ADDRESS,
+          region: data.REGION || '서울'
+        });
       });
 
-      console.log(`📊 봇이 없는 학교: ${schoolsWithoutBots.length}개`);
+      console.log(`📊 전체 학교: ${allSchools.length}개`);
 
-      if (schoolsWithoutBots.length === 0) {
-        console.log('✅ 모든 학교에 이미 봇이 있습니다.');
-        return {
-          totalCreated: 0,
-          summary: { elementary: 0, middle: 0, high: 0 },
-          schoolsProcessed: 0
-        };
-      }
+      // 3단계: 요청된 수만큼 학교 선택 (랜덤 셔플)
+      const shuffledSchools = allSchools.sort(() => Math.random() - 0.5);
+      const selectedSchools = shuffledSchools.slice(0, Math.min(schoolLimit, allSchools.length));
 
-      // 4단계: 요청된 수만큼 학교 선택 (랜덤 셔플)
-      const shuffledSchools = schoolsWithoutBots.sort(() => Math.random() - 0.5);
-      const selectedSchools = shuffledSchools.slice(0, Math.min(schoolLimit, schoolsWithoutBots.length));
-
-      console.log(`📋 선택된 학교: ${selectedSchools.length}개 (봇이 없는 학교 중에서 랜덤 선택)\n`);
+      console.log(`📋 선택된 학교: ${selectedSchools.length}개 (전체 학교 중에서 랜덤 선택)\n`);
 
       let totalCreated = 0;
       const summary = {
@@ -408,7 +382,7 @@ export class BotService {
         high: 0
       };
 
-      // 각 학교별로 봇 생성
+      // 4단계: 각 학교별로 봇 생성
       for (let index = 0; index < selectedSchools.length; index++) {
         const school = selectedSchools[index];
         

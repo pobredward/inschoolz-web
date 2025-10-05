@@ -1,4 +1,5 @@
 import FirebaseService from './firebase-service';
+import { ContentTemplates } from './content-templates';
 
 // 타입 정의
 interface Bot {
@@ -59,6 +60,7 @@ export class PostService {
   private FieldValue: typeof FirebaseFirestore.FieldValue;
   private boardCode: string;
   private boardName: string;
+  private contentTemplates: ContentTemplates;
 
   constructor() {
     this.firebaseService = FirebaseService.getInstance();
@@ -66,6 +68,7 @@ export class PostService {
     this.FieldValue = this.firebaseService.getFieldValue();
     this.boardCode = 'free';
     this.boardName = '자유';
+    this.contentTemplates = new ContentTemplates();
   }
 
   /**
@@ -157,37 +160,37 @@ export class PostService {
   }
 
   /**
-   * 게시글 생성 프롬프트 생성
+   * 게시글 생성 프롬프트 생성 (ContentTemplates 사용)
    */
   private async createPrompt(schoolName: string, botNickname?: string): Promise<string> {
-    const casualTopics = [
-      '오늘 있었던 웃긴 일', '친구랑 있었던 일', '쌤이 한 말 중에 기억에 남는 거',
-      '화장실에서 들은 소문', '체육시간에 일어난 일', '학교 주변에서 본 연예인 닮은 사람',
-      '교복 관련 불만', '선생님 몰래 한 일', '학교 와이파이 속도', '복도에서 들은 대화',
-      '쉬는시간 에피소드', '방과후 활동 후기', '학교에서 본 신기한 일', '친구들 사이 유행',
-      '오늘 날씨 어땠는지', '학교 건물에서 발견한 것', '수업시간 졸린 이야기',
-      '학교 앞 문구점 이야기', '버스/지하철에서 본 일', '집에 가는 길에 본 것',
-      '요즘 하고 있는 게임', '주말에 뭐 했는지', '친구랑 놀 계획', '학교 행사 후기',
-      '동아리 활동 이야기', '선후배 관계', '학교 생활 꿀팁'
-    ];
-    const randomTopic = casualTopics[Math.floor(Math.random() * casualTopics.length)];
-
-    let ageGroup = 'middle';
+    // 학교 유형 판별
+    let schoolType: 'elementary' | 'middle' | 'high' = 'middle';
     if (schoolName.includes('초등학교')) {
-      ageGroup = 'elementary';
+      schoolType = 'elementary';
     } else if (schoolName.includes('고등학교') || schoolName.includes('고교')) {
-      ageGroup = 'high';
+      schoolType = 'high';
     }
+
+    // 지역 정보 (기본값 설정)
+    const region = '서울'; // 실제로는 학교 정보에서 가져와야 함
+
+    // ContentTemplates를 사용한 종합 주제 생성
+    const topicResult = this.contentTemplates.generateComprehensiveTopic(
+      schoolName,
+      region,
+      schoolType,
+      '자유게시판'
+    );
 
     // 봇별 개성 있는 말투 적용
     let styleGuide = '';
     if (botNickname) {
-      const personalityStyle = this.getBotPersonality(botNickname, ageGroup);
+      const personalityStyle = this.getBotPersonality(botNickname, schoolType);
       styleGuide = `
-${botNickname}의 개성 있는 말투:${personalityStyle}`;
+${botNickname}의 개성 있는 말투: ${personalityStyle}`;
     } else {
       // 기본 스타일
-      if (ageGroup === 'elementary') {
+      if (schoolType === 'elementary') {
         styleGuide = `
 스타일 가이드:
 - 초등학생다운 순수하고 밝은 말투 사용
@@ -195,7 +198,7 @@ ${botNickname}의 개성 있는 말투:${personalityStyle}`;
 - 욕설이나 강한 슬랭 사용 금지
 - 친근하고 귀여운 톤으로 작성
 - 2-3줄 정도로 짧게`;
-      } else if (ageGroup === 'middle') {
+      } else if (schoolType === 'middle') {
         styleGuide = `
 스타일 가이드:
 - 중학생다운 활발하고 솔직한 말투 사용
@@ -213,7 +216,11 @@ ${botNickname}의 개성 있는 말투:${personalityStyle}`;
     }
 
     return `당신은 ${schoolName}에 다니는 평범한 학생입니다.
-온라인 커뮤니티에 "${randomTopic}"에 대한 짧은 게시글을 작성해주세요.
+온라인 커뮤니티에 "${topicResult.topic}"에 대한 짧은 게시글을 작성해주세요.
+
+주제 카테고리: ${topicResult.category}
+글의 톤: ${topicResult.tone}
+학교 유형: ${schoolType === 'elementary' ? '초등학교' : schoolType === 'middle' ? '중학교' : '고등학교'}
 ${styleGuide}
 
 ⚠️ 절대 금지사항:
