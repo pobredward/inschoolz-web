@@ -577,18 +577,25 @@ export const incrementPostViewCount = async (postId: string): Promise<void> => {
 // 게시글에 달린 댓글 가져오기 (최적화된 버전 - N+1 쿼리 문제 해결)
 export const getCommentsByPost = async (postId: string) => {
   try {
+    // 1. 서브컬렉션에서 기존 댓글 조회
     const commentsRef = collection(db, 'posts', postId, 'comments');
+    const subCollectionQuery = query(commentsRef, orderBy('createdAt', 'asc'));
+    const subCollectionSnapshot = await getDocs(subCollectionQuery);
     
-    // 모든 댓글을 한 번에 가져오기 (부모 댓글과 대댓글 모두)
-    const allCommentsQuery = query(commentsRef, orderBy('createdAt', 'asc'));
-    const allCommentsSnapshot = await getDocs(allCommentsQuery);
+    // 2. 최상위 컬렉션에서 AI 댓글 조회 (인덱스 문제 방지)
+    const topLevelCommentsRef = collection(db, 'comments');
+    const topLevelQuery = query(
+      topLevelCommentsRef, 
+      where('postId', '==', postId)
+    );
+    const topLevelSnapshot = await getDocs(topLevelQuery);
     
     const allComments: any[] = [];
     const allReplies: any[] = [];
     const comments: any[] = [];
     
-    // 댓글과 대댓글을 분리하여 수집
-    for (const commentDoc of allCommentsSnapshot.docs) {
+    // 서브컬렉션 댓글 처리
+    for (const commentDoc of subCollectionSnapshot.docs) {
       const commentData = commentDoc.data();
       const comment = { id: commentDoc.id, ...commentData } as any;
       
@@ -606,11 +613,29 @@ export const getCommentsByPost = async (postId: string) => {
       }
     }
     
+    // 최상위 컬렉션 댓글 처리 (AI 댓글)
+    for (const commentDoc of topLevelSnapshot.docs) {
+      const commentData = commentDoc.data();
+      const comment = { id: commentDoc.id, ...commentData } as any;
+      
+      // 삭제된 댓글 건너뛰기
+      if (comment.status?.isDeleted === true) {
+        continue;
+      }
+      
+      // AI 댓글은 대부분 부모 댓글
+      if (comment.parentCommentId === null || comment.parentCommentId === undefined) {
+        allComments.push(comment);
+      } else {
+        allReplies.push(comment);
+      }
+    }
+    
     // 모든 고유한 사용자 ID 수집 (익명이 아닌 경우만)
     const userIds = new Set<string>();
     
     [...allComments, ...allReplies].forEach(item => {
-      if (!item.isAnonymous && item.authorId && !item.status.isDeleted) {
+      if (!item.isAnonymous && item.authorId && !item.status?.isDeleted) {
         userIds.add(item.authorId);
       }
     });

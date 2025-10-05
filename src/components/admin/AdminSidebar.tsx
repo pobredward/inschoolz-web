@@ -15,7 +15,8 @@ import {
   Settings,
   LogOut,
   ExternalLink,
-  Bell
+  Bell,
+  Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,7 @@ export default function AdminSidebar() {
     { href: '/admin/content', icon: ShieldAlert, label: '콘텐츠 모더레이션' },
     { href: '/admin/reports', icon: Flag, label: '신고 관리' },
     { href: '/admin/schools', icon: School, label: '학교 관리' },
+    { href: '/admin/fake-posts', icon: Bot, label: 'AI 게시글 관리' },
     { href: '/admin/games', icon: Gamepad2, label: '게임 설정' },
     { href: '/admin/notifications', icon: Bell, label: '알림 설정' },
     { href: '/admin/settings', icon: Settings, label: '시스템 설정' },

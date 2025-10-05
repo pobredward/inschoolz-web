@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatCard } from '@/components/admin/StatCard';
-import { Users, MessageSquare, FileText, AlertCircle, Star, MessageCircle, Settings, Shield, Gamepad2, BarChart3, RefreshCw, Bell } from 'lucide-react';
+import { Users, MessageSquare, FileText, AlertCircle, Star, MessageCircle, Settings, Shield, Gamepad2, BarChart3, RefreshCw, Bell, Bot } from 'lucide-react';
 import { getAdminStats } from '@/lib/api/admin';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
@@ -127,6 +127,14 @@ export default function AdminDashboardPage() {
                 <Bell className="h-6 w-6 text-indigo-600" />
                 <span className="font-medium">알림 설정</span>
                 <span className="text-xs text-gray-500">전체 사용자 알림 발송</span>
+              </Button>
+            </Link>
+
+            <Link href="/admin/fake-posts">
+              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
+                <Bot className="h-6 w-6 text-purple-600" />
+                <span className="font-medium">AI 게시글 관리</span>
+                <span className="text-xs text-gray-500">자동 생성 게시글 관리</span>
               </Button>
             </Link>
 

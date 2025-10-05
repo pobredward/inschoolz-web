@@ -323,6 +323,7 @@ export interface Comment {
   parentId: string | null;
   createdAt: FirebaseTimestamp;
   updatedAt?: FirebaseTimestamp;
+  fake?: boolean; // AI 생성 댓글 여부
   
   // 익명 댓글 정보 (비회원 작성 시)
   anonymousAuthor?: {

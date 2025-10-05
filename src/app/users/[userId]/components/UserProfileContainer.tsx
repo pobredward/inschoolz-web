@@ -24,7 +24,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import FollowersModal from './FollowersModal';
+import FollowersModal from '@/components/FollowersModal';
 import ProfileHeader from './ProfileHeader';
 import { 
   isValidUser, 

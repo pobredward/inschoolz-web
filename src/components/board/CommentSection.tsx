@@ -45,6 +45,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { awardCommentExperience } from '@/lib/experience-service';
 import { ExperienceModal } from '@/components/ui/experience-modal';
+import { isAdmin, canEditAIComment } from '@/lib/admin-utils';
 
 interface CommentSectionProps {
   postId: string;
@@ -312,6 +313,11 @@ function CommentItem({
   onEditingCommentChange,
   onEditingCommentSave,
   onEditingCommentCancel,
+  editingAIComment,
+  onStartEditAIComment,
+  onSaveAIComment,
+  onCancelAIComment,
+  onAICommentContentChange,
   isLiked = false,
   level = 0,
   replyingTo,
@@ -330,6 +336,11 @@ function CommentItem({
   onEditingCommentChange: (content: string) => void;
   onEditingCommentSave: () => void;
   onEditingCommentCancel: () => void;
+  editingAIComment: { id: string; content: string } | null;
+  onStartEditAIComment: (comment: Comment) => void;
+  onSaveAIComment: () => void;
+  onCancelAIComment: () => void;
+  onAICommentContentChange: (content: string) => void;
   isLiked?: boolean;
   level?: number;
   replyingTo?: { id: string; author: string } | null;
@@ -348,6 +359,9 @@ function CommentItem({
   const isAnonymous = comment.isAnonymous && !comment.authorId;
   const isDeleted = comment.status.isDeleted;
   const isReply = level > 0;
+  const isAIComment = comment.fake === true;
+  const canEditAI = isAdmin(user?.email) && isAIComment;
+  const isEditingAI = editingAIComment?.id === comment.id;
   
   // 작성자 표시 로직
   const getAuthorName = () => {
@@ -523,6 +537,40 @@ function CommentItem({
               </Button>
             </div>
           </div>
+        ) : isEditingAI ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">AI 댓글 수정</span>
+            </div>
+            <Textarea
+              value={editingAIComment?.content || ''}
+              onChange={(e) => onAICommentContentChange(e.target.value)}
+              className="min-h-[60px] text-sm"
+              placeholder="AI 댓글 내용을 수정하세요..."
+              maxLength={500}
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500">
+                {editingAIComment?.content?.length || 0}/500자
+              </span>
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  onClick={onSaveAIComment}
+                  disabled={!editingAIComment?.content?.trim()}
+                >
+                  수정 완료
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={onCancelAIComment}
+                >
+                  취소
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             <div className={`text-sm leading-relaxed whitespace-pre-wrap ${isDeleted ? 'text-slate-500 italic' : 'text-slate-700'}`}>
@@ -539,7 +587,7 @@ function CommentItem({
                   onClick={handleLike}
                 >
                   <Heart className={`w-3 h-3 mr-1 ${isLiked ? 'fill-current' : ''}`} />
-                  {comment.stats.likeCount}
+                  {comment.stats?.likeCount || 0}
                 </Button>
                 
                 {level < maxLevel && (
@@ -551,6 +599,19 @@ function CommentItem({
                   >
                     <MessageIcon className="w-3 h-3 mr-1" />
                     답글
+                  </Button>
+                )}
+
+                {/* AI 댓글 수정 버튼 (관리자 전용) */}
+                {canEditAI && !isEditingAI && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-blue-600 hover:text-blue-800"
+                    onClick={() => onStartEditAIComment(comment as Comment)}
+                  >
+                    <Edit2 className="w-3 h-3 mr-1" />
+                    AI 수정
                   </Button>
                 )}
               </div>
@@ -596,26 +657,21 @@ function CommentItem({
 // 메인 댓글 섹션 컴포넌트
 export default function CommentSection({ 
   postId, 
-  initialComments = [], 
   onCommentCountChange 
 }: CommentSectionProps) {
   const { user, suspensionStatus } = useAuth();
-  const router = useRouter();
   const [comments, setComments] = useState<CommentWithReplies[]>([]);
-  const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showAnonymousForm, setShowAnonymousForm] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: string; author: string } | null>(null);
   const [editingComment, setEditingComment] = useState<{ id: string; content: string; password?: string } | null>(null);
+  const [editingAIComment, setEditingAIComment] = useState<{ id: string; content: string } | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState<{ commentId: string; action: 'edit' | 'delete' } | null>(null);
   const [likeStatuses, setLikeStatuses] = useState<Record<string, boolean>>({});
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [experienceGained, setExperienceGained] = useState(0);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
-
-  // 정지된 사용자인지 확인
-  const isSuspendedUser = user && suspensionStatus?.isSuspended;
 
   // 차단된 사용자 목록 로드
   const loadBlockedUsers = useCallback(async () => {
@@ -640,7 +696,7 @@ export default function CommentSection({
       if (user && fetchedComments.length > 0) {
         const allCommentIds = fetchedComments.flatMap(comment => [
           comment.id,
-          ...(comment.replies || []).map(reply => reply.id)
+          ...(comment.replies || []).map((reply: Comment) => reply.id)
         ]);
         
         const statuses = await checkMultipleCommentLikeStatus(postId, allCommentIds, user.uid);
@@ -775,6 +831,67 @@ export default function CommentSection({
     }
   };
 
+  // AI 댓글 수정 시작 (관리자 전용)
+  const handleStartEditAIComment = (comment: Comment) => {
+    if (!canEditAIComment(user?.email, comment)) {
+      toast.error('AI 댓글 수정 권한이 없습니다.');
+      return;
+    }
+    setEditingAIComment({ id: comment.id, content: comment.content });
+  };
+
+  // AI 댓글 내용 변경
+  const handleAICommentContentChange = (content: string) => {
+    if (editingAIComment) {
+      setEditingAIComment({ ...editingAIComment, content });
+    }
+  };
+
+  // AI 댓글 수정 저장 (관리자 전용)
+  const handleSaveAIComment = async () => {
+    if (!editingAIComment) return;
+    
+    if (!editingAIComment.content.trim()) {
+      toast.error('댓글 내용을 입력해주세요.');
+      return;
+    }
+
+    if (editingAIComment.content.length > 500) {
+      toast.error('댓글은 500자 이하로 작성해주세요.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/comments?id=${editingAIComment.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: editingAIComment.content.trim()
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('AI 댓글이 수정되었습니다.');
+        setEditingAIComment(null);
+        fetchComments(); // 댓글 목록 새로고침
+      } else {
+        throw new Error(result.error || 'AI 댓글 수정 실패');
+      }
+    } catch (error) {
+      console.error('AI 댓글 수정 오류:', error);
+      toast.error('AI 댓글 수정 중 오류가 발생했습니다.');
+    }
+  };
+
+  // AI 댓글 수정 취소
+  const handleCancelAIComment = () => {
+    setEditingAIComment(null);
+  };
+
   // 댓글 삭제
   const handleDeleteComment = async (commentId: string) => {
     if (!confirm('정말로 이 댓글을 삭제하시겠습니까?')) return;
@@ -872,7 +989,7 @@ export default function CommentSection({
           return {
             ...comment,
             stats: {
-              ...comment.stats,
+              ...(comment.stats || { likeCount: 0, replyCount: 0 }),
               likeCount: result.likeCount
             }
           };
@@ -884,7 +1001,7 @@ export default function CommentSection({
               return {
                 ...reply,
                 stats: {
-                  ...reply.stats,
+                  ...(reply.stats || { likeCount: 0, replyCount: 0 }),
                   likeCount: result.likeCount
                 }
               };
@@ -1029,6 +1146,11 @@ export default function CommentSection({
                         onEditingCommentChange={handleEditingCommentChange}
                         onEditingCommentSave={handleEditingCommentSave}
                         onEditingCommentCancel={handleEditingCommentCancel}
+                        editingAIComment={editingAIComment}
+                        onStartEditAIComment={handleStartEditAIComment}
+                        onSaveAIComment={handleSaveAIComment}
+                        onCancelAIComment={handleCancelAIComment}
+                        onAICommentContentChange={handleAICommentContentChange}
                         isLiked={likeStatuses[comment.id] || false}
                         replyingTo={replyingTo}
                         onCommentSubmit={handleCreateComment}
@@ -1038,7 +1160,7 @@ export default function CommentSection({
                       {/* 대댓글 렌더링 */}
                       {comment.replies && comment.replies.length > 0 && (
                         <div className="ml-8 mt-4 space-y-4">
-                          {comment.replies.map((reply: any) => {
+                          {comment.replies.map((reply: CommentWithReplies) => {
                             const isReplyBlocked = reply.authorId && blockedUserIds.has(reply.authorId);
                             
                             if (isReplyBlocked && reply.authorId) {
@@ -1048,7 +1170,7 @@ export default function CommentSection({
                                   blockedUserId={reply.authorId}
                                   blockedUserName={reply.author?.displayName || '사용자'}
                                   contentType="comment"
-                                  onUnblock={() => handleUnblock(reply.authorId)}
+                                  onUnblock={() => handleUnblock(reply.authorId!)}
                                 >
                                   <CommentItem
                                     comment={reply}
@@ -1063,6 +1185,11 @@ export default function CommentSection({
                                     onEditingCommentChange={handleEditingCommentChange}
                                     onEditingCommentSave={handleEditingCommentSave}
                                     onEditingCommentCancel={handleEditingCommentCancel}
+                                    editingAIComment={editingAIComment}
+                                    onStartEditAIComment={handleStartEditAIComment}
+                                    onSaveAIComment={handleSaveAIComment}
+                                    onCancelAIComment={handleCancelAIComment}
+                                    onAICommentContentChange={handleAICommentContentChange}
                                     isLiked={likeStatuses[reply.id] || false}
                                     level={1}
                                     replyingTo={replyingTo}
@@ -1088,6 +1215,11 @@ export default function CommentSection({
                                 onEditingCommentChange={handleEditingCommentChange}
                                 onEditingCommentSave={handleEditingCommentSave}
                                 onEditingCommentCancel={handleEditingCommentCancel}
+                                editingAIComment={editingAIComment}
+                                onStartEditAIComment={handleStartEditAIComment}
+                                onSaveAIComment={handleSaveAIComment}
+                                onCancelAIComment={handleCancelAIComment}
+                                onAICommentContentChange={handleAICommentContentChange}
                                 isLiked={likeStatuses[reply.id] || false}
                                 level={1}
                                 replyingTo={replyingTo}
@@ -1118,6 +1250,11 @@ export default function CommentSection({
                     onEditingCommentChange={handleEditingCommentChange}
                     onEditingCommentSave={handleEditingCommentSave}
                     onEditingCommentCancel={handleEditingCommentCancel}
+                    editingAIComment={editingAIComment}
+                    onStartEditAIComment={handleStartEditAIComment}
+                    onSaveAIComment={handleSaveAIComment}
+                    onCancelAIComment={handleCancelAIComment}
+                    onAICommentContentChange={handleAICommentContentChange}
                     isLiked={likeStatuses[comment.id] || false}
                     replyingTo={replyingTo}
                     onCommentSubmit={handleCreateComment}
@@ -1127,7 +1264,7 @@ export default function CommentSection({
                   {/* 대댓글 렌더링 */}
                   {comment.replies && comment.replies.length > 0 && (
                     <div className="ml-8 mt-4 space-y-4">
-                      {comment.replies.map((reply: any) => {
+                      {comment.replies.map((reply: CommentWithReplies) => {
                         const isReplyBlocked = reply.authorId && blockedUserIds.has(reply.authorId);
                         
                         if (isReplyBlocked && reply.authorId) {
@@ -1137,7 +1274,7 @@ export default function CommentSection({
                               blockedUserId={reply.authorId}
                               blockedUserName={reply.author?.displayName || '사용자'}
                               contentType="comment"
-                              onUnblock={() => handleUnblock(reply.authorId)}
+                              onUnblock={() => handleUnblock(reply.authorId!)}
                             >
                               <CommentItem
                                 comment={reply}
@@ -1152,6 +1289,11 @@ export default function CommentSection({
                                 onEditingCommentChange={handleEditingCommentChange}
                                 onEditingCommentSave={handleEditingCommentSave}
                                 onEditingCommentCancel={handleEditingCommentCancel}
+                                editingAIComment={editingAIComment}
+                                onStartEditAIComment={handleStartEditAIComment}
+                                onSaveAIComment={handleSaveAIComment}
+                                onCancelAIComment={handleCancelAIComment}
+                                onAICommentContentChange={handleAICommentContentChange}
                                 isLiked={likeStatuses[reply.id] || false}
                                 level={1}
                                 replyingTo={replyingTo}
@@ -1177,6 +1319,11 @@ export default function CommentSection({
                             onEditingCommentChange={handleEditingCommentChange}
                             onEditingCommentSave={handleEditingCommentSave}
                             onEditingCommentCancel={handleEditingCommentCancel}
+                            editingAIComment={editingAIComment}
+                            onStartEditAIComment={handleStartEditAIComment}
+                            onSaveAIComment={handleSaveAIComment}
+                            onCancelAIComment={handleCancelAIComment}
+                            onAICommentContentChange={handleAICommentContentChange}
                             isLiked={likeStatuses[reply.id] || false}
                             level={1}
                             replyingTo={replyingTo}

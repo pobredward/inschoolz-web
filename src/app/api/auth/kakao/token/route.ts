@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuth } from '@/lib/firebase-admin';
+import { adminAuth } from '@/lib/firebase-admin';
 
 interface KakaoUserInfo {
   id: number;
@@ -67,15 +67,15 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
     };
 
     // Firebase 커스텀 토큰 생성
-    const adminAuth = getAuth();
-    const customToken = await adminAuth.createCustomToken(uid, additionalClaims);
+    const auth = adminAuth();
+    const customToken = await auth.createCustomToken(uid, additionalClaims);
     
     // Firebase Auth에서 사용자 생성 또는 업데이트
     try {
       // 먼저 사용자가 존재하는지 확인
       let userExists = false;
       try {
-        await adminAuth.getUser(uid);
+        await auth.getUser(uid);
         userExists = true;
         console.log('ℹ️ 기존 사용자 발견:', uid);
       } catch {
@@ -83,12 +83,12 @@ async function createFirebaseCustomToken(kakaoUser: KakaoUserInfo): Promise<stri
       }
 
       const userRecord = userExists 
-        ? await adminAuth.updateUser(uid, {
+        ? await auth.updateUser(uid, {
             email: kakaoUser.kakao_account.email || undefined,
             displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,
             photoURL: kakaoUser.kakao_account.profile?.profile_image_url || undefined,
           })
-        : await adminAuth.createUser({
+        : await auth.createUser({
             uid,
             email: kakaoUser.kakao_account.email || undefined,
             displayName: kakaoUser.kakao_account.profile?.nickname || `카카오사용자${kakaoUser.id}`,

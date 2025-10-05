@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import AttendanceCalendar from '../[userName]/components/AttendanceCalendar';
-import FollowersModal from '../users/[userId]/components/FollowersModal';
+import FollowersModal from '@/components/FollowersModal';
 import {
   Select,
   SelectContent,
