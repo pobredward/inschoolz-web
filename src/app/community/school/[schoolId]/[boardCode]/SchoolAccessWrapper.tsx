@@ -122,9 +122,9 @@ export default function SchoolAccessWrapper({ schoolId, children }: SchoolAccess
                 <TrendingUp className="w-5 h-5 text-green-600" />
                 <CardTitle className="text-lg">인기 학교 커뮤니티</CardTitle>
               </div>
-              <p className="text-sm text-muted-foreground">
+              {/* <p className="text-sm text-muted-foreground">
                 활발한 활동이 이루어지고 있는 학교 커뮤니티를 둘러보세요
-              </p>
+              </p> */}
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
