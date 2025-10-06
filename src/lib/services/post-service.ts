@@ -592,6 +592,92 @@ ${styleGuide}
   }
 
   /**
+   * 랜덤 학교들에 게시글 생성 (배치 처리용)
+   */
+  public async generatePostsForRandomSchools(
+    postCount: number,
+    onProgress?: ProgressCallback
+  ): Promise<number> {
+    try {
+      console.log(`🤖 랜덤 학교들에 ${postCount}개 게시글 생성 시작...`);
+
+      // 봇이 있는 학교들 조회
+      const botsQuery = await this.db
+        .collection('users')
+        .where('fake', '==', true)
+        .get();
+
+      if (botsQuery.empty) {
+        throw new Error('봇 계정이 없습니다.');
+      }
+
+      const schoolsWithBots = new Set<string>();
+      botsQuery.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.schoolId) {
+          schoolsWithBots.add(data.schoolId);
+        }
+      });
+
+      if (schoolsWithBots.size === 0) {
+        throw new Error('봇이 있는 학교가 없습니다.');
+      }
+
+      const schoolIds = Array.from(schoolsWithBots);
+      let generatedCount = 0;
+
+      for (let i = 0; i < postCount; i++) {
+        try {
+          // 랜덤하게 학교 선택
+          const randomSchoolId = schoolIds[Math.floor(Math.random() * schoolIds.length)];
+          
+          // 학교 정보 조회
+          const schoolInfo = await this.getSchoolInfo(randomSchoolId);
+          if (!schoolInfo) {
+            console.warn(`학교 ${randomSchoolId} 정보를 찾을 수 없습니다.`);
+            continue;
+          }
+
+          // 해당 학교의 봇들 조회
+          const schoolBots = await this.getSchoolBots(randomSchoolId);
+          if (schoolBots.length === 0) {
+            console.warn(`${schoolInfo.name}에 봇이 없습니다.`);
+            continue;
+          }
+
+          // 랜덤하게 봇 선택
+          const randomBot = schoolBots[Math.floor(Math.random() * schoolBots.length)];
+          
+          // 게시글 생성
+          const postData = await this.generateSchoolPost(schoolInfo.name, randomBot.nickname);
+          
+          // 게시글 저장
+          await this.savePost(postData, randomBot, schoolInfo);
+          
+          generatedCount++;
+
+          if (onProgress) {
+            onProgress(i + 1, postCount, `게시글 생성 중... (${i + 1}/${postCount})`);
+          }
+
+          // 딜레이 (API 부하 방지)
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+        } catch (postError) {
+          console.error(`게시글 생성 실패:`, postError);
+        }
+      }
+
+      console.log(`✅ ${generatedCount}개 게시글 생성 완료`);
+      return generatedCount;
+
+    } catch (error) {
+      console.error('랜덤 게시글 생성 실패:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 특정 학교에 게시글 생성
    */
   public async generatePostsForSchool(

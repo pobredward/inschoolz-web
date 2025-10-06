@@ -4,7 +4,7 @@ import { BotService, PostService, CleanupService, CommentService } from '@/lib/s
 // Next.js API Route 설정 (프로덕션 환경 최적화)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 5분 타임아웃 (Vercel Pro 기준)
+export const maxDuration = 60; // 60초 타임아웃 (Vercel Hobby 플랜 최대값)
 
 interface BulkOperation {
   id: string;
@@ -98,10 +98,12 @@ export async function POST(request: NextRequest) {
     operations.set(operationId, operation);
     console.log('💾 [BULK-OPS] 작업 정보 저장 완료');
 
-    // 백그라운드에서 작업 실행
+    // 백그라운드에서 작업 실행 (즉시 응답을 위해 await 제거)
     console.log('🏃 [BULK-OPS] 백그라운드 작업 시작');
-    executeOperation(operationId, type, params).catch(error => {
-      console.error('❌ [BULK-OPS] 백그라운드 작업 오류:', error);
+    setImmediate(() => {
+      executeOperation(operationId, type, params).catch(error => {
+        console.error('❌ [BULK-OPS] 백그라운드 작업 오류:', error);
+      });
     });
 
     console.log('✅ [BULK-OPS] POST 응답 반환');

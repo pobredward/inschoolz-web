@@ -578,6 +578,95 @@ ${this.getCommentGuidelines(schoolType, style, isOwnPost)}
   }
 
   /**
+   * 랜덤 게시글들에 댓글 생성 (배치 처리용)
+   */
+  public async generateCommentsForRandomPosts(
+    commentCount: number,
+    onProgress?: ProgressCallback
+  ): Promise<number> {
+    try {
+      console.log(`💬 랜덤 게시글들에 ${commentCount}개 댓글 생성 시작...`);
+
+      // 댓글이 필요한 게시글들 조회 (댓글 수가 적은 순으로)
+      const postsQuery = await this.db
+        .collection('posts')
+        .where('boardCode', '==', 'free')
+        .orderBy('stats.commentCount', 'asc')
+        .limit(commentCount * 2) // 여유분 확보
+        .get();
+
+      if (postsQuery.empty) {
+        throw new Error('댓글을 달 게시글이 없습니다.');
+      }
+
+      const availablePosts = postsQuery.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as (Post & { id: string })[];
+
+      let generatedCount = 0;
+
+      for (let i = 0; i < commentCount && i < availablePosts.length; i++) {
+        try {
+          const post = availablePosts[i];
+          
+          // 해당 학교의 봇들 조회
+          const schoolBots = await this.getSchoolBots(post.schoolId);
+          if (schoolBots.length === 0) {
+            console.warn(`${post.schoolName}에 봇이 없습니다.`);
+            continue;
+          }
+
+          // 기존 댓글들 조회
+          const existingComments = await this.getExistingComments(post.id);
+          
+          // 댓글을 달 수 있는 봇 선택 (중복 방지)
+          const availableBots = schoolBots.filter(bot => 
+            !existingComments.some(comment => comment.authorId === bot.uid)
+          );
+
+          if (availableBots.length === 0) {
+            console.warn(`게시글 ${post.id}에 댓글을 달 수 있는 봇이 없습니다.`);
+            continue;
+          }
+
+          // 랜덤하게 봇 선택
+          const randomBot = availableBots[Math.floor(Math.random() * availableBots.length)];
+          
+          // 댓글 생성
+          const commentContent = await this.generateComment(
+            post as Post, 
+            randomBot, 
+            'comment', 
+            existingComments
+          );
+          
+          // 댓글 저장
+          await this.createComment(post.id, commentContent, randomBot);
+          generatedCount++;
+
+          if (onProgress) {
+            onProgress(i + 1, commentCount, `댓글 생성 중... (${i + 1}/${commentCount})`);
+          }
+
+          // 딜레이 (API 부하 방지)
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+        } catch (commentError) {
+          console.error(`댓글 생성 실패:`, commentError);
+        }
+      }
+
+      console.log(`✅ ${generatedCount}개 댓글 생성 완료`);
+      return generatedCount;
+
+    } catch (error) {
+      console.error('랜덤 댓글 생성 실패:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 특정 게시글에 댓글 생성
    */
   public async generateCommentsForPost(
