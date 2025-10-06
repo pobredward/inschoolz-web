@@ -10,8 +10,6 @@ import {
   QueryDocumentSnapshot,
   updateDoc,
   increment,
-  addDoc,
-  Timestamp,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -213,6 +211,53 @@ function getDistrict(address: string): string {
   
   return '';
 }
+
+/**
+ * 게시글 수 기준으로 인기 학교 목록 가져오기
+ */
+export const getPopularSchools = async (limit = 10): Promise<School[]> => {
+  try {
+    // posts 컬렉션에서 학교별 게시글 수 집계
+    const postsRef = collection(db, 'posts');
+    const postsQuery = query(postsRef, where('type', '==', 'school'));
+    const postsSnapshot = await getDocs(postsQuery);
+    
+    // 학교별 게시글 수 카운트
+    const schoolPostCounts = new Map<string, number>();
+    
+    postsSnapshot.forEach((doc) => {
+      const postData = doc.data();
+      const schoolId = postData.schoolId;
+      
+      if (schoolId) {
+        const currentCount = schoolPostCounts.get(schoolId) || 0;
+        schoolPostCounts.set(schoolId, currentCount + 1);
+      }
+    });
+    
+    // 게시글 수 기준으로 정렬 (내림차순)
+    const sortedSchoolIds = Array.from(schoolPostCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([schoolId]) => schoolId);
+    
+    // 학교 정보 조회
+    const popularSchools: School[] = [];
+    
+    for (const schoolId of sortedSchoolIds) {
+      const school = await getSchoolById(schoolId);
+      if (school) {
+        popularSchools.push(school);
+      }
+    }
+    
+    return popularSchools;
+  } catch (error) {
+    console.error('인기 학교 목록 조회 오류:', error);
+    // 오류 발생 시 기본 학교 목록 반환
+    return await getAllSchools();
+  }
+};
 
 /**
  * 모든 학교 목록 가져오기
@@ -563,42 +608,52 @@ export const checkReferralExists = async (userName: string): Promise<{ exists: b
 
 /**
  * 사용자가 특정 학교 커뮤니티에 접근할 수 있는지 확인
+ * 로그인 여부와 관계없이 모든 사용자가 학교 커뮤니티에 접근 가능 (읽기 전용)
  */
 export const checkSchoolAccess = async (
-  userId: string,
+  userId: string | null,
   schoolId: string
 ): Promise<{
   hasAccess: boolean;
   reason?: string;
+  isGuest?: boolean;
 }> => {
   try {
-    // 사용자 문서 참조
+    // 학교 문서 존재 여부 확인
+    const schoolRef = doc(db, 'schools', schoolId);
+    const schoolDoc = await getDoc(schoolRef);
+    
+    if (!schoolDoc.exists()) {
+      return {
+        hasAccess: false,
+        reason: '존재하지 않는 학교입니다.'
+      };
+    }
+    
+    // 로그인하지 않은 사용자 (게스트)
+    if (!userId) {
+      return {
+        hasAccess: true,
+        isGuest: true
+      };
+    }
+    
+    // 로그인된 사용자 확인
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
+      // 사용자 정보가 없어도 게스트로 접근 허용
       return {
-        hasAccess: false,
-        reason: '사용자 정보를 찾을 수 없습니다.'
+        hasAccess: true,
+        isGuest: true
       };
     }
     
-    const userData = userDoc.data();
-    const favorites = userData.favorites || {};
-    const favoriteSchools = favorites.schools || [];
-    
-    // 즐겨찾기에 해당 학교가 있는지 확인
-    const hasSchoolInFavorites = favoriteSchools.includes(schoolId);
-    
-    if (!hasSchoolInFavorites) {
-      return {
-        hasAccess: false,
-        reason: '이 학교 커뮤니티에 접근하려면 먼저 즐겨찾기에 추가해주세요.'
-      };
-    }
-    
+    // 로그인된 사용자는 모든 학교 커뮤니티에 접근 가능
     return {
-      hasAccess: true
+      hasAccess: true,
+      isGuest: false
     };
   } catch (error) {
     console.error('학교 접근 권한 확인 오류:', error);

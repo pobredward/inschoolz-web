@@ -76,14 +76,27 @@ export async function POST(request: NextRequest) {
 /**
  * 봇 생성 배치 실행
  */
-async function executeBotCreationBatch(params: { schoolCount: number; botsPerSchool: number }) {
-  const { schoolCount, botsPerSchool } = params;
+async function executeBotCreationBatch(params: { 
+  schoolCount?: number; 
+  botsPerSchool: number;
+  schoolId?: string;
+  schoolName?: string;
+}) {
+  const { schoolCount, botsPerSchool, schoolId, schoolName } = params;
   
-  console.log(`🤖 [BOT-BATCH] 봇 생성 시작: ${schoolCount}개 학교, 학교당 ${botsPerSchool}개 봇`);
+  console.log(`🤖 [BOT-BATCH] 봇 생성 시작:`, params);
   
   const botService = new BotService();
-  const result = await botService.createBotsForSchools(schoolCount, botsPerSchool);
   
+  // 특정 학교에 봇 생성
+  if (schoolId && schoolName) {
+    const result = await botService.createBotsForSchool(schoolId, schoolName, botsPerSchool);
+    console.log('✅ [BOT-BATCH] 특정 학교 봇 생성 완료:', result);
+    return result;
+  }
+  
+  // 여러 학교에 봇 생성
+  const result = await botService.createBotsForSchools(schoolCount || 1, botsPerSchool);
   console.log('✅ [BOT-BATCH] 봇 생성 완료:', result);
   return result;
 }

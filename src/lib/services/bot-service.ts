@@ -199,9 +199,47 @@ export class BotService {
   }
 
   /**
+   * 학교의 memberCount와 favoriteCount 업데이트
+   */
+  private async updateSchoolCounts(
+    schoolId: string, 
+    memberCountDelta: number, 
+    favoriteCountDelta: number
+  ): Promise<void> {
+    try {
+      const schoolRef = this.db.collection('schools').doc(schoolId);
+      const schoolDoc = await schoolRef.get();
+      
+      if (!schoolDoc.exists) {
+        console.warn(`⚠️ 학교 ${schoolId}를 찾을 수 없습니다. 카운트 업데이트 스킵.`);
+        return;
+      }
+
+      const schoolData = schoolDoc.data()!;
+      const currentMemberCount = schoolData.memberCount || 0;
+      const currentFavoriteCount = schoolData.favoriteCount || 0;
+      
+      const newMemberCount = Math.max(0, currentMemberCount + memberCountDelta);
+      const newFavoriteCount = Math.max(0, currentFavoriteCount + favoriteCountDelta);
+
+      await schoolRef.update({
+        memberCount: newMemberCount,
+        favoriteCount: newFavoriteCount,
+        updatedAt: this.FieldValue.serverTimestamp()
+      });
+
+      console.log(`   📊 학교 카운트 업데이트: memberCount ${currentMemberCount} → ${newMemberCount}, favoriteCount ${currentFavoriteCount} → ${newFavoriteCount}`);
+      
+    } catch (error) {
+      console.error(`❌ 학교 카운트 업데이트 실패 (${schoolId}):`, error);
+      // 카운트 업데이트 실패해도 봇 생성/삭제는 계속 진행
+    }
+  }
+
+  /**
    * 학교별 봇 계정 생성
    */
-  private async createBotsForSchool(
+  public async createBotsForSchool(
     schoolId: string, 
     schoolName: string, 
     botCount: number = 3,
@@ -306,6 +344,9 @@ export class BotService {
 
         // Firestore에 봇 계정 생성
         await this.db.collection('users').doc(botId).set(botData);
+        
+        // 학교의 memberCount와 favoriteCount 증가
+        await this.updateSchoolCounts(schoolId, 1, 1);
         
         createdBots.push({
           id: botId,
@@ -456,12 +497,13 @@ export class BotService {
       const totalBots = botsQuery.size;
       console.log(`📊 총 ${totalBots}개의 봇 계정을 찾았습니다.`);
 
-      // 2단계: 봇별 통계 수집
+      // 2단계: 봇별 통계 수집 및 학교별 카운트 수집
       const stats = {
         elementary: 0,
         middle: 0,
         high: 0,
-        schools: new Set<string>()
+        schools: new Set<string>(),
+        schoolBotCounts: new Map<string, number>() // schoolId -> 삭제될 봇 수
       };
 
       const botIds: string[] = [];
@@ -470,10 +512,13 @@ export class BotService {
         botIds.push(doc.id);
         
         if (data.schoolType) {
-          stats[data.schoolType as keyof Omit<typeof stats, 'schools'>]++;
+          stats[data.schoolType as keyof Omit<typeof stats, 'schools' | 'schoolBotCounts'>]++;
         }
         if (data.schoolId) {
           stats.schools.add(data.schoolId);
+          // 학교별 삭제될 봇 수 카운트
+          const currentCount = stats.schoolBotCounts.get(data.schoolId) || 0;
+          stats.schoolBotCounts.set(data.schoolId, currentCount + 1);
         }
       });
 
@@ -515,6 +560,13 @@ export class BotService {
       console.log(`   - 중학교 봇: ${stats.middle}개`);
       console.log(`   - 고등학교 봇: ${stats.high}개`);
       console.log(`   - 영향받은 학교: ${stats.schools.size}개\n`);
+
+      // 4단계: 학교별 memberCount와 favoriteCount 감소
+      console.log('📊 학교 카운트 업데이트 중...');
+      for (const [schoolId, botCount] of stats.schoolBotCounts) {
+        await this.updateSchoolCounts(schoolId, -botCount, -botCount);
+      }
+      console.log('✅ 학교 카운트 업데이트 완료\n');
 
       return {
         deletedCount,

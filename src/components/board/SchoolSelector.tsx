@@ -1,36 +1,47 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, School as SchoolIcon, Star } from 'lucide-react';
+import { ChevronDown, School as SchoolIcon, Star, ExternalLink } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
-import { getUserFavoriteSchools, selectSchool } from '@/lib/api/schools';
+import { getUserFavoriteSchools, selectSchool, getSchoolById } from '@/lib/api/schools';
 import { School } from '@/types';
 
 interface SchoolSelectorProps {
   onSchoolChange?: (school: School) => void;
   className?: string;
+  currentSchoolId?: string; // 현재 접근한 학교 ID
 }
 
-export default function SchoolSelector({ onSchoolChange, className }: SchoolSelectorProps) {
+export default function SchoolSelector({ onSchoolChange, className, currentSchoolId }: SchoolSelectorProps) {
   const { user, refreshUser } = useAuth();
   const [favoriteSchools, setFavoriteSchools] = useState<School[]>([]);
+  const [currentSchool, setCurrentSchool] = useState<School | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
+  // 즐겨찾기 학교 로드
   useEffect(() => {
     if (user?.uid) {
       loadFavoriteSchools();
     }
   }, [user?.uid]);
+
+  // 현재 접근한 학교 정보 로드
+  useEffect(() => {
+    if (currentSchoolId) {
+      loadCurrentSchool(currentSchoolId);
+    }
+  }, [currentSchoolId]);
 
   const loadFavoriteSchools = async () => {
     if (!user?.uid) return;
@@ -44,6 +55,17 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
       toast.error('즐겨찾기 학교 목록을 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadCurrentSchool = async (schoolId: string) => {
+    try {
+      const school = await getSchoolById(schoolId);
+      if (school) {
+        setCurrentSchool(school);
+      }
+    } catch (error) {
+      console.error('현재 학교 정보 로드 실패:', error);
     }
   };
 
@@ -97,13 +119,15 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
     }
   };
 
-  const currentSchool = favoriteSchools.find(school => school.id === user?.school?.id);
+  // 현재 표시할 학교 결정
+  const displaySchool = currentSchool || favoriteSchools.find(school => school.id === user?.school?.id);
+  const isCurrentSchoolInFavorites = currentSchool && favoriteSchools.some(school => school.id === currentSchool.id);
 
   if (!user) {
     return null;
   }
 
-  if (favoriteSchools.length === 0 && !isLoading) {
+  if (favoriteSchools.length === 0 && !currentSchool && !isLoading) {
     return (
       <div className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border ${className}`}>
         <div className="flex items-center space-x-2">
@@ -129,14 +153,42 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
             <div className="flex items-center space-x-2">
               <SchoolIcon className="h-4 w-4" />
               <span className="truncate">
-                {currentSchool ? currentSchool.name : '학교를 선택하세요'}
+                {displaySchool ? displaySchool.name : '학교를 선택하세요'}
               </span>
+              {currentSchool && !isCurrentSchoolInFavorites && (
+                <Badge variant="secondary" className="text-xs">
+                  방문 중
+                </Badge>
+              )}
             </div>
             <ChevronDown className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         
         <DropdownMenuContent className="w-64" align="start">
+          {/* 현재 접근한 학교 (즐겨찾기에 없는 경우) */}
+          {currentSchool && !isCurrentSchoolInFavorites && (
+            <>
+              <DropdownMenuItem
+                onClick={() => handleSchoolSelect(currentSchool)}
+                className="flex items-center justify-between cursor-pointer bg-blue-50"
+              >
+                <div className="flex items-center space-x-2">
+                  <SchoolIcon className="h-4 w-4 text-blue-600" />
+                  <span className="truncate text-blue-700">{currentSchool.name}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Badge variant="secondary" className="text-xs">
+                    방문 중
+                  </Badge>
+                  <ExternalLink className="h-3 w-3 text-blue-500" />
+                </div>
+              </DropdownMenuItem>
+              {favoriteSchools.length > 0 && <DropdownMenuSeparator />}
+            </>
+          )}
+
+          {/* 즐겨찾기 학교들 */}
           {favoriteSchools.map((school) => (
             <DropdownMenuItem
               key={school.id}
@@ -151,6 +203,11 @@ export default function SchoolSelector({ onSchoolChange, className }: SchoolSele
                 {school.id === user?.school?.id && (
                   <Badge variant="default" className="text-xs">
                     메인
+                  </Badge>
+                )}
+                {school.id === currentSchoolId && (
+                  <Badge variant="secondary" className="text-xs">
+                    방문 중
                   </Badge>
                 )}
                 <Star className="h-3 w-3 text-yellow-500 fill-current" />

@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, School as SchoolIcon, TrendingUp } from 'lucide-react';
 import { Board, BoardType } from '@/types/board';
 import { Post } from '@/types';
+import { School } from '@/types';
 import { 
   getBoardsByType, 
   getPostsByBoardType, 
@@ -17,6 +18,7 @@ import {
   getAllPostsByRegionWithPagination
 } from '@/lib/api/board';
 import { getBlockedUserIds } from '@/lib/api/users';
+import { getPopularSchools, getSchoolById } from '@/lib/api/schools';
 import { BlockedUserContent } from '@/components/ui/blocked-user-content';
 import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
@@ -68,6 +70,10 @@ export default function CommunityPageClient() {
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
   const [showRegionSetupModal, setShowRegionSetupModal] = useState(false);
   const [showSchoolSetupModal, setShowSchoolSetupModal] = useState(false);
+  const [currentSchoolId, setCurrentSchoolId] = useState<string | undefined>(undefined);
+  const [currentSchoolInfo, setCurrentSchoolInfo] = useState<School | null>(null);
+  const [popularSchools, setPopularSchools] = useState<School[]>([]);
+  const [popularSchoolsLoading, setPopularSchoolsLoading] = useState(false);
   
   // 페이지네이션 관련 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,12 +86,97 @@ export default function CommunityPageClient() {
     console.log('showBoardSelector changed to:', showBoardSelector);
   }, [showBoardSelector]);
 
-  // 페이지 로드 시 URL 파라미터와 세션에서 탭 상태 복원
+  // 현재 학교 정보 로드
+  const loadCurrentSchoolInfo = async (schoolId: string) => {
+    try {
+      console.log('현재 학교 정보 로드:', schoolId);
+      const school = await getSchoolById(schoolId);
+      if (school) {
+        setCurrentSchoolInfo(school);
+        console.log('현재 학교 정보 로드 완료:', school.name);
+      } else {
+        console.log('학교 정보를 찾을 수 없음:', schoolId);
+        setCurrentSchoolInfo(null);
+      }
+    } catch (error) {
+      console.error('현재 학교 정보 로드 실패:', error);
+      setCurrentSchoolInfo(null);
+    }
+  };
+
+  // 인기 학교 목록 로드
+  const loadPopularSchools = async () => {
+    try {
+      setPopularSchoolsLoading(true);
+      const schools = await getPopularSchools(12); // 12개 학교 로드
+      setPopularSchools(schools);
+    } catch (error) {
+      console.error('인기 학교 목록 로드 실패:', error);
+    } finally {
+      setPopularSchoolsLoading(false);
+    }
+  };
+
+  // currentSchoolId 변경 시 학교 정보 로드
+  useEffect(() => {
+    if (currentSchoolId) {
+      loadCurrentSchoolInfo(currentSchoolId);
+    } else {
+      setCurrentSchoolInfo(null);
+    }
+  }, [currentSchoolId]);
+
+  // URL 변경 감지하여 학교 ID 업데이트 (초기 로드 포함)
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    console.log('URL 변경 감지 - tab:', tabFromUrl);
+    
+    if (tabFromUrl && tabFromUrl.startsWith('school/')) {
+      const schoolId = tabFromUrl.split('/')[1];
+      console.log('URL에서 추출한 학교 ID:', schoolId);
+      
+      if (schoolId) {
+        // 현재 상태와 다른 경우에만 업데이트
+        if (schoolId !== currentSchoolId) {
+          console.log('학교 ID 업데이트:', currentSchoolId, '->', schoolId);
+          setCurrentSchoolId(schoolId);
+          sessionStorage.setItem('community-selected-school', schoolId);
+        }
+        
+        // 학교 탭이 아닌 경우 학교 탭으로 변경
+        if (selectedTab !== 'school') {
+          console.log('탭을 school로 변경');
+          setSelectedTab('school');
+        }
+      }
+    } else if (tabFromUrl === 'school') {
+      // /community?tab=school (학교 ID 없음) - 인기 학교 목록 표시
+      console.log('학교 탭이지만 특정 학교 ID 없음 - 인기 학교 목록 표시');
+      setCurrentSchoolId(undefined);
+      sessionStorage.removeItem('community-selected-school');
+      
+      if (selectedTab !== 'school') {
+        setSelectedTab('school');
+      }
+    }
+  }, [searchParams]);
+
+  // 학교 탭에서 로그인하지 않은 사용자를 위한 인기 학교 로드
+  useEffect(() => {
+    if (selectedTab === 'school' && !user && !authLoading && !currentSchoolId && popularSchools.length === 0) {
+      console.log('인기 학교 목록 로드 조건 충족');
+      loadPopularSchools();
+    }
+  }, [selectedTab, user, authLoading, currentSchoolId, popularSchools.length]);
+
+  // 페이지 로드 시 URL 파라미터와 세션에서 탭 상태 복원 (최초 로드만)
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
     const savedTab = sessionStorage.getItem('community-selected-tab');
     
     let initialTab: BoardType = 'national';
+    
+    console.log('초기화 - tabFromUrl:', tabFromUrl, 'savedTab:', savedTab);
     
     // 새로운 라우팅 구조 파싱
     if (tabFromUrl) {
@@ -95,32 +186,27 @@ export default function CommunityPageClient() {
       
       if (['school', 'regional', 'national'].includes(baseTab)) {
         initialTab = baseTab as BoardType;
-        
-        // school 또는 regional 탭의 경우 추가 파라미터 처리
-        if (baseTab === 'school' && tabParts[1]) {
-          // schoolId 정보 저장 (향후 필터링에 사용)
-          sessionStorage.setItem('community-selected-school', tabParts[1]);
-        } else if (baseTab === 'regional' && tabParts[1] && tabParts[2]) {
-          // sido, sigungu 정보 저장
-          sessionStorage.setItem('community-selected-sido', decodeURIComponent(tabParts[1]));
-          sessionStorage.setItem('community-selected-sigungu', decodeURIComponent(tabParts[2]));
-        }
       }
     } else if (savedTab && ['school', 'regional', 'national'].includes(savedTab)) {
       initialTab = savedTab as BoardType;
     }
     
-    setSelectedTab(initialTab);
+    // 탭이 변경된 경우에만 업데이트
+    if (selectedTab !== initialTab) {
+      console.log('탭 초기화:', selectedTab, '->', initialTab);
+      setSelectedTab(initialTab);
+    }
     
     // URL 파라미터 업데이트 (히스토리에 추가하지 않음)
-    // school이나 regional 탭의 경우 추가 파라미터가 필요하므로 여기서는 업데이트하지 않음
-    // 사용자 정보 로딩 후 자동 리다이렉트에서 처리
     if (!tabFromUrl || (!tabFromUrl.startsWith(initialTab) && initialTab === 'national')) {
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('tab', initialTab);
       window.history.replaceState({}, '', newUrl.toString());
     }
-  }, [searchParams]);
+    
+    // 초기 로드 완료 표시
+    setIsInitialLoading(false);
+  }, []); // 최초 로드 시에만 실행
 
   // 탭 변경 핸들러
   const handleTabChange = async (newTab: BoardType) => {
@@ -308,10 +394,10 @@ export default function CommunityPageClient() {
   }, [selectedTab]);
 
   useEffect(() => {
-    if (boards.length > 0) {
+    if (boards.length > 0 && !isInitialLoading) {
       loadPosts();
     }
-  }, [selectedTab, selectedBoard, sortBy, boards, currentPage]);
+  }, [selectedTab, selectedBoard, sortBy, boards, currentPage, currentSchoolId, isInitialLoading]);
 
   // 사용자 정보 변경 시 차단된 사용자 목록 로드
   useEffect(() => {
@@ -432,10 +518,12 @@ export default function CommunityPageClient() {
       if (selectedBoard === 'all') {
         // 모든 게시판의 게시글 가져오기 - 페이지네이션 적용
         if (selectedTab === 'school') {
-          // 학교 탭: URL 파라미터 또는 사용자의 메인 학교 사용
-          const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
-          if (selectedSchoolId) {
-            result = await getAllPostsBySchoolWithPagination(selectedSchoolId, currentPage, pageSize, sortBy);
+          // 학교 탭: currentSchoolId 상태 사용
+          if (currentSchoolId) {
+            console.log('Loading posts for school:', currentSchoolId);
+            result = await getAllPostsBySchoolWithPagination(currentSchoolId, currentPage, pageSize, sortBy);
+          } else {
+            console.log('No currentSchoolId available');
           }
         } else if (selectedTab === 'regional') {
           // 지역 탭: URL 파라미터 또는 사용자의 지역 사용
@@ -475,9 +563,8 @@ export default function CommunityPageClient() {
         
         if (selectedTab === 'school') {
           // 학교 탭: 해당 학교의 특정 게시판 게시글만 가져오기
-          const selectedSchoolId = sessionStorage.getItem('community-selected-school') || user?.school?.id;
-          if (selectedSchoolId) {
-            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize, selectedSchoolId);
+          if (currentSchoolId) {
+            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize, currentSchoolId);
           }
         } else if (selectedTab === 'regional') {
           // 지역 탭: 해당 지역의 특정 게시판 게시글만 가져오기
@@ -613,8 +700,8 @@ export default function CommunityPageClient() {
     }
   };
 
-  // 로그인이 필요한 탭인지 확인
-  const isLoginRequired = (selectedTab === 'school' || selectedTab === 'regional') && !user && !authLoading;
+  // 로그인이 필요한 탭인지 확인 (학교 탭은 로그인 없이도 접근 가능)
+  const isLoginRequired = selectedTab === 'regional' && !user && !authLoading;
 
   // 로딩 화면 렌더링 (인증 상태 확인 중)
   const renderAuthLoading = () => (
@@ -623,7 +710,7 @@ export default function CommunityPageClient() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
         <h2 className="text-xl font-semibold text-gray-800 mb-2">로그인 정보 확인 중...</h2>
         <p className="text-gray-600">
-          {selectedTab === 'school' ? '학교' : '지역'} 게시판 접근 권한을 확인하고 있습니다.
+          지역 게시판 접근 권한을 확인하고 있습니다.
         </p>
       </div>
     </div>
@@ -636,14 +723,23 @@ export default function CommunityPageClient() {
         <div className="text-4xl mb-4">🔒</div>
         <h2 className="text-xl font-semibold text-gray-800 mb-2">로그인이 필요합니다</h2>
         <p className="text-gray-600 mb-6">
-          {selectedTab === 'school' ? '학교' : '지역'} 게시판을 보려면 로그인해주세요.
+          지역 게시판을 보려면 로그인해주세요.
         </p>
-        <Button 
-          onClick={() => router.push('/login')}
-          className="w-full bg-green-500 hover:bg-green-600 text-white"
-        >
-          로그인하기
-        </Button>
+        <div className="flex gap-3 justify-center">
+          <Button 
+            onClick={() => router.push('/login')}
+            className="bg-green-500 hover:bg-green-600 text-white"
+          >
+            로그인하기
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => setSelectedTab('national')}
+            className="border-green-300 text-green-700 hover:bg-green-100"
+          >
+            전국 커뮤니티 보기
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -679,8 +775,8 @@ export default function CommunityPageClient() {
         </div>
       </div>
 
-      {/* 인증 로딩 중일 때는 로딩 화면 표시 */}
-      {authLoading && (selectedTab === 'school' || selectedTab === 'regional') ? (
+      {/* 인증 로딩 중일 때는 로딩 화면 표시 (지역 탭만) */}
+      {authLoading && selectedTab === 'regional' ? (
         renderAuthLoading()
       ) : isLoginRequired ? (
         renderLoginRequired()
@@ -690,22 +786,54 @@ export default function CommunityPageClient() {
           {selectedTab === 'school' && (
             <div className="bg-white border-b">
               <div className="container mx-auto px-4 py-3">
-                <SchoolSelector 
-                  onSchoolChange={async (school) => {
-                    console.log('School changed to:', school.id, school.name);
-                    
-                    // URL 업데이트 - 새로운 학교 ID로 리다이렉트
-                    router.push(`/community?tab=school/${school.id}`);
-                    
-                    // 세션 스토리지에도 업데이트
-                    sessionStorage.setItem('community-selected-school', school.id);
-                    
-                    // 게시판과 게시글 목록 새로고침
-                    await loadBoards();
-                    await loadPosts();
-                  }}
-                  className="max-w-sm"
-                />
+                {user ? (
+                  // 로그인한 사용자: 기존 SchoolSelector
+                  <SchoolSelector 
+                    currentSchoolId={currentSchoolId}
+                    onSchoolChange={async (school) => {
+                      console.log('School changed to:', school.id, school.name);
+                      
+                      // URL 업데이트 - 새로운 학교 ID로 리다이렉트
+                      router.push(`/community?tab=school/${school.id}`);
+                      
+                      // 세션 스토리지에도 업데이트
+                      sessionStorage.setItem('community-selected-school', school.id);
+                      setCurrentSchoolId(school.id);
+                      
+                      // 게시판과 게시글 목록 새로고침
+                      await loadBoards();
+                      await loadPosts();
+                    }}
+                    className="max-w-sm"
+                  />
+                ) : (
+                  // 로그인하지 않은 사용자: 안내 메시지
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <SchoolIcon className="h-5 w-5 text-blue-600" />
+                      <div>
+                        {currentSchoolInfo ? (
+                          <>
+                            <p className="font-medium text-sm text-gray-800">{currentSchoolInfo.name}</p>
+                            <p className="text-xs text-gray-600">{currentSchoolInfo.district} • 게스트로 방문 중</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium text-sm text-gray-800">학교 커뮤니티 탐색</p>
+                            <p className="text-xs text-gray-600">아래에서 원하는 학교를 선택해보세요</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => router.push('/login')}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      로그인하기
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -872,11 +1000,96 @@ export default function CommunityPageClient() {
                 </div>
               </div>
             ) : posts.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-2">📝</div>
-                <p className="text-gray-500">게시글이 없습니다.</p>
-                <p className="text-sm text-gray-400 mt-1">첫 번째 게시글을 작성해보세요!</p>
-              </div>
+              // 학교 탭에서 로그인하지 않은 사용자이고 특정 학교가 선택되지 않은 경우 인기 학교 목록 표시
+              selectedTab === 'school' && !user && !currentSchoolId ? (
+                <div className="max-w-4xl mx-auto">
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="text-center mb-6">
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                          <TrendingUp className="w-6 h-6 text-green-600" />
+                          <h2 className="text-xl font-semibold text-gray-800">인기 학교 커뮤니티</h2>
+                        </div>
+                        <p className="text-gray-600">
+                          활발한 활동이 이루어지고 있는 학교 커뮤니티를 둘러보세요
+                        </p>
+                      </div>
+                      
+                      {popularSchoolsLoading ? (
+                        <div className="text-center py-8">
+                          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                          <p className="text-muted-foreground">인기 학교를 불러오는 중...</p>
+                        </div>
+                      ) : popularSchools.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {popularSchools.map((school) => (
+                            <Card 
+                              key={school.id} 
+                              className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-blue-300"
+                              onClick={() => router.push(`/community?tab=school/${school.id}`)}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100">
+                                    <SchoolIcon className="w-5 h-5 text-blue-600" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="font-medium text-sm truncate">
+                                      {school.name}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                      {school.district}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>멤버 {school.memberCount || 0}명</span>
+                                  <span>즐겨찾기 {school.favoriteCount || 0}</span>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <SchoolIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-muted-foreground">
+                            인기 학교 목록을 불러올 수 없습니다.
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="text-center mt-6 pt-4 border-t">
+                        <p className="text-sm text-muted-foreground mb-4">
+                          더 많은 기능을 이용하려면 로그인하세요
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                          <Button 
+                            onClick={() => router.push('/login')}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            로그인하기
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            onClick={() => setSelectedTab('national')}
+                            className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                          >
+                            전국 커뮤니티 보기
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                // 기본 "게시글이 없습니다" 메시지
+                <div className="text-center py-12">
+                  <div className="text-gray-400 mb-2">📝</div>
+                  <p className="text-gray-500">게시글이 없습니다.</p>
+                  <p className="text-sm text-gray-400 mt-1">첫 번째 게시글을 작성해보세요!</p>
+                </div>
+              )
             ) : (
               <>
                 <div className="space-y-3">

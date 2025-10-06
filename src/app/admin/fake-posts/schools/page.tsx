@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Database, RefreshCw, Search, Filter, Users, Calendar, Eye, MapPin, 
-  Bot, Clock, Download, School
+  Database, RefreshCw, Search, Filter, Users, Eye, MapPin, 
+  Bot, Clock, Download, School, Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
 import Link from 'next/link';
+import { BotManagementModal } from '@/components/admin/BotManagementModal';
 
 interface SchoolStats {
   id: string;
@@ -41,16 +42,21 @@ export default function SchoolsManagementPage() {
   const [totalSchools, setTotalSchools] = useState(0);
   const itemsPerPage = 20;
 
-  // 학교별 통계 가져오기 (페이지네이션 지원)
+  // 봇 관리 모달 상태
+  const [selectedSchool, setSelectedSchool] = useState<SchoolStats | null>(null);
+  const [isBotModalOpen, setIsBotModalOpen] = useState(false);
+
+  // 학교별 통계 가져오기 (페이지네이션 지원) - 검색 최적화
   const fetchSchoolStats = async (page: number = currentPage) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams({
         region: selectedRegion,
         schoolType: selectedSchoolType,
-        search: searchTerm,
+        search: searchTerm.trim(),
         page: page.toString(),
-        limit: itemsPerPage.toString()
+        limit: itemsPerPage.toString(),
+        searchMode: 'startsWith' // 시작하는 단어로 검색
       });
       
       const response = await fetch(`/api/admin/school-stats?${params}`);
@@ -72,42 +78,46 @@ export default function SchoolsManagementPage() {
     }
   };
 
-  // 봇 생성 함수
-  const createBotsForSchool = async (school: SchoolStats) => {
-    try {
-      const response = await fetch('/api/admin/bulk-operations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'create_bots',
-          params: { schoolIds: [school.id], schoolCount: 1 }
-        })
-      });
-      
-      const result = await response.json();
-      if (result.success) {
-        toast.success(`${school.name}에 봇 계정 생성을 시작했습니다.`);
-        // 5초 후 페이지 새로고침
-        setTimeout(() => {
-          fetchSchoolStats(currentPage);
-        }, 5000);
-      } else {
-        toast.error('봇 생성 실패: ' + result.error);
-      }
-    } catch (error) {
-      console.error('봇 생성 오류:', error);
-      toast.error('봇 생성 중 오류가 발생했습니다.');
-    }
+  // 봇 관리 모달 열기
+  const openBotManagement = (school: SchoolStats) => {
+    setSelectedSchool(school);
+    setIsBotModalOpen(true);
+  };
+
+  // 봇 수 업데이트 콜백
+  const handleBotCountUpdate = (schoolId: string, newBotCount: number) => {
+    setSchoolStats(prev => 
+      prev.map(school => 
+        school.id === schoolId 
+          ? { 
+              ...school, 
+              botCount: newBotCount,
+              status: newBotCount > 0 ? 'active' : 'no_bots'
+            }
+          : school
+      )
+    );
   };
 
   useEffect(() => {
     fetchSchoolStats(1);
   }, []);
 
+  // 검색어가 변경될 때 디바운스 적용
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setCurrentPage(1);
+      fetchSchoolStats(1);
+    }, 300); // 300ms 디바운스
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  // 필터가 변경될 때 즉시 검색
   useEffect(() => {
     setCurrentPage(1);
     fetchSchoolStats(1);
-  }, [selectedRegion, selectedSchoolType, searchTerm]);
+  }, [selectedRegion, selectedSchoolType]);
 
   if (!user?.profile?.isAdmin) {
     return (
@@ -158,7 +168,7 @@ export default function SchoolsManagementPage() {
               <Label htmlFor="search-schools">학교명 검색</Label>
               <Input
                 id="search-schools"
-                placeholder="학교명을 입력하세요..."
+                placeholder="학교명을 입력하세요... (시작 단어로 검색)"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -286,7 +296,7 @@ export default function SchoolsManagementPage() {
                             봇 {school.botCount}개
                           </span>
                           <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
+                            <Database className="h-3 w-3" />
                             게시글 {school.postCount}개
                           </span>
                           <span className="flex items-center gap-1">
@@ -298,32 +308,18 @@ export default function SchoolsManagementPage() {
                     </div>
                     
                     <div className="flex gap-2">
-                      {school.status === 'no_bots' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => createBotsForSchool(school)}
-                        >
-                          <Users className="h-4 w-4 mr-1" />
-                          봇 생성
-                        </Button>
-                      )}
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          // 게시글 생성 로직 (추후 구현)
-                          toast.info('게시글 생성 기능은 개발 중입니다.');
-                        }}
-                        disabled={school.status === 'no_bots'}
+                        onClick={() => openBotManagement(school)}
                       >
-                        <Calendar className="h-4 w-4 mr-1" />
-                        게시글 생성
+                        <Settings className="h-4 w-4 mr-1" />
+                        봇 관리
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(`/community/school/${school.id}`, '_blank')}
+                        onClick={() => window.open(`/community?tab=school/${school.id}`, '_blank')}
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         커뮤니티
@@ -439,6 +435,19 @@ export default function SchoolsManagementPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 봇 관리 모달 */}
+      {selectedSchool && (
+        <BotManagementModal
+          isOpen={isBotModalOpen}
+          onClose={() => {
+            setIsBotModalOpen(false);
+            setSelectedSchool(null);
+          }}
+          school={selectedSchool}
+          onBotCountUpdate={(newCount) => handleBotCountUpdate(selectedSchool.id, newCount)}
+        />
+      )}
     </div>
   );
 }

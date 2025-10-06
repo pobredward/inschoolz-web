@@ -54,10 +54,11 @@ export async function GET(request: NextRequest) {
     const region = searchParams.get('region') || 'all';
     const schoolType = searchParams.get('schoolType') || 'all';
     const search = searchParams.get('search') || '';
+    const searchMode = searchParams.get('searchMode') || 'contains'; // 'contains' 또는 'startsWith'
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    console.log('🏫 학교별 통계 조회 시작:', { region, schoolType, search, page, limit });
+    console.log('🏫 학교별 통계 조회 시작:', { region, schoolType, search, searchMode, page, limit });
 
     const app = await getFirebaseAdmin();
     const db = app.firestore();
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
         totalCount,
         page,
         totalPages: Math.ceil(totalCount / limit),
-        filters: { region, schoolType, search, page, limit }
+        filters: { region, schoolType, search, searchMode, page, limit }
       });
     }
 
@@ -111,9 +112,22 @@ export async function GET(request: NextRequest) {
       const data = doc.data();
       const schoolName = data.KOR_NAME || '알 수 없는 학교';
       
-      // 학교명 검색 필터
-      if (search && !schoolName.toLowerCase().includes(search.toLowerCase())) {
-        return;
+      // 학교명 검색 필터 (최적화된 검색)
+      if (search) {
+        const searchLower = search.toLowerCase();
+        const schoolNameLower = schoolName.toLowerCase();
+        
+        if (searchMode === 'startsWith') {
+          // 시작하는 단어로 검색 (더 빠름)
+          if (!schoolNameLower.startsWith(searchLower)) {
+            return;
+          }
+        } else {
+          // 포함하는 단어로 검색 (기존 방식)
+          if (!schoolNameLower.includes(searchLower)) {
+            return;
+          }
+        }
       }
       
       // 학교 유형 판단
@@ -152,7 +166,7 @@ export async function GET(request: NextRequest) {
         totalCount,
         page,
         totalPages: Math.ceil(totalCount / limit),
-        filters: { region, schoolType, search, page, limit }
+        filters: { region, schoolType, search, searchMode, page, limit }
       });
     }
 
