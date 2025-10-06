@@ -49,25 +49,47 @@ export default function OperationsManagementPage() {
     const operationKey = `${type}_${Date.now()}`;
 
     try {
+      console.log('🚀 [CLIENT] 대량 작업 요청 시작:', { type, params, description });
+      
       // 실행 중인 작업에 추가
       setExecutingOperations(prev => new Set([...prev, operationKey]));
       
       const response = await fetch('/api/admin/bulk-operations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
         body: JSON.stringify({ type, params })
       });
       
+      console.log('📡 [CLIENT] API 응답 상태:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [CLIENT] API 응답 오류:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
       const result = await response.json();
+      console.log('📊 [CLIENT] API 응답 데이터:', result);
       
       if (result.success) {
         toast.success(`대량 작업이 시작되었습니다: ${description}`);
+        console.log('✅ [CLIENT] 작업 시작 성공:', result.operationId);
       } else {
+        console.error('❌ [CLIENT] 작업 시작 실패:', result.error);
         throw new Error(result.error || '대량 작업 시작 실패');
       }
     } catch (error) {
-      console.error('대량 작업 실행 오류:', error);
-      toast.error(`대량 작업을 시작할 수 없습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ [CLIENT] 대량 작업 실행 오류:', error);
+      console.error('❌ [CLIENT] 오류 상세:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack'
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`대량 작업을 시작할 수 없습니다: ${errorMessage}`);
     } finally {
       // 실행 완료 후 3초 뒤에 제거 (작업이 백그라운드에서 계속 진행되므로)
       setTimeout(() => {

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BotService, PostService, CleanupService, CommentService } from '@/lib/services';
 
+// Next.js API Route 설정 (프로덕션 환경 최적화)
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5분 타임아웃 (Vercel Pro 기준)
+
 interface BulkOperation {
   id: string;
   type: 'create_bots' | 'generate_posts' | 'delete_posts' | 'cleanup' | 'delete_bots' | 'generate_comments';
@@ -27,14 +32,22 @@ globalThis.bulkOperations = operations;
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 [BULK-OPS] POST 요청 시작');
+    
     const body = await request.json();
     const { type, params } = body;
 
-    console.log('⚡ 대량 작업 시작:', { type, params });
+    console.log('⚡ [BULK-OPS] 대량 작업 시작:', { type, params });
+    console.log('🌍 [BULK-OPS] 환경:', {
+      nodeEnv: process.env.NODE_ENV,
+      hasFirebaseKey: !!process.env.FIREBASE_PRIVATE_KEY,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY
+    });
 
     // 입력 유효성 검사
     const validationError = validateOperationParams(type, params);
     if (validationError) {
+      console.error('❌ [BULK-OPS] 유효성 검사 실패:', validationError);
       return NextResponse.json(
         { success: false, error: validationError },
         { status: 400 }
@@ -48,6 +61,7 @@ export async function POST(request: NextRequest) {
     
     if (runningOperations.length > 0) {
       const runningOperation = runningOperations[0];
+      console.log('⚠️ [BULK-OPS] 중복 작업 감지:', runningOperation.id);
       return NextResponse.json(
         { 
           success: false, 
@@ -67,6 +81,8 @@ export async function POST(request: NextRequest) {
     // 작업 ID 생성
     const operationId = `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
+    console.log('🆔 [BULK-OPS] 작업 ID 생성:', operationId);
+    
     // 작업 정보 초기화
     const operation: BulkOperation = {
       id: operationId,
@@ -80,10 +96,15 @@ export async function POST(request: NextRequest) {
     };
 
     operations.set(operationId, operation);
+    console.log('💾 [BULK-OPS] 작업 정보 저장 완료');
 
     // 백그라운드에서 작업 실행
-    executeOperation(operationId, type, params);
+    console.log('🏃 [BULK-OPS] 백그라운드 작업 시작');
+    executeOperation(operationId, type, params).catch(error => {
+      console.error('❌ [BULK-OPS] 백그라운드 작업 오류:', error);
+    });
 
+    console.log('✅ [BULK-OPS] POST 응답 반환');
     return NextResponse.json({
       success: true,
       operationId,
@@ -92,7 +113,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ 대량 작업 시작 오류:', error);
+    console.error('❌ [BULK-OPS] POST 요청 오류:', error);
+    console.error('❌ [BULK-OPS] 오류 스택:', error instanceof Error ? error.stack : 'No stack');
     return NextResponse.json(
       { 
         success: false, 
@@ -270,11 +292,25 @@ async function executeBotCreation(operationId: string, params: any) {
   const { schoolCount = 100, schoolIds } = params;
   
   try {
+    console.log(`🤖 [BOT-CREATE] 시작 (${operationId}):`, { schoolCount, schoolIds });
+    
     const operation = operations.get(operationId);
-    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
+    if (!operation) {
+      console.error(`❌ [BOT-CREATE] 작업을 찾을 수 없음: ${operationId}`);
+      throw new Error('작업을 찾을 수 없습니다.');
+    }
 
+    console.log('🏗️ [BOT-CREATE] BotService 인스턴스 생성 중...');
+    
     // BotService 인스턴스 생성
-    const botService = new BotService();
+    let botService;
+    try {
+      botService = new BotService();
+      console.log('✅ [BOT-CREATE] BotService 인스턴스 생성 완료');
+    } catch (serviceError) {
+      console.error('❌ [BOT-CREATE] BotService 생성 실패:', serviceError);
+      throw new Error(`BotService 생성 실패: ${serviceError instanceof Error ? serviceError.message : 'Unknown error'}`);
+    }
     
     // 진행률 콜백 함수
     const onProgress = (current: number, total: number, message?: string) => {
@@ -284,15 +320,20 @@ async function executeBotCreation(operationId: string, params: any) {
         updatedOperation.total = total;
         updatedOperation.message = message || `봇 계정 생성 중... (${current}/${total})`;
         operations.set(operationId, updatedOperation);
+        console.log(`📊 [BOT-CREATE] 진행률: ${current}/${total} - ${message}`);
       }
     };
 
+    console.log('🚀 [BOT-CREATE] 봇 생성 실행 시작...');
+    
     // 봇 생성 실행
     const result = await botService.createBotsForSchools(
       schoolIds ? schoolIds.length : schoolCount, 
       3, // 학교당 3개 봇
       onProgress
     );
+
+    console.log('📊 [BOT-CREATE] 봇 생성 결과:', result);
 
     // 최종 상태 업데이트
     const finalOperation = operations.get(operationId);
@@ -303,10 +344,11 @@ async function executeBotCreation(operationId: string, params: any) {
       operations.set(operationId, finalOperation);
     }
 
-    console.log(`✅ 봇 생성 완료: ${result.totalCreated}개 봇, ${result.schoolsProcessed}개 학교`);
+    console.log(`✅ [BOT-CREATE] 완료: ${result.totalCreated}개 봇, ${result.schoolsProcessed}개 학교`);
     
   } catch (error) {
-    console.error('❌ 봇 생성 실패:', error);
+    console.error(`❌ [BOT-CREATE] 실패 (${operationId}):`, error);
+    console.error(`❌ [BOT-CREATE] 오류 스택:`, error instanceof Error ? error.stack : 'No stack');
     throw error;
   }
 }
