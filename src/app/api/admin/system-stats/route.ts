@@ -65,12 +65,14 @@ export async function GET() {
     const app = await getFirebaseAdmin();
     const db = app.firestore();
     
-    // 병렬로 모든 통계 조회
+    // 병렬로 모든 통계 조회 (최적화된 버전)
     const [
       schoolsSnapshot,
       botsSnapshot,
       postsSnapshot,
-      todayPostsSnapshot
+      todayPostsSnapshot,
+      // 봇이 있는 학교 데이터를 한 번에 조회
+      schoolsWithBotsQuery
     ] = await Promise.all([
       // 전체 학교 수
       db.collection('schools').count().get(),
@@ -82,7 +84,13 @@ export async function GET() {
       db.collection('posts').where('fake', '==', true).count().get(),
       
       // 오늘 생성된 AI 게시글 수 (인덱스 문제로 임시 비활성화)
-      Promise.resolve({ data: () => ({ count: 0 }) })
+      Promise.resolve({ data: () => ({ count: 0 }) }),
+      
+      // 봇이 있는 학교들의 데이터를 한 번에 조회 (중복 제거)
+      db.collection('users')
+        .where('fake', '==', true)
+        .select('schoolId', 'schoolName', 'schoolType')
+        .get()
     ]);
 
     const totalSchools = schoolsSnapshot.data().count;
@@ -90,11 +98,7 @@ export async function GET() {
     const totalPosts = postsSnapshot.data().count;
     const postsToday = todayPostsSnapshot.data().count;
 
-    // 봇이 있는 학교 수 계산
-    const schoolsWithBotsQuery = await db.collection('users')
-      .where('fake', '==', true)
-      .get();
-    
+    // 봇이 있는 학교 수 계산 (중복 쿼리 제거)
     const schoolIdsWithBots = new Set();
     schoolsWithBotsQuery.docs.forEach(doc => {
       const data = doc.data();
