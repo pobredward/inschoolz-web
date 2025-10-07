@@ -1,177 +1,225 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatCard } from '@/components/admin/StatCard';
-import { Users, MessageSquare, FileText, AlertCircle, Star, MessageCircle, Settings, Shield, Gamepad2, BarChart3, RefreshCw, Bell, Bot } from 'lucide-react';
-import { getAdminStats } from '@/lib/api/admin';
-import { toast } from 'sonner';
+import { Users, Star, MessageCircle, Shield, Gamepad2, BarChart3, Bell, Bot, Calendar, School, Zap, Target } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
-
-interface AdminStats {
-  totalUsers: number;
-  activeUsers: number;
-  totalPosts: number;
-  totalComments: number;
-  pendingReports: number;
-  totalExperience: number;
-}
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
 
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const fetchStats = async () => {
-    try {
-      setIsLoading(true);
-      const adminStats = await getAdminStats();
-      setStats(adminStats);
-      toast.success('통계 데이터가 업데이트되었습니다.');
-    } catch (error) {
-      console.error('통계 조회 오류:', error);
-      toast.error('통계 데이터를 가져오는 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div>
+        <h1 className="text-3xl font-bold">관리자 대시보드</h1>
+        <p className="text-muted-foreground mt-2">인스쿨즈 시스템 관리 및 통계를 확인하세요.</p>
+      </div>
+
+      {/* 시스템 관리 */}
+      <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">관리자 대시보드</h1>
-          <p className="text-muted-foreground mt-2">인스쿨즈 시스템 관리 및 통계를 확인하세요.</p>
-        </div>
-        <Button 
-          onClick={fetchStats} 
-          disabled={isLoading}
-          variant="outline"
-          size="sm"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? '로딩 중... ' : '통계 새로고침'}
-        </Button>
-      </div>
-
-      {/* 주요 통계 카드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="총 사용자 수"
-          value={isLoading ? "로딩 중..." : stats?.totalUsers.toLocaleString() || "0"}
-          icon={Users}
-          change={{ value: 0, isPositive: true }}
-          variant="green"
-        />
-        <StatCard 
-          title="총 게시글 수"
-          value={isLoading ? "로딩 중..." : stats?.totalPosts.toLocaleString() || "0"}
-          icon={FileText}
-          change={{ value: 0, isPositive: true }}
-          variant="green"
-        />
-        <StatCard 
-          title="총 댓글 수"
-          value={isLoading ? "로딩 중..." : stats?.totalComments.toLocaleString() || "0"}
-          icon={MessageSquare}
-          change={{ value: 0, isPositive: true }}
-          variant="purple"
-        />
-        <StatCard 
-          title="신고 건수"
-          value={isLoading ? "로딩 중..." : stats?.pendingReports.toLocaleString() || "0"}
-          icon={AlertCircle}
-          change={{ value: 0, isPositive: false }}
-          variant="red"
-        />
-      </div>
-
-      {/* 관리 메뉴 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            관리 메뉴
-          </CardTitle>
-          <CardDescription>
-            시스템 설정 및 관리 기능에 빠르게 접근하세요.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="text-xl font-semibold mb-4">시스템 관리</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Link href="/admin/experience">
-              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                <Star className="h-6 w-6 text-green-600" />
-                <span className="font-medium">경험치 관리</span>
-                <span className="text-xs text-gray-500">경험치 설정 및 레벨 관리</span>
-              </Button>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <Star className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">경험치 관리</h3>
+                      <p className="text-sm text-muted-foreground">경험치 설정 및 레벨 관리</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
             
             <Link href="/admin/community">
-              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                <MessageCircle className="h-6 w-6 text-blue-600" />
-                <span className="font-medium">커뮤니티 관리</span>
-                <span className="text-xs text-gray-500">게시판 생성 및 설정</span>
-              </Button>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <MessageCircle className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">커뮤니티 관리</h3>
+                      <p className="text-sm text-muted-foreground">게시판 생성 및 설정</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
 
             <Link href="/admin/notifications">
-              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                <Bell className="h-6 w-6 text-indigo-600" />
-                <span className="font-medium">알림 설정</span>
-                <span className="text-xs text-gray-500">전체 사용자 알림 발송</span>
-              </Button>
-            </Link>
-
-            <Link href="/admin/fake-posts">
-              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                <Bot className="h-6 w-6 text-purple-600" />
-                <span className="font-medium">AI 게시글 관리</span>
-                <span className="text-xs text-gray-500">자동 생성 게시글 관리</span>
-              </Button>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-100 rounded-lg">
+                      <Bell className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">알림 설정</h3>
+                      <p className="text-sm text-muted-foreground">전체 사용자 알림 발송</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
 
             <Link href="/admin/reports">
-              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                <Shield className="h-6 w-6 text-red-600" />
-                <span className="font-medium">신고 관리</span>
-                <span className="text-xs text-gray-500">신고 처리 및 제재</span>
-              </Button>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-red-100 rounded-lg">
+                      <Shield className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">신고 관리</h3>
+                      <p className="text-sm text-muted-foreground">신고 처리 및 제재</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
 
             <Link href="/admin/users">
-              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                <Users className="h-6 w-6 text-purple-600" />
-                <span className="font-medium">유저 관리</span>
-                <span className="text-xs text-gray-500">회원 정보 및 권한 관리</span>
-              </Button>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <Users className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">유저 관리</h3>
+                      <p className="text-sm text-muted-foreground">회원 정보 및 권한 관리</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
 
-            <Button variant="outline" className="w-full h-20 flex flex-col gap-2" disabled>
-              <Gamepad2 className="h-6 w-6 text-orange-600" />
-              <span className="font-medium">게임 관리</span>
-              <span className="text-xs text-gray-500">미니게임 설정 및 점수</span>
-            </Button>
+            <Card className="opacity-50 cursor-not-allowed">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-orange-100 rounded-lg">
+                    <Gamepad2 className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">게임 관리</h3>
+                    <p className="text-sm text-muted-foreground">미니게임 설정 및 점수</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <Link href="/admin/schools">
-              <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                <BarChart3 className="h-6 w-6 text-indigo-600" />
-                <span className="font-medium">학교 관리</span>
-                <span className="text-xs text-gray-500">학교 정보 및 설정 관리</span>
-              </Button>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-100 rounded-lg">
+                      <BarChart3 className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">학교 관리</h3>
+                      <p className="text-sm text-muted-foreground">학교 정보 및 설정 관리</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
+        {/* AI 관리 */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">AI 관리</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Link href="/admin/fake-posts">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-100 rounded-lg">
+                      <Calendar className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">게시글 관리</h3>
+                      <p className="text-sm text-muted-foreground">AI 게시글 조회, 수정, 삭제</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
 
+            <Link href="/admin/fake-bots">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-100 rounded-lg">
+                      <Bot className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">봇 계정 관리</h3>
+                      <p className="text-sm text-muted-foreground">봇 현황 및 통계</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/admin/fake-comments">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-orange-100 rounded-lg">
+                      <MessageCircle className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">댓글 관리</h3>
+                      <p className="text-sm text-muted-foreground">AI 댓글 검토 및 승인</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/admin/fake-schools">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <School className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">학교 관리</h3>
+                      <p className="text-sm text-muted-foreground">학교별 봇 생성 및 관리</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/admin/fake-operations">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-orange-100 rounded-lg">
+                      <Zap className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">대량 작업</h3>
+                      <p className="text-sm text-muted-foreground">대량 생성, 삭제, 정리</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 } 

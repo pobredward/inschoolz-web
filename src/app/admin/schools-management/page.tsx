@@ -425,7 +425,7 @@ export default function AdminSchoolsManagementPage() {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-600">
-                      {schoolStats.reduce((sum, s) => sum + s.postCount, 0)}
+                      {schoolStats.reduce((sum, s) => sum + (s.postCount || 0), 0)}
                     </div>
                     <div className="text-sm text-muted-foreground">총 게시글 (현재 페이지)</div>
                   </div>

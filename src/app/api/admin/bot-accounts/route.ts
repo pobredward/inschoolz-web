@@ -2,13 +2,101 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // 메모리 캐시 (프로덕션에서는 Redis 사용 권장)
 interface CacheItem {
-  data: any[];
+  data: BotAccount[];
   timestamp: number;
   total: number;
 }
 
+interface BotAccount {
+  uid: string;
+  nickname: string;
+  email: string;
+  schoolId: string;
+  schoolName: string;
+  schoolType: string;
+  profileImageUrl: string;
+  stats: {
+    level: number;
+    totalExperience: number;
+    postCount: number;
+    commentCount: number;
+  };
+  createdAt: string;
+}
+
 const cache = new Map<string, CacheItem>();
 const CACHE_TTL = 5 * 60 * 1000; // 5분
+
+/**
+ * 닉네임용 검색 토큰 생성 함수 (한글 지원)
+ */
+function generateNicknameTokens(nickname: string): string[] {
+  if (!nickname) return [];
+  
+  const tokens = new Set<string>();
+  const cleanText = nickname.toLowerCase().trim();
+  
+  // 전체 닉네임
+  tokens.add(cleanText);
+  
+  // 모든 부분 문자열 생성 (1글자부터 전체까지)
+  for (let i = 0; i < cleanText.length; i++) {
+    for (let j = i + 1; j <= cleanText.length; j++) {
+      const substring = cleanText.substring(i, j);
+      if (substring.length >= 1 && substring.length <= 8) { // 1-8글자만
+        tokens.add(substring);
+      }
+    }
+  }
+  
+  return Array.from(tokens);
+}
+
+/**
+ * 학교명용 검색 토큰 생성 함수 (효율적인 부분 매칭)
+ */
+function generateSchoolTokens(schoolName: string): string[] {
+  if (!schoolName) return [];
+  
+  const tokens = new Set<string>();
+  const cleanText = schoolName.toLowerCase().trim();
+  
+  // 전체 학교명
+  tokens.add(cleanText);
+  
+  // 의미있는 부분 문자열만 생성 (2글자 이상, 연속된 부분)
+  for (let i = 0; i < cleanText.length; i++) {
+    for (let j = i + 2; j <= Math.min(i + 5, cleanText.length); j++) { // 2-4글자만
+      const substring = cleanText.substring(i, j);
+      tokens.add(substring);
+    }
+  }
+  
+  return Array.from(tokens);
+}
+
+/**
+ * 검색 관련성 점수 계산 함수
+ */
+function getRelevanceScore(bot: BotAccount, searchTerm: string): number {
+  let score = 0;
+  const nickname = (bot.nickname || '').toLowerCase();
+  const schoolName = (bot.schoolName || '').toLowerCase();
+  
+  // 정확한 매치에 높은 점수
+  if (nickname === searchTerm) score += 100;
+  if (schoolName === searchTerm) score += 80;
+  
+  // 시작 부분 매치에 중간 점수
+  if (nickname.startsWith(searchTerm)) score += 50;
+  if (schoolName.startsWith(searchTerm)) score += 30;
+  
+  // 포함 매치에 낮은 점수
+  if (nickname.includes(searchTerm)) score += 10;
+  if (schoolName.includes(searchTerm)) score += 5;
+  
+  return score;
+}
 
 /**
  * Firebase Admin SDK 동적 import 및 초기화
@@ -22,21 +110,21 @@ async function getFirebaseAdmin() {
 
   const serviceAccount = {
     type: 'service_account',
-    project_id: 'inschoolz',
-    private_key_id: 'c275cfa0f454d6f4b89a11aa523712b845a772fb',
-    private_key: '-----BEGIN PRIVATE KEY-----\nMIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQDjNSkxYSc4W8hz\nSYiL0YKRJrDbE8oqrusQ7q2VNv4+trKEZlb4+L2wejXYfuBx2mtEA98klHz+msAA\n4IvDZd5780xFTRML7flTVdnnPfREI/JjRot3PJgBXlGy8gCH/URDx4TurxaU0w6k\nwRAL9uOYurMmggHEpn2T8B4ZAX4cEqWECtHI+/YxhZAs0vdbha1LQXOwMmzg/5lX\nt7qQhGsfs+hgUloZCGw/9LPHzbCUPoN9A9qQmpt1egzTwuk6VBlTcxiGmvxP5Bob\nktlXU2hOoClBZd/VmGJT6RYWHekpWhfKrPyNKk8704UNyQKOeBX9Xb4aUq0KrX1O\nJ3ErYbI5AgMBAAECggEAFs+P2tZJ2BMBlUQtAk8+0DsrMa4onjprfTVelgbXEGLK\nmheljwoiDpARId2IbnB4U8lzuLoeW81w42Wn19k9X1e2MOr5COSTzeBmUnIE47vG\n1QgQbnXV6PqYMeKxV6B/dF1D+laiahSlJA4CAhbVE3tYYHsC7xmsApND4kzPusTw\nDae1Xguw1Og+WA7YMRnjqlyHUBHmIzbQ9vUGKZP12H2UQVAItMtKepyEh5lWMGfG\nTJ0FUnbodqHExDJVPgC93ajU2u1aHRHcEJBGKfbs4c6DJsuQ8WLewTjN97uzXe3n\nSBa4A2CRy9gfQ/LYpjOWkxyUjzoR/z9vEc0QAGOalQKBgQDymGHa7V7RlylVClr+\nt27g0aJ0+bpO+5u7dZwONd2yv9Yr53wxDQ5aAIIOD8ugzKFtx0CYqJPeaC24JLrE\ncDYx3cNrQRjBFpywGqxN+Yp1PDBjEVbSv3Bfwvr5qA/8bjPjeITs723J0U1fM0fT\nMWEHC2atqd58bIvJy7xtxIjsTwKBgQDvwx1MLdzQVNrq9cGdKHM2tZv5DECm9rFg\ngV7z/FwrYZZm+6IWi93g5APH3L3+imnDliuPA/32CzN6rAg0Vuyw4enWPOBIYlPi\noINNJMF1kOkNHhgqbMJdUkRSwAhvUeFa+4jsomVIgmdQ0WIFyEjedv9j6rdmm/mW\ng5fUaNiu9wJ/EvPUsUXaIoWstPgaI8ww3V+DUaAw7fq6L+sARhvvNgfGs6diDHL4\nrA9eGbsiLW3PLsRiR4rkAnwhFkHIVZBuq3anzblINc2OcDOlQnI8XuxU22h/X/eU\nz+ZrtRVsKkxxwVOpDtmluh6f7NAUzGsPKX26h9a9ivrv8NP55Jl2GQKBgBrEyP+Z\nWz7zSmHTQGOggYSJMDnVEV7SyikBKK3K7it1wMoMrCMiSIp0SqvEzH2fzIEmwgQ8\nqN0QkRXQITZewhxZjLb7ovrR55W04BP715GdtTdetcn+zJCIv9IRWJ+9H5D95mKt\nGuvGi2xthCkrHF+iH49zRDizj2Erngb8Eb0vAoGBANZh79dagXDCRep2+ZIc/4f1\nRRoDQLMZ2+yWeRyJjA3fa1x5yBOicDKCACchmFNBPoYni1fMNttofa1ljG+Ekz0h\nwGrDmyZ1a7ChcdCwZmkGuhlfdTiqrPTLUum5acOGH4bcyzcQlkjOULVPUEj3CM6H\n5yYTJVEjbc/8BPSFqu5n\n-----END PRIVATE KEY-----\n',
-    client_email: 'firebase-adminsdk-p6trg@inschoolz.iam.gserviceaccount.com',
-    client_id: '109288666163900087649',
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID,
     auth_uri: 'https://accounts.google.com/o/oauth2/auth',
     token_uri: 'https://oauth2.googleapis.com/token',
     auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-    client_x509_cert_url: 'https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-p6trg%40inschoolz.iam.gserviceaccount.com',
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL?.replace('@', '%40')}`,
     universe_domain: 'googleapis.com'
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin.default.initializeApp({
-    credential: admin.default.credential.cert(serviceAccount as admin.default.ServiceAccount),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    credential: admin.default.credential.cert(serviceAccount as any),
     databaseURL: 'https://inschoolz-default-rtdb.asia-southeast1.firebasedatabase.app'
   });
 
@@ -46,7 +134,7 @@ async function getFirebaseAdmin() {
 /**
  * 최적화된 봇 계정 조회 함수
  */
-async function getBotAccountsOptimized(limit: number = 100, schoolType?: string) {
+async function getBotAccountsOptimized(limit: number = 100, schoolType?: string, search?: string) {
   const app = await getFirebaseAdmin();
   const db = app.firestore();
   
@@ -61,18 +149,47 @@ async function getBotAccountsOptimized(limit: number = 100, schoolType?: string)
     query = query.where('schoolType', '==', schoolType);
   }
   
-  // 성능을 위해 생성일 기준으로 정렬하고 제한
-  query = query
-    .orderBy('createdAt', 'desc')
-    .limit(limit);
-
   const startTime = Date.now();
-  const botsSnapshot = await query.get();
+  let botsSnapshot;
+  
+  // 검색이 있는 경우: 토큰 기반 array-contains-any 쿼리 사용
+  if (search && search.trim()) {
+    console.log('🔍 검색 모드: 토큰 기반 array-contains-any 쿼리');
+    const searchLower = search.toLowerCase().trim();
+    
+    // 검색어에서 토큰 생성 (닉네임 방식 사용)
+    const searchTokens = generateNicknameTokens(searchLower);
+    console.log(`🔤 검색 토큰 생성: ${searchTokens.slice(0, 5).join(', ')}${searchTokens.length > 5 ? '...' : ''} (총 ${searchTokens.length}개)`);
+    
+    // 가장 효과적인 토큰들만 선택 (긴 토큰 우선, 최대 10개)
+    const effectiveTokens = searchTokens
+      .filter(token => token.length >= 2) // 2글자 이상만
+      .sort((a, b) => b.length - a.length) // 긴 토큰 먼저
+      .slice(0, 10); // 최대 10개 (Firestore array-contains-any 제한)
+    
+    if (effectiveTokens.length === 0) {
+      // 토큰이 없으면 빈 결과 반환
+      botsSnapshot = { docs: [], size: 0 };
+    } else {
+      // searchTokens 필드에서 토큰 검색
+      query = query
+        .where('searchTokens', 'array-contains-any', effectiveTokens)
+        .limit(limit * 2); // 검색 시 더 많이 가져와서 필터링
+      
+      botsSnapshot = await query.get();
+      console.log(`🔍 토큰 검색 완료: ${effectiveTokens.length}개 토큰으로 ${botsSnapshot.size}개 문서 조회`);
+    }
+  } else {
+    // 일반 조회: 제한된 수량만 가져옴
+    query = query.orderBy('createdAt', 'desc').limit(limit);
+    botsSnapshot = await query.get();
+  }
+  
   const queryTime = Date.now() - startTime;
   
   console.log(`⚡ Firestore 쿼리 완료: ${queryTime}ms, ${botsSnapshot.size}개 문서`);
 
-  const botAccounts: any[] = [];
+  const botAccounts: BotAccount[] = [];
   
   botsSnapshot.docs.forEach((doc) => {
     const data = doc.data();
@@ -81,9 +198,11 @@ async function getBotAccountsOptimized(limit: number = 100, schoolType?: string)
     const botAccount = {
       uid: data.uid || doc.id,
       nickname: data.profile?.userName || data.nickname || '익명',
+      email: data.email || '',
       schoolId: data.schoolId || '',
       schoolName: data.schoolName || '알 수 없는 학교',
       schoolType: data.schoolType || 'middle',
+      profileImageUrl: data.profile?.profileImageUrl || '',
       stats: {
         level: data.stats?.level || 1,
         totalExperience: data.stats?.totalExperience || 0,
@@ -96,11 +215,43 @@ async function getBotAccountsOptimized(limit: number = 100, schoolType?: string)
     botAccounts.push(botAccount);
   });
 
+  // 추가 클라이언트 사이드 필터링 (contains 검색을 위해)
+  let filteredBots = botAccounts;
+  if (search && search.trim()) {
+    const searchLower = search.toLowerCase();
+    
+    // 토큰 검색 결과를 추가로 필터링 (더 정확한 매칭)
+    filteredBots = botAccounts.filter(bot => {
+      const nickname = (bot.nickname || '').toLowerCase();
+      const schoolName = (bot.schoolName || '').toLowerCase();
+      
+      return nickname.includes(searchLower) || 
+             schoolName.includes(searchLower);
+    });
+    
+    console.log(`🔍 최종 필터링 완료: Firestore ${botAccounts.length}개 → 최종 ${filteredBots.length}개 결과`);
+    
+    // 검색 결과 정렬 (관련성 순)
+    filteredBots.sort((a, b) => {
+      const aScore = getRelevanceScore(a, searchLower);
+      const bScore = getRelevanceScore(b, searchLower);
+      return bScore - aScore; // 높은 점수 먼저
+    });
+    
+    // 검색 결과도 너무 많으면 제한 (성능상 이유)
+    if (filteredBots.length > limit) {
+      filteredBots = filteredBots.slice(0, limit);
+      console.log(`📄 검색 결과 페이지네이션: ${limit}개로 제한`);
+    }
+  }
+  
   return {
-    data: botAccounts,
-    total: botsSnapshot.size,
+    data: filteredBots,
+    total: filteredBots.length,
+    totalScanned: botAccounts.length, // 전체 스캔한 봇 수
     queryTime,
-    hasMore: botsSnapshot.size === limit // 더 많은 데이터가 있을 가능성
+    hasMore: search ? filteredBots.length >= limit : botsSnapshot.size === limit,
+    isSearchMode: !!search
   };
 }
 
@@ -113,12 +264,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '100');
     const schoolType = searchParams.get('schoolType') || 'all';
-    const useCache = searchParams.get('cache') !== 'false';
+    const search = searchParams.get('search') || '';
+    const useCache = searchParams.get('cache') !== 'false' && !search; // 검색 시에는 캐시 사용 안함
     
     // 캐시 키 생성
     const cacheKey = `bot_accounts_${limit}_${schoolType}`;
     
-    // 캐시 확인
+    // 캐시 확인 (검색이 없을 때만)
     if (useCache) {
       const cached = cache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -134,11 +286,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Firebase에서 최신 데이터 조회
-    const result = await getBotAccountsOptimized(limit, schoolType);
+    // Firebase에서 최신 데이터 조회 (검색 포함)
+    const result = await getBotAccountsOptimized(limit, schoolType, search);
     
-    // 캐시에 저장
-    if (useCache) {
+    // 캐시에 저장 (검색이 없을 때만)
+    if (useCache && !search) {
       cache.set(cacheKey, {
         data: result.data,
         timestamp: Date.now(),
@@ -146,18 +298,25 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(`✅ ${result.data.length}개의 봇 계정 조회 완료 (${result.queryTime}ms)`);
+    console.log(`✅ ${result.data.length}개의 봇 계정 조회 완료 (${result.queryTime}ms)${search ? ` - 검색: "${search}"` : ''}`);
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: result.data,
       total: result.total,
       hasMore: result.hasMore,
       queryTime: result.queryTime,
       lastUpdated: new Date().toISOString(),
-      source: 'firebase_optimized',
-      note: '🚀 최적화된 쿼리로 조회한 봇 계정 목록입니다!'
+        source: search ? 'token_search' : 'firebase_optimized',
+        note: search ? `🔍 "${search}" 토큰 검색 결과입니다!` : '🚀 최적화된 쿼리로 조회한 봇 계정 목록입니다!'
     });
+    
+    // 캐시 방지 헤더 추가 (특히 봇 삭제 후 즉시 반영을 위해)
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    
+    return response;
 
   } catch (error) {
     console.error('❌ 봇 계정 조회 오류:', error);
@@ -165,6 +324,103 @@ export async function GET(request: NextRequest) {
       { 
         success: false, 
         error: `봇 계정을 조회하는 중 오류가 발생했습니다: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/admin/bot-accounts
+ * 기존 봇 계정들에 검색 토큰 추가 (마이그레이션)
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function PATCH(_request: NextRequest) {
+  try {
+    const app = await getFirebaseAdmin();
+    const db = app.firestore();
+    
+    console.log('🔄 봇 계정 검색 토큰 마이그레이션 시작');
+    
+    // 모든 봇 계정 조회
+    const botsSnapshot = await db.collection('users')
+      .where('fake', '==', true)
+      .get();
+    
+    console.log(`📊 총 ${botsSnapshot.size}개 봇 계정 발견`);
+    
+    const batch = db.batch();
+    let updateCount = 0;
+    
+    botsSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updateData: Record<string, any> = {};
+      let needsUpdate = false;
+      
+      // 1. 검색 토큰 마이그레이션
+      if (!data.searchTokens || !Array.isArray(data.searchTokens)) {
+        // 검색 토큰 생성
+        const allTokens = new Set<string>();
+        
+        // nickname 토큰 (전체 부분 문자열)
+        if (data.profile?.userName) {
+          const nicknameTokens = generateNicknameTokens(data.profile.userName);
+          nicknameTokens.forEach(token => allTokens.add(token));
+        }
+        
+        // schoolName 토큰 (효율적인 부분 문자열만)
+        if (data.schoolName) {
+          const schoolTokens = generateSchoolTokens(data.schoolName);
+          schoolTokens.forEach(token => allTokens.add(token));
+        }
+        
+        // 토큰 배열로 변환 (최대 50개로 제한)
+        const searchTokens = Array.from(allTokens).slice(0, 50);
+        updateData.searchTokens = searchTokens;
+        needsUpdate = true;
+      }
+      
+      // 2. school 객체 마이그레이션
+      if (!data.school && data.schoolId && data.schoolName) {
+        updateData.school = {
+          id: data.schoolId,
+          name: data.schoolName,
+          grade: null,
+          classNumber: null,
+          studentNumber: null,
+          isGraduate: false
+        };
+        needsUpdate = true;
+      }
+      
+      // 업데이트가 필요한 경우에만 배치에 추가
+      if (needsUpdate) {
+        batch.update(doc.ref, updateData);
+        updateCount++;
+      }
+    });
+    
+    // 배치 실행
+    if (updateCount > 0) {
+      await batch.commit();
+      console.log(`✅ ${updateCount}개 봇 계정 데이터 마이그레이션 완료`);
+    }
+    
+    return NextResponse.json({
+      success: true,
+      message: `${updateCount}개 봇 계정에 검색 토큰 및 school 객체를 추가했습니다.`,
+      totalBots: botsSnapshot.size,
+      updatedBots: updateCount,
+      skippedBots: botsSnapshot.size - updateCount
+    });
+    
+  } catch (error) {
+    console.error('❌ 검색 토큰 마이그레이션 오류:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: `검색 토큰 마이그레이션 중 오류가 발생했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`
       },
       { status: 500 }
     );

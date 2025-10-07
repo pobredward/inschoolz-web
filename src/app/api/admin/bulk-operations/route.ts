@@ -4,11 +4,11 @@ import { BotService, PostService, CleanupService, CommentService } from '@/lib/s
 // Next.js API Route 설정 (프로덕션 환경 최적화)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // 60초 타임아웃 (Vercel Hobby 플랜 최대값)
+export const maxDuration = 300; // 300초 타임아웃 (대량 작업을 위해 증가)
 
 interface BulkOperation {
   id: string;
-  type: 'create_bots' | 'generate_posts' | 'delete_posts' | 'cleanup' | 'delete_bots' | 'generate_comments';
+  type: 'create_bots' | 'generate_bots' | 'generate_posts' | 'delete_posts' | 'cleanup' | 'delete_bots' | 'generate_comments';
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress: number;
   total: number;
@@ -35,7 +35,10 @@ export async function POST(request: NextRequest) {
     console.log('🚀 [BULK-OPS] POST 요청 시작');
     
     const body = await request.json();
-    const { type, params } = body;
+    const { type, parameters = {}, params = parameters } = body;
+    
+    console.log('📋 [BULK-OPS] 요청 파라미터:', { type, params });
+    console.log('🔍 [BULK-OPS] 작업 타입 확인:', type, typeof type);
 
     console.log('⚡ [BULK-OPS] 대량 작업 시작:', { type, params });
     console.log('🌍 [BULK-OPS] 환경:', {
@@ -133,11 +136,15 @@ export async function POST(request: NextRequest) {
 function validateOperationParams(type: string, params: any): string | null {
   switch (type) {
     case 'create_bots':
+    case 'generate_bots':
       if (params.schoolCount && (params.schoolCount < 1 || params.schoolCount > 15000)) {
         return '학교 수는 1개 이상 15,000개 이하여야 합니다.';
       }
       if (params.schoolIds && (!Array.isArray(params.schoolIds) || params.schoolIds.length === 0)) {
         return '학교 ID 목록이 유효하지 않습니다.';
+      }
+      if (params.botsPerSchool && (params.botsPerSchool < 1 || params.botsPerSchool > 10)) {
+        return '학교당 봇 수는 1개 이상 10개 이하여야 합니다.';
       }
       break;
       
@@ -171,11 +178,15 @@ function validateOperationParams(type: string, params: any): string | null {
       if (params.schoolLimit && (params.schoolLimit < 1 || params.schoolLimit > 100)) {
         return '학교 수는 1개 이상 100개 이하여야 합니다.';
       }
-      if (params.commentsPerSchool && (params.commentsPerSchool < 1 || params.commentsPerSchool > 10)) {
-        return '학교당 게시글 수는 1개 이상 10개 이하여야 합니다.';
+      if (params.commentsPerSchool && (params.commentsPerSchool < 1 || params.commentsPerSchool > 20)) {
+        return '학교당 게시글 수는 1개 이상 20개 이하여야 합니다.';
       }
-      if (params.maxCommentsPerPost && (params.maxCommentsPerPost < 1 || params.maxCommentsPerPost > 5)) {
-        return '게시글당 댓글 수는 1개 이상 5개 이하여야 합니다.';
+      if (params.maxCommentsPerPost && (params.maxCommentsPerPost < 1 || params.maxCommentsPerPost > 10)) {
+        return '게시글당 댓글 수는 1개 이상 10개 이하여야 합니다.';
+      }
+      // 목표 댓글 수가 있으면 유효성 검사
+      if (params.targetCommentCount && (params.targetCommentCount < 1 || params.targetCommentCount > 1000)) {
+        return '목표 댓글 수는 1개 이상 1000개 이하여야 합니다.';
       }
       break;
       
@@ -191,7 +202,8 @@ function validateOperationParams(type: string, params: any): string | null {
  */
 function getOperationTypeName(type: string): string {
   switch (type) {
-    case 'create_bots': return '봇 계정 생성';
+    case 'create_bots': 
+    case 'generate_bots': return '봇 계정 생성';
     case 'generate_posts': return 'AI 게시글 생성';
     case 'delete_posts': return '게시글 삭제';
     case 'cleanup': return '데이터 정리';
@@ -242,24 +254,41 @@ async function executeOperation(operationId: string, type: string, params: any) 
     operation.message = '작업을 실행하는 중...';
     operations.set(operationId, operation);
 
+    console.log(`🔄 [BULK-OPS] 작업 실행 시작: ${type} (${operationId})`);
+
     switch (type) {
       case 'create_bots':
+      case 'generate_bots':
         await executeBotCreation(operationId, params);
         break;
       case 'generate_posts':
         await executePostGeneration(operationId, params);
         break;
       case 'delete_posts':
+      case 'cleanup_posts':
         await executePostDeletion(operationId, params);
         break;
       case 'cleanup':
         await executeCleanup(operationId, params);
         break;
       case 'delete_bots':
+      case 'cleanup_bots':
         await executeBotDeletion(operationId, params);
         break;
       case 'generate_comments':
         await executeCommentGeneration(operationId, params);
+        break;
+      case 'cleanup_all_bots':
+        await executeBotDeletion(operationId, { all: true });
+        break;
+      case 'cleanup_all_posts':
+        await executePostDeletion(operationId, { all: true });
+        break;
+      case 'cleanup_all_comments':
+        await executeCommentDeletion(operationId, { all: true });
+        break;
+      case 'cleanup_comments':
+        await executeCommentDeletion(operationId, params);
         break;
       default:
         throw new Error(`알 수 없는 작업 유형: ${type}`);
@@ -291,16 +320,27 @@ async function executeOperation(operationId: string, type: string, params: any) 
  * 봇 계정 대량 생성
  */
 async function executeBotCreation(operationId: string, params: any) {
-  const { schoolCount = 100, schoolIds } = params;
+  const { schoolCount = 100, schoolIds, botsPerSchool = 1 } = params;
+  
+  console.log(`🚀 [BOT-CREATE] 봇 생성 작업 시작`);
+  console.log(`📋 [BOT-CREATE] 작업 ID: ${operationId}`);
+  console.log(`📊 [BOT-CREATE] 파라미터:`, { schoolCount, schoolIds, botsPerSchool });
   
   try {
-    console.log(`🤖 [BOT-CREATE] 시작 (${operationId}):`, { schoolCount, schoolIds });
-    
     const operation = operations.get(operationId);
     if (!operation) {
       console.error(`❌ [BOT-CREATE] 작업을 찾을 수 없음: ${operationId}`);
+      console.error(`📋 [BOT-CREATE] 현재 작업 목록:`, Array.from(operations.keys()));
       throw new Error('작업을 찾을 수 없습니다.');
     }
+
+    console.log(`✅ [BOT-CREATE] 작업 발견:`, {
+      id: operation.id,
+      type: operation.type,
+      status: operation.status,
+      progress: operation.progress,
+      total: operation.total
+    });
 
     console.log('🏗️ [BOT-CREATE] BotService 인스턴스 생성 중...');
     
@@ -311,6 +351,7 @@ async function executeBotCreation(operationId: string, params: any) {
       console.log('✅ [BOT-CREATE] BotService 인스턴스 생성 완료');
     } catch (serviceError) {
       console.error('❌ [BOT-CREATE] BotService 생성 실패:', serviceError);
+      console.error('❌ [BOT-CREATE] 오류 스택:', serviceError instanceof Error ? serviceError.stack : 'No stack');
       throw new Error(`BotService 생성 실패: ${serviceError instanceof Error ? serviceError.message : 'Unknown error'}`);
     }
     
@@ -327,15 +368,26 @@ async function executeBotCreation(operationId: string, params: any) {
     };
 
     console.log('🚀 [BOT-CREATE] 봇 생성 실행 시작...');
+    console.log(`🎯 [BOT-CREATE] 대상 학교 수: ${schoolIds ? schoolIds.length : schoolCount}`);
+    console.log(`🤖 [BOT-CREATE] 학교당 봇 수: ${botsPerSchool}`);
+    console.log(`📊 [BOT-CREATE] 예상 총 봇 수: ${(schoolIds ? schoolIds.length : schoolCount) * botsPerSchool}`);
+    
+    const startTime = Date.now();
     
     // 봇 생성 실행
     const result = await botService.createBotsForSchools(
       schoolIds ? schoolIds.length : schoolCount, 
-      3, // 학교당 3개 봇
+      botsPerSchool, // 파라미터로 받은 학교당 봇 수 사용
       onProgress
     );
 
-    console.log('📊 [BOT-CREATE] 봇 생성 결과:', result);
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    console.log(`📊 [BOT-CREATE] 봇 생성 결과 (${duration}ms):`, result);
+    console.log(`✅ [BOT-CREATE] 생성된 총 봇 수: ${result.totalCreated}`);
+    console.log(`🏫 [BOT-CREATE] 처리된 학교 수: ${result.schoolsProcessed}`);
+    console.log(`📈 [BOT-CREATE] 학교 유형별 통계:`, result.summary);
 
     // 최종 상태 업데이트
     const finalOperation = operations.get(operationId);
@@ -579,10 +631,15 @@ async function executeCommentGeneration(operationId: string, params: any) {
     const operation = operations.get(operationId);
     if (!operation) throw new Error('작업을 찾을 수 없습니다.');
 
-    const { schoolLimit = 5, commentsPerSchool = 3, maxCommentsPerPost = 2 } = params;
+    const { 
+      schoolLimit = 5, 
+      commentsPerSchool = 3, 
+      maxCommentsPerPost = 2,
+      targetCommentCount 
+    } = params;
     
-    // 예상 댓글 수 계산
-    const expectedComments = schoolLimit * commentsPerSchool * maxCommentsPerPost;
+    // 예상 댓글 수 계산 (목표 댓글 수가 있으면 우선 사용)
+    const expectedComments = targetCommentCount || (schoolLimit * commentsPerSchool * maxCommentsPerPost);
     operation.total = expectedComments;
     operation.message = `${expectedComments}개 AI 댓글을 생성하는 중...`;
     operations.set(operationId, operation);
@@ -622,6 +679,62 @@ async function executeCommentGeneration(operationId: string, params: any) {
     
   } catch (error) {
     console.error('❌ 댓글 생성 실패:', error);
+    throw error;
+  }
+}
+
+/**
+ * 댓글 삭제 작업 실행
+ */
+async function executeCommentDeletion(operationId: string, params: any) {
+  const { all = false, olderThanDays } = params;
+  
+  try {
+    const operation = operations.get(operationId);
+    if (!operation) throw new Error('작업을 찾을 수 없습니다.');
+
+    operation.total = 100; // 예상 삭제 수 (실제로는 먼저 카운트해야 함)
+    operation.message = all ? '모든 AI 댓글을 삭제하는 중...' : 'AI 댓글을 삭제하는 중...';
+    operations.set(operationId, operation);
+
+    // CleanupService 인스턴스 생성
+    const cleanupService = new CleanupService();
+    
+    // 진행률 콜백 함수
+    const onProgress = (current: number, total: number, message?: string) => {
+      const updatedOperation = operations.get(operationId);
+      if (updatedOperation) {
+        updatedOperation.progress = current;
+        updatedOperation.total = total;
+        updatedOperation.message = message || `AI 댓글 삭제 중... (${current}/${total})`;
+        operations.set(operationId, updatedOperation);
+      }
+    };
+
+    let result;
+    if (all) {
+      // 모든 AI 댓글 삭제
+      result = await cleanupService.cleanupFakeComments(onProgress);
+    } else {
+      // 특정 날짜 이전 댓글 삭제 (현재는 모든 댓글 삭제로 대체)
+      result = await cleanupService.cleanupFakeComments(onProgress);
+    }
+
+    // 최종 상태 업데이트
+    const finalOperation = operations.get(operationId);
+    if (finalOperation) {
+      const deletedCount = typeof result === 'number' ? result : (result as any)?.deletedCount || 0;
+      finalOperation.progress = deletedCount;
+      finalOperation.total = deletedCount;
+      finalOperation.message = `${deletedCount}개 AI 댓글 삭제 완료`;
+      operations.set(operationId, finalOperation);
+    }
+
+    const deletedCount = typeof result === 'number' ? result : (result as any)?.deletedCount || 0;
+    console.log(`✅ 댓글 삭제 완료: ${deletedCount}개 삭제`);
+    
+  } catch (error) {
+    console.error('❌ 댓글 삭제 실패:', error);
     throw error;
   }
 }

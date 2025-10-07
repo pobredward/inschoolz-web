@@ -378,8 +378,8 @@ ${styleGuide}
         },
         
         // 추가 정보
-        tags: ['AI생성', '자유게시판', '학교생활'], // AI 게시글 구분용 태그
-        type: 'text',
+        tags: [], // AI 게시글은 태그 없음
+        type: 'school', // 학교 게시판 타입
         fake: true, // AI 생성 게시글 표시
         
         createdAt: this.FieldValue.serverTimestamp(),

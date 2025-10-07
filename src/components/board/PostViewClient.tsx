@@ -190,7 +190,11 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
   };
 
   const handleEdit = () => {
-    if (!user || user.uid !== post.authorId) {
+    // 관리자이거나 작성자인 경우에만 수정 가능
+    const isAdmin = user?.role === 'admin';
+    const isAuthorUser = user && user.uid === post.authorId;
+    
+    if (!user || (!isAdmin && !isAuthorUser)) {
       toast.error('수정 권한이 없습니다.');
       return;
     }
@@ -230,7 +234,11 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
 
   // 게시글 삭제
   const handleDelete = async () => {
-    if (!user || user.uid !== post.authorId) {
+    // 관리자이거나 작성자인 경우에만 삭제 가능
+    const isAdmin = user?.role === 'admin';
+    const isAuthorUser = user && user.uid === post.authorId;
+    
+    if (!user || (!isAdmin && !isAuthorUser)) {
       toast.error('삭제 권한이 없습니다.');
       return;
     }
@@ -297,8 +305,9 @@ export const PostViewClient = ({ post, initialComments }: PostViewClientProps) =
     }
   };
 
-  // 작성자 확인
-  const isAuthor = user && user.uid === post.authorId;
+  // 작성자 또는 관리자 확인
+  const isAdmin = user?.role === 'admin';
+  const isAuthor = user && (user.uid === post.authorId || isAdmin);
 
   // 게시판 타입에 따른 표시명 가져오기
   const getBoardTypeLabel = (type: string) => {

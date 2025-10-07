@@ -1,0 +1,322 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { School, RefreshCw, Search, Plus, Users, Bot, Calendar } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/providers/AuthProvider';
+
+interface SchoolStats {
+  id: string;
+  name: string;
+  type?: 'elementary' | 'middle' | 'high';
+  region: string;
+  botCount: number;
+  postCount: number;
+  commentCount?: number;
+  lastBotCreated?: string;
+  lastPostCreated?: string;
+  status: 'active' | 'inactive' | 'no_bots';
+}
+
+export default function FakeSchoolsPage() {
+  const { user } = useAuth();
+  const [schools, setSchools] = useState<SchoolStats[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 20;
+
+  // 학교 통계 가져오기
+  const fetchSchoolStats = useCallback(async (page: number = 1) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/admin/school-stats?page=${page}&limit=${itemsPerPage}&search=${searchTerm}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setSchools(result.data || []);
+        setTotalPages(result.totalPages || Math.ceil((result.totalCount || result.total || 0) / itemsPerPage));
+        toast.success(`${result.data?.length || 0}개 학교의 통계를 조회했습니다.`);
+      } else {
+        throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('학교 통계 조회 오류:', error);
+      toast.error('학교 통계를 불러오는데 실패했습니다.');
+      setSchools([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm, itemsPerPage]);
+
+  // 학교에 봇 생성
+  const createBotsForSchool = async (schoolId: string, botCount: number = 1) => {
+    try {
+      const response = await fetch('/api/admin/bot-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId, count: botCount })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`${botCount}개의 봇이 생성되었습니다.`);
+        await fetchSchoolStats(currentPage);
+      } else {
+        throw new Error(result.error || '봇 생성 실패');
+      }
+    } catch (error) {
+      console.error('봇 생성 오류:', error);
+      toast.error('봇 생성에 실패했습니다.');
+    }
+  };
+
+  // 학교 봇들로 게시글 생성
+  const generatePostsForSchool = async (schoolId: string, postCount: number = 5) => {
+    try {
+      const response = await fetch('/api/admin/fake-posts/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId, schoolLimit: 1, postsPerSchool: postCount })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`${postCount}개의 게시글 생성이 시작되었습니다.`);
+        await fetchSchoolStats(currentPage);
+      } else {
+        throw new Error(result.error || '게시글 생성 실패');
+      }
+    } catch (error) {
+      console.error('게시글 생성 오류:', error);
+      toast.error('게시글 생성에 실패했습니다.');
+    }
+  };
+
+  useEffect(() => {
+    fetchSchoolStats(currentPage);
+  }, [currentPage, fetchSchoolStats]);
+
+  useEffect(() => {
+    const delayedSearch = setTimeout(() => {
+      setCurrentPage(1);
+      fetchSchoolStats(1);
+    }, 500);
+
+    return () => clearTimeout(delayedSearch);
+  }, [searchTerm, fetchSchoolStats]);
+
+  const totalSchools = schools.length;
+  const schoolsWithBots = schools.filter(s => (s.botCount || 0) > 0).length;
+  const totalBots = schools.reduce((sum, s) => sum + (s.botCount || 0), 0);
+  const totalPosts = schools.reduce((sum, s) => sum + (s.postCount || 0), 0);
+
+  if (!user?.profile?.isAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">접근 권한이 없습니다</h1>
+          <p className="text-muted-foreground">관리자만 접근할 수 있는 페이지입니다.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Link href="/admin" className="text-muted-foreground hover:text-foreground">
+              관리자
+            </Link>
+            <span className="text-muted-foreground">/</span>
+            <span className="font-medium">학교별 AI 관리</span>
+          </div>
+          <h1 className="text-3xl font-bold">🏫 학교별 AI 관리</h1>
+          <p className="text-muted-foreground">학교별로 봇 계정을 생성하고 게시글을 관리하세요.</p>
+        </div>
+        <Button onClick={() => fetchSchoolStats(currentPage)} disabled={isLoading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          새로고침
+        </Button>
+      </div>
+
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">총 학교</p>
+                <p className="text-2xl font-bold">{totalSchools.toLocaleString()}</p>
+              </div>
+              <School className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">봇 있는 학교</p>
+                <p className="text-2xl font-bold">{schoolsWithBots}</p>
+              </div>
+              <Users className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">총 봇 계정</p>
+                <p className="text-2xl font-bold">{totalBots}</p>
+              </div>
+              <Bot className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">총 게시글</p>
+                <p className="text-2xl font-bold">{totalPosts}</p>
+              </div>
+              <Calendar className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 검색 */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="학교명으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 학교 목록 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>학교 목록 (페이지 {currentPage}/{totalPages})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p>학교 데이터를 불러오는 중...</p>
+            </div>
+          ) : schools.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">학교가 없습니다.</p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4">
+                {schools.map((school, index) => (
+                  <div key={school.id || `school-${index}`} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold">{school.name}</h3>
+                          <Badge variant="outline">{school.region}</Badge>
+                          {school.type && (
+                            <Badge variant="secondary">
+                              {school.type === 'elementary' ? '초등학교' : 
+                               school.type === 'middle' ? '중학교' : '고등학교'}
+                            </Badge>
+                          )}
+                          <Badge variant={school.status === 'active' ? "default" : "secondary"}>
+                            {school.status === 'active' ? '활성' : 
+                             school.status === 'inactive' ? '비활성' : '봇 없음'}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
+                          <div>
+                            <span className="font-medium">봇 계정:</span> {school.botCount || 0}개
+                          </div>
+                          <div>
+                            <span className="font-medium">게시글:</span> {school.postCount || 0}개
+                          </div>
+                          <div>
+                            <span className="font-medium">댓글:</span> {school.commentCount || 0}개
+                          </div>
+                          <div>
+                            <span className="font-medium">마지막 활동:</span>{' '}
+                            {school.lastPostCreated 
+                              ? new Date(school.lastPostCreated).toLocaleDateString()
+                              : '없음'
+                            }
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => createBotsForSchool(school.id, 1)}
+                          disabled={(school.botCount || 0) >= 10}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          봇 생성
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generatePostsForSchool(school.id, 5)}
+                          disabled={(school.botCount || 0) === 0}
+                        >
+                          <Calendar className="h-4 w-4 mr-1" />
+                          게시글 생성
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 페이지네이션 */}
+              <div className="flex justify-center gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  이전
+                </Button>
+                <span className="flex items-center px-4">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  다음
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

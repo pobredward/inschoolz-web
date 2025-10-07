@@ -133,7 +133,7 @@ const formSchema = z.object({
   title: z.string().min(2, "제목은 2자 이상이어야 합니다").max(100, "제목은 100자 이하여야 합니다"),
   content: z.string().min(5, "내용은 5자 이상이어야 합니다"),
   isAnonymous: z.boolean(),
-  tags: z.array(z.string()).max(5, "태그는 최대 5개까지 추가할 수 있습니다"),
+  tags: z.array(z.string()).max(5, "태그는 최대 5개까지 추가할 수 있습니다").default([]), // 기본값 설정
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -169,7 +169,7 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       title: post.title,
       content: post.content,
       isAnonymous: post.authorInfo.isAnonymous,
-      tags: post.tags,
+      tags: post.tags || [], // undefined인 경우 빈 배열로 설정
     },
   });
   
@@ -188,11 +188,14 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       return;
     }
     
-    // 로딩이 완료되었는데 사용자가 없거나 작성자가 아닌 경우
-    if (!user || user.uid !== post.authorId) {
+    // 로딩이 완료되었는데 사용자가 없거나 (작성자가 아니고 관리자도 아닌) 경우
+    const isAdmin = user?.role === 'admin';
+    const isAuthor = user && user.uid === post.authorId;
+    
+    if (!user || (!isAuthor && !isAdmin)) {
       toast({
         title: "접근 권한이 없습니다",
-        description: "본인이 작성한 게시글만 수정할 수 있습니다.",
+        description: "본인이 작성한 게시글이거나 관리자만 수정할 수 있습니다.",
         variant: "destructive",
       });
       router.back();
@@ -208,9 +211,12 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
   
   // 폼 제출 핸들러
   const onSubmit = async (values: FormValues) => {
+    console.log('🔥🔥🔥 PostEditClient: onSubmit 함수 호출됨!');
+    console.log('🔥 PostEditClient: onSubmit 시작', { values });
     
     try {
       if (!user) {
+        console.error('🔥 PostEditClient: 사용자가 로그인되지 않음');
         toast({
           title: "로그인이 필요합니다",
           description: "게시글을 수정하려면 로그인이 필요합니다.",
@@ -219,6 +225,31 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
         return;
       }
       
+      // 관리자 권한 및 작성자 권한 확인
+      const isAdmin = user?.role === 'admin';
+      const isAuthor = user.uid === post.authorId;
+      
+      console.log('🔥 PostEditClient: 권한 확인', {
+        userId: user.uid,
+        userRole: user.role,
+        isAdmin,
+        isAuthor,
+        postAuthorId: post.authorId,
+        postFake: (post as any).fake,
+        canEdit: isAdmin || isAuthor
+      });
+      
+      if (!isAdmin && !isAuthor) {
+        console.error('🔥 PostEditClient: 수정 권한 없음');
+        toast({
+          title: "수정 권한이 없습니다",
+          description: "관리자이거나 본인이 작성한 게시글만 수정할 수 있습니다.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('🔥 PostEditClient: 권한 검증 통과, 수정 진행');
       setIsSubmitting(true);
       
       // 투표 정보는 수정하지 않음 - 기존 상태 그대로 유지
@@ -232,16 +263,68 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       };
       
       // 실제 수정 함수 호출
-      const { updatePost } = await import("@/lib/api/board");
-      await updatePost(post.id, {
-        title: postData.title,
-        content: postData.content,
-        isAnonymous: postData.isAnonymous,
-        tags: postData.tags,
-        category: (post as any).category,
-        attachments: (post as any).attachments || [],
-        poll: (post as any).poll // 기존 poll 데이터 유지
+      console.log('🔥 PostEditClient: 게시글 수정 시작', {
+        postId: post.id,
+        userId: user.uid,
+        isAdmin,
+        isAuthor,
+        postFake: (post as any).fake,
+        updateData: postData
       });
+      
+      // 관리자가 AI 게시글을 수정하는 경우와 일반 사용자가 본인 게시글을 수정하는 경우 구분
+      const isAIPost = (post as any).fake === true;
+      
+      if (isAdmin && isAIPost) {
+        // 관리자가 AI 게시글을 수정하는 경우 - 관리자 전용 API 사용
+        console.log('🔥 PostEditClient: 관리자 API 사용하여 AI 게시글 수정');
+        
+        const response = await fetch(`/api/admin/fake-posts/${post.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          },
+          body: JSON.stringify({
+            title: postData.title,
+            content: postData.content,
+            tags: postData.tags,
+            isAnonymous: postData.isAnonymous
+          })
+        });
+        
+        console.log('🔥 PostEditClient: 관리자 API 응답 상태:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('🔥 PostEditClient: 관리자 API 오류 응답:', errorText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        console.log('🔥 PostEditClient: 관리자 API 응답 데이터:', result);
+        
+        if (!result.success) {
+          throw new Error(result.error || 'AI 게시글 수정 실패');
+        }
+        
+        console.log('🔥 PostEditClient: 관리자 API로 AI 게시글 수정 완료');
+      } else {
+        // 일반 사용자가 본인 게시글을 수정하거나 관리자가 일반 게시글을 수정하는 경우
+        console.log('🔥 PostEditClient: 일반 API 사용하여 게시글 수정');
+        
+        const { updatePost } = await import("@/lib/api/boards");
+        const result = await updatePost(post.id, user.uid, {
+          title: postData.title,
+          content: postData.content,
+          tags: postData.tags,
+          isAnonymous: postData.isAnonymous
+        });
+        
+        console.log('🔥 PostEditClient: 일반 API로 게시글 수정 완료:', result);
+      }
       
       toast({
         title: "게시글 수정 완료",
@@ -273,14 +356,28 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
       if (postUrl) {
         router.push(postUrl);
       }
-    } catch (error) {
-      console.error('게시글 수정 오류:', error);
-      toast({
-        title: "게시글 수정 실패",
-        description: "게시글 수정 중 오류가 발생했습니다. 다시 시도해주세요.",
-        variant: "destructive",
-      });
-    } finally {
+      } catch (error) {
+        console.error('🔥 PostEditClient: 게시글 수정 오류:', error);
+        
+        let errorMessage = "게시글 수정 중 오류가 발생했습니다. 다시 시도해주세요.";
+        
+        if (error instanceof Error) {
+          console.error('🔥 PostEditClient: 오류 메시지:', error.message);
+          if (error.message.includes('권한')) {
+            errorMessage = error.message;
+          } else if (error.message.includes('찾을 수 없습니다')) {
+            errorMessage = "게시글을 찾을 수 없습니다.";
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
+        toast({
+          title: "게시글 수정 실패",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } finally {
       setIsSubmitting(false);
     }
   };
@@ -376,7 +473,11 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
 
         <Form {...form}>
           <form onSubmit={(e) => {
+            console.log('🔥 PostEditClient: 폼 제출 이벤트 발생');
+            console.log('🔥 PostEditClient: 폼 유효성 검사 상태:', form.formState.isValid);
+            console.log('🔥 PostEditClient: 폼 오류:', form.formState.errors);
             e.preventDefault();
+            console.log('🔥 PostEditClient: preventDefault 완료, handleSubmit 호출');
             form.handleSubmit(onSubmit)(e);
           }} className="space-y-8">
             <FormField
@@ -563,7 +664,34 @@ export function PostEditClient({ post, board, type, boardCode }: PostEditClientP
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                onClick={() => {
+                onClick={async (e) => {
+                  console.log('🔥 PostEditClient: 수정하기 버튼 클릭됨');
+                  console.log('🔥 PostEditClient: isSubmitting 상태:', isSubmitting);
+                  
+                  // 폼 값 가져오기 및 tags 기본값 처리
+                  const formValues = form.getValues();
+                  const safeFormValues = {
+                    ...formValues,
+                    tags: formValues.tags || [] // undefined인 경우 빈 배열로 설정
+                  };
+                  
+                  console.log('🔥 PostEditClient: 폼 값:', safeFormValues);
+                  
+                  // 폼 유효성 검사
+                  const isValid = await form.trigger();
+                  console.log('🔥 PostEditClient: 폼 유효성 검사 결과:', isValid);
+                  console.log('🔥 PostEditClient: 폼 오류:', form.formState.errors);
+                  
+                  if (!isValid) {
+                    console.error('🔥 PostEditClient: 폼 유효성 검사 실패');
+                    e.preventDefault();
+                    return;
+                  }
+                  
+                  // 폼이 유효하다면 수동으로 onSubmit 호출
+                  console.log('🔥 PostEditClient: 수동으로 onSubmit 호출');
+                  e.preventDefault();
+                  await onSubmit(safeFormValues);
                 }}
               >
                 {isSubmitting ? "수정 중..." : "수정하기"}

@@ -1,44 +1,154 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, School, Bot, TrendingUp, Zap, Users, Trash2, Download, Activity, Target, RefreshCw, MessageCircle } from 'lucide-react';
+import { RefreshCw, Search, Filter, Trash2, Play, Pause, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
-import Link from 'next/link';
 
-interface SystemStats {
-  totalSchools: number;
-  schoolsWithBots: number;
-  totalBots: number;
-  totalPosts: number;
-  postsToday: number;
-  averagePostsPerSchool: number;
-  topActiveSchools: any[];
+interface FakePost {
+  id: string;
+  title: string;
+  content: string;
+  schoolId: string;
+  schoolName: string;
+  boardCode: string;
+  boardName: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
+  likeCount: number;
+  commentCount: number;
 }
 
-export default function FakePostsDashboardPage() {
-  const { user } = useAuth();
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+interface GenerationConfig {
+  schoolLimit: number;
+  postsPerSchool: number;
+  delayBetweenPosts: number;
+}
 
-  const fetchSystemStats = async () => {
+export default function FakePostsPage() {
+  const { user } = useAuth();
+  const [fakePosts, setFakePosts] = useState<FakePost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBoard, setSelectedBoard] = useState('all');
+  // 편집 관련 상태는 제거 (현재 사용하지 않음)
+
+  const [config, setConfig] = useState<GenerationConfig>({
+    schoolLimit: 10,
+    postsPerSchool: 1,
+    delayBetweenPosts: 3000
+  });
+
+  // AI 게시글 목록 가져오기
+  const fetchFakePosts = async () => {
     try {
-      const response = await fetch('/api/admin/system-stats');
+      setIsLoading(true);
+      const response = await fetch('/api/admin/fake-posts');
       const result = await response.json();
+      
       if (result.success) {
-        setSystemStats(result.data);
+        setFakePosts(result.data || []);
+        toast.success(`${result.data.length}개의 AI 게시글을 조회했습니다.`);
+      } else {
+        throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
       }
     } catch (error) {
-      console.error('시스템 통계 조회 오류:', error);
-      toast.error('시스템 통계를 불러오는데 실패했습니다.');
+      console.error('AI 게시글 조회 오류:', error);
+      toast.error('AI 게시글을 불러오는데 실패했습니다.');
+      setFakePosts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // AI 게시글 생성
+  const generateFakePosts = async () => {
+    try {
+      setIsGenerating(true);
+      const response = await fetch('/api/admin/fake-posts/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('AI 게시글 생성이 시작되었습니다.');
+        await fetchFakePosts();
+      } else {
+        throw new Error(result.error || 'AI 게시글 생성 실패');
+      }
+    } catch (error) {
+      console.error('AI 게시글 생성 오류:', error);
+      toast.error('AI 게시글 생성에 실패했습니다.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // 게시글 삭제
+  const deleteFakePost = async (postId: string) => {
+    if (!confirm('정말로 이 게시글을 삭제하시겠습니까?')) return;
+
+    console.log(`🗑️ [DELETE-POST] 게시글 삭제 시작: ${postId}`);
+
+    try {
+      console.log(`📡 [DELETE-POST] API 호출: /api/admin/fake-posts/${postId}`);
+      
+      const response = await fetch(`/api/admin/fake-posts/${postId}`, {
+        method: 'DELETE',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+
+      console.log(`📊 [DELETE-POST] 응답 상태:`, response.status, response.statusText);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log(`📋 [DELETE-POST] 응답 데이터:`, result);
+      
+      if (result.success) {
+        console.log(`✅ [DELETE-POST] 성공: ${result.deletedPostId || postId}`);
+        toast.success('게시글이 삭제되었습니다.');
+        await fetchFakePosts();
+      } else {
+        console.error(`❌ [DELETE-POST] 실패:`, result.error);
+        throw new Error(result.error || '게시글 삭제 실패');
+      }
+    } catch (error) {
+      console.error(`💥 [DELETE-POST] 오류:`, error);
+      toast.error(`게시글 삭제에 실패했습니다: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   useEffect(() => {
-    fetchSystemStats();
+    fetchFakePosts();
   }, []);
+
+  // 필터링된 게시글
+  const filteredPosts = fakePosts.filter(post => {
+    const matchesSearch = (post.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (post.content || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (post.schoolName || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesBoard = selectedBoard === 'all' || post.boardCode === selectedBoard;
+    return matchesSearch && matchesBoard;
+  });
 
   if (!user?.profile?.isAdmin) {
     return (
@@ -62,175 +172,177 @@ export default function FakePostsDashboardPage() {
             <span className="text-muted-foreground">/</span>
             <span className="font-medium">AI 게시글 관리</span>
           </div>
-          <h1 className="text-3xl font-bold">🤖 AI 게시글 관리 대시보드</h1>
-          <p className="text-muted-foreground">AI 게시글 시스템의 전체 현황을 한눈에 확인하세요.</p>
+          <h1 className="text-3xl font-bold">📝 AI 게시글 관리</h1>
+          <p className="text-muted-foreground">AI로 생성된 게시글을 관리하고 모니터링하세요.</p>
         </div>
-        <Button onClick={() => window.location.reload()}>
-          <RefreshCw className="h-4 w-4 mr-2" />
+        <Button onClick={fetchFakePosts} disabled={isLoading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           새로고침
         </Button>
       </div>
 
-      {/* 시스템 개요 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">전체 학교</p>
-                <p className="text-2xl font-bold">{systemStats?.totalSchools?.toLocaleString() || '12,525'}</p>
-              </div>
-              <School className="h-8 w-8 text-blue-600" />
+      {/* AI 게시글 생성 설정 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI 게시글 생성</CardTitle>
+          <CardDescription>
+            설정을 조정하여 AI 게시글을 생성하세요.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium">학교 수 제한</label>
+              <Input
+                type="number"
+                value={config.schoolLimit}
+                onChange={(e) => setConfig({...config, schoolLimit: parseInt(e.target.value) || 10})}
+                min="1"
+                max="100"
+              />
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              봇 있는 학교: {systemStats?.schoolsWithBots?.toLocaleString() || '2'}개
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">총 봇 계정</p>
-                <p className="text-2xl font-bold">{systemStats?.totalBots?.toLocaleString() || '6'}</p>
-              </div>
-              <Bot className="h-8 w-8 text-purple-600" />
+            <div>
+              <label className="text-sm font-medium">학교당 게시글 수</label>
+              <Input
+                type="number"
+                value={config.postsPerSchool}
+                onChange={(e) => setConfig({...config, postsPerSchool: parseInt(e.target.value) || 1})}
+                min="1"
+                max="10"
+              />
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              활성 봇: {Math.floor((systemStats?.totalBots || 0) * 0.8)}개
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">총 AI 게시글</p>
-                <p className="text-2xl font-bold">{systemStats?.totalPosts?.toLocaleString() || '3'}</p>
-              </div>
-              <Calendar className="h-8 w-8 text-green-600" />
+            <div>
+              <label className="text-sm font-medium">게시글 간 지연시간 (ms)</label>
+              <Input
+                type="number"
+                value={config.delayBetweenPosts}
+                onChange={(e) => setConfig({...config, delayBetweenPosts: parseInt(e.target.value) || 3000})}
+                min="1000"
+                max="10000"
+              />
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              오늘: {systemStats?.postsToday || 0}개
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <Button 
+            onClick={generateFakePosts} 
+            disabled={isGenerating}
+            className="w-full"
+          >
+            {isGenerating ? (
+              <>
+                <Pause className="h-4 w-4 mr-2" />
+                생성 중...
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-2" />
+                AI 게시글 생성 시작
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">평균 게시글/학교</p>
-                <p className="text-2xl font-bold">{systemStats?.averagePostsPerSchool?.toFixed(1) || '0.0'}</p>
+      {/* 검색 및 필터 */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="게시글 제목, 내용, 학교명으로 검색..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-              <TrendingUp className="h-8 w-8 text-orange-600" />
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              지난 7일 평균
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+            <Select value={selectedBoard} onValueChange={setSelectedBoard}>
+              <SelectTrigger className="w-48">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="게시판 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">모든 게시판</SelectItem>
+                <SelectItem value="free">자유게시판</SelectItem>
+                <SelectItem value="question">질문게시판</SelectItem>
+                <SelectItem value="info">정보게시판</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* 관리 메뉴 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/admin/fake-posts/posts">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Calendar className="h-6 w-6 text-blue-600" />
+      {/* 게시글 목록 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>AI 게시글 목록 ({filteredPosts.length}개)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+              <p>게시글을 불러오는 중...</p>
+            </div>
+          ) : filteredPosts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">게시글이 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredPosts.map((post, index) => (
+                <div key={post.id || `post-${index}`} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="secondary">{post.boardName}</Badge>
+                        <Badge variant="outline">{post.schoolName}</Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(post.createdAt).toLocaleString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold mb-2">{post.title}</h3>
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                        {post.content}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>작성자: {post.authorName}</span>
+                        <span>좋아요: {post.likeCount}</span>
+                        <span>댓글: {post.commentCount}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link href={post.schoolId ? `/community/school/${post.schoolId}/${post.boardCode}/${post.id}/fast` : `/community/national/${post.boardCode}/${post.id}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="게시글 보기"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteFakePost(post.id)}
+                        title="게시글 삭제"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold">게시글 관리</h3>
-                  <p className="text-sm text-muted-foreground">AI 게시글 조회, 수정, 삭제</p>
-                  <Badge variant="secondary" className="mt-1">
-                    {systemStats?.totalPosts || 0}개
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/fake-posts/bots">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <Bot className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">봇 계정 관리</h3>
-                  <p className="text-sm text-muted-foreground">봇 현황 및 통계</p>
-                  <Badge variant="secondary" className="mt-1">
-                    {systemStats?.totalBots || 0}개
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/fake-posts/comments">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-orange-100 rounded-lg">
-                  <MessageCircle className="h-6 w-6 text-orange-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">댓글 관리</h3>
-                  <p className="text-sm text-muted-foreground">AI 댓글 검토 및 승인</p>
-                  <Badge variant="secondary" className="mt-1">
-                    검토 필요
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/fake-posts/schools">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <School className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">학교 관리</h3>
-                  <p className="text-sm text-muted-foreground">학교별 봇 생성 및 관리</p>
-                  <Badge variant="secondary" className="mt-1">
-                    {systemStats?.totalSchools?.toLocaleString() || '12,525'}개
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/fake-posts/operations">
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-orange-100 rounded-lg">
-                  <Zap className="h-6 w-6 text-orange-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">대량 작업</h3>
-                  <p className="text-sm text-muted-foreground">대량 생성, 삭제, 정리</p>
-                  <Badge variant="secondary" className="mt-1">
-                    실시간 모니터링
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

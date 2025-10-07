@@ -34,6 +34,54 @@ interface ProgressCallback {
 }
 
 /**
+ * 닉네임용 검색 토큰 생성 함수 (한글 지원)
+ */
+function generateNicknameTokens(nickname: string): string[] {
+  if (!nickname) return [];
+  
+  const tokens = new Set<string>();
+  const cleanText = nickname.toLowerCase().trim();
+  
+  // 전체 닉네임
+  tokens.add(cleanText);
+  
+  // 모든 부분 문자열 생성 (1글자부터 전체까지)
+  for (let i = 0; i < cleanText.length; i++) {
+    for (let j = i + 1; j <= cleanText.length; j++) {
+      const substring = cleanText.substring(i, j);
+      if (substring.length >= 1 && substring.length <= 8) { // 1-8글자만
+        tokens.add(substring);
+      }
+    }
+  }
+  
+  return Array.from(tokens);
+}
+
+/**
+ * 학교명용 검색 토큰 생성 함수 (효율적인 부분 매칭)
+ */
+function generateSchoolTokens(schoolName: string): string[] {
+  if (!schoolName) return [];
+  
+  const tokens = new Set<string>();
+  const cleanText = schoolName.toLowerCase().trim();
+  
+  // 전체 학교명
+  tokens.add(cleanText);
+  
+  // 의미있는 부분 문자열만 생성 (2글자 이상, 연속된 부분)
+  for (let i = 0; i < cleanText.length; i++) {
+    for (let j = i + 2; j <= Math.min(i + 5, cleanText.length); j++) { // 2-4글자만
+      const substring = cleanText.substring(i, j);
+      tokens.add(substring);
+    }
+  }
+  
+  return Array.from(tokens);
+}
+
+/**
  * 봇 계정 생성 및 관리 서비스
  * 루트 스크립트의 create-school-bots.js와 delete-all-bots.js 로직을 통합
  */
@@ -123,9 +171,27 @@ export class BotService {
   };
 
   constructor() {
-    this.firebaseService = FirebaseService.getInstance();
-    this.db = this.firebaseService.getFirestore();
-    this.FieldValue = this.firebaseService.getFieldValue();
+    console.log('🏗️ [BOT-SERVICE] BotService 생성자 시작');
+    
+    try {
+      console.log('🔥 [BOT-SERVICE] FirebaseService 인스턴스 가져오는 중...');
+      this.firebaseService = FirebaseService.getInstance();
+      console.log('✅ [BOT-SERVICE] FirebaseService 인스턴스 획득 완료');
+      
+      console.log('📊 [BOT-SERVICE] Firestore 인스턴스 가져오는 중...');
+      this.db = this.firebaseService.getFirestore();
+      console.log('✅ [BOT-SERVICE] Firestore 인스턴스 획득 완료');
+      
+      console.log('🔧 [BOT-SERVICE] FieldValue 가져오는 중...');
+      this.FieldValue = this.firebaseService.getFieldValue();
+      console.log('✅ [BOT-SERVICE] FieldValue 획득 완료');
+      
+      console.log('🎉 [BOT-SERVICE] BotService 생성자 완료');
+    } catch (error) {
+      console.error('❌ [BOT-SERVICE] BotService 생성자 실패:', error);
+      console.error('❌ [BOT-SERVICE] 오류 스택:', error instanceof Error ? error.stack : 'No stack');
+      throw error;
+    }
   }
 
   /**
@@ -296,10 +362,30 @@ export class BotService {
           nickname = this.generateNickname(schoolType) + '_' + Date.now().toString().slice(-6);
         }
 
+        // 검색 토큰 생성
+        const allTokens = new Set<string>();
+        
+        // nickname 토큰 (전체 부분 문자열)
+        if (nickname) {
+          const nicknameTokens = generateNicknameTokens(nickname);
+          nicknameTokens.forEach(token => allTokens.add(token));
+        }
+        
+        // schoolName 토큰 (효율적인 부분 문자열만)
+        if (schoolName) {
+          const schoolTokens = generateSchoolTokens(schoolName);
+          schoolTokens.forEach(token => allTokens.add(token));
+        }
+        
+        // 토큰 배열로 변환 (최대 50개로 제한 - 이메일 제거로 크기 감소)
+        const searchTokens = Array.from(allTokens).slice(0, 50);
+
+        const email = `${botId}@bot.inschoolz.com`;
+
         // 봇 계정 데이터
         const botData = {
           uid: botId,
-          email: `${botId}@bot.inschoolz.com`,
+          email: email,
           role: 'student',
           status: 'active',
           isVerified: true,
@@ -330,7 +416,17 @@ export class BotService {
             marketing: false
           },
           
-          // 학교 정보
+          // 학교 정보 (User 타입과 일치하도록 school 객체로 저장)
+          school: {
+            id: schoolId,
+            name: schoolName,
+            grade: null,
+            classNumber: null,
+            studentNumber: null,
+            isGraduate: false
+          },
+          
+          // 하위 호환성을 위한 개별 필드 (기존 코드와의 호환성)
           schoolId: schoolId,
           schoolName: schoolName,
           schoolType: schoolType,
@@ -338,15 +434,15 @@ export class BotService {
           // 봇 구분자
           fake: true,
           
+          // 검색 토큰 (자동 생성)
+          searchTokens: searchTokens,
+          
           createdAt: this.FieldValue.serverTimestamp(),
           updatedAt: this.FieldValue.serverTimestamp()
         };
 
         // Firestore에 봇 계정 생성
         await this.db.collection('users').doc(botId).set(botData);
-        
-        // 학교의 memberCount와 favoriteCount 증가
-        await this.updateSchoolCounts(schoolId, 1, 1);
         
         createdBots.push({
           id: botId,
@@ -358,6 +454,17 @@ export class BotService {
         
         if (onProgress) {
           onProgress(i, needToCreate, `봇 계정 생성 중... (${i}/${needToCreate})`);
+        }
+      }
+
+      // 학교 통계 업데이트 (마지막에 한 번만)
+      if (createdBots.length > 0) {
+        try {
+          console.log(`📊 [BOT-SERVICE] 학교 통계 업데이트: ${schoolName} (+${createdBots.length})`);
+          await this.updateSchoolCounts(schoolId, createdBots.length, createdBots.length);
+        } catch (statsError) {
+          console.warn(`⚠️ [BOT-SERVICE] 학교 통계 업데이트 실패:`, statsError);
+          // 통계 업데이트 실패해도 봇 생성은 성공으로 처리
         }
       }
 
@@ -377,18 +484,26 @@ export class BotService {
     botsPerSchool: number = 3,
     onProgress?: ProgressCallback
   ): Promise<BotCreationSummary> {
+    console.log(`🚀 [BOT-SERVICE] createBotsForSchools 시작`);
+    console.log(`📊 [BOT-SERVICE] 파라미터:`, { schoolLimit, botsPerSchool });
+    
     try {
-      console.log(`🤖 학교별 봇 계정 생성 시작...`);
-      console.log(`📊 설정: ${schoolLimit}개 학교, 학교당 ${botsPerSchool}개 봇\n`);
+      console.log(`🤖 [BOT-SERVICE] 학교별 봇 계정 생성 시작...`);
+      console.log(`📊 [BOT-SERVICE] 설정: ${schoolLimit}개 학교, 학교당 ${botsPerSchool}개 봇\n`);
 
       // 1단계: 전체 학교 목록 가져오기
-      console.log('🏫 전체 학교 목록 조회 중...');
+      console.log('🏫 [BOT-SERVICE] 전체 학교 목록 조회 중...');
+      const queryStart = Date.now();
+      
       const allSchoolsQuery = await this.db
         .collection('schools')
         .get();
 
+      const queryEnd = Date.now();
+      console.log(`📊 [BOT-SERVICE] 학교 조회 완료 (${queryEnd - queryStart}ms): ${allSchoolsQuery.size}개 학교 발견`);
+
       if (allSchoolsQuery.empty) {
-        console.log('❌ 학교 데이터가 없습니다.');
+        console.log('❌ [BOT-SERVICE] 학교 데이터가 없습니다.');
         return {
           totalCreated: 0,
           summary: { elementary: 0, middle: 0, high: 0 },
@@ -423,51 +538,100 @@ export class BotService {
         high: 0
       };
 
-      // 4단계: 각 학교별로 봇 생성
-      for (let index = 0; index < selectedSchools.length; index++) {
-        const school = selectedSchools[index];
+      // 4단계: 각 학교별로 봇 생성 (대량 생성 시 병렬 처리)
+      console.log(`🚀 [BOT-SERVICE] 봇 생성 루프 시작: ${selectedSchools.length}개 학교 처리`);
+      
+      const batchSize = selectedSchools.length > 100 ? 10 : selectedSchools.length > 50 ? 5 : 1;
+      console.log(`📦 [BOT-SERVICE] 배치 크기: ${batchSize} (총 ${Math.ceil(selectedSchools.length / batchSize)}개 배치)`);
+      
+      for (let batchIndex = 0; batchIndex < selectedSchools.length; batchIndex += batchSize) {
+        const batch = selectedSchools.slice(batchIndex, batchIndex + batchSize);
+        const batchNumber = Math.floor(batchIndex / batchSize) + 1;
+        const totalBatches = Math.ceil(selectedSchools.length / batchSize);
         
-        console.log(`🏫 [${index + 1}/${selectedSchools.length}] ${school.name} 처리 중...`);
+        console.log(`🔄 [BOT-SERVICE] 배치 ${batchNumber}/${totalBatches} 처리 중... (${batch.length}개 학교)`);
         
-        const createdBots = await this.createBotsForSchool(
-          school.id, 
-          school.name, 
-          botsPerSchool
-        );
+        // 배치 내 학교들을 병렬로 처리
+        const batchPromises = batch.map(async (school, schoolIndex) => {
+          const globalIndex = batchIndex + schoolIndex;
+          
+          console.log(`🏫 [BOT-SERVICE] [${globalIndex + 1}/${selectedSchools.length}] ${school.name} 처리 중...`);
+          
+          const schoolStart = Date.now();
+          
+          try {
+            const createdBots = await this.createBotsForSchool(
+              school.id, 
+              school.name, 
+              botsPerSchool
+            );
 
-        totalCreated += createdBots.length;
+            const schoolEnd = Date.now();
+            const schoolDuration = schoolEnd - schoolStart;
 
-        // 학교 유형별 통계
-        createdBots.forEach(bot => {
-          summary[bot.schoolType as keyof typeof summary]++;
+            console.log(`✅ [BOT-SERVICE] ${school.name} 완료 (${schoolDuration}ms): ${createdBots.length}개 봇 생성`);
+            
+            return { school, createdBots, globalIndex };
+          } catch (error) {
+            console.error(`❌ [BOT-SERVICE] ${school.name} 실패:`, error);
+            return { school, createdBots: [], globalIndex };
+          }
         });
-
-        // 진행률 콜백 호출
-        if (onProgress) {
-          onProgress(index + 1, selectedSchools.length, `학교 처리 중... (${index + 1}/${selectedSchools.length})`);
-        }
         
-        // API 부하 방지를 위한 딜레이
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // 배치 완료 대기
+        const batchResults = await Promise.all(batchPromises);
+        
+        // 결과 처리
+        batchResults.forEach(({ createdBots, globalIndex }) => {
+          totalCreated += createdBots.length;
+          
+          // 학교 유형별 통계
+          createdBots.forEach(bot => {
+            summary[bot.schoolType as keyof typeof summary]++;
+          });
+
+          // 진행률 콜백 호출
+          if (onProgress) {
+            onProgress(globalIndex + 1, selectedSchools.length, `학교 처리 중... (${globalIndex + 1}/${selectedSchools.length})`);
+          }
+        });
+        
+        console.log(`✅ [BOT-SERVICE] 배치 ${batchNumber}/${totalBatches} 완료`);
+        
+        // 배치 간 딜레이 (API 부하 방지)
+        if (batchIndex + batchSize < selectedSchools.length) {
+          const delay = selectedSchools.length > 100 ? 500 : selectedSchools.length > 50 ? 200 : 100;
+          console.log(`⏳ [BOT-SERVICE] 배치 간 딜레이: ${delay}ms`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
 
       // 최종 결과 출력
-      console.log('🎉 봇 계정 생성 완료!\n');
-      console.log('📊 생성 결과:');
+      console.log('🎉 [BOT-SERVICE] 봇 계정 생성 완료!\n');
+      console.log('📊 [BOT-SERVICE] 생성 결과:');
       console.log(`   - 총 봇 계정: ${totalCreated}개`);
       console.log(`   - 초등학교 봇: ${summary.elementary}개`);
       console.log(`   - 중학교 봇: ${summary.middle}개`);
       console.log(`   - 고등학교 봇: ${summary.high}개`);
       console.log(`   - 처리된 학교: ${selectedSchools.length}개\n`);
 
-      return {
+      const finalResult = {
         totalCreated,
         summary,
         schoolsProcessed: selectedSchools.length
       };
 
+      console.log('📤 [BOT-SERVICE] 반환 결과:', finalResult);
+      return finalResult;
+
     } catch (error) {
-      console.error('❌ 봇 계정 생성 프로세스 실패:', error);
+      console.error('❌ [BOT-SERVICE] 봇 계정 생성 프로세스 실패:', error);
+      console.error('❌ [BOT-SERVICE] 오류 스택:', error instanceof Error ? error.stack : 'No stack');
+      console.error('❌ [BOT-SERVICE] 오류 세부사항:', {
+        message: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : 'Unknown',
+        cause: error instanceof Error ? error.cause : undefined
+      });
       throw error;
     }
   }

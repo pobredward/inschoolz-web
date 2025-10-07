@@ -393,13 +393,34 @@ export const updatePost = async (
     const postDoc = await getDoc(postRef);
     
     if (!postDoc.exists()) {
+      console.error('🔥 boards.ts updatePost: 게시글이 존재하지 않음:', postId);
       throw new Error('존재하지 않는 게시글입니다.');
     }
     
     const postData = postDoc.data() as Post;
+    console.log('🔥 boards.ts updatePost: 게시글 데이터:', { 
+      postId, 
+      authorId: postData.authorId,
+      fake: (postData as any).fake 
+    });
     
-    // 게시글 작성자 확인
-    if (postData.authorId !== userId) {
+    // 게시글 작성자 또는 관리자 권한 확인
+    // 사용자 정보 가져와서 관리자 권한 확인
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    const userData = userDoc.exists() ? userDoc.data() : null;
+    const isAdmin = userData?.role === 'admin';
+    const isAuthor = postData.authorId === userId;
+    
+    console.log('🔥 boards.ts updatePost: 권한 확인:', { 
+      userId, 
+      isAdmin, 
+      isAuthor, 
+      userRole: userData?.role 
+    });
+    
+    if (!isAuthor && !isAdmin) {
+      console.error('🔥 boards.ts updatePost: 권한 없음');
       throw new Error('게시글 수정 권한이 없습니다.');
     }
     
@@ -416,19 +437,31 @@ export const updatePost = async (
     console.log('🚨 boards.ts updatePost - updateData:', JSON.stringify(updateData, null, 2));
     console.log('🚨 boards.ts updatePost - contains poll?', 'poll' in updateData);
     
+    console.log('🔥 boards.ts updatePost: Firestore 업데이트 시작');
     await updateDoc(postRef, updateData);
+    console.log('🔥 boards.ts updatePost: Firestore 업데이트 완료');
     
     // 업데이트된 게시글 반환
+    console.log('🔥 boards.ts updatePost: 업데이트된 게시글 조회 시작');
     const updatedPost = await getPost(postId);
     
     if (!updatedPost) {
+      console.error('🔥 boards.ts updatePost: 업데이트된 게시글 조회 실패');
       throw new Error('게시글이 수정되었지만 정보를 가져오지 못했습니다.');
     }
     
+    console.log('🔥 boards.ts updatePost: 성공적으로 완료');
     return updatedPost;
   } catch (error) {
-    console.error('게시글 수정 오류:', error);
-    throw new Error('게시글 수정 중 오류가 발생했습니다.');
+    console.error('🔥 boards.ts updatePost: 오류 발생:', error);
+    
+    if (error instanceof Error) {
+      console.error('🔥 boards.ts updatePost: 오류 메시지:', error.message);
+      console.error('🔥 boards.ts updatePost: 스택 트레이스:', error.stack);
+      throw error; // 원본 오류 메시지 유지
+    }
+    
+    throw new Error('게시글 수정 중 알 수 없는 오류가 발생했습니다.');
   }
 };
 

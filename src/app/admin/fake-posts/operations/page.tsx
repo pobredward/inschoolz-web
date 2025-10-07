@@ -232,41 +232,41 @@ export default function OperationsManagementPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Button
-                onClick={() => startPostGeneration(10, 5)}
+                onClick={() => startPostGeneration(10, 1)}
                 disabled={hasRunningOperations}
+                className="flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                10개 게시글 생성
+              </Button>
+              <Button
+                onClick={() => startPostGeneration(50, 1)}
+                disabled={hasRunningOperations}
+                variant="outline"
                 className="flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
                 50개 게시글 생성
               </Button>
-              <Button
-                onClick={() => startPostGeneration(20, 10)}
-                disabled={hasRunningOperations}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" />
-                200개 게시글 생성
-              </Button>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Button
-                onClick={() => startPostGeneration(100, 10)}
+                onClick={() => startPostGeneration(100, 1)}
                 disabled={hasRunningOperations}
                 variant="outline"
                 className="flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
-                1,000개 게시글 생성
+                100개 게시글 생성
               </Button>
               <Button
-                onClick={() => startPostGeneration(500, 10)}
+                onClick={() => startPostGeneration(500, 1)}
                 disabled={hasRunningOperations}
                 variant="outline"
                 className="flex items-center gap-2 text-orange-600"
               >
                 <Play className="w-4 h-4" />
-                5,000개 게시글 생성
+                500개 게시글 생성
               </Button>
             </div>
             <p className="text-sm text-gray-500">
@@ -289,8 +289,28 @@ export default function OperationsManagementPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Button
+                onClick={() => startCommentGeneration(10)}
+                disabled={hasRunningOperations}
+                className="flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                10개 댓글 생성
+              </Button>
+              <Button
+                onClick={() => startCommentGeneration(50)}
+                disabled={hasRunningOperations}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                50개 댓글 생성
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
                 onClick={() => startCommentGeneration(100)}
                 disabled={hasRunningOperations}
+                variant="outline"
                 className="flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
@@ -300,30 +320,10 @@ export default function OperationsManagementPage() {
                 onClick={() => startCommentGeneration(500)}
                 disabled={hasRunningOperations}
                 variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" />
-                500개 댓글 생성
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                onClick={() => startCommentGeneration(1000)}
-                disabled={hasRunningOperations}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" />
-                1,000개 댓글 생성
-              </Button>
-              <Button
-                onClick={() => startCommentGeneration(2000)}
-                disabled={hasRunningOperations}
-                variant="outline"
                 className="flex items-center gap-2 text-orange-600"
               >
                 <Play className="w-4 h-4" />
-                2,000개 댓글 생성
+                500개 댓글 생성
               </Button>
             </div>
             <p className="text-sm text-gray-500">
