@@ -29,5 +29,11 @@ if (!admin.apps.length) {
 }
 
 export { admin };
+
+// Lazily get admin.messaging() to avoid initialization errors during import time in some envs
 export const messaging = admin.messaging();
 export const firestore = admin.firestore();
+
+// Compatibility helpers for existing routes expecting factory-style getters
+export const adminFirestore = () => admin.firestore();
+export const adminAuth = () => admin.auth();
