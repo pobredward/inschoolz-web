@@ -4,7 +4,7 @@ import { BotService, PostService, CleanupService, CommentService } from '@/lib/s
 // Next.js API Route 설정 (프로덕션 환경 최적화)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 300초 타임아웃 (대량 작업을 위해 증가)
+export const maxDuration = 60; // Vercel Hobby 플랜 제한: 60초 이내
 
 interface BulkOperation {
   id: string;
