@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Notification, NotificationType } from '@/types';
-import { sendPushNotificationToUser } from '@/lib/push-notification-sender';
+import { sendPushNotificationToUser } from '@/lib/unified-push-notification-sender';
 
 // 알림 생성
 export async function createNotification(data: {
@@ -61,25 +61,30 @@ export async function createNotification(data: {
     const docRef = await addDoc(collection(db, 'notifications'), notificationData);
     
     // 푸시 알림 발송 (비동기로 처리하여 에러가 발생해도 알림 생성은 성공)
-    sendPushNotificationToUser(
-      data.userId,
-      data.type,
-      data.title,
-      data.message,
-      data.data
-    ).then(result => {
-      if (result.success) {
-        console.log('✅ 푸시 알림 발송 성공:', data.userId);
-      } else {
-        console.warn('⚠️ 푸시 알림 발송 실패:', result.error);
-        // 앱 푸시 토큰이 없을 경우, 웹 푸시도 시도해볼 수 있음
-        if (result.error === 'No push tokens found') {
-          console.log('💡 향후 개선: 웹 푸시 알림 시스템 구축 필요');
+    // 개발 환경에서는 푸시 알림을 비활성화할 수 있음
+    if (process.env.NODE_ENV === 'development' && process.env.DISABLE_PUSH_NOTIFICATIONS === 'true') {
+      console.log('🔇 [DEV] 개발 환경에서 푸시 알림 비활성화됨');
+    } else {
+      sendPushNotificationToUser(
+        data.userId,
+        data.type,
+        data.title,
+        data.message,
+        data.data
+      ).then(result => {
+        if (result.success) {
+          console.log('✅ 푸시 알림 발송 성공:', data.userId);
+        } else {
+          console.warn('⚠️ 푸시 알림 발송 실패:', result.error);
+          // 앱 푸시 토큰이 없을 경우, 웹 푸시도 시도해볼 수 있음
+          if (result.error?.includes('No push tokens found')) {
+            console.log('💡 향후 개선: 웹 푸시 알림 시스템 구축 필요');
+          }
         }
-      }
-    }).catch(error => {
-      console.warn('푸시 알림 발송 중 예외 발생 (무시하고 계속):', error);
-    });
+      }).catch(error => {
+        console.warn('푸시 알림 발송 중 예외 발생 (무시하고 계속):', error);
+      });
+    }
     
     return {
       id: docRef.id,

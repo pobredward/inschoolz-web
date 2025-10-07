@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { sendPushNotificationToUser, sendDirectPushNotification } from '@/lib/push-notification-sender';
+import { sendPushNotificationToUser, sendDirectPushNotification } from '@/lib/unified-push-notification-sender';
 
 export default function DebugPushPage() {
   const [userId, setUserId] = useState('kgffWa3onhhCBh2sLxiUWw19JWR2');

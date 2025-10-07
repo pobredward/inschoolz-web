@@ -445,29 +445,51 @@ export async function sendDirectPushNotification(
   body: string,
   data?: Record<string, any>
 ): Promise<{ success: boolean; error?: string }> {
-  const message: ExpoMessage = {
-    to: expoPushToken,
-    title,
-    body,
-    data: data || {},
-    sound: 'default',
-    priority: 'high',
-    android: {
-      channelId: 'default',
-      sound: true,
-      priority: 'high',
-      vibrate: true,
-      color: '#FF231F7C',
-    },
-    ios: {
-      sound: true,
-      _displayInForeground: true,
-    },
-  };
+  // 클라이언트에서는 서버 API를 통해 발송
+  try {
+    const response = await fetch('/api/send-push-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: 'direct-token-test',
+        notificationType: 'system',
+        title,
+        body,
+        data: {
+          ...data,
+          directToken: expoPushToken
+        }
+      }),
+    });
 
-  const result = await sendExpoPushNotification(message);
-  return {
-    success: result.success,
-    error: result.error,
-  };
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      return { success: true };
+    } else {
+      return { 
+        success: false, 
+        error: result.error || `HTTP ${response.status}` 
+      };
+    }
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Network error' 
+    };
+  }
+}
+
+/**
+ * 테스트 푸시 알림 발송 (관리자 도구용)
+ */
+export async function sendTestPushNotification(
+  token: string,
+  title: string,
+  body: string,
+  data?: Record<string, any>
+): Promise<{ success: boolean; error?: string }> {
+  return sendDirectPushNotification(token, title, body, data);
 }

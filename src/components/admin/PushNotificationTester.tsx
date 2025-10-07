@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Send, TestTube, Users, User } from 'lucide-react';
-import { sendDirectPushNotification, sendTestPushNotification, sendPushNotificationToUser } from '@/lib/push-notification-sender';
+import { sendDirectPushNotification, sendTestPushNotification, sendPushNotificationToUser } from '@/lib/unified-push-notification-sender';
 import { NotificationType } from '@/types';
 
 interface TestResult {
