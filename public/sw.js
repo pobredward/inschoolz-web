@@ -264,21 +264,45 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// 푸시 메시지 처리 - 인스쿨즈 사용자 정의 아이콘
+// 푸시 메시지 처리 - 인스쿨즈 통합 푸시 시스템
 self.addEventListener('push', (event) => {
-  console.log('Push message received');
+  console.log('🔔 Push message received:', event);
   
-  let notificationData = {};
+  let notificationData = {
+    title: '인스쿨즈',
+    body: '새로운 알림이 있습니다!',
+    data: {}
+  };
+  
   if (event.data) {
     try {
-      notificationData = event.data.json();
+      const pushData = event.data.json();
+      console.log('📄 Push data:', pushData);
+      
+      // FCM 메시지 형식 처리
+      if (pushData.notification) {
+        notificationData.title = pushData.notification.title || notificationData.title;
+        notificationData.body = pushData.notification.body || notificationData.body;
+      }
+      
+      // 직접 데이터 형식 처리
+      if (pushData.title) {
+        notificationData.title = pushData.title;
+      }
+      if (pushData.body) {
+        notificationData.body = pushData.body;
+      }
+      if (pushData.data) {
+        notificationData.data = pushData.data;
+      }
+      
     } catch (e) {
-      console.log('푸시 데이터 파싱 실패:', e);
+      console.warn('푸시 데이터 파싱 실패:', e);
     }
   }
   
   const options = {
-    body: notificationData.body || '새로운 알림이 있습니다!',
+    body: notificationData.body,
     icon: '/android-icon-192x192.png', // 인스쿨즈 로고
     badge: '/android-icon-96x96.png',  // 작은 뱃지 아이콘
     image: '/android-icon-192x192.png', // 큰 이미지
@@ -286,11 +310,12 @@ self.addEventListener('push', (event) => {
     data: {
       dateOfArrival: Date.now(),
       primaryKey: 1,
+      url: getNotificationUrl(notificationData.data),
       ...notificationData.data
     },
     actions: [
       {
-        action: 'explore',
+        action: 'open',
         title: '확인하기',
         icon: '/android-icon-96x96.png'
       },
@@ -307,21 +332,84 @@ self.addEventListener('push', (event) => {
   
   event.waitUntil(
     self.registration.showNotification(
-      notificationData.title || '인스쿨즈', 
+      notificationData.title, 
       options
     )
   );
 });
 
-// 알림 클릭 처리
+// 알림 데이터를 기반으로 URL 생성
+function getNotificationUrl(data) {
+  if (!data) return '/';
+  
+  const { type, postId, boardCode, postType, schoolId } = data;
+  
+  switch (type) {
+    case 'post_comment':
+    case 'comment_reply':
+      if (postId && boardCode && postType) {
+        return `/board/${postType}/${boardCode}/${postId}`;
+      }
+      return '/community';
+    
+    case 'referral':
+      return '/my';
+    
+    case 'system':
+    case 'report_received':
+    case 'report_resolved':
+    case 'warning':
+    case 'suspension':
+      return '/notifications';
+    
+    default:
+      return '/';
+  }
+}
+
+// 알림 클릭 처리 - 통합 라우팅 지원
 self.addEventListener('notificationclick', (event) => {
-  console.log('Notification click received.');
+  console.log('🔔 Notification click received:', event);
   
   event.notification.close();
   
-  if (event.action === 'explore') {
+  const notificationData = event.notification.data || {};
+  const action = event.action;
+  
+  console.log('📄 Notification data:', notificationData);
+  console.log('🎯 Action:', action);
+  
+  if (action === 'close') {
+    // 닫기 액션 - 아무것도 하지 않음
+    return;
+  }
+  
+  // URL 결정
+  let targetUrl = notificationData.url || '/';
+  
+  // 액션이 'open'이거나 알림 자체를 클릭한 경우
+  if (action === 'open' || !action) {
     event.waitUntil(
-      clients.openWindow('/')
+      clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then((clientList) => {
+          console.log('📱 Available clients:', clientList.length);
+          
+          // 이미 열린 인스쿨즈 탭이 있는지 확인
+          for (const client of clientList) {
+            if (client.url.includes('inschoolz.com') || client.url.includes('localhost')) {
+              console.log('✅ Found existing tab, focusing and navigating');
+              client.focus();
+              return client.navigate(targetUrl);
+            }
+          }
+          
+          // 새 탭 열기
+          console.log('🆕 Opening new tab');
+          return clients.openWindow(targetUrl);
+        })
+        .catch((error) => {
+          console.error('❌ Error handling notification click:', error);
+        })
     );
   }
 }); 
