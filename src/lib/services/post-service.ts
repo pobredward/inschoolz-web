@@ -20,6 +20,20 @@ interface School {
 interface PostData {
   title: string;
   content: string;
+  meta?: {
+    promptVersion: string;
+    diversity?: { funAnecdote: boolean; engagementQuestion: boolean };
+    policyPass: boolean;
+    style?: string;
+  };
+}
+
+// 모델 표준 출력 스키마
+interface PostAIResult {
+  title: string;
+  content: string;
+  style?: string;
+  safety?: { blocked: boolean; reason?: string };
 }
 
 interface PostGenerationResult {
@@ -109,10 +123,27 @@ export class PostService {
     }
   }
 
+  // JSON 안전 파서
+  private parsePostJson(raw: string): PostAIResult | null {
+    const tryTrim = raw.trim();
+    const jsonMatch = tryTrim.match(/\{[\s\S]*\}$/);
+    const candidate = jsonMatch ? jsonMatch[0] : tryTrim;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed as PostAIResult;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * 봇 성격 분석 및 말투 스타일 반환
    */
-  private getBotPersonality(nickname: string, ageGroup: string): string {
+  private getBotPersonality(
+    nickname: string,
+    schoolType: 'elementary' | 'middle' | 'high'
+  ): string {
     const personalities = {
       cute: {
         keywords: ['펭귄', '판다', '포켓몬', '곰돌이', '토끼', '고양이', '강아지', '꿀벌', '나비', '공주', '왕자'],
@@ -146,8 +177,13 @@ export class PostService {
       }
     };
 
-    // 닉네임으로 성격 판단
-    let selectedPersonality = personalities.realistic; // 기본값
+    // 학교급 기본값 설정
+    let selectedPersonality =
+      schoolType === 'elementary'
+        ? personalities.cute
+        : schoolType === 'high'
+        ? personalities.energetic
+        : personalities.realistic;
     
     for (const [type, data] of Object.entries(personalities)) {
       if (data.keywords.some(keyword => nickname.includes(keyword))) {
@@ -215,118 +251,130 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
       }
     }
 
-    return `당신은 ${schoolName}에 다니는 평범한 학생입니다.
-온라인 커뮤니티에 "${topicResult.topic}"에 대한 짧은 게시글을 작성해주세요.
-
-주제 카테고리: ${topicResult.category}
-글의 톤: ${topicResult.tone}
-학교 유형: ${schoolType === 'elementary' ? '초등학교' : schoolType === 'middle' ? '중학교' : '고등학교'}
-${styleGuide}
-
-⚠️ 절대 금지사항:
-- 구체적인 날짜나 미래 일정 언급 금지 (시험, 축제, 행사 날짜 등)
-- 급식 메뉴나 매점 관련 내용 금지 (학교마다 다름)
-- 주말에 급식 이야기 금지 (학교 안 감)
-- 구체적인 선생님 이름이나 실명 금지
-- 학교 시설이 있다고 단정하지 말기 (매점, 급식실 등)
-- 모르는 정보는 절대 지어내지 마세요
-
-✅ 권장사항:
-- 학교 이름 줄여서 사용 가능
-- 일반적이고 보편적인 학교 경험 위주
-- 개인적인 감정이나 생각 표현
-- 친구들과의 일상적인 대화나 에피소드
-
-형식:
-제목: [솔직하고 직설적인 제목]
-내용: [짧고 리얼한 내용]`;
+    // 시스템/유저 분리 메시지의 유저 페이로드로 사용
+    return JSON.stringify({
+      schoolName,
+      region,
+      schoolType,
+      topic: topicResult.topic,
+      category: topicResult.category,
+      tone: topicResult.tone,
+      styleGuide: styleGuide.trim()
+    });
   }
 
   /**
    * 학교별 게시글 생성
    */
   private async generateSchoolPost(schoolName: string, botNickname?: string): Promise<PostData> {
-    const prompt = await this.createPrompt(schoolName, botNickname);
-    
+    const userPayload = await this.createPrompt(schoolName, botNickname);
+
+    // 다양성 힌트: 가끔 가벼운 재미있는 썰 + 참여 유도 질문
+    let payloadObj: Record<string, unknown>;
     try {
-      const messages: OpenAIMessage[] = [
-        {
-          role: 'system',
-          content: '당신은 한국 학생들의 일상적인 커뮤니티 게시글을 작성하는 AI입니다. 자연스럽고 현실적인 학교 생활 이야기를 만들어주세요.'
-        },
-        {
-          role: 'user',
-          content: prompt
+      payloadObj = JSON.parse(userPayload);
+    } catch {
+      payloadObj = {};
+    }
+    const funAnecdote = Math.random() < 0.2; // 20% 확률로 재미있는 썰
+    const engagementQuestion = Math.random() < 0.3; // 30% 확률로 질문형 마무리
+    payloadObj.diversity = { funAnecdote, engagementQuestion };
+    const finalUserPayload = JSON.stringify(payloadObj);
+
+    // 공통 시스템 프롬프트
+    const systemPrompt = [
+      '역할: 한국 학생 커뮤니티 게시글 생성기',
+      '출력: JSON 한 줄 {"title": string, "content": string, "style": string, "safety": {"blocked": boolean, "reason": string}}',
+      '규칙:',
+      '- 금지: 실명/연락처/식별정보, 혐오/차별/성적, 폭력 조장, 광고/스팸',
+      '- 구체적 사실 지어내기 절대 금지: 학교 행사(소풍/운동회/수학여행/졸업식), 시설 존재, 급식 메뉴, 구체적 일정',
+      '- 오직 개인적 감정/생각/의견만 표현: "~어떻게 생각해?", "~느끼는 기분", "~에 대한 고민"',
+      '- 길이: title≤50자, content≤300자, 2~3문장 권장',
+      '- 학교급 톤 적용, 과도한 슬랭·이모지 제한(각 최대 1회)',
+      '- 다양성: diversity.funAnecdote=true면 가벼운 재미있는 일화(안전하고 보편적)로 작성',
+      '- 참여유도: diversity.engagementQuestion=true면 마지막을 짧은 질문형으로 마무리(예: "다들 어때?")',
+      '- 출력은 오직 JSON 한 줄(설명/마크다운 금지)'
+    ].join('\n');
+
+    // 1차 시도
+    const messagesPrimary: OpenAIMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: finalUserPayload }
+    ];
+
+    const fallbackDefaults: PostData[] = [
+      { title: '오늘 학교에서 있었던 일', content: '별일은 없었는데 소소하게 재밌었음. 다들 어땠음?' },
+      { title: '요즘 생각', content: '학교생활 하다 보니 이것저것 고민됨. 비슷한 친구 있냐?' },
+      { title: '소소한 잡담', content: '오늘 컨디션 어떤지 공유해보자 ㅋㅋ 난 그냥 무난함' }
+    ];
+
+    try {
+      const raw = await this.callOpenAI(messagesPrimary);
+      let parsed = this.parsePostJson(raw);
+
+      // 2차 시도(형식 문제/차단 시 간단 스타일로 재시도)
+      if (!parsed || parsed?.safety?.blocked) {
+        const messagesBackup: OpenAIMessage[] = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: finalUserPayload.replace(/\"tone\"\s*:\s*\".*?\"/, '\"tone\": \"neutral\"') }
+        ];
+        const raw2 = await this.callOpenAI(messagesBackup);
+        parsed = this.parsePostJson(raw2) || parsed;
+      }
+
+      // 최종 검증 및 강제 제한
+      if (parsed && !parsed.safety?.blocked && parsed.title && parsed.content) {
+        let title = String(parsed.title).trim();
+        let content = String(parsed.content).trim();
+
+        if (title.length > 50) title = title.substring(0, 47) + '...';
+        if (content.length > 300) content = content.substring(0, 297) + '...';
+
+        // 비어있으면 폴백
+        if (!title || !content) {
+          const fb = fallbackDefaults[Math.floor(Math.random() * fallbackDefaults.length)];
+          return {
+            ...fb,
+            meta: {
+              promptVersion: 'v2-json-2025-10-07',
+              diversity: { funAnecdote, engagementQuestion },
+              policyPass: false
+            }
+          };
         }
-      ];
 
-      const response = await this.callOpenAI(messages);
+        return {
+          title,
+          content,
+          meta: {
+            promptVersion: 'v2-json-2025-10-07',
+            diversity: { funAnecdote, engagementQuestion },
+            policyPass: true,
+            style: parsed.style
+          }
+        };
+      }
 
-      // 제목과 내용 분리
-      const lines = response.split('\n').filter(line => line.trim());
-      let title = '';
-      let content = '';
-
-      for (const line of lines) {
-        if (line.includes('제목:')) {
-          title = line.replace('제목:', '').trim();
-        } else if (line.includes('내용:')) {
-          content = line.replace('내용:', '').trim();
-        } else if (!title && line.trim()) {
-          title = line.trim();
-        } else if (title && !content && line.trim()) {
-          content = line.trim();
-        } else if (content) {
-          content += '\n' + line;
+      const fb = fallbackDefaults[Math.floor(Math.random() * fallbackDefaults.length)];
+      return {
+        ...fb,
+        meta: {
+          promptVersion: 'v2-json-2025-10-07',
+          diversity: { funAnecdote, engagementQuestion },
+          policyPass: false
         }
-      }
-
-      // 제목이나 내용이 없으면 전체를 내용으로 사용
-      if (!title || !content) {
-        const allText = response.replace(/제목:|내용:/g, '').trim();
-        const sentences = allText.split(/[.!?]/).filter(s => s.trim());
-        
-        if (sentences.length > 1) {
-          title = sentences[0].trim() + (sentences[0].includes('?') ? '' : '.');
-          content = sentences.slice(1).join('. ').trim();
-        } else {
-          title = allText.length > 30 ? allText.substring(0, 30) + '...' : allText;
-          content = allText;
-        }
-      }
-
-      // 제목 길이 제한
-      if (title.length > 50) {
-        title = title.substring(0, 47) + '...';
-      }
-
-      // 내용 길이 제한
-      if (content.length > 500) {
-        content = content.substring(0, 497) + '...';
-      }
-
-      return { title, content };
-
+      };
     } catch (error) {
       console.error('게시글 생성 실패:', error);
-      
-      // 기본 게시글 반환
-      const defaultPosts = [
-        {
-          title: '오늘 학교에서 있었던 일',
-          content: '별거 없긴 한데 그냥 일상 이야기 ㅋㅋ'
-        },
-        {
-          title: '요즘 생각',
-          content: '학교생활 하다보니 이런저런 생각이 드네요'
-        },
-        {
-          title: '친구들아 안녕',
-          content: '오늘도 수고했어 모두들!'
+      const fb = fallbackDefaults[Math.floor(Math.random() * fallbackDefaults.length)];
+      return {
+        ...fb,
+        meta: {
+          promptVersion: 'v2-json-2025-10-07',
+          diversity: { funAnecdote, engagementQuestion },
+          policyPass: false
         }
-      ];
-      
-      return defaultPosts[Math.floor(Math.random() * defaultPosts.length)];
+      };
     }
   }
 
@@ -381,6 +429,7 @@ ${styleGuide}
         tags: [], // AI 게시글은 태그 없음
         type: 'school', // 학교 게시판 타입
         fake: true, // AI 생성 게시글 표시
+        aiMeta: postData.meta || null,
         
         createdAt: this.FieldValue.serverTimestamp(),
         updatedAt: this.FieldValue.serverTimestamp()

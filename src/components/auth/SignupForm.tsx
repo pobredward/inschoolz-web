@@ -13,12 +13,12 @@ import { registerWithEmail, checkUserNameAvailability, checkEmailExists } from '
 import { loginWithKakaoRedirect } from '@/lib/kakao';
 import Link from 'next/link';
 import { ReferralSearch } from '@/components/ui/referral-search';
-// 스키마 정의
+import { generateNickname } from '@/lib/utils/nickname-generator';
+// 스키마 정의 (userName 제거)
 const emailSignupSchema = z.object({
   email: z.string().email('올바른 이메일 형식이 아닙니다.'),
   password: z.string().min(6, '비밀번호는 최소 6자 이상이어야 합니다.'),
   confirmPassword: z.string(),
-  userName: z.string().min(2, '닉네임은 최소 2자 이상이어야 합니다.'),
   referral: z.string().optional(),
   agreeTerms: z.boolean().refine(val => val === true, {
     message: '이용약관에 동의해주세요.',
@@ -43,12 +43,11 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
 
-  // 이메일 회원가입 폼 데이터
+  // 이메일 회원가입 폼 데이터 (userName 제거)
   const [emailFormData, setEmailFormData] = useState<Partial<EmailSignupFormData>>({
     email: '',
     password: '',
     confirmPassword: '',
-    userName: '',
     referral: '',
     agreeTerms: false,
     agreePrivacy: false,
@@ -57,37 +56,31 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
   // 추천인 검색 상태
   const [selectedReferralUser, setSelectedReferralUser] = useState<any>(null);
 
-  // userName 중복 확인 상태
-  const [emailUserNameStatus, setEmailUserNameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  // 자동 생성된 닉네임 상태
+  const [generatedNickname, setGeneratedNickname] = useState<string>('');
 
   // 이메일 폼 데이터 업데이트
   const updateEmailFormData = (key: keyof EmailSignupFormData, value: EmailSignupFormData[keyof EmailSignupFormData]) => {
     setEmailFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  // 이메일 userName 중복 확인
-  const checkEmailUserName = async () => {
-    const userName = emailFormData.userName?.trim();
+  // 닉네임 자동 생성 및 중복 확인
+  const generateAndCheckNickname = async (): Promise<string> => {
+    let attempts = 0;
+    let nickname: string;
     
-    if (!userName || userName.length < 2) {
-      toast.error('닉네임은 최소 2자 이상이어야 합니다.');
-      return;
-    }
-
-    try {
-      setEmailUserNameStatus('checking');
-      const isAvailable = await checkUserNameAvailability(userName);
-      setEmailUserNameStatus(isAvailable ? 'available' : 'taken');
+    do {
+      nickname = generateNickname('middle'); // 기본값으로 중학교 설정
+      attempts++;
       
+      const isAvailable = await checkUserNameAvailability(nickname);
       if (isAvailable) {
-        toast.success('사용 가능한 닉네임입니다.');
-      } else {
-        toast.error('이미 사용 중인 닉네임입니다.');
+        return nickname;
       }
-    } catch {
-      setEmailUserNameStatus('idle');
-      toast.error('중복 확인 중 오류가 발생했습니다.');
-    }
+    } while (attempts < 10);
+    
+    // 10번 시도해도 실패하면 타임스탬프 추가
+    return generateNickname('middle') + '_' + Date.now().toString().slice(-4);
   };
 
 
@@ -96,17 +89,6 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
   const handleEmailSignup = async () => {
     try {
       const validated = emailSignupSchema.parse(emailFormData);
-      
-      // userName 중복 확인
-      if (emailUserNameStatus === 'taken') {
-        toast.error('이미 사용 중인 닉네임입니다.');
-        return;
-      }
-      
-      if (emailUserNameStatus !== 'available') {
-        toast.error('닉네임 중복 확인을 해주세요.');
-        return;
-      }
       
       setIsLoading(true);
       
@@ -118,19 +100,14 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
         return;
       }
       
-      // 최종 userName 중복 확인 (동시 가입 방지)
-      const isUserNameAvailable = await checkUserNameAvailability(validated.userName);
-      if (!isUserNameAvailable) {
-        toast.error('죄송합니다. 해당 닉네임이 방금 다른 사용자에 의해 사용되었습니다.');
-        setEmailUserNameStatus('taken');
-        setIsLoading(false);
-        return;
-      }
+      // 닉네임 자동 생성 및 중복 확인
+      const userName = await generateAndCheckNickname();
+      setGeneratedNickname(userName);
       
       await registerWithEmail({
         email: validated.email,
         password: validated.password,
-        userName: validated.userName,
+        userName: userName,
         referral: selectedReferralUser?.userName || validated.referral
       });
       
@@ -196,62 +173,6 @@ export function SignupForm({ showTitle = false }: SignupFormProps) {
                 onKeyDown={handleKeyDown}
                 className="h-11"
               />
-            </div>
-
-            {/* 닉네임 */}
-            <div className="space-y-2">
-              <Label htmlFor="signup-userName" className="text-sm font-medium text-gray-700">
-                닉네임
-              </Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="signup-userName"
-                    type="text"
-                    placeholder="닉네임 (2자 이상)"
-                    value={emailFormData.userName || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      updateEmailFormData('userName', value);
-                      setEmailUserNameStatus('idle');
-                    }}
-                    onKeyDown={handleKeyDown}
-                    className={`h-11 pr-10 ${
-                      emailUserNameStatus === 'available' ? 'border-green-500' :
-                      emailUserNameStatus === 'taken' ? 'border-red-500' : ''
-                    }`}
-                  />
-                  {emailUserNameStatus === 'available' && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-600">
-                      <Check className="h-4 w-4" />
-                    </div>
-                  )}
-                  {emailUserNameStatus === 'taken' && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-red-600">
-                      <X className="h-4 w-4" />
-                    </div>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={checkEmailUserName}
-                  disabled={emailUserNameStatus === 'checking' || !emailFormData.userName?.trim() || emailFormData.userName.trim().length < 2}
-                  className="h-11 px-4 whitespace-nowrap"
-                >
-                  {emailUserNameStatus === 'checking' ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    '중복 확인'
-                  )}
-                </Button>
-              </div>
-              {emailUserNameStatus === 'available' && (
-                <p className="text-sm text-green-600">사용 가능한 닉네임입니다.</p>
-              )}
-              {emailUserNameStatus === 'taken' && (
-                <p className="text-sm text-red-600">이미 사용 중인 닉네임입니다.</p>
-              )}
             </div>
 
             {/* 비밀번호 */}

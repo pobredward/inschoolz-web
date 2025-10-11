@@ -1,4 +1,5 @@
 import FirebaseService from './firebase-service';
+import { generateNickname as generateNicknameUtil, getSchoolTypeFromName } from '@/lib/utils/nickname-generator';
 
 // 타입 정의
 interface BotCreationResult {
@@ -209,41 +210,10 @@ export class BotService {
   }
 
   /**
-   * 닉네임 생성 (조합 방식)
+   * 닉네임 생성 (공통 유틸리티 사용)
    */
   private generateNickname(schoolType: 'elementary' | 'middle' | 'high'): string {
-    const components = this.nicknameComponents[schoolType];
-    const rand = Math.random();
-    
-    if (rand < 0.4) {
-      // 40%: 단어 + 접미사 조합
-      const categories = Object.keys(components).filter(key => key !== 'suffixes');
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-      const word = components[randomCategory as keyof typeof components][Math.floor(Math.random() * components[randomCategory as keyof typeof components].length)];
-      const suffix = components.suffixes[Math.floor(Math.random() * components.suffixes.length)];
-      return word + suffix;
-    } else if (rand < 0.7) {
-      // 30%: 단어 + 숫자
-      const categories = Object.keys(components).filter(key => key !== 'suffixes');
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-      const word = components[randomCategory as keyof typeof components][Math.floor(Math.random() * components[randomCategory as keyof typeof components].length)];
-      const number = Math.floor(Math.random() * 999) + 1;
-      return word + number;
-    } else if (rand < 0.85) {
-      // 15%: 두 단어 조합
-      const categories = Object.keys(components).filter(key => key !== 'suffixes');
-      const category1 = categories[Math.floor(Math.random() * categories.length)];
-      const category2 = categories[Math.floor(Math.random() * categories.length)];
-      const word1 = components[category1 as keyof typeof components][Math.floor(Math.random() * components[category1 as keyof typeof components].length)];
-      const word2 = components[category2 as keyof typeof components][Math.floor(Math.random() * components[category2 as keyof typeof components].length)];
-      return word1 + word2;
-    } else {
-      // 15%: 단어만 (심플)
-      const categories = Object.keys(components).filter(key => key !== 'suffixes');
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-      const word = components[randomCategory as keyof typeof components][Math.floor(Math.random() * components[randomCategory as keyof typeof components].length)];
-      return word;
-    }
+    return generateNicknameUtil(schoolType);
   }
 
   /**

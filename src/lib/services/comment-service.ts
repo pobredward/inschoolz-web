@@ -14,6 +14,27 @@ interface OpenAIResponse {
   }>;
 }
 
+// 모델 표준 출력 스키마
+interface CommentAIResult {
+  content: string;
+  isReply?: boolean;
+  parentId?: string | null;
+  style?: string;
+  safety?: { blocked: boolean; reason?: string };
+}
+
+interface GeneratedComment {
+  content: string;
+  meta?: {
+    promptVersion: string;
+    diversity?: { lightJoke: boolean; engagementQuestion: boolean };
+    policyPass: boolean;
+    style?: string;
+    isReply?: boolean;
+    parentId?: string | null;
+  };
+}
+
 interface Bot {
   uid: string;
   nickname: string;
@@ -237,85 +258,125 @@ export class CommentService {
     }
   }
 
+  // JSON 안전 파서
+  private parseCommentJson(raw: string): CommentAIResult | null {
+    const tryTrim = raw.trim();
+    const jsonMatch = tryTrim.match(/\{[\s\S]*\}$/);
+    const candidate = jsonMatch ? jsonMatch[0] : tryTrim;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed as CommentAIResult;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * GPT를 이용한 대댓글 생성
    */
   private async generateReplyComment(
     post: Post,
     commenter: Bot,
-    parentComment: Comment,
-    existingComments: Comment[] = []
-  ): Promise<string> {
+    parentComment: Comment
+  ): Promise<GeneratedComment> {
     try {
       const schoolType = this.getSchoolType(post.schoolName);
       const style = this.commentTypes.reply.styles[Math.floor(Math.random() * this.commentTypes.reply.styles.length)];
-      
-      // 해당 댓글의 기존 대댓글들 조회
+
+      // 기존 댓글·대댓글 요약
       const existingReplies = await this.getRepliesForComment(parentComment.id);
-      
-      // 전체 댓글 맥락 구성
-      const allCommentsText = existingComments.length > 0 
-        ? existingComments.map(c => `- ${c.authorNickname}: ${c.content}`).join('\n')
-        : '아직 댓글이 없음';
-        
-      // 해당 댓글의 기존 대댓글들
-      const repliesText = existingReplies.length > 0
-        ? existingReplies.map(r => `  └ ${r.authorNickname}: ${r.content}`).join('\n')
-        : '아직 대댓글이 없음';
+      // 다양성 힌트(가벼운 농담/질문형 마무리)
+      const lightJoke = Math.random() < 0.15;
+      const engagementQuestion = Math.random() < 0.2;
 
-      const prompt = `
-당신은 ${schoolType === 'elementary' ? '초등학생' : schoolType === 'middle' ? '중학생' : '고등학생'}입니다.
-닉네임: ${commenter.nickname}
-학교: ${post.schoolName}
+      const userPayload = JSON.stringify({
+        mode: 'reply',
+        schoolType,
+        schoolName: post.schoolName,
+        post: { title: post.title, content: post.content },
+        commenter: { nickname: commenter.nickname },
+        parent: { id: parentComment.id, author: parentComment.authorNickname, content: parentComment.content },
+        existing: (existingReplies || []).slice(0, 10).map(r => ({ author: r.authorNickname, content: r.content })),
+        styleHint: style,
+        diversity: { lightJoke, engagementQuestion },
+        constraints: { maxLen: 120 }
+      });
 
-다음 게시글의 댓글에 대댓글을 작성해주세요:
+      const systemPrompt = [
+        '역할: 학생 커뮤니티 대댓글 생성기',
+        '출력: JSON 한 줄 {"content": string, "isReply": boolean, "parentId": string|null, "style": string, "safety": {"blocked": boolean, "reason": string}}',
+        '규칙:',
+        '- 금지: 실명/연락처/식별정보, 혐오/차별/성적, 폭력 조장, 광고/스팸',
+        '- 길이: ≤120자, 1~2문장, 부모 댓글에 직접 응답',
+        '- 다양성: diversity.lightJoke=true면 가벼운 무해한 농담을 한 구절 내 허용',
+        '- 참여유도: diversity.engagementQuestion=true면 짧은 질문형으로 마무리 가능',
+        '- 기존 대댓글과 표현·논지 중복 금지',
+        '- 출력은 오직 JSON 한 줄(설명/마크다운 금지)'
+      ].join('\n');
 
-**게시글 제목**: ${post.title}
-**게시글 내용**: ${post.content}
-
-**답글을 달 댓글**:
-작성자: ${parentComment.authorNickname}
-내용: ${parentComment.content}
-
-**전체 댓글 맥락**:
-${allCommentsText}
-
-**이 댓글에 달린 기존 대댓글들**:
-${repliesText}
-
-**대댓글 스타일**: ${style}
-
-**작성 가이드라인**:
-${this.getCommentGuidelines(schoolType, style)}
-
-**중요 규칙**:
-- 1-2줄로 간단하게 작성
-- 자연스러운 학생 말투 사용
-- ${parentComment.authorNickname}님의 댓글에 대한 응답으로 작성
-- 기존 대댓글들과 중복되지 않게 작성
-- 이미 나온 의견이면 다른 관점에서 접근
-- 구체적인 개인정보나 실명 언급 금지
-- 부적절한 내용 금지
-- 대댓글 체인의 흐름을 고려하여 자연스럽게 작성
-
-대댓글만 작성해주세요:`;
-
+      // 1차 시도
       const messages: OpenAIMessage[] = [
-        {
-          role: 'system',
-          content: '당신은 자연스러운 학생 댓글을 작성하는 AI입니다. 주어진 가이드라인에 따라 적절한 대댓글을 작성해주세요.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPayload }
       ];
 
-      return await this.callOpenAI(messages);
+      let parsed = this.parseCommentJson(await this.callOpenAI(messages));
 
+      // 2차 백업(차단/형식 실패 시)
+      if (!parsed || parsed?.safety?.blocked) {
+        const backupPayload = userPayload.replace(/"styleHint"\s*:\s*"[^"]*"/, '"styleHint":"동의"');
+        const raw2 = await this.callOpenAI([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: backupPayload }
+        ]);
+        parsed = this.parseCommentJson(raw2) || parsed;
+      }
+
+      // 최종 검증 및 강제 제한
+      if (parsed && !parsed.safety?.blocked && parsed.content) {
+        let content = String(parsed.content).trim();
+        const maxLen = 120;
+        if (content.length > maxLen) content = content.substring(0, maxLen - 3) + '...';
+        return {
+          content,
+          meta: {
+            promptVersion: 'v2-json-2025-10-07',
+            diversity: { lightJoke, engagementQuestion },
+            policyPass: true,
+            style: parsed.style,
+            isReply: true,
+            parentId: parentComment.id
+          }
+        };
+      }
+
+      // 폴백
+      const defaults = ['맞는 말인 것 같아요!', '이 부분 공감됩니다', '자세한 이야기 궁금하네요', '좋은 정보네요', '고마워요!'];
+      const content = defaults[Math.floor(Math.random() * defaults.length)];
+      return {
+        content,
+        meta: {
+          promptVersion: 'v2-json-2025-10-07',
+          diversity: { lightJoke, engagementQuestion },
+          policyPass: false,
+          isReply: true,
+          parentId: parentComment.id
+        }
+      };
     } catch (error) {
       console.error('대댓글 생성 실패:', error);
-      throw error;
+      const defaults = ['좋은 의견이네요', '공감합니다', '도움됐어요'];
+      const content = defaults[Math.floor(Math.random() * defaults.length)];
+      return {
+        content,
+        meta: {
+          promptVersion: 'v2-json-2025-10-07',
+          policyPass: false,
+          isReply: true,
+          parentId: parentComment.id
+        }
+      };
     }
   }
 
@@ -327,84 +388,110 @@ ${this.getCommentGuidelines(schoolType, style)}
     commenter: Bot, 
     commentType: string, 
     existingComments: Comment[] = []
-  ): Promise<string> {
+  ): Promise<GeneratedComment> {
     try {
       const schoolType = this.getSchoolType(post.schoolName);
       const isOwnPost = post.authorId === commenter.uid;
-      
+
       // 댓글 스타일 결정
       let style: string, context: string;
       if (isOwnPost) {
         style = this.commentTypes.own_post.styles[Math.floor(Math.random() * this.commentTypes.own_post.styles.length)];
-        context = '본인이 작성한 게시글';
+        context = '본인글';
       } else {
         style = this.commentTypes.others_post.styles[Math.floor(Math.random() * this.commentTypes.others_post.styles.length)];
-        context = '다른 사람이 작성한 게시글';
+        context = '타인글';
       }
 
-      // 기존 댓글들 요약
-      const existingCommentsText = existingComments.length > 0 
-        ? existingComments.map(c => `- ${c.authorNickname}: ${c.content}`).join('\n')
-        : '아직 댓글이 없음';
+      // 다양성 힌트(가벼운 농담/질문형 마무리)
+      const lightJoke = Math.random() < 0.15;
+      const engagementQuestion = Math.random() < 0.2;
 
-      const prompt = `
-당신은 ${schoolType === 'elementary' ? '초등학생' : schoolType === 'middle' ? '중학생' : '고등학생'}입니다.
-닉네임: ${commenter.nickname}
-학교: ${post.schoolName}
+      const userPayload = JSON.stringify({
+        mode: 'comment',
+        schoolType,
+        schoolName: post.schoolName,
+        post: { title: post.title, content: post.content, author: post.authorNickname },
+        commenter: { nickname: commenter.nickname },
+        existing: (existingComments || []).slice(0, 10).map(c => ({ author: c.authorNickname, content: c.content })),
+        styleHint: style,
+        context,
+        diversity: { lightJoke, engagementQuestion },
+        constraints: { maxLen: 120 }
+      });
 
-다음 게시글에 댓글을 작성해주세요:
+      const systemPrompt = [
+        '역할: 한국 학생 커뮤니티 댓글 생성기',
+        '출력: JSON 한 줄 {"content": string, "isReply": boolean, "parentId": string|null, "style": string, "safety": {"blocked": boolean, "reason": string}}',
+        '규칙:',
+        '- 금지: 실명/연락처/식별정보, 혐오/차별/성적, 폭력 조장, 광고/스팸',
+        '- 길이: ≤120자, 1~2문장, 게시글과 직접 관련',
+        '- 다양성: diversity.lightJoke=true면 가벼운 무해한 농담을 한 구절 내 허용',
+        '- 참여유도: diversity.engagementQuestion=true면 짧은 질문형으로 마무리 가능',
+        '- 기존 댓글과 표현·논지 중복 금지',
+        '- 출력은 오직 JSON 한 줄(설명/마크다운 금지)'
+      ].join('\n');
 
-**게시글 제목**: ${post.title}
-**게시글 내용**: ${post.content}
-**작성자**: ${post.authorNickname}
-**상황**: ${context}
-
-**기존 댓글들**:
-${existingCommentsText}
-
-**댓글 스타일**: ${style}
-
-**작성 가이드라인**:
-${this.getCommentGuidelines(schoolType, style)}
-
-**중요 규칙**:
-- 1-2줄로 간단하게 작성
-- 자연스러운 학생 말투 사용
-- 게시글 내용과 관련된 댓글만 작성
-- 기존 댓글과 중복되지 않게 작성
-- 구체적인 개인정보나 실명 언급 금지
-- 부적절한 내용 금지
-
-댓글만 작성해주세요:`;
-
+      // 1차
       const messages: OpenAIMessage[] = [
-        {
-          role: 'system',
-          content: '당신은 자연스러운 학생 댓글을 작성하는 AI입니다. 간단하고 자연스러운 댓글을 작성해주세요.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPayload }
       ];
 
-      const comment = await this.callOpenAI(messages);
-      
-      // 댓글 길이 제한 (너무 길면 자르기)
-      const maxLength = 200;
-      return comment.length > maxLength ? comment.substring(0, maxLength) + '...' : comment;
+      let parsed = this.parseCommentJson(await this.callOpenAI(messages));
 
+      // 백업(차단/형식 실패 시)
+      if (!parsed || parsed?.safety?.blocked) {
+        const backupPayload = userPayload.replace(/"styleHint"\s*:\s*"[^"]*"/, '"styleHint":"공감"');
+        const raw2 = await this.callOpenAI([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: backupPayload }
+        ]);
+        parsed = this.parseCommentJson(raw2) || parsed;
+      }
+
+      if (parsed && !parsed.safety?.blocked && parsed.content) {
+        let content = String(parsed.content).trim();
+        const maxLen = 120;
+        if (content.length > maxLen) content = content.substring(0, maxLen - 3) + '...';
+        return {
+          content,
+          meta: {
+            promptVersion: 'v2-json-2025-10-07',
+            diversity: { lightJoke, engagementQuestion },
+            policyPass: true,
+            style: parsed.style,
+            isReply: false,
+            parentId: null
+          }
+        };
+      }
+
+      const defaults = ['좋은 글이네요!', '공감해요', '저도 비슷했어요', '재밌네요', '정보 고마워요'];
+      const content = defaults[Math.floor(Math.random() * defaults.length)];
+      return {
+        content,
+        meta: {
+          promptVersion: 'v2-json-2025-10-07',
+          diversity: { lightJoke, engagementQuestion },
+          policyPass: false,
+          isReply: false,
+          parentId: null
+        }
+      };
     } catch (error) {
       console.error('댓글 생성 실패:', error);
-      // 기본 댓글 반환
-      const defaultComments = [
-        '좋은 글이네요!',
-        '공감해요 ㅎㅎ',
-        '저도 비슷한 경험 있어요',
-        '재밌네요!',
-        '정보 감사합니다'
-      ];
-      return defaultComments[Math.floor(Math.random() * defaultComments.length)];
+      const defaults = ['좋은 글이네요!', '공감해요', '도움됐어요'];
+      const content = defaults[Math.floor(Math.random() * defaults.length)];
+      return {
+        content,
+        meta: {
+          promptVersion: 'v2-json-2025-10-07',
+          policyPass: false,
+          isReply: false,
+          parentId: null
+        }
+      };
     }
   }
 
@@ -454,7 +541,8 @@ ${this.getCommentGuidelines(schoolType, style)}
     postId: string, 
     commentContent: string, 
     commenter: Bot, 
-    parentCommentId?: string
+    parentCommentId?: string,
+    meta?: GeneratedComment['meta']
   ): Promise<string> {
     try {
       const commentData = {
@@ -479,6 +567,7 @@ ${this.getCommentGuidelines(schoolType, style)}
           isBlocked: false
         },
         fake: true, // AI 생성 댓글 표시
+        aiMeta: meta || null,
         createdAt: this.FieldValue.serverTimestamp(),
         updatedAt: this.FieldValue.serverTimestamp()
       };
@@ -677,6 +766,7 @@ ${this.getCommentGuidelines(schoolType, style)}
               // 대댓글 생성 여부 결정 (40% 확률)
               const shouldCreateReply = Math.random() < this.commentTypes.reply.probability && currentComments.length > 0;
               
+              let generated: GeneratedComment;
               let commentContent: string;
               let parentCommentId: string | undefined;
               
@@ -684,14 +774,16 @@ ${this.getCommentGuidelines(schoolType, style)}
                 // 대댓글 생성
                 const parentComment = currentComments[Math.floor(Math.random() * currentComments.length)];
                 parentCommentId = parentComment.id;
-                commentContent = await this.generateReplyComment(post, bot, parentComment, currentComments);
+                generated = await this.generateReplyComment(post, bot, parentComment);
+                commentContent = generated.content;
               } else {
                 // 일반 댓글 생성
-                commentContent = await this.generateComment(post, bot, 'comment', currentComments);
+                generated = await this.generateComment(post, bot, 'comment', currentComments);
+                commentContent = generated.content;
               }
               
               // 댓글 저장
-              await this.createComment(post.id, commentContent, bot, parentCommentId);
+              await this.createComment(post.id, commentContent, bot, parentCommentId, generated?.meta);
               totalCommentsGenerated++;
 
               // 자연스러운 시간차 생성 (1-5분 랜덤)
@@ -788,6 +880,7 @@ ${this.getCommentGuidelines(schoolType, style)}
           // 대댓글 생성 여부 결정 (40% 확률)
           const shouldCreateReply = Math.random() < this.commentTypes.reply.probability && currentComments.length > 0;
           
+          let generated: GeneratedComment;
           let commentContent: string;
           let parentCommentId: string | undefined;
           
@@ -795,19 +888,21 @@ ${this.getCommentGuidelines(schoolType, style)}
             // 대댓글 생성
             const parentComment = currentComments[Math.floor(Math.random() * currentComments.length)];
             parentCommentId = parentComment.id;
-            commentContent = await this.generateReplyComment(post as Post, randomBot, parentComment, currentComments);
+            generated = await this.generateReplyComment(post as Post, randomBot, parentComment);
+            commentContent = generated.content;
           } else {
             // 일반 댓글 생성
-            commentContent = await this.generateComment(
+            generated = await this.generateComment(
               post as Post, 
               randomBot, 
               'comment', 
               currentComments
             );
+            commentContent = generated.content;
           }
           
           // 댓글 저장
-          await this.createComment(post.id, commentContent, randomBot, parentCommentId);
+          await this.createComment(post.id, commentContent, randomBot, parentCommentId, generated?.meta);
           generatedCount++;
 
           if (onProgress) {
@@ -895,7 +990,6 @@ ${this.getCommentGuidelines(schoolType, style)}
           
           // 대댓글 생성 여부 결정 (40% 확률)
           const shouldCreateReply = Math.random() < this.commentTypes.reply.probability && currentComments.length > 0;
-          
           let commentContent: string;
           let parentCommentId: string | undefined;
           
@@ -903,14 +997,15 @@ ${this.getCommentGuidelines(schoolType, style)}
             // 대댓글 생성
             const parentComment = currentComments[Math.floor(Math.random() * currentComments.length)];
             parentCommentId = parentComment.id;
-            commentContent = await this.generateReplyComment(post, bot, parentComment, currentComments);
+            const generated = await this.generateReplyComment(post, bot, parentComment);
+            commentContent = generated.content;
+            await this.createComment(post.id, commentContent, bot, parentCommentId, generated?.meta);
           } else {
             // 일반 댓글 생성
-            commentContent = await this.generateComment(post, bot, 'comment', currentComments);
+            const generated = await this.generateComment(post, bot, 'comment', currentComments);
+            commentContent = generated.content;
+            await this.createComment(post.id, commentContent, bot, parentCommentId, generated?.meta);
           }
-          
-          // 댓글 저장
-          await this.createComment(post.id, commentContent, bot, parentCommentId);
           generatedCount++;
 
           if (onProgress) {
