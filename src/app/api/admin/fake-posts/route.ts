@@ -38,11 +38,22 @@ export async function GET(request: NextRequest) {
     const app = await getFirebaseAdmin();
     const db = app.firestore();
     
-    // fake: true 게시글만 조회
+    // 1. 전체 개수 조회
+    const countQuery = await db
+      .collection('posts')
+      .where('fake', '==', true)
+      .count()
+      .get();
+    
+    const totalCount = countQuery.data().count;
+    console.log(`📊 전체 fake: true 게시글 개수: ${totalCount}개`);
+
+    // 2. 최근 100개 게시글 조회 (표시용)
     const fakePostsQuery = await db
       .collection('posts')
       .where('fake', '==', true)
-      .limit(50)
+      .orderBy('createdAt', 'desc')
+      .limit(100)
       .get();
 
     if (fakePostsQuery.empty) {
@@ -116,10 +127,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: postsWithSchoolNames,
-      total: postsWithSchoolNames.length,
+      total: totalCount, // 실제 전체 개수
+      displayed: postsWithSchoolNames.length, // 표시된 개수 (최대 100개)
       lastUpdated: new Date().toISOString(),
       source: 'firebase_direct_realtime',
-      note: `🔥 Firebase에서 직접 실시간으로 조회한 fake: true 게시글입니다!`
+      note: `🔥 Firebase에서 직접 실시간으로 조회 (전체 ${totalCount}개 중 최근 ${postsWithSchoolNames.length}개 표시)`
     });
 
   } catch (error) {

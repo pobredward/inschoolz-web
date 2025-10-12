@@ -238,10 +238,10 @@ export class CommentService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o-mini',  // gpt-3.5-turbo에서 업그레이드
           messages,
-          max_tokens: 150,
-          temperature: 0.8
+          max_tokens: 300,       // 150에서 300으로 증가
+          temperature: 0.7       // 0.8에서 0.7로 약간 낮춤
         })
       });
 
@@ -306,13 +306,25 @@ export class CommentService {
       const systemPrompt = [
         '역할: 학생 커뮤니티 대댓글 생성기',
         '출력: JSON 한 줄 {"content": string, "isReply": boolean, "parentId": string|null, "style": string, "safety": {"blocked": boolean, "reason": string}}',
-        '규칙:',
-        '- 금지: 실명/연락처/식별정보, 혐오/차별/성적, 폭력 조장, 광고/스팸',
+        '',
+        '절대 금지사항:',
+        '- 구체적 장소명 지어내기: "OOO 카페", "XXX 맛집", "△△ 학원" 등 금지 (학교마다 지역이 다름)',
+        '- 실명/연락처/식별정보, 혐오/차별/성적, 폭력 조장, 광고/스팸',
+        '',
+        '허용 및 권장사항:',
+        '- 실제 콘텐츠명 언급 가능: "지금 우리 학교" 드라마, "원피스" 웹툰, "리그 오브 레전드" 게임 등',
+        '- 실제 브랜드명 언급 가능: "삼성", "애플", "나이키" 등',
+        '- 실제 연예인/인플루언서 이름 언급 가능: 최신 트렌드 반영',
+        '',
+        '대댓글 작성 규칙:',
         '- 길이: ≤120자, 1~2문장, 부모 댓글에 직접 응답',
+        '- 자연스러운 반응: 동의, 반박, 추가 질문, 감사, 가벼운 농담 등',
         '- 다양성: diversity.lightJoke=true면 가벼운 무해한 농담을 한 구절 내 허용',
         '- 참여유도: diversity.engagementQuestion=true면 짧은 질문형으로 마무리 가능',
         '- 기존 대댓글과 표현·논지 중복 금지',
-        '- 출력은 오직 JSON 한 줄(설명/마크다운 금지)'
+        '- 출력은 오직 JSON 한 줄(설명/마크다운 금지)',
+        '',
+        '안전성: 의심스러우면 safety.blocked=true로 설정'
       ].join('\n');
 
       // 1차 시도
@@ -423,13 +435,25 @@ export class CommentService {
       const systemPrompt = [
         '역할: 한국 학생 커뮤니티 댓글 생성기',
         '출력: JSON 한 줄 {"content": string, "isReply": boolean, "parentId": string|null, "style": string, "safety": {"blocked": boolean, "reason": string}}',
-        '규칙:',
-        '- 금지: 실명/연락처/식별정보, 혐오/차별/성적, 폭력 조장, 광고/스팸',
+        '',
+        '절대 금지사항:',
+        '- 구체적 장소명 지어내기: "OOO 카페", "XXX 맛집", "△△ 학원" 등 금지 (학교마다 지역이 다름)',
+        '- 실명/연락처/식별정보, 혐오/차별/성적, 폭력 조장, 광고/스팸',
+        '',
+        '허용 및 권장사항:',
+        '- 실제 콘텐츠명 언급 가능: "지금 우리 학교" 드라마, "원피스" 웹툰, "리그 오브 레전드" 게임 등',
+        '- 실제 브랜드명 언급 가능: "삼성", "애플", "나이키" 등',
+        '- 실제 연예인/인플루언서 이름 언급 가능: 최신 트렌드 반영',
+        '',
+        '댓글 작성 규칙:',
         '- 길이: ≤120자, 1~2문장, 게시글과 직접 관련',
+        '- 자연스러운 반응: 공감, 질문, 경험 공유, 조언 등',
         '- 다양성: diversity.lightJoke=true면 가벼운 무해한 농담을 한 구절 내 허용',
         '- 참여유도: diversity.engagementQuestion=true면 짧은 질문형으로 마무리 가능',
         '- 기존 댓글과 표현·논지 중복 금지',
-        '- 출력은 오직 JSON 한 줄(설명/마크다운 금지)'
+        '- 출력은 오직 JSON 한 줄(설명/마크다운 금지)',
+        '',
+        '안전성: 의심스러우면 safety.blocked=true로 설정'
       ].join('\n');
 
       // 1차

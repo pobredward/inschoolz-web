@@ -36,6 +36,7 @@ interface GenerationConfig {
 export default function FakePostsPage() {
   const { user } = useAuth();
   const [fakePosts, setFakePosts] = useState<FakePost[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0); // 실제 전체 개수
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,7 +58,8 @@ export default function FakePostsPage() {
       
       if (result.success) {
         setFakePosts(result.data || []);
-        toast.success(`${result.data.length}개의 AI 게시글을 조회했습니다.`);
+        setTotalCount(result.total || result.data.length); // API에서 전체 개수 사용
+        toast.success(`전체 ${result.total || result.data.length}개 중 ${result.data.length}개의 AI 게시글을 조회했습니다.`);
       } else {
         throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
       }
@@ -65,6 +67,7 @@ export default function FakePostsPage() {
       console.error('AI 게시글 조회 오류:', error);
       toast.error('AI 게시글을 불러오는데 실패했습니다.');
       setFakePosts([]);
+      setTotalCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -276,7 +279,11 @@ export default function FakePostsPage() {
       {/* 게시글 목록 */}
       <Card>
         <CardHeader>
-          <CardTitle>AI 게시글 목록 ({filteredPosts.length}개)</CardTitle>
+          <CardTitle>
+            AI 게시글 목록 (전체 {totalCount}개
+            {fakePosts.length < totalCount && `, 최근 ${fakePosts.length}개 표시`}
+            {filteredPosts.length !== fakePosts.length && `, 필터링된 ${filteredPosts.length}개`})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
