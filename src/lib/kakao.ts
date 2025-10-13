@@ -4,6 +4,7 @@ import { User } from '@/types';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { signInWithCustomToken } from 'firebase/auth';
 import { db, auth } from './firebase';
+import { generateUserSearchTokens } from '@/utils/search-tokens';
 
 // 카카오 SDK 타입 정의
 declare global {
@@ -235,14 +236,20 @@ export const convertKakaoUserToFirebaseUser = (kakaoUser: KakaoUserInfo, uid: st
   const profile = kakaoUser.kakao_account.profile;
   const birthday = kakaoUser.kakao_account.birthday;
   const birthyear = kakaoUser.kakao_account.birthyear;
+  const userName = profile?.nickname || `카카오사용자${kakaoUser.id}`;
+
+  // 검색 토큰 생성
+  const searchTokens = generateUserSearchTokens(userName);
 
   return {
     uid,
     email: kakaoUser.kakao_account.email || '',
     role: 'student',
     isVerified: true,
+    fake: false, // 실제 사용자 표시
+    searchTokens, // 검색 토큰 추가
     profile: {
-      userName: profile?.nickname || `카카오사용자${kakaoUser.id}`,
+      userName,
       realName: '',
       gender: kakaoUser.kakao_account.gender === 'female' ? '여성' : 
               kakaoUser.kakao_account.gender === 'male' ? '남성' : '',

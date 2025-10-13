@@ -25,6 +25,7 @@ import {
 import { auth, db, storage } from '@/lib/firebase';
 import { FormDataType, User } from '@/types';
 import { FirebaseError } from 'firebase/app';
+import { generateUserSearchTokens } from '@/utils/search-tokens';
 
 /**
  * 추천인 아이디 검증 함수
@@ -144,6 +145,13 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       });
     }
     
+    // 검색 토큰 생성
+    const searchTokens = generateUserSearchTokens(
+      userData.userName,
+      userData.realName,
+      userData.school?.name
+    );
+    
     // Firestore에 사용자 데이터 저장 (통일된 구조 - Timestamp 사용)
     const userDocRef = doc(db, 'users', userId);
     
@@ -154,6 +162,8 @@ export const signUp = async (userData: FormDataType): Promise<{ user: User }> =>
       role: 'student',
       status: 'active', // 기본 상태를 'active'로 설정
       isVerified: true, // 이메일 인증 없이 바로 인증된 상태로 처리
+      fake: false, // 실제 사용자 표시
+      searchTokens, // 검색 토큰 추가
       
       // 프로필 정보 (선택사항 필드들은 값이 있을 때만 저장)
       profile: {

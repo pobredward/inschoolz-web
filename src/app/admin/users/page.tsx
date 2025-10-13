@@ -54,6 +54,7 @@ export default function AdminUsersPage() {
   const [searchType, setSearchType] = useState<'all' | 'userName' | 'realName' | 'email' | 'school'>('all');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
+  const [fakeFilter, setFakeFilter] = useState<'all' | 'real' | 'fake'>('all');
   const [sortBy, setSortBy] = useState<'createdAt' | 'lastActiveAt' | 'totalExperience' | 'userName'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
@@ -93,6 +94,7 @@ export default function AdminUsersPage() {
         searchType,
         role: roleFilter,
         status: statusFilter,
+        fake: fakeFilter,
         sortBy,
         sortOrder,
         dateRange: (dateRange.from && dateRange.to) ? { from: dateRange.from, to: dateRange.to } : undefined,
@@ -116,7 +118,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     loadUsers();
-  }, [currentPage, searchTerm, searchType, roleFilter, statusFilter, sortBy, sortOrder, dateRange, levelRange, experienceRange, regionFilter, hasWarnings]);
+  }, [currentPage, searchTerm, searchType, roleFilter, statusFilter, fakeFilter, sortBy, sortOrder, dateRange, levelRange, experienceRange, regionFilter, hasWarnings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -259,6 +261,7 @@ export default function AdminUsersPage() {
     setSearchType('all');
     setRoleFilter('all');
     setStatusFilter('all');
+    setFakeFilter('all');
     setDateRange({});
     setLevelRange({});
     setExperienceRange({});
@@ -385,7 +388,7 @@ export default function AdminUsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
             <div className="lg:col-span-2">
               <Label htmlFor="search">검색</Label>
               <div className="flex gap-2">
@@ -440,6 +443,20 @@ export default function AdminUsersPage() {
                   <SelectItem value="active">활성</SelectItem>
                   <SelectItem value="inactive">비활성</SelectItem>
                   <SelectItem value="suspended">정지</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="fake">사용자 유형</Label>
+              <Select value={fakeFilter} onValueChange={(value: typeof fakeFilter) => setFakeFilter(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="real">실제 사용자</SelectItem>
+                  <SelectItem value="fake">봇 사용자</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -622,6 +639,7 @@ export default function AdminUsersPage() {
                     <TableHead>지역</TableHead>
                     <TableHead>역할</TableHead>
                     <TableHead>상태</TableHead>
+                    <TableHead>유형</TableHead>
                     <TableHead>레벨/경험치</TableHead>
                     <TableHead>경고</TableHead>
                     <TableHead>가입일</TableHead>
@@ -660,6 +678,11 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <Badge className={getStatusColor(user.status)}>
                           {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : user.status === 'suspended' ? '정지' : '알 수 없음'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={user.fake ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}>
+                          {user.fake ? '봇' : '실제'}
                         </Badge>
                       </TableCell>
                       <TableCell>

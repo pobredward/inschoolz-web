@@ -28,6 +28,7 @@ export interface EnhancedAdminUserListParams {
   searchType?: 'all' | 'userName' | 'realName' | 'email' | 'school';
   role?: 'all' | 'admin' | 'user';
   status?: 'all' | 'active' | 'inactive' | 'suspended';
+  fake?: 'all' | 'real' | 'fake';
   sortBy?: 'createdAt' | 'lastActiveAt' | 'totalExperience' | 'userName';
   sortOrder?: 'asc' | 'desc';
   dateRange?: {

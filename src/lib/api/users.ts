@@ -1115,6 +1115,7 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
       searchType = 'all',
       role = 'all',
       status = 'all',
+      fake = 'all',
       sortBy = 'createdAt',
       sortOrder = 'desc',
       dateRange,
@@ -1135,6 +1136,11 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
     // 상태 필터
     if (status !== 'all') {
       constraints.push(where('status', '==', status));
+    }
+
+    // fake 필터 (봇 사용자만 서버에서 필터링)
+    if (fake === 'fake') {
+      constraints.push(where('fake', '==', true));
     }
 
     // 검색 조건 (다중 필드 지원)
@@ -1212,15 +1218,18 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
     }
 
     // 정렬 추가 (필드 경로 매핑)
-    let sortField = sortBy;
+    let sortField: string = sortBy;
     if (sortBy === 'totalExperience') {
       sortField = 'stats.totalExperience';
     }
     constraints.push(orderBy(sortField, sortOrder));
 
-    // 페이지네이션
-    const offset = (page - 1) * pageSize;
-    constraints.push(limit(pageSize + offset));
+    // 클라이언트 사이드 필터링이 필요한지 확인
+    const needsClientFiltering = fake === 'real' || (search.trim() && searchType === 'all');
+    
+    // 클라이언트 필터링이 필요한 경우 더 많은 데이터를 가져옴
+    const fetchLimit = needsClientFiltering ? Math.max(pageSize * 10, 200) : pageSize * 2;
+    constraints.push(limit(fetchLimit));
 
     const q = query(usersRef, ...constraints);
     const querySnapshot = await getDocs(q);
@@ -1232,6 +1241,9 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
         ...doc.data() 
       } as User);
     });
+
+    console.log('Before filtering - Total users fetched:', allUsers.length);
+    console.log('Fake filter value:', fake);
 
     // 클라이언트 측 추가 필터링 (다중 필드 검색용)
     if (search.trim() && searchType === 'all') {
@@ -1247,24 +1259,64 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
                email.includes(searchTerm) || 
                schoolName.includes(searchTerm);
       });
+      console.log('After search filtering:', allUsers.length);
+    }
+
+    // fake 필터링 (클라이언트 사이드 - 실제 사용자만)
+    if (fake === 'real') {
+      console.log('Before fake filtering - Total users:', allUsers.length);
+      console.log('Sample users before filtering:', allUsers.slice(0, 5).map(u => ({ 
+        uid: u.uid, 
+        userName: u.profile?.userName, 
+        fake: u.fake 
+      })));
+      
+      // fake가 true가 아닌 모든 사용자 (false, null, undefined 포함)
+      allUsers = allUsers.filter(user => user.fake !== true);
+      
+      console.log('After fake filtering - Real users count:', allUsers.length);
+      console.log('Sample real users:', allUsers.slice(0, 5).map(u => ({ 
+        uid: u.uid, 
+        userName: u.profile?.userName, 
+        fake: u.fake 
+      })));
     }
 
     // 페이지네이션 적용
+    const offset = (page - 1) * pageSize;
     const users = allUsers.slice(offset, offset + pageSize);
 
-    // 전체 개수 조회 (필터 조건 적용)
-    // limit과 orderBy를 제외한 constraints만 사용하여 카운트 쿼리 생성
-    const countConstraints = constraints.slice(0, -2); // 마지막 2개(orderBy, limit) 제거
-    const countQuery = countConstraints.length > 0 
-      ? query(usersRef, ...countConstraints)
-      : query(usersRef);
-    const countSnapshot = await getCountFromServer(countQuery);
-    const totalCount = countSnapshot.data().count;
+    // 전체 개수 계산
+    let totalCount: number;
+    let hasMore: boolean;
+    
+    if (needsClientFiltering) {
+      // 클라이언트 필터링이 적용된 경우
+      totalCount = allUsers.length;
+      hasMore = totalCount > page * pageSize;
+      
+      // 만약 가져온 데이터가 fetchLimit와 같다면, 더 많은 데이터가 있을 가능성이 있음
+      if (allUsers.length === 0 && fetchLimit > pageSize) {
+        // 필터링 결과가 없지만 더 많은 데이터를 확인해야 할 수도 있음
+        hasMore = false;
+      }
+    } else {
+      // 서버 쿼리만 사용한 경우, 서버에서 카운트 조회
+      const countConstraints = constraints.slice(0, -2); // orderBy, limit 제거
+      const countQuery = countConstraints.length > 0 
+        ? query(usersRef, ...countConstraints)
+        : query(usersRef);
+      const countSnapshot = await getCountFromServer(countQuery);
+      totalCount = countSnapshot.data().count;
+      hasMore = totalCount > page * pageSize;
+    }
+
+    console.log('Final result - users:', users.length, 'totalCount:', totalCount, 'hasMore:', hasMore);
 
     return {
       users,
       totalCount,
-      hasMore: totalCount > page * pageSize,
+      hasMore,
       currentPage: page
     };
   } catch (error) {

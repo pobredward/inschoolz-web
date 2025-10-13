@@ -11,6 +11,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { User } from '../types';
+import { generateUserSearchTokens } from '../utils/search-tokens';
 
 /**
  * userName 중복 확인 (대소문자 구분)
@@ -144,12 +145,17 @@ export const registerWithEmail = async (
     // 프로필 업데이트
     await updateProfile(firebaseUser, { displayName: userName });
     
+    // 검색 토큰 생성
+    const searchTokens = generateUserSearchTokens(userName.trim());
+    
     // Firestore에 사용자 정보 저장
     const newUser: User = {
       uid: firebaseUser.uid,
       email: firebaseUser.email || '',
       role: 'student',
       isVerified: true,
+      fake: false, // 실제 사용자 표시
+      searchTokens, // 검색 토큰 추가
       profile: {
         userName: userName.trim(),
         realName: '',
