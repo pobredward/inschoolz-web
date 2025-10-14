@@ -670,7 +670,18 @@ export default function CommentSection({
   const [showPasswordModal, setShowPasswordModal] = useState<{ commentId: string; action: 'edit' | 'delete' } | null>(null);
   const [likeStatuses, setLikeStatuses] = useState<Record<string, boolean>>({});
   const [showExperienceModal, setShowExperienceModal] = useState(false);
-  const [experienceGained, setExperienceGained] = useState(0);
+  const [experienceData, setExperienceData] = useState<{
+    expGained: number;
+    activityType: 'post' | 'comment' | 'like';
+    leveledUp: boolean;
+    oldLevel?: number;
+    newLevel?: number;
+    currentExp: number;
+    expToNextLevel: number;
+    remainingCount: number;
+    totalDailyLimit: number;
+    reason?: string;
+  } | null>(null);
   const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
 
   // 차단된 사용자 목록 로드
@@ -732,6 +743,12 @@ export default function CommentSection({
     });
   };
 
+  // 경험치 모달 닫기 핸들러
+  const handleExperienceModalClose = () => {
+    setShowExperienceModal(false);
+    setExperienceData(null);
+  };
+
   // 일반 댓글 작성 (로그인 사용자)
   const handleCreateComment = async (content: string, isAnonymous: boolean, parentId?: string) => {
     if (!user) {
@@ -756,8 +773,19 @@ export default function CommentSection({
       if (user) {
         try {
           const expResult = await awardCommentExperience(user.uid);
-          if (expResult) {
-            setExperienceGained(expResult.expGained);
+          if (expResult.success) {
+            setExperienceData({
+              expGained: expResult.expGained,
+              activityType: 'comment',
+              leveledUp: expResult.leveledUp,
+              oldLevel: expResult.oldLevel,
+              newLevel: expResult.newLevel,
+              currentExp: expResult.currentExp,
+              expToNextLevel: expResult.expToNextLevel,
+              remainingCount: expResult.remainingCount,
+              totalDailyLimit: expResult.totalDailyLimit,
+              reason: expResult.reason
+            });
             setShowExperienceModal(true);
           }
         } catch (expError) {
@@ -1026,12 +1054,6 @@ export default function CommentSection({
   // 답글 작성 모드 토글
   const handleReply = (parentId: string, parentAuthor: string) => {
     setReplyingTo(replyingTo?.id === parentId ? null : { id: parentId, author: parentAuthor });
-  };
-
-  // 경험치 모달 닫기 핸들러
-  const handleExperienceModalClose = () => {
-    setShowExperienceModal(false);
-    setExperienceGained(0);
   };
 
   // 익명 댓글 수정 내용 변경
@@ -1362,11 +1384,11 @@ export default function CommentSection({
           />
 
           {/* 경험치 획득 모달 */}
-          {showExperienceModal && (
+          {showExperienceModal && experienceData && (
             <ExperienceModal
               isOpen={showExperienceModal}
               onClose={handleExperienceModalClose}
-              data={{ expGained: experienceGained, activityType: 'comment', leveledUp: false, oldLevel: undefined, newLevel: undefined, currentExp: 0, expToNextLevel: 0, remainingCount: 0, totalDailyLimit: 0 }}
+              data={experienceData}
             />
           )}
         </div>
