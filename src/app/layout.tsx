@@ -42,10 +42,10 @@ export const metadata: Metadata = {
     siteName: '인스쿨즈',
     images: [
       {
-        url: '/images/og-logo.png',
-        width: 1200,
-        height: 630,
-        alt: '인스쿨즈 로고',
+        url: '/images/twitter-logo.png',
+        width: 1080,
+        height: 1350,
+        alt: '인스쿨즈 - 초중고 학생 커뮤니티',
       }
     ]
   },
@@ -135,6 +135,40 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <meta name="robots" content="index, follow" />
         <meta name="googlebot" content="index, follow" />
+        {/* 구조화된 데이터 (JSON-LD) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "인스쿨즈",
+              "alternateName": "InSchoolz",
+              "url": "https://www.inschoolz.com",
+              "description": "대한민국 초·중·고 학생들을 위한 3계층 커뮤니티. 학교별, 지역별, 전국 단위로 안전하게 소통하고 정보를 공유하세요.",
+              "inLanguage": "ko-KR",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://www.inschoolz.com/search?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "인스쿨즈",
+                "url": "https://www.inschoolz.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://www.inschoolz.com/images/og-logo.png",
+                  "width": 1024,
+                  "height": 1024
+                }
+              },
+              "sameAs": [
+                "https://www.inschoolz.com"
+              ]
+            })
+          }}
+        />
         {/* 리워드 광고는 모바일 앱에서만 제공 */}
         <script
           dangerouslySetInnerHTML={{
