@@ -361,6 +361,7 @@ function CommentItem({
   const isReply = level > 0;
   const isAIComment = comment.fake === true;
   const canEditAI = isAdmin(user?.email) && isAIComment;
+  const canDeleteAI = isAdmin(user?.email) && isAIComment;
   const isEditingAI = editingAIComment?.id === comment.id;
   
   // 작성자 표시 로직
@@ -419,6 +420,30 @@ function CommentItem({
       toast('차단 처리에 실패했습니다.');
     } finally {
       setIsBlocking(false);
+    }
+  };
+
+  // AI 댓글 삭제 핸들러 (관리자 전용)
+  const handleDeleteAIComment = async () => {
+    if (!confirm('정말로 이 AI 댓글을 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/comments?id=${comment.id}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success('AI 댓글이 삭제되었습니다.');
+        // 댓글 목록 새로고침을 위해 부모 컴포넌트의 onDelete 호출
+        onDelete(comment.id);
+      } else {
+        throw new Error(result.error || 'AI 댓글 삭제 실패');
+      }
+    } catch (error) {
+      console.error('AI 댓글 삭제 오류:', error);
+      toast.error('AI 댓글 삭제에 실패했습니다.');
     }
   };
 
@@ -612,6 +637,19 @@ function CommentItem({
                   >
                     <Edit2 className="w-3 h-3 mr-1" />
                     AI 수정
+                  </Button>
+                )}
+
+                {/* AI 댓글 삭제 버튼 (관리자 전용) */}
+                {canDeleteAI && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-red-600 hover:text-red-800"
+                    onClick={handleDeleteAIComment}
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    AI 삭제
                   </Button>
                 )}
               </div>

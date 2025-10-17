@@ -146,25 +146,28 @@ export class CommentService {
       console.log(`📊 봇이 있는 학교: ${schoolsWithBots.size}개`);
       console.log(`🔍 봇이 있는 학교 ID들:`, Array.from(schoolsWithBots).slice(0, 5));
 
-      // 2단계: 봇이 있는 학교의 게시글 조회 (댓글이 적은 순으로 우선)
+      // 2단계: 봇이 있는 학교 중 랜덤 선택
       const selectedPosts: Post[] = [];
-      const schoolIds = Array.from(schoolsWithBots).slice(0, schoolLimit);
+      const allSchoolIds = Array.from(schoolsWithBots);
+      
+      // 학교들을 랜덤하게 섞어서 선택
+      const shuffledSchoolIds = allSchoolIds.sort(() => Math.random() - 0.5);
+      const schoolIds = shuffledSchoolIds.slice(0, Math.min(schoolLimit, shuffledSchoolIds.length));
+      
+      console.log(`🎲 랜덤 선택된 학교들: ${schoolIds.length}개`);
+      console.log(`🏫 선택된 학교 ID들:`, schoolIds);
 
       for (const schoolId of schoolIds) {
         try {
           console.log(`🔍 ${schoolId} 학교의 게시글 조회 중...`);
           
-          // 해당 학교의 게시글 조회 (최근 3일 이내, 댓글 수 고려)
-          const threeDaysAgo = new Date();
-          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-          
+          // 해당 학교의 최근 게시글 조회 (댓글 수 고려)
           const postsQuery = await this.db
             .collection('posts')
             .where('schoolId', '==', schoolId)
-            .where('createdAt', '>=', threeDaysAgo)
             .where('status.isDeleted', '==', false)
             .orderBy('createdAt', 'desc')
-            .limit(20) // 더 많은 후보 중에서 선택
+            .limit(50) // 최근 50개 게시글 중에서 선택
             .get();
 
           console.log(`   📝 ${schoolId} 학교 게시글 수: ${postsQuery.docs.length}개`);
@@ -187,17 +190,18 @@ export class CommentService {
               });
             });
 
-            // 댓글이 적고 최근 게시글 우선 선택 (0-3개 댓글인 게시글 선호)
-            const suitablePosts = posts.filter(post => (post.commentCount || 0) <= 3);
-            const postsToSelect = suitablePosts.length > 0 ? suitablePosts : posts.slice(0, 10);
+            // 댓글이 적은 게시글 우선 선택 (0-5개 댓글인 게시글 선호)
+            const suitablePosts = posts.filter(post => (post.commentCount || 0) <= 5);
+            const postsToSelect = suitablePosts.length > 0 ? suitablePosts : posts.slice(0, 15);
             
-            // 댓글 수와 시간을 고려한 스코어링
+            // 댓글 수 기반 스코어링 (댓글이 적을수록 높은 점수)
             const scoredPosts = postsToSelect.map(post => {
-              const commentScore = Math.max(1, 4 - (post.commentCount || 0)); // 댓글 적을수록 높은 점수
-              const timeScore = post.createdAt ? 1 : 0.5; // 최근 게시글 선호
+              const commentCount = post.commentCount || 0;
+              // 댓글 0개: 10점, 1개: 8점, 2개: 6점, 3개: 4점, 4개: 2점, 5개: 1점
+              const commentScore = Math.max(1, 11 - (commentCount * 2));
               return {
                 ...post,
-                score: commentScore * timeScore
+                score: commentScore
               };
             });
             
@@ -278,7 +282,8 @@ export class CommentService {
   private async generateReplyComment(
     post: Post,
     commenter: Bot,
-    parentComment: Comment
+    parentComment: Comment,
+    isPostAuthor: boolean = false
   ): Promise<GeneratedComment> {
     try {
       const schoolType = this.getSchoolType(post.schoolName);
@@ -295,7 +300,7 @@ export class CommentService {
         schoolType,
         schoolName: post.schoolName,
         post: { title: post.title, content: post.content },
-        commenter: { nickname: commenter.nickname },
+        commenter: { nickname: commenter.nickname, isPostAuthor },
         parent: { id: parentComment.id, author: parentComment.authorNickname, content: parentComment.content },
         existing: (existingReplies || []).slice(0, 10).map(r => ({ author: r.authorNickname, content: r.content })),
         styleHint: style,
@@ -319,6 +324,9 @@ export class CommentService {
         '대댓글 작성 규칙:',
         '- 길이: ≤120자, 1~2문장, 부모 댓글에 직접 응답',
         '- 자연스러운 반응: 동의, 반박, 추가 질문, 감사, 가벼운 농담 등',
+        '- 작성자 구분:',
+        '  * isPostAuthor=true: 게시글 작성자 → 감사 인사, 추가 설명, 정정, 업데이트 위주',
+        '  * isPostAuthor=false: 다른 학생 → 공감, 질문, 경험 공유, 조언, 반박, 칭찬 위주',
         '- 다양성: diversity.lightJoke=true면 가벼운 무해한 농담을 한 구절 내 허용',
         '- 참여유도: diversity.engagementQuestion=true면 짧은 질문형으로 마무리 가능',
         '- 기존 대댓글과 표현·논지 중복 금지',
@@ -399,11 +407,12 @@ export class CommentService {
     post: Post, 
     commenter: Bot, 
     commentType: string, 
-    existingComments: Comment[] = []
+    existingComments: Comment[] = [],
+    isPostAuthor: boolean = false
   ): Promise<GeneratedComment> {
     try {
       const schoolType = this.getSchoolType(post.schoolName);
-      const isOwnPost = post.authorId === commenter.uid;
+      const isOwnPost = isPostAuthor; // 파라미터로 받은 값 사용
 
       // 댓글 스타일 결정
       let style: string, context: string;
@@ -424,7 +433,7 @@ export class CommentService {
         schoolType,
         schoolName: post.schoolName,
         post: { title: post.title, content: post.content, author: post.authorNickname },
-        commenter: { nickname: commenter.nickname },
+        commenter: { nickname: commenter.nickname, isPostAuthor },
         existing: (existingComments || []).slice(0, 10).map(c => ({ author: c.authorNickname, content: c.content })),
         styleHint: style,
         context,
@@ -448,6 +457,9 @@ export class CommentService {
         '댓글 작성 규칙:',
         '- 길이: ≤120자, 1~2문장, 게시글과 직접 관련',
         '- 자연스러운 반응: 공감, 질문, 경험 공유, 조언 등',
+        '- 작성자 구분:',
+        '  * isPostAuthor=true: 게시글 작성자 → 감사 인사, 추가 설명, 정정, 업데이트 위주',
+        '  * isPostAuthor=false: 다른 학생 → 공감, 질문, 경험 공유, 조언, 반박, 칭찬 위주',
         '- 다양성: diversity.lightJoke=true면 가벼운 무해한 농담을 한 구절 내 허용',
         '- 참여유도: diversity.engagementQuestion=true면 짧은 질문형으로 마무리 가능',
         '- 기존 댓글과 표현·논지 중복 금지',
@@ -591,7 +603,13 @@ export class CommentService {
           isBlocked: false
         },
         fake: true, // AI 생성 댓글 표시
-        aiMeta: meta || null,
+        aiMeta: {
+          ...meta,
+          generatedAt: this.FieldValue.serverTimestamp(),
+          version: '1.0',
+          model: 'gpt-3.5-turbo', // 실제 사용 중인 모델로 변경
+          source: 'comment-service'
+        },
         createdAt: this.FieldValue.serverTimestamp(),
         updatedAt: this.FieldValue.serverTimestamp()
       };
@@ -761,10 +779,16 @@ export class CommentService {
           // 기존 댓글들 조회
           const existingComments = await this.getExistingComments(post.id);
           
-          // 댓글을 달 봇 선택 (작성자 포함 가능)
+          // 댓글을 달 봇 선택 (같은 게시글에 너무 많은 댓글 방지)
+          const botCommentCounts = new Map<string, number>();
+          existingComments.forEach(comment => {
+            const count = botCommentCounts.get(comment.authorId) || 0;
+            botCommentCounts.set(comment.authorId, count + 1);
+          });
+          
+          // 같은 게시글에 3개 이상 댓글을 단 봇은 제외
           const availableBots = schoolBots.filter(bot => 
-            // 이미 댓글을 단 봇은 제외 (중복 방지)
-            !existingComments.some(comment => comment.authorId === bot.uid)
+            (botCommentCounts.get(bot.uid) || 0) < 3
           );
 
           if (availableBots.length === 0) {
@@ -772,15 +796,29 @@ export class CommentService {
             continue;
           }
 
-          // 랜덤하게 1-2개 댓글 생성
-          const commentsToGenerate = Math.min(
-            Math.floor(Math.random() * maxCommentsPerPost) + 1,
-            availableBots.length
-          );
-
-          // 봇들을 랜덤하게 섞어서 선택
-          const shuffledBots = availableBots.sort(() => Math.random() - 0.5);
-          const selectedBots = shuffledBots.slice(0, commentsToGenerate);
+          // 게시글 작성자가 아닌 다른 봇들 분리
+          const otherBots = availableBots.filter(bot => bot.uid !== post.authorId);
+          
+          // 첫 댓글이 없는 경우 (댓글 수가 0개) 다른 봇이 우선 작성
+          const isFirstComment = existingComments.length === 0;
+          
+          let selectedBots: typeof availableBots = [];
+          
+          if (isFirstComment && otherBots.length > 0) {
+            // 첫 댓글은 작성자가 아닌 다른 봇이 작성
+            const shuffledOtherBots = otherBots.sort(() => Math.random() - 0.5);
+            selectedBots = shuffledOtherBots.slice(0, 1);
+            console.log(`   🎯 첫 댓글: 다른 봇(${selectedBots[0].nickname})이 작성`);
+          } else {
+            // 일반적인 경우: 랜덤하게 1-2개 댓글 생성
+            const commentsToGenerate = Math.min(
+              Math.floor(Math.random() * maxCommentsPerPost) + 1,
+              availableBots.length
+            );
+            
+            const shuffledBots = availableBots.sort(() => Math.random() - 0.5);
+            selectedBots = shuffledBots.slice(0, commentsToGenerate);
+          }
 
           for (const bot of selectedBots) {
             try {
@@ -794,15 +832,19 @@ export class CommentService {
               let commentContent: string;
               let parentCommentId: string | undefined;
               
+              // 작성자인지 여부 확인
+              const isPostAuthor = bot.uid === post.authorId;
+              
               if (shouldCreateReply) {
                 // 대댓글 생성
                 const parentComment = currentComments[Math.floor(Math.random() * currentComments.length)];
                 parentCommentId = parentComment.id;
-                generated = await this.generateReplyComment(post, bot, parentComment);
+                generated = await this.generateReplyComment(post, bot, parentComment, isPostAuthor);
                 commentContent = generated.content;
               } else {
-                // 일반 댓글 생성
-                generated = await this.generateComment(post, bot, 'comment', currentComments);
+                // 일반 댓글 생성 (작성자 여부에 따라 다른 스타일)
+                const commentType = isPostAuthor ? 'own_post' : 'others_post';
+                generated = await this.generateComment(post, bot, commentType, currentComments, isPostAuthor);
                 commentContent = generated.content;
               }
               
@@ -819,7 +861,7 @@ export class CommentService {
             }
           }
 
-          console.log(`   ✅ ${commentsToGenerate}개 댓글 생성 완료`);
+          console.log(`   ✅ ${selectedBots.length}개 댓글 생성 완료`);
 
           // 진행률 콜백 호출
           if (onProgress) {
@@ -852,46 +894,71 @@ export class CommentService {
     try {
       console.log(`💬 랜덤 게시글들에 ${commentCount}개 댓글 생성 시작...`);
 
-      // 댓글이 필요한 게시글들 조회 (댓글 수가 적은 순으로)
+      // 댓글이 필요한 게시글들 조회 (최근 게시글 중 댓글 수가 적은 것들)
       const postsQuery = await this.db
         .collection('posts')
-        .where('boardCode', '==', 'free')
-        .orderBy('stats.commentCount', 'asc')
-        .limit(commentCount * 2) // 여유분 확보
+        .where('status.isDeleted', '==', false)
+        .orderBy('createdAt', 'desc')
+        .limit(commentCount * 3) // 여유분 확보하여 최근 게시글들 조회
         .get();
 
       if (postsQuery.empty) {
         throw new Error('댓글을 달 게시글이 없습니다.');
       }
 
-      const availablePosts = postsQuery.docs.map(doc => ({
+      const allPosts = postsQuery.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as (Post & { id: string })[];
 
-      let generatedCount = 0;
+      // 댓글 수가 적은 게시글들 우선 선택 (0-5개 댓글)
+      const lowCommentPosts = allPosts.filter(post => {
+        const postData = post as Post & { id: string; stats?: { commentCount?: number } };
+        return (postData.stats?.commentCount || 0) <= 5;
+      });
+      const candidatePosts = lowCommentPosts.length > 0 ? lowCommentPosts : allPosts.slice(0, commentCount * 2);
+      
+      // 게시글들을 랜덤하게 섞어서 선택
+      const shuffledPosts = candidatePosts.sort(() => Math.random() - 0.5);
+      const availablePosts = shuffledPosts.slice(0, Math.min(commentCount * 2, shuffledPosts.length));
 
-      for (let i = 0; i < commentCount && i < availablePosts.length; i++) {
+      console.log(`📊 전체 게시글: ${allPosts.length}개, 댓글 적은 게시글: ${candidatePosts.length}개, 선택된 게시글: ${availablePosts.length}개`);
+
+      let generatedCount = 0;
+      let attempts = 0;
+      const maxAttempts = availablePosts.length * 2; // 재시도 제한
+
+      while (generatedCount < commentCount && attempts < maxAttempts) {
+        const postIndex = attempts % availablePosts.length;
         try {
-          const post = availablePosts[i];
+          const post = availablePosts[postIndex];
           
           // 해당 학교의 봇들 조회
           const schoolBots = await this.getSchoolBots(post.schoolId);
           if (schoolBots.length === 0) {
             console.warn(`${post.schoolName}에 봇이 없습니다.`);
+            attempts++;
             continue;
           }
 
           // 기존 댓글들 조회
           const existingComments = await this.getExistingComments(post.id);
           
-          // 댓글을 달 수 있는 봇 선택 (중복 방지)
+          // 댓글을 달 수 있는 봇 선택 (같은 게시글에 너무 많은 댓글 방지)
+          const botCommentCounts = new Map<string, number>();
+          existingComments.forEach(comment => {
+            const count = botCommentCounts.get(comment.authorId) || 0;
+            botCommentCounts.set(comment.authorId, count + 1);
+          });
+          
+          // 같은 게시글에 3개 이상 댓글을 단 봇은 제외
           const availableBots = schoolBots.filter(bot => 
-            !existingComments.some(comment => comment.authorId === bot.uid)
+            (botCommentCounts.get(bot.uid) || 0) < 3
           );
 
           if (availableBots.length === 0) {
             console.warn(`게시글 ${post.id}에 댓글을 달 수 있는 봇이 없습니다.`);
+            attempts++;
             continue;
           }
 
@@ -900,6 +967,9 @@ export class CommentService {
           
           // 실시간으로 최신 댓글들 다시 조회 (새로 생성된 댓글 반영)
           const currentComments = await this.getExistingComments(post.id);
+          
+          // 작성자인지 여부 확인
+          const isPostAuthor = randomBot.uid === post.authorId;
           
           // 대댓글 생성 여부 결정 (40% 확률)
           const shouldCreateReply = Math.random() < this.commentTypes.reply.probability && currentComments.length > 0;
@@ -912,15 +982,17 @@ export class CommentService {
             // 대댓글 생성
             const parentComment = currentComments[Math.floor(Math.random() * currentComments.length)];
             parentCommentId = parentComment.id;
-            generated = await this.generateReplyComment(post as Post, randomBot, parentComment);
+            generated = await this.generateReplyComment(post as Post, randomBot, parentComment, isPostAuthor);
             commentContent = generated.content;
           } else {
-            // 일반 댓글 생성
+            // 일반 댓글 생성 (작성자 여부에 따라 다른 스타일)
+            const commentType = isPostAuthor ? 'own_post' : 'others_post';
             generated = await this.generateComment(
               post as Post, 
               randomBot, 
-              'comment', 
-              currentComments
+              commentType, 
+              currentComments,
+              isPostAuthor
             );
             commentContent = generated.content;
           }
@@ -930,7 +1002,7 @@ export class CommentService {
           generatedCount++;
 
           if (onProgress) {
-            onProgress(i + 1, commentCount, `댓글 생성 중... (${i + 1}/${commentCount})`);
+            onProgress(generatedCount, commentCount, `댓글 생성 중... (${generatedCount}/${commentCount})`);
           }
 
           // 딜레이 (API 부하 방지)
@@ -939,6 +1011,8 @@ export class CommentService {
         } catch (commentError) {
           console.error(`댓글 생성 실패:`, commentError);
         }
+        
+        attempts++;
       }
 
       console.log(`✅ ${generatedCount}개 댓글 생성 완료`);
@@ -1012,6 +1086,9 @@ export class CommentService {
           // 실시간으로 최신 댓글들 다시 조회 (새로 생성된 댓글 반영)
           const currentComments = await this.getExistingComments(post.id);
           
+          // 작성자인지 여부 확인
+          const isPostAuthor = bot.uid === post.authorId;
+          
           // 대댓글 생성 여부 결정 (40% 확률)
           const shouldCreateReply = Math.random() < this.commentTypes.reply.probability && currentComments.length > 0;
           let commentContent: string;
@@ -1021,12 +1098,13 @@ export class CommentService {
             // 대댓글 생성
             const parentComment = currentComments[Math.floor(Math.random() * currentComments.length)];
             parentCommentId = parentComment.id;
-            const generated = await this.generateReplyComment(post, bot, parentComment);
+            const generated = await this.generateReplyComment(post, bot, parentComment, isPostAuthor);
             commentContent = generated.content;
             await this.createComment(post.id, commentContent, bot, parentCommentId, generated?.meta);
           } else {
-            // 일반 댓글 생성
-            const generated = await this.generateComment(post, bot, 'comment', currentComments);
+            // 일반 댓글 생성 (작성자 여부에 따라 다른 스타일)
+            const commentType = isPostAuthor ? 'own_post' : 'others_post';
+            const generated = await this.generateComment(post, bot, commentType, currentComments, isPostAuthor);
             commentContent = generated.content;
             await this.createComment(post.id, commentContent, bot, parentCommentId, generated?.meta);
           }

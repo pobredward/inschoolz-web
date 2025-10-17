@@ -54,48 +54,82 @@ export async function GET(request: NextRequest) {
     
     const offset = (page - 1) * limit;
 
-    // AI 댓글 조회 (fake: true)
-    let query = db.collection('comments').where('fake', '==', true);
+    // AI 댓글 조회 (fake: true, 삭제되지 않은 것만) - 최신순 정렬 추가
+    let query = db.collection('comments')
+      .where('fake', '==', true)
+      .where('status.isDeleted', '==', false)
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .offset(offset);
 
-    // 상태별 필터링 (승인 관련 필터링 제거)
-    // 모든 AI 댓글을 표시
-
-    // 댓글 조회 (인덱스 문제를 피하기 위해 orderBy 제거)
-    const snapshot = await query.limit(limit + offset).get();
-    
-    // 페이지네이션을 위한 수동 슬라이싱
-    const allDocs = snapshot.docs.slice(offset, offset + limit);
+    const snapshot = await query.get();
     
     const comments: Comment[] = [];
     
-    for (const doc of allDocs) {
+    // 게시글 ID들을 수집하여 배치 조회
+    const postIds = new Set<string>();
+    const schoolIds = new Set<string>();
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.postId) {
+        postIds.add(data.postId);
+      }
+    });
+
+    // 게시글 정보 배치 조회
+    const postMap = new Map<string, any>();
+    if (postIds.size > 0) {
+      const postPromises = Array.from(postIds).map(async (postId) => {
+        try {
+          const postDoc = await db.collection('posts').doc(postId).get();
+          if (postDoc.exists) {
+            const postData = postDoc.data();
+            postMap.set(postId, postData);
+            if (postData?.schoolId) {
+              schoolIds.add(postData.schoolId);
+            }
+          }
+        } catch (err) {
+          console.warn(`게시글 조회 실패 (${postId}):`, err);
+        }
+      });
+      await Promise.all(postPromises);
+    }
+
+    // 학교 정보 배치 조회
+    const schoolMap = new Map<string, any>();
+    if (schoolIds.size > 0) {
+      const schoolPromises = Array.from(schoolIds).map(async (schoolId) => {
+        try {
+          const schoolDoc = await db.collection('schools').doc(schoolId).get();
+          if (schoolDoc.exists) {
+            schoolMap.set(schoolId, schoolDoc.data());
+          }
+        } catch (err) {
+          console.warn(`학교 조회 실패 (${schoolId}):`, err);
+        }
+      });
+      await Promise.all(schoolPromises);
+    }
+
+    // 댓글 데이터 구성
+    snapshot.docs.forEach(doc => {
       const data = doc.data();
       
-      // 게시글 정보 조회
       let postTitle = '게시글 제목 없음';
       let schoolName = '학교 정보 없음';
       let schoolId = '';
       
-      try {
-        if (data.postId) {
-          const postDoc = await db.collection('posts').doc(data.postId).get();
-          if (postDoc.exists) {
-            const postData = postDoc.data();
-            postTitle = postData?.title || '제목 없음';
-            schoolId = postData?.schoolId || '';
-            
-            // 학교 정보 조회
-            if (postData?.schoolId) {
-              const schoolDoc = await db.collection('schools').doc(postData.schoolId).get();
-              if (schoolDoc.exists) {
-                const schoolData = schoolDoc.data();
-                schoolName = schoolData?.KOR_NAME || '학교명 없음';
-              }
-            }
-          }
+      if (data.postId && postMap.has(data.postId)) {
+        const postData = postMap.get(data.postId);
+        postTitle = postData?.title || '제목 없음';
+        schoolId = postData?.schoolId || '';
+        
+        if (schoolId && schoolMap.has(schoolId)) {
+          const schoolData = schoolMap.get(schoolId);
+          schoolName = schoolData?.KOR_NAME || '학교명 없음';
         }
-      } catch (err) {
-        console.warn('게시글/학교 정보 조회 실패:', err);
       }
 
       comments.push({
@@ -110,10 +144,13 @@ export async function GET(request: NextRequest) {
         createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         fake: data.fake || false
       });
-    }
+    });
 
-    // 총 개수 조회 (별도 쿼리)
-    const totalSnapshot = await db.collection('comments').where('fake', '==', true).get();
+    // 총 개수 조회 (별도 쿼리, 삭제되지 않은 것만)
+    const totalSnapshot = await db.collection('comments')
+      .where('fake', '==', true)
+      .where('status.isDeleted', '==', false)
+      .get();
     const total = totalSnapshot.size;
 
     console.log(`✅ AI 댓글 조회 완료: ${comments.length}개 (전체: ${total}개)`);
@@ -166,11 +203,11 @@ export async function POST(request: NextRequest) {
     });
 
     // 프로세스 출력 로깅
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', (data: Buffer) => {
       console.log('댓글 생성 출력:', data.toString());
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', (data: Buffer) => {
       console.error('댓글 생성 오류:', data.toString());
     });
 

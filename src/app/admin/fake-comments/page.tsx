@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, RefreshCw, Search, CheckCircle, XCircle, Eye, Trash2 } from 'lucide-react';
+import { MessageCircle, RefreshCw, Search, Trash2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -16,13 +16,11 @@ interface FakeComment {
   postId: string;
   postTitle: string;
   authorId: string;
-  authorName: string;
+  authorNickname: string;
   schoolId: string;
   schoolName: string;
   createdAt: string;
-  isApproved: boolean;
-  isPending: boolean;
-  likeCount: number;
+  fake: boolean;
 }
 
 export default function FakeCommentsPage() {
@@ -30,17 +28,20 @@ export default function FakeCommentsPage() {
   const [comments, setComments] = useState<FakeComment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalComments, setTotalComments] = useState(0);
+  const [itemsPerPage] = useState(20);
 
   // 댓글 목록 가져오기
-  const fetchComments = async () => {
+  const fetchComments = async (page: number = currentPage) => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/admin/fake-comments');
+      const response = await fetch(`/api/admin/comments?page=${page}&limit=${itemsPerPage}`);
       const result = await response.json();
       
       if (result.success) {
         setComments(result.data || []);
+        setTotalComments(result.total || 0);
         toast.success(`${result.data.length}개의 AI 댓글을 조회했습니다.`);
       } else {
         throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
@@ -54,54 +55,13 @@ export default function FakeCommentsPage() {
     }
   };
 
-  // 댓글 승인
-  const approveComment = async (commentId: string) => {
-    try {
-      const response = await fetch(`/api/admin/fake-comments/${commentId}/approve`, {
-        method: 'POST'
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success('댓글이 승인되었습니다.');
-        await fetchComments();
-      } else {
-        throw new Error(result.error || '댓글 승인 실패');
-      }
-    } catch (error) {
-      console.error('댓글 승인 오류:', error);
-      toast.error('댓글 승인에 실패했습니다.');
-    }
-  };
-
-  // 댓글 거부
-  const rejectComment = async (commentId: string) => {
-    try {
-      const response = await fetch(`/api/admin/fake-comments/${commentId}/reject`, {
-        method: 'POST'
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success('댓글이 거부되었습니다.');
-        await fetchComments();
-      } else {
-        throw new Error(result.error || '댓글 거부 실패');
-      }
-    } catch (error) {
-      console.error('댓글 거부 오류:', error);
-      toast.error('댓글 거부에 실패했습니다.');
-    }
-  };
 
   // 댓글 삭제
   const deleteComment = async (commentId: string) => {
     if (!confirm('정말로 이 댓글을 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`/api/admin/fake-comments/${commentId}`, {
+      const response = await fetch(`/api/admin/comments?id=${commentId}`, {
         method: 'DELETE'
       });
       
@@ -123,24 +83,24 @@ export default function FakeCommentsPage() {
     fetchComments();
   }, []);
 
+  // 페이지 변경 핸들러
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    fetchComments(page);
+  };
+
+  // 총 페이지 수 계산
+  const totalPages = Math.ceil(totalComments / itemsPerPage);
+
   // 필터링된 댓글
   const filteredComments = comments.filter(comment => {
     const matchesSearch = (comment.content || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (comment.postTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (comment.authorName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (comment.authorNickname || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (comment.schoolName || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    let matchesStatus = true;
-    if (statusFilter === 'pending') matchesStatus = comment.isPending;
-    else if (statusFilter === 'approved') matchesStatus = comment.isApproved;
-    else if (statusFilter === 'rejected') matchesStatus = !comment.isApproved && !comment.isPending;
-    
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
-
-  const pendingCount = comments.filter(c => c.isPending).length;
-  const approvedCount = comments.filter(c => c.isApproved).length;
-  const rejectedCount = comments.filter(c => !c.isApproved && !c.isPending).length;
 
   if (!user?.profile?.isAdmin) {
     return (
@@ -174,13 +134,13 @@ export default function FakeCommentsPage() {
       </div>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">총 댓글</p>
-                <p className="text-2xl font-bold">{comments.length}</p>
+                <p className="text-sm font-medium text-muted-foreground">총 AI 댓글</p>
+                <p className="text-2xl font-bold">{totalComments}</p>
               </div>
               <MessageCircle className="h-8 w-8 text-blue-600" />
             </div>
@@ -190,82 +150,26 @@ export default function FakeCommentsPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">검토 대기</p>
-                <p className="text-2xl font-bold">{pendingCount}</p>
+                <p className="text-sm font-medium text-muted-foreground">검색 결과</p>
+                <p className="text-2xl font-bold">{filteredComments.length}</p>
               </div>
-              <Eye className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">승인됨</p>
-                <p className="text-2xl font-bold">{approvedCount}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">거부됨</p>
-                <p className="text-2xl font-bold">{rejectedCount}</p>
-              </div>
-              <XCircle className="h-8 w-8 text-red-600" />
+              <Search className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 검색 및 필터 */}
+      {/* 검색 */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="댓글 내용, 게시글 제목, 작성자, 학교명으로 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={statusFilter === 'all' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('all')}
-                size="sm"
-              >
-                전체
-              </Button>
-              <Button
-                variant={statusFilter === 'pending' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('pending')}
-                size="sm"
-              >
-                검토 대기 ({pendingCount})
-              </Button>
-              <Button
-                variant={statusFilter === 'approved' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('approved')}
-                size="sm"
-              >
-                승인됨 ({approvedCount})
-              </Button>
-              <Button
-                variant={statusFilter === 'rejected' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('rejected')}
-                size="sm"
-              >
-                거부됨 ({rejectedCount})
-              </Button>
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="댓글 내용, 게시글 제목, 작성자, 학교명으로 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </CardContent>
       </Card>
@@ -292,14 +196,7 @@ export default function FakeCommentsPage() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge 
-                          variant={
-                            comment.isPending ? "secondary" : 
-                            comment.isApproved ? "default" : "destructive"
-                          }
-                        >
-                          {comment.isPending ? '검토 대기' : comment.isApproved ? '승인됨' : '거부됨'}
-                        </Badge>
+                        <Badge variant="default">AI 댓글</Badge>
                         <Badge variant="outline">{comment.schoolName}</Badge>
                         <span className="text-sm text-muted-foreground">
                           {new Date(comment.createdAt).toLocaleDateString()}
@@ -308,35 +205,24 @@ export default function FakeCommentsPage() {
                       <p className="font-medium mb-1">게시글: {comment.postTitle}</p>
                       <p className="text-sm mb-2">{comment.content}</p>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>작성자: {comment.authorName}</span>
-                        <span>좋아요: {comment.likeCount}</span>
+                        <span>작성자: {comment.authorNickname}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {comment.isPending && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => approveComment(comment.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            승인
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => rejectComment(comment.id)}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            거부
-                          </Button>
-                        </>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        asChild
+                      >
+                        <Link href={`/community/school/${comment.schoolId}/free/${comment.postId}/fast`} target="_blank">
+                          <ExternalLink className="h-4 w-4" />
+                        </Link>
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => deleteComment(comment.id)}
+                        className="text-red-600 hover:text-red-700"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -348,6 +234,55 @@ export default function FakeCommentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
+                총 {totalComments}개 중 {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, totalComments)}개 표시
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                >
+                  이전
+                </Button>
+                
+                {/* 페이지 번호들 */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                  if (pageNum > totalPages) return null;
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                >
+                  다음
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
