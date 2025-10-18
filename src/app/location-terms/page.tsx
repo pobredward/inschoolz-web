@@ -143,9 +143,9 @@ export default function LocationTermsPage() {
                   <li><strong>상호:</strong> 온마인드랩</li>
                   <li><strong>대표자:</strong> 신선웅</li>
                   <li><strong>사업자등록번호:</strong> 166-22-02407</li>
-                  <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1, 203호(야탑동)</li>
-                  <li><strong>연락처:</strong> 010-6711-7933</li>
-                  <li><strong>이메일:</strong> pobredward@gmail.com</li>
+                  <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1</li>
+                  <li><strong>연락처:</strong> 010-7656-7933</li>
+                  <li><strong>이메일:</strong> inschoolz.official@gmail.com</li>
                 </ul>
               </div>
             </div>

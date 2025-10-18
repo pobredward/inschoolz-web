@@ -254,7 +254,7 @@ export default function SupportPage() {
                   <Mail className="h-5 w-5 text-green-600" />
                   <div>
                     <p className="font-medium">이메일</p>
-                    <p className="text-sm text-gray-600">pobredward@gmail.com</p>
+                    <p className="text-sm text-gray-600">inschoolz.official@gmail.com</p>
                   </div>
                 </div>
 

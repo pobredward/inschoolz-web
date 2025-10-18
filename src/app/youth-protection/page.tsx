@@ -25,8 +25,8 @@ export default function YouthProtectionPage() {
             <div className="ml-4 space-y-2 bg-gray-50 p-4 rounded">
               <p><strong>청소년보호책임자</strong></p>
               <p>• 이름: 인스쿨즈 팀</p>
-              <p>• 연락처: pobredward@gmail.com</p>
-              <p>• 전화번호: 010-6711-7933</p>
+              <p>• 연락처: inschoolz.official@gmail.com</p>
+              <p>• 전화번호: 010-7656-7933</p>
             </div>
           </div>
         </section>
@@ -71,8 +71,8 @@ export default function YouthProtectionPage() {
           <div className="space-y-4">
             <p>1. 이용자는 본 사이트 내에서 청소년에게 유해한 정보를 발견할 경우 다음의 방법으로 신고할 수 있습니다:</p>
             <ul className="ml-4 space-y-1">
-              <li>• 이메일: pobredward@gmail.com</li>
-              <li>• 전화: 010-6711-7933</li>
+              <li>• 이메일: inschoolz.official@gmail.com</li>
+              <li>• 전화: 010-7656-7933</li>
               <li>• 사이트 내 신고 기능 이용</li>
             </ul>
             <p>2. 신고된 정보에 대해서는 24시간 이내에 확인하고 필요한 조치를 취합니다.</p>

@@ -59,10 +59,10 @@ export default function Footer() {
             © 2025 inschoolz. All rights reserved.
           </div>
           <Link 
-            href="mailto:pobredward@gmail.com" 
+            href="mailto:inschoolz.official@gmail.com" 
             className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
-            pobredward@gmail.com
+            inschoolz.official@gmail.com
           </Link>
         </div>
       </div>

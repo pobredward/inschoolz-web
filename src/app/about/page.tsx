@@ -40,8 +40,8 @@ export default function AboutPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4">연락처</h2>
           <div className="text-gray-700">
-            <p>이메일: pobredward@gmail.com</p>
-            <p>주소: 서울특별시 강남구 테헤란로 123</p>
+            <p>이메일: inschoolz.official@gmail.com</p>
+            <p>주소: 경기 성남시 분당구 야탑로 139번길 5-1</p>
           </div>
         </section>
       </div>
