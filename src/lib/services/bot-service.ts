@@ -455,11 +455,21 @@ export class BotService {
     onProgress?: ProgressCallback
   ): Promise<BotCreationSummary> {
     console.log(`🚀 [BOT-SERVICE] createBotsForSchools 시작`);
-    console.log(`📊 [BOT-SERVICE] 파라미터:`, { schoolLimit, botsPerSchool });
+    
+    const isRandomMode = botsPerSchool === -1;
+    if (isRandomMode) {
+      console.log(`📊 [BOT-SERVICE] 파라미터:`, { schoolLimit, botsPerSchool: '2~4개 랜덤' });
+    } else {
+      console.log(`📊 [BOT-SERVICE] 파라미터:`, { schoolLimit, botsPerSchool });
+    }
     
     try {
       console.log(`🤖 [BOT-SERVICE] 학교별 봇 계정 생성 시작...`);
-      console.log(`📊 [BOT-SERVICE] 설정: ${schoolLimit}개 학교, 학교당 ${botsPerSchool}개 봇\n`);
+      if (isRandomMode) {
+        console.log(`📊 [BOT-SERVICE] 설정: ${schoolLimit}개 학교, 학교당 2~4개 봇 (랜덤)\n`);
+      } else {
+        console.log(`📊 [BOT-SERVICE] 설정: ${schoolLimit}개 학교, 학교당 ${botsPerSchool}개 봇\n`);
+      }
 
       // 1단계: 전체 학교 목록 가져오기
       console.log('🏫 [BOT-SERVICE] 전체 학교 목록 조회 중...');
@@ -530,16 +540,25 @@ export class BotService {
           const schoolStart = Date.now();
           
           try {
+            // 랜덤 모드인 경우 2~4개 중 랜덤 선택
+            const actualBotsPerSchool = isRandomMode 
+              ? Math.floor(Math.random() * 3) + 2  // 2~4 사이의 랜덤 숫자
+              : botsPerSchool;
+              
             const createdBots = await this.createBotsForSchool(
               school.id, 
               school.name, 
-              botsPerSchool
+              actualBotsPerSchool
             );
 
             const schoolEnd = Date.now();
             const schoolDuration = schoolEnd - schoolStart;
 
-            console.log(`✅ [BOT-SERVICE] ${school.name} 완료 (${schoolDuration}ms): ${createdBots.length}개 봇 생성`);
+            if (isRandomMode) {
+              console.log(`✅ [BOT-SERVICE] ${school.name} 완료 (${schoolDuration}ms): ${createdBots.length}개 봇 생성 (랜덤: ${actualBotsPerSchool}개 요청)`);
+            } else {
+              console.log(`✅ [BOT-SERVICE] ${school.name} 완료 (${schoolDuration}ms): ${createdBots.length}개 봇 생성`);
+            }
             
             return { school, createdBots, globalIndex };
           } catch (error) {

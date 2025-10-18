@@ -320,11 +320,11 @@ async function executeOperation(operationId: string, type: string, params: any) 
  * 봇 계정 대량 생성
  */
 async function executeBotCreation(operationId: string, params: any) {
-  const { schoolCount = 100, schoolIds, botsPerSchool = 1 } = params;
+  const { schoolCount = 100, schoolIds, botsPerSchool = 1, randomBotsPerSchool = false } = params;
   
   console.log(`🚀 [BOT-CREATE] 봇 생성 작업 시작`);
   console.log(`📋 [BOT-CREATE] 작업 ID: ${operationId}`);
-  console.log(`📊 [BOT-CREATE] 파라미터:`, { schoolCount, schoolIds, botsPerSchool });
+  console.log(`📊 [BOT-CREATE] 파라미터:`, { schoolCount, schoolIds, botsPerSchool, randomBotsPerSchool });
   
   try {
     const operation = operations.get(operationId);
@@ -369,15 +369,21 @@ async function executeBotCreation(operationId: string, params: any) {
 
     console.log('🚀 [BOT-CREATE] 봇 생성 실행 시작...');
     console.log(`🎯 [BOT-CREATE] 대상 학교 수: ${schoolIds ? schoolIds.length : schoolCount}`);
-    console.log(`🤖 [BOT-CREATE] 학교당 봇 수: ${botsPerSchool}`);
-    console.log(`📊 [BOT-CREATE] 예상 총 봇 수: ${(schoolIds ? schoolIds.length : schoolCount) * botsPerSchool}`);
+    
+    if (randomBotsPerSchool) {
+      console.log(`🎲 [BOT-CREATE] 학교당 봇 수: 2~4개 랜덤 생성`);
+      console.log(`📊 [BOT-CREATE] 예상 총 봇 수: ${(schoolIds ? schoolIds.length : schoolCount) * 2.5} (평균)`);
+    } else {
+      console.log(`🤖 [BOT-CREATE] 학교당 봇 수: ${botsPerSchool}`);
+      console.log(`📊 [BOT-CREATE] 예상 총 봇 수: ${(schoolIds ? schoolIds.length : schoolCount) * botsPerSchool}`);
+    }
     
     const startTime = Date.now();
     
     // 봇 생성 실행
     const result = await botService.createBotsForSchools(
       schoolIds ? schoolIds.length : schoolCount, 
-      botsPerSchool, // 파라미터로 받은 학교당 봇 수 사용
+      randomBotsPerSchool ? -1 : botsPerSchool, // -1은 랜덤 생성을 의미
       onProgress
     );
 

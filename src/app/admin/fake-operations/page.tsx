@@ -78,9 +78,9 @@ export default function FakeOperationsPage() {
   };
 
   // 봇 계정 대량 생성
-  const startBotGeneration = async (schoolLimit: number, botsPerSchool: number) => {
+  const startBotGeneration = async (schoolLimit: number) => {
     console.log(`🚀 [BOT-GEN] 봇 생성 시작`);
-    console.log(`📊 [BOT-GEN] 파라미터:`, { schoolLimit, botsPerSchool });
+    console.log(`📊 [BOT-GEN] 파라미터:`, { schoolLimit, randomBotsPerSchool: '2-4개 랜덤' });
     
     try {
       console.log(`📡 [BOT-GEN] API 호출: /api/admin/bulk-operations`);
@@ -89,7 +89,7 @@ export default function FakeOperationsPage() {
         type: 'generate_bots',
         parameters: { 
           schoolCount: schoolLimit, // 백엔드에서 기대하는 파라미터명
-          botsPerSchool 
+          randomBotsPerSchool: true // 학교당 2~4개 랜덤 생성 플래그
         }
       };
       
@@ -112,7 +112,7 @@ export default function FakeOperationsPage() {
       
       if (result.success) {
         console.log(`✅ [BOT-GEN] 성공: 작업 ID ${result.operationId}`);
-        toast.success('봇 계정 대량 생성이 시작되었습니다.');
+        toast.success('봇 계정 대량 생성이 시작되었습니다. (학교당 2~4개 랜덤 생성)');
         await fetchOperations();
       } else {
         console.error(`❌ [BOT-GEN] 실패:`, result.error);
@@ -575,9 +575,14 @@ export default function FakeOperationsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-700">
+              🎲 각 학교마다 2~4개의 봇이 랜덤으로 생성됩니다.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Button
-              onClick={() => startBotGeneration(10, 1)}
+              onClick={() => startBotGeneration(10)}
               disabled={hasRunningOperations}
               className="flex items-center gap-2"
             >
@@ -585,7 +590,7 @@ export default function FakeOperationsPage() {
               10개 학교 봇 생성
             </Button>
             <Button
-              onClick={() => startBotGeneration(50, 1)}
+              onClick={() => startBotGeneration(50)}
               disabled={hasRunningOperations}
               variant="outline"
               className="flex items-center gap-2"
@@ -596,7 +601,7 @@ export default function FakeOperationsPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Button
-              onClick={() => startBotGeneration(100, 1)}
+              onClick={() => startBotGeneration(100)}
               disabled={hasRunningOperations}
               variant="outline"
               className="flex items-center gap-2"
@@ -605,7 +610,7 @@ export default function FakeOperationsPage() {
               100개 학교 봇 생성
             </Button>
             <Button
-              onClick={() => startBotGeneration(500, 1)}
+              onClick={() => startBotGeneration(500)}
               disabled={hasRunningOperations}
               variant="outline"
               className="flex items-center gap-2"

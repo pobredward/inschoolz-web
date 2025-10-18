@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -21,7 +20,14 @@ import {
   RefreshCw,
   Filter,
   Download,
-  ChevronDown
+  ChevronDown,
+  Eye,
+  Mail,
+  School,
+  MapPin,
+  Calendar,
+  Award,
+  Shield
 } from 'lucide-react';
 import { 
   getEnhancedUsersList, 
@@ -71,6 +77,7 @@ export default function AdminUsersPage() {
   const [experienceDialog, setExperienceDialog] = useState<{ isOpen: boolean; user: User | null }>({ isOpen: false, user: null });
   const [suspensionDialog, setSuspensionDialog] = useState<{ isOpen: boolean; user: User | null }>({ isOpen: false, user: null });
   const [csvExportDialog, setCsvExportDialog] = useState(false);
+  const [userDetailDialog, setUserDetailDialog] = useState<{ isOpen: boolean; user: User | null }>({ isOpen: false, user: null });
   
   // 폼 상태
   const [warningForm, setWarningForm] = useState({ reason: '' });
@@ -349,18 +356,19 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">사용자 관리</h1>
-          <p className="text-gray-600">총 {totalCount}명의 사용자</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">사용자 관리</h1>
+          <p className="text-sm sm:text-base text-gray-600">총 {totalCount}명의 사용자</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={exportToCSV} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            CSV 내보내기
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button onClick={exportToCSV} variant="outline" size="sm" className="text-xs sm:text-sm">
+            <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">CSV 내보내기</span>
+            <span className="sm:hidden">내보내기</span>
           </Button>
-          <Button onClick={() => loadUsers()} disabled={isLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <Button onClick={() => loadUsers()} disabled={isLoading} size="sm" className="text-xs sm:text-sm">
+            <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             새로고침
           </Button>
         </div>
@@ -388,12 +396,12 @@ export default function AdminUsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
-            <div className="lg:col-span-2">
-              <Label htmlFor="search">검색</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 mb-4">
+            <div className="sm:col-span-2 lg:col-span-2">
+              <Label htmlFor="search" className="text-sm">검색</Label>
               <div className="flex gap-2">
                 <Select value={searchType} onValueChange={(value: typeof searchType) => setSearchType(value)}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-20 sm:w-32 text-xs sm:text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -410,18 +418,18 @@ export default function AdminUsersPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="flex-1"
+                  className="flex-1 text-sm"
                 />
-                <Button onClick={handleSearch}>
-                  <Search className="h-4 w-4" />
+                <Button onClick={handleSearch} size="sm">
+                  <Search className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
             
             <div>
-              <Label htmlFor="role">역할</Label>
+              <Label htmlFor="role" className="text-sm">역할</Label>
               <Select value={roleFilter} onValueChange={(value: typeof roleFilter) => setRoleFilter(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -433,9 +441,9 @@ export default function AdminUsersPage() {
             </div>
             
             <div>
-              <Label htmlFor="status">상태</Label>
+              <Label htmlFor="status" className="text-sm">상태</Label>
               <Select value={statusFilter} onValueChange={(value: typeof statusFilter) => setStatusFilter(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -448,9 +456,9 @@ export default function AdminUsersPage() {
             </div>
             
             <div>
-              <Label htmlFor="fake">사용자 유형</Label>
+              <Label htmlFor="fake" className="text-sm">사용자 유형</Label>
               <Select value={fakeFilter} onValueChange={(value: typeof fakeFilter) => setFakeFilter(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -462,13 +470,13 @@ export default function AdminUsersPage() {
             </div>
             
             <div>
-              <Label htmlFor="sort">정렬</Label>
+              <Label htmlFor="sort" className="text-sm">정렬</Label>
               <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
                 const [field, order] = value.split('-');
                 setSortBy(field as typeof sortBy);
                 setSortOrder(order as typeof sortOrder);
               }}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -618,160 +626,123 @@ export default function AdminUsersPage() {
       {/* 사용자 목록 */}
       <Card>
         <CardHeader>
-          <CardTitle>사용자 목록</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>사용자 목록</CardTitle>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={selectedUsers.length === users.length && users.length > 0}
+                onCheckedChange={handleSelectAll}
+              />
+              <span className="text-sm text-gray-600">전체 선택</span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8">로딩 중...</div>
           ) : (
             <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
+              {/* 사용자 리스트 */}
+              <div className="space-y-2">
+                {users.map((user) => (
+                  <div
+                    key={user.uid}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors gap-3 sm:gap-0"
+                    onClick={() => setUserDetailDialog({ isOpen: true, user })}
+                  >
+                    <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 flex-1">
                       <Checkbox
-                        checked={selectedUsers.length === users.length && users.length > 0}
-                        onCheckedChange={handleSelectAll}
+                        checked={selectedUsers.includes(user.uid)}
+                        onCheckedChange={(checked) => handleUserSelect(user.uid, checked as boolean)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1 sm:mt-0"
                       />
-                    </TableHead>
-                    <TableHead>사용자</TableHead>
-                    <TableHead>학교</TableHead>
-                    <TableHead>지역</TableHead>
-                    <TableHead>역할</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead>유형</TableHead>
-                    <TableHead>레벨/경험치</TableHead>
-                    <TableHead>경고</TableHead>
-                    <TableHead>가입일</TableHead>
-                    <TableHead>작업</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.uid}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedUsers.includes(user.uid)}
-                          onCheckedChange={(checked) => handleUserSelect(user.uid, checked as boolean)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                            <Users className="h-4 w-4 text-green-600" />
-                          </div>
-                          <div>
-                            <div className="font-medium">{user.profile?.userName || user.email}</div>
-                            <div className="text-sm text-gray-500">{user.profile?.realName || '-'}</div>
+                      
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Users className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2 sm:mb-1">
+                          <h3 className="text-sm sm:text-base font-medium text-gray-900 truncate">
+                            {user.profile?.userName || user.email}
+                          </h3>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge className={`text-xs ${getRoleColor(user.role)}`}>
+                              {user.role === 'admin' ? '관리자' : user.role === 'student' ? '학생' : user.role === 'teacher' ? '교사' : '일반 사용자'}
+                            </Badge>
+                            <Badge className={`text-xs ${getStatusColor(user.status)}`}>
+                              {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : user.status === 'suspended' ? '정지' : '알 수 없음'}
+                            </Badge>
+                            <Badge className={`text-xs ${user.fake ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                              {user.fake ? '봇' : '실제'}
+                            </Badge>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>{user.school?.name || '-'}</TableCell>
-                      <TableCell>
-                        {user.regions ? `${user.regions.sido || ''} ${user.regions.sigungu || ''}`.trim() || '-' : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getRoleColor(user.role)}>
-                          {user.role === 'admin' ? '관리자' : user.role === 'student' ? '학생' : user.role === 'teacher' ? '교사' : '일반 사용자'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(user.status)}>
-                          {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : user.status === 'suspended' ? '정지' : '알 수 없음'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={user.fake ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}>
-                          {user.fake ? '봇' : '실제'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>Lv.{user.stats?.level || 1}</div>
-                          <div className="text-gray-500">{user.stats?.totalExperience || 0} XP</div>
+                        
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate max-w-32 sm:max-w-48">{user.email}</span>
+                          </div>
+                          
+                          {user.profile?.realName && (
+                            <div className="flex items-center gap-1">
+                              <span className="truncate">실명: {user.profile.realName}</span>
+                            </div>
+                          )}
+                          
+                          {user.school?.name && (
+                            <div className="flex items-center gap-1">
+                              <School className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate max-w-24 sm:max-w-32">{user.school.name}</span>
+                            </div>
+                          )}
+                          
+                          {user.regions && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{`${user.regions.sido || ''} ${user.regions.sigungu || ''}`.trim() || '-'}</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-1">
+                            <Award className="h-3 w-3 flex-shrink-0" />
+                            <span className="whitespace-nowrap">Lv.{user.stats?.level || 1} ({user.stats?.totalExperience || 0} XP)</span>
+                          </div>
+                          
+                          {(user.warnings?.count || 0) > 0 && (
+                            <div className="flex items-center gap-1 text-red-600">
+                              <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                              <span className="whitespace-nowrap">{user.warnings?.count}건 경고</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            <span className="whitespace-nowrap">{formatDate(user.profile?.createdAt || user.createdAt)}</span>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`text-sm ${(user.warnings?.count || 0) > 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                          {user.warnings?.count || 0}건
-                        </span>
-                      </TableCell>
-                      <TableCell>{formatDate(user.profile?.createdAt || user.createdAt)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Select onValueChange={(value) => handleRoleChange(user.uid, value as 'admin' | 'user')}>
-                            <SelectTrigger className="w-28 h-8">
-                              <span className="text-xs">
-                                {user.role === 'admin' ? '관리자' : '일반 사용자'}
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">관리자</SelectItem>
-                              <SelectItem value="user">일반 사용자</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          
-                          <Select onValueChange={(value) => handleStatusChange(user.uid, value as 'active' | 'inactive' | 'suspended')}>
-                            <SelectTrigger className="w-20 h-8">
-                              <span className="text-xs">
-                                {user.status === 'active' ? '활성' : user.status === 'inactive' ? '비활성' : user.status === 'suspended' ? '정지' : '활성'}
-                              </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">활성</SelectItem>
-                              <SelectItem value="inactive">비활성</SelectItem>
-                              <SelectItem value="suspended">정지</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setWarningDialog({ isOpen: true, user });
-                            }}
-                          >
-                            <AlertTriangle className="h-3 w-3" />
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setExperienceDialog({ isOpen: true, user });
-                              setExperienceForm({ totalExperience: user.stats?.totalExperience || 0, reason: '' });
-                            }}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>사용자 삭제</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  정말로 이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>취소</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteUser(user.uid)}>
-                                  삭제
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-end sm:justify-start gap-2 ml-11 sm:ml-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUserDetailDialog({ isOpen: true, user });
+                        }}
+                        className="text-xs sm:text-sm"
+                      >
+                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="ml-1 sm:hidden">보기</span>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
               
               {/* 페이지네이션 */}
               <div className="flex justify-center">
@@ -943,6 +914,388 @@ export default function AdminUsersPage() {
             </Button>
             <Button onClick={handleUpdateExperience}>
               경험치 수정
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 사용자 세부 정보 모달 */}
+      <Dialog open={userDetailDialog.isOpen} onOpenChange={(open) => setUserDetailDialog({ isOpen: open, user: userDetailDialog.user })}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
+              사용자 세부 정보
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              사용자의 모든 정보를 확인하고 수정할 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {userDetailDialog.user && (
+            <div className="space-y-6">
+              {/* 기본 정보 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <Card>
+                  <CardHeader className="pb-3 sm:pb-6">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      기본 정보
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 sm:space-y-4">
+                    <div>
+                      <Label className="text-sm">사용자 ID</Label>
+                      <Input value={userDetailDialog.user.uid} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">이메일</Label>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 flex-shrink-0" />
+                        <Input value={userDetailDialog.user.email} readOnly className="bg-gray-50 text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm">사용자명</Label>
+                      <Input 
+                        value={userDetailDialog.user.profile?.userName || ''} 
+                        onChange={(e) => {
+                          if (userDetailDialog.user) {
+                            const updatedUser = {
+                              ...userDetailDialog.user,
+                              profile: {
+                                ...userDetailDialog.user.profile,
+                                userName: e.target.value
+                              }
+                            };
+                            setUserDetailDialog({ ...userDetailDialog, user: updatedUser });
+                          }
+                        }}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">실명</Label>
+                      <Input 
+                        value={userDetailDialog.user.profile?.realName || ''} 
+                        onChange={(e) => {
+                          if (userDetailDialog.user) {
+                            const updatedUser = {
+                              ...userDetailDialog.user,
+                              profile: {
+                                ...userDetailDialog.user.profile,
+                                realName: e.target.value
+                              }
+                            };
+                            setUserDetailDialog({ ...userDetailDialog, user: updatedUser });
+                          }
+                        }}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">역할</Label>
+                      <Select 
+                        value={userDetailDialog.user.role || 'student'} 
+                        onValueChange={(value: 'admin' | 'teacher' | 'student') => {
+                          if (userDetailDialog.user) {
+                            const updatedUser = {
+                              ...userDetailDialog.user,
+                              role: value
+                            };
+                            setUserDetailDialog({ ...userDetailDialog, user: updatedUser });
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">관리자</SelectItem>
+                          <SelectItem value="teacher">교사</SelectItem>
+                          <SelectItem value="student">학생</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm">상태</Label>
+                      <Select 
+                        value={userDetailDialog.user.status || 'active'} 
+                        onValueChange={(value: 'active' | 'inactive' | 'suspended') => {
+                          if (userDetailDialog.user) {
+                            const updatedUser = {
+                              ...userDetailDialog.user,
+                              status: value
+                            };
+                            setUserDetailDialog({ ...userDetailDialog, user: updatedUser });
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">활성</SelectItem>
+                          <SelectItem value="inactive">비활성</SelectItem>
+                          <SelectItem value="suspended">정지</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3 sm:pb-6">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      <School className="h-4 w-4" />
+                      학교 및 지역 정보
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 sm:space-y-4">
+                    <div>
+                      <Label className="text-sm">학교명</Label>
+                      <div className="flex items-center gap-2">
+                        <School className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 flex-shrink-0" />
+                        <Input value={userDetailDialog.user.school?.name || ''} readOnly className="bg-gray-50 text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm">학교 코드</Label>
+                      <Input value={userDetailDialog.user.school?.id || ''} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">시도</Label>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 flex-shrink-0" />
+                        <Input value={userDetailDialog.user.regions?.sido || ''} readOnly className="bg-gray-50 text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm">시군구</Label>
+                      <Input value={userDetailDialog.user.regions?.sigungu || ''} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">학년</Label>
+                      <Input value={userDetailDialog.user.school?.grade || ''} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">반</Label>
+                      <Input value={userDetailDialog.user.school?.classNumber || ''} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 통계 및 레벨 정보 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <Card>
+                  <CardHeader className="pb-3 sm:pb-6">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      <Award className="h-4 w-4" />
+                      레벨 및 경험치
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 sm:space-y-4">
+                    <div>
+                      <Label className="text-sm">현재 레벨</Label>
+                      <Input value={userDetailDialog.user.stats?.level || 1} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">총 경험치</Label>
+                      <Input 
+                        type="number"
+                        value={userDetailDialog.user.stats?.totalExperience || 0} 
+                        onChange={(e) => {
+                          if (userDetailDialog.user) {
+                            const updatedUser = {
+                              ...userDetailDialog.user,
+                              stats: {
+                                ...userDetailDialog.user.stats,
+                                totalExperience: Number(e.target.value)
+                              }
+                            };
+                            setUserDetailDialog({ ...userDetailDialog, user: updatedUser });
+                          }
+                        }}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">게시글 수</Label>
+                      <Input value={userDetailDialog.user.stats?.postCount || 0} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">댓글 수</Label>
+                      <Input value={userDetailDialog.user.stats?.commentCount || 0} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">좋아요 한 수</Label>
+                      <Input value={userDetailDialog.user.stats?.likeCount || 0} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3 sm:pb-6">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      관리 정보
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 sm:space-y-4">
+                    <div>
+                      <Label className="text-sm">사용자 유형</Label>
+                      <Badge className={`text-xs ${userDetailDialog.user.fake ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {userDetailDialog.user.fake ? '봇 사용자' : '실제 사용자'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <Label className="text-sm">경고 횟수</Label>
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-red-500 flex-shrink-0" />
+                        <span className={`text-sm font-medium ${(userDetailDialog.user.warnings?.count || 0) > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {userDetailDialog.user.warnings?.count || 0}건
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm">가입일</Label>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 flex-shrink-0" />
+                        <Input value={formatDate(userDetailDialog.user.profile?.createdAt || userDetailDialog.user.createdAt)} readOnly className="bg-gray-50 text-sm" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm">최근 활동</Label>
+                      <Input value={formatDate(userDetailDialog.user.profile?.createdAt)} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">마지막 로그인</Label>
+                      <Input value={formatDate(userDetailDialog.user.profile?.createdAt)} readOnly className="bg-gray-50 text-sm" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 관리 작업 */}
+              <Card>
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-base sm:text-lg">관리 작업</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setWarningDialog({ isOpen: true, user: userDetailDialog.user });
+                        setUserDetailDialog({ isOpen: false, user: null });
+                      }}
+                      className="text-xs sm:text-sm"
+                    >
+                      <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">경고 추가</span>
+                      <span className="sm:hidden">경고</span>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setExperienceDialog({ isOpen: true, user: userDetailDialog.user });
+                        setExperienceForm({ totalExperience: userDetailDialog.user?.stats?.totalExperience || 0, reason: '' });
+                        setUserDetailDialog({ isOpen: false, user: null });
+                      }}
+                      className="text-xs sm:text-sm"
+                    >
+                      <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">경험치 수정</span>
+                      <span className="sm:hidden">경험치</span>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSuspensionDialog({ isOpen: true, user: userDetailDialog.user });
+                        setUserDetailDialog({ isOpen: false, user: null });
+                      }}
+                      className="text-xs sm:text-sm"
+                    >
+                      <Shield className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">정지 설정</span>
+                      <span className="sm:hidden">정지</span>
+                    </Button>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" className="text-xs sm:text-sm">
+                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                          <span className="hidden sm:inline">사용자 삭제</span>
+                          <span className="sm:hidden">삭제</span>
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="w-[90vw] sm:w-full">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-base sm:text-lg">사용자 삭제</AlertDialogTitle>
+                          <AlertDialogDescription className="text-sm">
+                            정말로 이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                          <AlertDialogCancel className="text-sm">취소</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => {
+                              if (userDetailDialog.user) {
+                                handleDeleteUser(userDetailDialog.user.uid);
+                                setUserDetailDialog({ isOpen: false, user: null });
+                              }
+                            }}
+                            className="text-sm"
+                          >
+                            삭제
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setUserDetailDialog({ isOpen: false, user: null })}
+              className="text-sm"
+            >
+              닫기
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (userDetailDialog.user) {
+                  // 기본 정보 업데이트
+                  if (userDetailDialog.user.role !== users.find(u => u.uid === userDetailDialog.user?.uid)?.role) {
+                    await handleRoleChange(userDetailDialog.user.uid, userDetailDialog.user.role as 'admin' | 'user');
+                  }
+                  if (userDetailDialog.user.status !== users.find(u => u.uid === userDetailDialog.user?.uid)?.status) {
+                    await handleStatusChange(userDetailDialog.user.uid, userDetailDialog.user.status as 'active' | 'inactive' | 'suspended');
+                  }
+                  // 경험치 업데이트
+                  const originalUser = users.find(u => u.uid === userDetailDialog.user?.uid);
+                  if (userDetailDialog.user.stats?.totalExperience !== originalUser?.stats?.totalExperience) {
+                    await updateUserExperienceAdmin(userDetailDialog.user.uid, userDetailDialog.user.stats?.totalExperience || 0, '관리자 직접 수정');
+                  }
+                  
+                  setUserDetailDialog({ isOpen: false, user: null });
+                  loadUsers();
+                  toast.success('사용자 정보가 업데이트되었습니다.');
+                }
+              }}
+              className="text-sm"
+            >
+              저장
             </Button>
           </DialogFooter>
         </DialogContent>
