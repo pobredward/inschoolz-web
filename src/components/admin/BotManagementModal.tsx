@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { 
   Users, Plus, Trash2, RefreshCw, Bot, AlertTriangle,
-  UserPlus, UserMinus
+  UserPlus, UserMinus, ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -175,6 +175,11 @@ export function BotManagementModal({
     }
   };
 
+  // 봇 프로필로 이동
+  const navigateToBotProfile = (botId: string) => {
+    window.open(`/users/${botId}`, '_blank');
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -304,9 +309,14 @@ export function BotManagementModal({
                           className="rounded"
                         />
                         
-                        <div>
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{bot.nickname}</span>
+                            <button
+                              onClick={() => navigateToBotProfile(bot.id)}
+                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                            >
+                              {bot.nickname}
+                            </button>
                             <Badge variant="secondary" className="text-xs">
                               {getSchoolTypeLabel(bot.schoolType)}
                             </Badge>
@@ -318,13 +328,24 @@ export function BotManagementModal({
                         </div>
                       </div>
                       
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleBotSelection(bot.id)}
-                      >
-                        <Bot className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigateToBotProfile(bot.id)}
+                          title="프로필 보기"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleBotSelection(bot.id)}
+                          title="선택/해제"
+                        >
+                          <Bot className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}

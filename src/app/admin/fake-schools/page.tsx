@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { School, RefreshCw, Search, Plus, Users, Bot, Calendar } from 'lucide-react';
+import { School, RefreshCw, Search, Plus, Users, Bot, Calendar, Settings, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
+import { BotManagementModal } from '@/components/admin/BotManagementModal';
 
 interface SchoolStats {
   id: string;
@@ -25,11 +27,17 @@ interface SchoolStats {
 
 export default function FakeSchoolsPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [schools, setSchools] = useState<SchoolStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedSchool, setSelectedSchool] = useState<SchoolStats | null>(null);
+  const [isBotModalOpen, setIsBotModalOpen] = useState(false);
+  const [isCreatingBot, setIsCreatingBot] = useState<string | null>(null);
   const itemsPerPage = 20;
 
   // 학교 통계 가져오기
@@ -55,19 +63,26 @@ export default function FakeSchoolsPage() {
     }
   }, [searchTerm, itemsPerPage]);
 
-  // 학교에 봇 생성
-  const createBotsForSchool = async (schoolId: string, botCount: number = 1) => {
+  // 학교에 봇 생성 (기존 봇 생성 로직 사용)
+  const createBotsForSchool = async (schoolId: string, schoolName: string) => {
     try {
-      const response = await fetch('/api/admin/bot-accounts', {
+      setIsCreatingBot(schoolId);
+      const response = await fetch('/api/admin/bulk-operations/single-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schoolId, count: botCount })
+        body: JSON.stringify({
+          type: 'create_bots',
+          schoolCount: 1,
+          botsPerSchool: 1,
+          schoolId: schoolId,
+          schoolName: schoolName
+        })
       });
       
       const result = await response.json();
       
       if (result.success) {
-        toast.success(`${botCount}개의 봇이 생성되었습니다.`);
+        toast.success(`1개의 봇이 생성되었습니다.`);
         await fetchSchoolStats(currentPage);
       } else {
         throw new Error(result.error || '봇 생성 실패');
@@ -75,6 +90,8 @@ export default function FakeSchoolsPage() {
     } catch (error) {
       console.error('봇 생성 오류:', error);
       toast.error('봇 생성에 실패했습니다.');
+    } finally {
+      setIsCreatingBot(null);
     }
   };
 
@@ -101,14 +118,74 @@ export default function FakeSchoolsPage() {
     }
   };
 
+  // 봇 관리 모달 열기
+  const openBotManagementModal = (school: SchoolStats) => {
+    setSelectedSchool(school);
+    setIsBotModalOpen(true);
+  };
+
+  // 봇 관리 모달 닫기
+  const closeBotManagementModal = () => {
+    setIsBotModalOpen(false);
+    setSelectedSchool(null);
+  };
+
+  // 봇 수 업데이트 콜백
+  const handleBotCountUpdate = (newCount: number) => {
+    if (selectedSchool) {
+      // 로컬 상태 업데이트
+      setSchools(prevSchools => 
+        prevSchools.map(school => 
+          school.id === selectedSchool.id 
+            ? { ...school, botCount: newCount }
+            : school
+        )
+      );
+      // 선택된 학교 정보도 업데이트
+      setSelectedSchool(prev => prev ? { ...prev, botCount: newCount } : null);
+    }
+  };
+
+  // 학교 커뮤니티로 이동
+  const navigateToSchoolCommunity = (schoolId: string) => {
+    window.open(`/community?tab=school/${schoolId}`, '_blank');
+  };
+
+  // URL 파라미터 업데이트
+  const updateUrlParams = (page: number, search: string) => {
+    const params = new URLSearchParams();
+    if (page > 1) params.set('page', page.toString());
+    if (search) params.set('search', search);
+    
+    const newUrl = params.toString() ? `?${params.toString()}` : '/admin/fake-schools';
+    router.replace(newUrl, { scroll: false });
+  };
+
+  // 페이지 변경
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    updateUrlParams(newPage, searchTerm);
+  };
+
+  // 검색어 변경
+  const handleSearchChange = (newSearchTerm: string) => {
+    setSearchTerm(newSearchTerm);
+    setCurrentPage(1);
+    updateUrlParams(1, newSearchTerm);
+  };
+
   useEffect(() => {
     fetchSchoolStats(currentPage);
   }, [currentPage, fetchSchoolStats]);
 
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
-      setCurrentPage(1);
-      fetchSchoolStats(1);
+      if (currentPage === 1) {
+        fetchSchoolStats(1);
+      } else {
+        setCurrentPage(1);
+        updateUrlParams(1, searchTerm);
+      }
     }, 500);
 
     return () => clearTimeout(delayedSearch);
@@ -206,7 +283,7 @@ export default function FakeSchoolsPage() {
             <Input
               placeholder="학교명으로 검색..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -272,12 +349,28 @@ export default function FakeSchoolsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => createBotsForSchool(school.id, 1)}
-                          disabled={(school.botCount || 0) >= 10}
+                          onClick={() => createBotsForSchool(school.id, school.name)}
+                          disabled={isCreatingBot === school.id}
                         >
-                          <Plus className="h-4 w-4 mr-1" />
+                          {isCreatingBot === school.id ? (
+                            <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Plus className="h-4 w-4 mr-1" />
+                          )}
                           봇 생성
                         </Button>
+                        
+                        {(school.botCount || 0) > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openBotManagementModal(school)}
+                          >
+                            <Settings className="h-4 w-4 mr-1" />
+                            봇 관리
+                          </Button>
+                        )}
+                        
                         <Button
                           variant="outline"
                           size="sm"
@@ -286,6 +379,15 @@ export default function FakeSchoolsPage() {
                         >
                           <Calendar className="h-4 w-4 mr-1" />
                           게시글 생성
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigateToSchoolCommunity(school.id)}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          커뮤니티
                         </Button>
                       </div>
                     </div>
@@ -297,7 +399,7 @@ export default function FakeSchoolsPage() {
               <div className="flex justify-center gap-2 mt-6">
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                 >
                   이전
@@ -307,7 +409,7 @@ export default function FakeSchoolsPage() {
                 </span>
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                 >
                   다음
@@ -317,6 +419,21 @@ export default function FakeSchoolsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 봇 관리 모달 */}
+      {selectedSchool && (
+        <BotManagementModal
+          isOpen={isBotModalOpen}
+          onClose={closeBotManagementModal}
+          school={{
+            id: selectedSchool.id,
+            name: selectedSchool.name,
+            type: selectedSchool.type || 'middle',
+            botCount: selectedSchool.botCount || 0
+          }}
+          onBotCountUpdate={handleBotCountUpdate}
+        />
+      )}
     </div>
   );
 }
