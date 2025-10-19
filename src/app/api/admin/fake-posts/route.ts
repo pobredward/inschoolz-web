@@ -35,6 +35,13 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🔥 Firebase에서 직접 fake: true 게시글 실시간 조회 시작');
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '30');
+    const offset = (page - 1) * limit;
+
+    console.log(`📄 페이지네이션 파라미터: page=${page}, limit=${limit}, offset=${offset}`);
+
     const app = await getFirebaseAdmin();
     const db = app.firestore();
     
@@ -48,12 +55,13 @@ export async function GET(request: NextRequest) {
     const totalCount = countQuery.data().count;
     console.log(`📊 전체 fake: true 게시글 개수: ${totalCount}개`);
 
-    // 2. 최근 100개 게시글 조회 (표시용)
+    // 2. 페이지네이션된 게시글 조회
     const fakePostsQuery = await db
       .collection('posts')
       .where('fake', '==', true)
       .orderBy('createdAt', 'desc')
-      .limit(100)
+      .limit(limit)
+      .offset(offset)
       .get();
 
     if (fakePostsQuery.empty) {
@@ -61,7 +69,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: [],
-        total: 0,
+        pagination: {
+          currentPage: page,
+          totalPages: 0,
+          totalCount: 0,
+          limit: limit,
+          hasNextPage: false,
+          hasPrevPage: false
+        },
         lastUpdated: new Date().toISOString(),
         source: 'firebase_direct_empty',
         note: "현재 Firebase에 fake: true 게시글이 없습니다."
@@ -124,14 +139,22 @@ export async function GET(request: NextRequest) {
 
     console.log(`🎉 Firebase에서 직접 ${postsWithSchoolNames.length}개 fake: true 게시글 조회 완료!`);
 
+    const totalPages = Math.ceil(totalCount / limit);
+
     return NextResponse.json({
       success: true,
       data: postsWithSchoolNames,
-      total: totalCount, // 실제 전체 개수
-      displayed: postsWithSchoolNames.length, // 표시된 개수 (최대 100개)
+      pagination: {
+        currentPage: page,
+        totalPages: totalPages,
+        totalCount: totalCount,
+        limit: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      },
       lastUpdated: new Date().toISOString(),
       source: 'firebase_direct_realtime',
-      note: `🔥 Firebase에서 직접 실시간으로 조회 (전체 ${totalCount}개 중 최근 ${postsWithSchoolNames.length}개 표시)`
+      note: `🔥 Firebase에서 직접 실시간으로 조회 (전체 ${totalCount}개 중 ${page}페이지 ${postsWithSchoolNames.length}개 표시)`
     });
 
   } catch (error) {

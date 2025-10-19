@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Pagination, PaginationInfo } from "@/components/ui/pagination";
 import { RefreshCw, Search, Filter, Trash2, Play, Pause, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
@@ -33,10 +34,26 @@ interface GenerationConfig {
   delayBetweenPosts: number;
 }
 
+interface PaginationData {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  limit: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 export default function FakePostsPage() {
   const { user } = useAuth();
   const [fakePosts, setFakePosts] = useState<FakePost[]>([]);
-  const [totalCount, setTotalCount] = useState<number>(0); // 실제 전체 개수
+  const [pagination, setPagination] = useState<PaginationData>({
+    currentPage: 1,
+    totalPages: 0,
+    totalCount: 0,
+    limit: 30,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,16 +67,30 @@ export default function FakePostsPage() {
   });
 
   // AI 게시글 목록 가져오기
-  const fetchFakePosts = async () => {
+  const fetchFakePosts = async (page: number = pagination.currentPage) => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/admin/fake-posts');
+      const url = new URL('/api/admin/fake-posts', window.location.origin);
+      url.searchParams.set('page', page.toString());
+      url.searchParams.set('limit', pagination.limit.toString());
+      
+      const response = await fetch(url.toString());
       const result = await response.json();
       
       if (result.success) {
         setFakePosts(result.data || []);
-        setTotalCount(result.total || result.data.length); // API에서 전체 개수 사용
-        toast.success(`전체 ${result.total || result.data.length}개 중 ${result.data.length}개의 AI 게시글을 조회했습니다.`);
+        if (result.pagination) {
+          setPagination(result.pagination);
+          toast.success(`전체 ${result.pagination.totalCount}개 중 ${page}페이지 ${result.data.length}개의 AI 게시글을 조회했습니다.`);
+        } else {
+          // 이전 API 응답 형식 호환성
+          setPagination(prev => ({
+            ...prev,
+            totalCount: result.total || result.data.length,
+            totalPages: Math.ceil((result.total || result.data.length) / prev.limit)
+          }));
+          toast.success(`전체 ${result.total || result.data.length}개 중 ${result.data.length}개의 AI 게시글을 조회했습니다.`);
+        }
       } else {
         throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
       }
@@ -67,7 +98,7 @@ export default function FakePostsPage() {
       console.error('AI 게시글 조회 오류:', error);
       toast.error('AI 게시글을 불러오는데 실패했습니다.');
       setFakePosts([]);
-      setTotalCount(0);
+      setPagination(prev => ({ ...prev, totalCount: 0, totalPages: 0 }));
     } finally {
       setIsLoading(false);
     }
@@ -97,6 +128,11 @@ export default function FakePostsPage() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // 페이지 변경 핸들러
+  const handlePageChange = (page: number) => {
+    fetchFakePosts(page);
   };
 
   // 게시글 삭제
@@ -129,7 +165,13 @@ export default function FakePostsPage() {
       if (result.success) {
         console.log(`✅ [DELETE-POST] 성공: ${result.deletedPostId || postId}`);
         toast.success('게시글이 삭제되었습니다.');
-        await fetchFakePosts();
+        // 현재 페이지의 게시글이 모두 삭제되었고 이전 페이지가 있다면 이전 페이지로 이동
+        const currentPageItemCount = fakePosts.length;
+        if (currentPageItemCount === 1 && pagination.currentPage > 1) {
+          await fetchFakePosts(pagination.currentPage - 1);
+        } else {
+          await fetchFakePosts(pagination.currentPage);
+        }
       } else {
         console.error(`❌ [DELETE-POST] 실패:`, result.error);
         throw new Error(result.error || '게시글 삭제 실패');
@@ -144,7 +186,8 @@ export default function FakePostsPage() {
     fetchFakePosts();
   }, []);
 
-  // 필터링된 게시글
+  // 필터링된 게시글 (페이지네이션 적용 시에는 서버에서 필터링하는 것이 좋지만, 
+  // 현재는 클라이언트에서 추가 필터링)
   const filteredPosts = fakePosts.filter(post => {
     const matchesSearch = (post.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (post.content || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,7 +221,7 @@ export default function FakePostsPage() {
           <h1 className="text-3xl font-bold">📝 AI 게시글 관리</h1>
           <p className="text-muted-foreground">AI로 생성된 게시글을 관리하고 모니터링하세요.</p>
         </div>
-        <Button onClick={fetchFakePosts} disabled={isLoading}>
+        <Button onClick={() => fetchFakePosts(pagination.currentPage)} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           새로고침
         </Button>
@@ -279,11 +322,18 @@ export default function FakePostsPage() {
       {/* 게시글 목록 */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            AI 게시글 목록 (전체 {totalCount}개
-            {fakePosts.length < totalCount && `, 최근 ${fakePosts.length}개 표시`}
-            {filteredPosts.length !== fakePosts.length && `, 필터링된 ${filteredPosts.length}개`})
-          </CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>
+              AI 게시글 목록
+              {filteredPosts.length !== fakePosts.length && ` (필터링된 ${filteredPosts.length}개)`}
+            </CardTitle>
+            <PaginationInfo
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalCount={pagination.totalCount}
+              limit={pagination.limit}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -346,6 +396,17 @@ export default function FakePostsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {/* 페이지네이션 */}
+          {pagination.totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={handlePageChange}
+              />
             </div>
           )}
         </CardContent>
