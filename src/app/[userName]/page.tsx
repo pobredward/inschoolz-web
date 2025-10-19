@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import AttendanceCalendar from './components/AttendanceCalendar';
 import { Toaster } from '@/components/ui/sonner';
-import { User } from '@/types';
 import { serializeUserForClient } from '@/lib/utils';
 
 export const metadata: Metadata = {

@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   
-  // ESLint 오류를 무시하고 빌드 진행
+  // ESLint 오류를 무시하고 빌드 진행 (점진적 수정 중)
   eslint: {
     ignoreDuringBuilds: true,
   },

@@ -4,7 +4,6 @@ import { redirect, notFound } from 'next/navigation';
 import { getUserByUserName, getUserById } from '@/lib/api/users';
 import { Toaster } from '@/components/ui/sonner';
 import ProfileEditClient from './ProfileEditClient';
-import { User } from '@/types';
 import { serializeUserForClient } from '@/lib/utils';
 
 export const metadata: Metadata = {

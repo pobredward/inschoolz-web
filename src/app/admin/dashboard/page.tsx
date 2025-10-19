@@ -5,9 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  BarChart3, TrendingUp, Users, MapPin, Calendar, School, Edit, X,
-  Bot, Play, Trash2, Eye, RefreshCw, Search, Filter, Clock, Settings, Download, Upload,
-  AlertTriangle, CheckCircle, XCircle, Zap, Target, Database, Activity
+  TrendingUp, Users, Calendar, School, Bot, Trash2, RefreshCw,
+  AlertTriangle, Zap, Activity, Download, Target
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
@@ -20,7 +19,11 @@ interface SystemStats {
   totalPosts: number;
   postsToday: number;
   averagePostsPerSchool: number;
-  topActiveSchools: any[];
+  topActiveSchools: Array<{
+    id: string;
+    name: string;
+    postCount: number;
+  }>;
 }
 
 interface FakePost {
@@ -45,7 +48,7 @@ export default function AdminDashboardPage() {
   const { user } = useAuth();
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
   const [recentPosts, setRecentPosts] = useState<FakePost[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   // 시스템 통계 가져오기
   const fetchSystemStats = async () => {
@@ -79,7 +82,7 @@ export default function AdminDashboardPage() {
   };
 
   // 대량 작업 실행
-  const executeBulkOperation = async (type: string, params: any) => {
+  const executeBulkOperation = async (type: string, params: Record<string, unknown>) => {
     try {
       const response = await fetch('/api/admin/bulk-operations', {
         method: 'POST',

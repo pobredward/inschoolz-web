@@ -14,7 +14,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Plus, Edit, Trash2, Eye, EyeOff, MessageSquare } from 'lucide-react';
-import { toast } from 'sonner';
 import { Board, BoardType } from '@/types/board';
 import { getAllBoards, createBoard, updateBoard, deleteBoard, toggleBoardStatus } from '@/lib/api/admin';
 import { cleanupInvalidPollFields } from '@/lib/api/board';
