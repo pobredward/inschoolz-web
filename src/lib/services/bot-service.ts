@@ -521,7 +521,11 @@ export class BotService {
       // 4단계: 각 학교별로 봇 생성 (대량 생성 시 병렬 처리)
       console.log(`🚀 [BOT-SERVICE] 봇 생성 루프 시작: ${selectedSchools.length}개 학교 처리`);
       
-      const batchSize = selectedSchools.length > 100 ? 10 : selectedSchools.length > 50 ? 5 : 1;
+      // 대량 생성을 위한 배치 크기 최적화
+      const batchSize = selectedSchools.length >= 5000 ? 50 : 
+                       selectedSchools.length >= 1000 ? 25 : 
+                       selectedSchools.length > 100 ? 10 : 
+                       selectedSchools.length > 50 ? 5 : 1;
       console.log(`📦 [BOT-SERVICE] 배치 크기: ${batchSize} (총 ${Math.ceil(selectedSchools.length / batchSize)}개 배치)`);
       
       for (let batchIndex = 0; batchIndex < selectedSchools.length; batchIndex += batchSize) {
@@ -587,9 +591,12 @@ export class BotService {
         
         console.log(`✅ [BOT-SERVICE] 배치 ${batchNumber}/${totalBatches} 완료`);
         
-        // 배치 간 딜레이 (API 부하 방지)
+        // 배치 간 딜레이 (API 부하 방지) - 대량 생성 시 최적화
         if (batchIndex + batchSize < selectedSchools.length) {
-          const delay = selectedSchools.length > 100 ? 500 : selectedSchools.length > 50 ? 200 : 100;
+          const delay = selectedSchools.length >= 5000 ? 200 : 
+                       selectedSchools.length >= 1000 ? 300 : 
+                       selectedSchools.length > 100 ? 500 : 
+                       selectedSchools.length > 50 ? 200 : 100;
           console.log(`⏳ [BOT-SERVICE] 배치 간 딜레이: ${delay}ms`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }

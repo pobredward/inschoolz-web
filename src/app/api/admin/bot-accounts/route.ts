@@ -132,13 +132,16 @@ async function getFirebaseAdmin() {
 }
 
 /**
- * 최적화된 봇 계정 조회 함수
+ * 최적화된 봇 계정 조회 함수 (페이지네이션 지원)
  */
-async function getBotAccountsOptimized(limit: number = 100, schoolType?: string, search?: string) {
+async function getBotAccountsOptimized(limit: number = 50, schoolType?: string, search?: string, page: number = 1) {
   const app = await getFirebaseAdmin();
   const db = app.firestore();
   
-  console.log(`🔍 봇 계정 조회 시작 (limit: ${limit}, schoolType: ${schoolType || 'all'})`);
+  console.log(`🔍 봇 계정 조회 시작 (limit: ${limit}, page: ${page}, schoolType: ${schoolType || 'all'})`);
+  
+  // 페이지네이션을 위한 offset 계산
+  const offset = (page - 1) * limit;
   
   // 쿼리 빌더 - 인덱스 최적화를 위해 orderBy 추가
   let query = db.collection('users')
@@ -151,6 +154,8 @@ async function getBotAccountsOptimized(limit: number = 100, schoolType?: string,
   
   const startTime = Date.now();
   let botsSnapshot;
+  let totalCount = 0;
+  let hasNextPage = false;
   
   // 검색이 있는 경우: 토큰 기반 array-contains-any 쿼리 사용
   if (search && search.trim()) {
@@ -180,9 +185,29 @@ async function getBotAccountsOptimized(limit: number = 100, schoolType?: string,
       console.log(`🔍 토큰 검색 완료: ${effectiveTokens.length}개 토큰으로 ${botsSnapshot.size}개 문서 조회`);
     }
   } else {
-    // 일반 조회: 제한된 수량만 가져옴
-    query = query.orderBy('createdAt', 'desc').limit(limit);
-    botsSnapshot = await query.get();
+    // 일반 조회: 페이지네이션 적용
+    query = query.orderBy('createdAt', 'desc');
+    
+    // 전체 개수 조회 (페이지네이션 정보를 위해)
+    const totalQuery = await query.get();
+    totalCount = totalQuery.size;
+    
+    // offset과 limit 적용
+    if (offset > 0) {
+      // offset이 있는 경우 startAfter 사용 (더 효율적)
+      const offsetSnapshot = await query.limit(offset).get();
+      if (offsetSnapshot.docs.length > 0) {
+        const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
+        query = query.startAfter(lastDoc);
+      }
+    }
+    
+    botsSnapshot = await query.limit(limit).get();
+    
+    // 다음 페이지 존재 여부 확인
+    hasNextPage = (offset + botsSnapshot.size) < totalCount;
+    
+    console.log(`📊 페이지네이션 정보: ${offset + 1}-${offset + botsSnapshot.size} / ${totalCount}, 다음 페이지: ${hasNextPage}`);
   }
   
   const queryTime = Date.now() - startTime;
@@ -245,12 +270,24 @@ async function getBotAccountsOptimized(limit: number = 100, schoolType?: string,
     }
   }
   
+  // 페이지네이션 정보 계산
+  let finalTotalCount = filteredBots.length;
+  let hasNextPageResult = false;
+  
+  if (!search) {
+    // 검색이 아닌 경우 전체 개수와 다음 페이지 정보 사용
+    finalTotalCount = totalCount; // 전체 봇 개수
+    hasNextPageResult = hasNextPage;
+  }
+  
   return {
     data: filteredBots,
-    total: filteredBots.length,
+    total: finalTotalCount,
     totalScanned: botAccounts.length, // 전체 스캔한 봇 수
+    hasNextPage: hasNextPageResult,
+    currentPage: page,
+    pageSize: limit,
     queryTime,
-    hasMore: search ? filteredBots.length >= limit : botsSnapshot.size === limit,
     isSearchMode: !!search
   };
 }
@@ -262,13 +299,14 @@ async function getBotAccountsOptimized(limit: number = 100, schoolType?: string,
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const page = parseInt(searchParams.get('page') || '1');
     const schoolType = searchParams.get('schoolType') || 'all';
     const search = searchParams.get('search') || '';
-    const useCache = searchParams.get('cache') !== 'false' && !search; // 검색 시에는 캐시 사용 안함
+    const useCache = searchParams.get('cache') !== 'false' && !search && page === 1; // 검색 시나 1페이지가 아닐 때는 캐시 사용 안함
     
-    // 캐시 키 생성
-    const cacheKey = `bot_accounts_${limit}_${schoolType}`;
+    // 캐시 키 생성 (페이지 정보 포함)
+    const cacheKey = `bot_accounts_${limit}_${page}_${schoolType}`;
     
     // 캐시 확인 (검색이 없을 때만)
     if (useCache) {
@@ -286,8 +324,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Firebase에서 최신 데이터 조회 (검색 포함)
-    const result = await getBotAccountsOptimized(limit, schoolType, search);
+    // Firebase에서 최신 데이터 조회 (검색 포함, 페이지네이션)
+    const result = await getBotAccountsOptimized(limit, schoolType, search, page);
     
     // 캐시에 저장 (검색이 없을 때만)
     if (useCache && !search) {
@@ -298,17 +336,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(`✅ ${result.data.length}개의 봇 계정 조회 완료 (${result.queryTime}ms)${search ? ` - 검색: "${search}"` : ''}`);
+    console.log(`✅ ${result.data.length}개의 봇 계정 조회 완료 (${result.queryTime}ms)${search ? ` - 검색: "${search}"` : ` - 페이지: ${page}`}`);
     
     const response = NextResponse.json({
       success: true,
       data: result.data,
       total: result.total,
-      hasMore: result.hasMore,
+      hasNextPage: result.hasNextPage,
+      currentPage: result.currentPage,
+      pageSize: result.pageSize,
+      totalScanned: result.totalScanned,
       queryTime: result.queryTime,
       lastUpdated: new Date().toISOString(),
-        source: search ? 'token_search' : 'firebase_optimized',
-        note: search ? `🔍 "${search}" 토큰 검색 결과입니다!` : '🚀 최적화된 쿼리로 조회한 봇 계정 목록입니다!'
+      source: search ? 'token_search' : 'firebase_optimized',
+      note: search ? `🔍 "${search}" 토큰 검색 결과입니다!` : '🚀 최적화된 쿼리로 조회한 봇 계정 목록입니다!',
+      isSearchMode: result.isSearchMode
     });
     
     // 캐시 방지 헤더 추가 (특히 봇 삭제 후 즉시 반영을 위해)

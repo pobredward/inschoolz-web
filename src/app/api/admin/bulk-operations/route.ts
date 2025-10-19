@@ -445,11 +445,12 @@ async function executePostGeneration(operationId: string, params: any) {
       }
     };
 
-    // 게시글 생성 실행
+    // 게시글 생성 실행 (대량 생성 시 딜레이 최적화)
+    const optimizedDelay = totalPosts >= 5000 ? 300 : totalPosts >= 1000 ? 400 : 500;
     const result = await postService.generatePostsForSchools(
       schoolIds ? schoolIds.length : schoolLimit,
       postsPerSchool,
-      500, // 더 빠른 생성을 위해 딜레이 단축
+      optimizedDelay,
       onProgress
     );
 

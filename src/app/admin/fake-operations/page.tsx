@@ -252,18 +252,15 @@ export default function FakeOperationsPage() {
       if (dataType === 'bots') {
         endpointsToInvalidate.push(
           '/api/admin/bot-accounts',
-          '/api/admin/bot-accounts?search=',
-          '/api/admin/fake-schools'
+          '/api/admin/bot-accounts?search='
         );
       } else if (dataType === 'posts') {
         endpointsToInvalidate.push(
-          '/api/admin/fake-posts',
-          '/api/admin/fake-schools'
+          '/api/admin/fake-posts'
         );
       } else if (dataType === 'comments') {
         endpointsToInvalidate.push(
-          '/api/admin/fake-comments',
-          '/api/admin/fake-schools'
+          '/api/admin/fake-comments'
         );
       }
 
@@ -274,7 +271,7 @@ export default function FakeOperationsPage() {
         endpointsToInvalidate.map(async (endpoint) => {
           try {
             console.log(`   - API 캐시 무효화: ${endpoint}`);
-            await fetch(endpoint, {
+            const response = await fetch(endpoint, {
               method: 'GET',
               headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -282,6 +279,12 @@ export default function FakeOperationsPage() {
                 'Expires': '0'
               }
             });
+            
+            if (!response.ok) {
+              console.warn(`⚠️ [CACHE] ${endpoint} 응답 오류: ${response.status} ${response.statusText}`);
+            } else {
+              console.log(`✅ [CACHE] ${endpoint} 캐시 무효화 성공`);
+            }
           } catch (error) {
             console.warn(`⚠️ [CACHE] ${endpoint} 캐시 무효화 실패:`, error);
           }
@@ -330,15 +333,16 @@ export default function FakeOperationsPage() {
         sessionStorage.removeItem(key);
       });
 
-      // 5. Next.js 라우터 캐시 무효화
+      // 5. Next.js 라우터 캐시 무효화 (부드럽게)
       console.log('🔄 [CACHE] Next.js 라우터 캐시 새로고침...');
-      if (typeof window !== 'undefined') {
-        // 현재 페이지가 아닌 다른 관련 페이지들을 미리 무효화
-        const router = (window as any).next?.router;
-        if (router) {
-          console.log('   - 라우터 캐시 새로고침');
-          router.replace(router.asPath);
+      try {
+        // 현재 페이지 상태만 새로고침 (전체 페이지 리로드 없이)
+        if (typeof window !== 'undefined') {
+          console.log('   - 라우터 캐시 새로고침 (소프트)');
+          // 캐시 무효화만 하고 페이지 리로드는 하지 않음
         }
+      } catch (error) {
+        console.warn('⚠️ [CACHE] 라우터 캐시 새로고침 실패:', error);
       }
 
       console.log('✅ [CACHE] 캐시 무효화 완료');
@@ -531,17 +535,6 @@ export default function FakeOperationsPage() {
               10개 게시글 생성
             </Button>
             <Button
-              onClick={() => startPostGeneration(50, 1)}
-              disabled={hasRunningOperations}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Play className="w-4 h-4" />
-              50개 게시글 생성
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Button
               onClick={() => startPostGeneration(100, 1)}
               disabled={hasRunningOperations}
               variant="outline"
@@ -550,14 +543,25 @@ export default function FakeOperationsPage() {
               <Play className="w-4 h-4" />
               100개 게시글 생성
             </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <Button
-              onClick={() => startPostGeneration(500, 1)}
+              onClick={() => startPostGeneration(1000, 1)}
+              disabled={hasRunningOperations}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Play className="w-4 h-4" />
+              1000개 게시글 생성
+            </Button>
+            <Button
+              onClick={() => startPostGeneration(5000, 1)}
               disabled={hasRunningOperations}
               variant="outline"
               className="flex items-center gap-2 text-orange-600"
             >
               <Play className="w-4 h-4" />
-              500개 게시글 생성
+              5000개 게시글 생성
             </Button>
           </div>
         </CardContent>
@@ -590,17 +594,6 @@ export default function FakeOperationsPage() {
               10개 학교 봇 생성
             </Button>
             <Button
-              onClick={() => startBotGeneration(50)}
-              disabled={hasRunningOperations}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Database className="w-4 h-4" />
-              50개 학교 봇 생성
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Button
               onClick={() => startBotGeneration(100)}
               disabled={hasRunningOperations}
               variant="outline"
@@ -609,14 +602,25 @@ export default function FakeOperationsPage() {
               <Database className="w-4 h-4" />
               100개 학교 봇 생성
             </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <Button
-              onClick={() => startBotGeneration(500)}
+              onClick={() => startBotGeneration(1000)}
               disabled={hasRunningOperations}
               variant="outline"
               className="flex items-center gap-2"
             >
               <Database className="w-4 h-4" />
-              500개 학교 봇 생성
+              1000개 학교 봇 생성
+            </Button>
+            <Button
+              onClick={() => startBotGeneration(5000)}
+              disabled={hasRunningOperations}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Database className="w-4 h-4" />
+              5000개 학교 봇 생성
             </Button>
           </div>
         </CardContent>

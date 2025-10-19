@@ -183,17 +183,6 @@ export default function OperationsManagementPage() {
                 10개 학교에 봇 생성
               </Button>
               <Button
-                onClick={() => startBotCreation(50, 3)}
-                disabled={hasRunningOperations}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" />
-                50개 학교에 봇 생성
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Button
                 onClick={() => startBotCreation(100, 3)}
                 disabled={hasRunningOperations}
                 variant="outline"
@@ -202,18 +191,29 @@ export default function OperationsManagementPage() {
                 <Play className="w-4 h-4" />
                 100개 학교에 봇 생성
               </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <Button
-                onClick={() => startBotCreation(500, 3)}
+                onClick={() => startBotCreation(1000, 3)}
                 disabled={hasRunningOperations}
                 variant="outline"
                 className="flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
-                500개 학교에 봇 생성
+                1000개 학교에 봇 생성
+              </Button>
+              <Button
+                onClick={() => startBotCreation(5000, 3)}
+                disabled={hasRunningOperations}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                5000개 학교에 봇 생성
               </Button>
             </div>
             <p className="text-sm text-gray-500">
-              💡 각 학교당 최대 3개의 봇이 생성됩니다. 서버 제한을 피하기 위해 5개 학교씩 배치 처리됩니다.
+              💡 각 학교당 최대 3개의 봇이 생성됩니다. 대량 생성 시 배치 크기가 자동 최적화됩니다 (5000개: 50개씩, 1000개: 20개씩).
             </p>
           </CardContent>
         </Card>
@@ -240,17 +240,6 @@ export default function OperationsManagementPage() {
                 10개 게시글 생성
               </Button>
               <Button
-                onClick={() => startPostGeneration(50, 1)}
-                disabled={hasRunningOperations}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" />
-                50개 게시글 생성
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <Button
                 onClick={() => startPostGeneration(100, 1)}
                 disabled={hasRunningOperations}
                 variant="outline"
@@ -259,18 +248,29 @@ export default function OperationsManagementPage() {
                 <Play className="w-4 h-4" />
                 100개 게시글 생성
               </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <Button
-                onClick={() => startPostGeneration(500, 1)}
+                onClick={() => startPostGeneration(1000, 1)}
+                disabled={hasRunningOperations}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                1000개 게시글 생성
+              </Button>
+              <Button
+                onClick={() => startPostGeneration(5000, 1)}
                 disabled={hasRunningOperations}
                 variant="outline"
                 className="flex items-center gap-2 text-orange-600"
               >
                 <Play className="w-4 h-4" />
-                500개 게시글 생성
+                5000개 게시글 생성
               </Button>
             </div>
             <p className="text-sm text-gray-500">
-              💡 10개씩 배치로 나누어 처리하며, OpenAI API 제한을 고려하여 딜레이를 적용합니다.
+              💡 대량 생성 시 배치 크기가 자동 최적화됩니다 (5000개: 100개씩, 1000개: 50개씩). OpenAI API 제한을 고려하여 딜레이도 조정됩니다.
             </p>
           </CardContent>
         </Card>

@@ -26,18 +26,21 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: 'AI 게시글 생성이 백그라운드에서 시작되었습니다. (개선된 PostService 사용 - JSON 스키마, 다양성, 메타 로깅 적용)',
+      message: 'AI 게시글 생성이 백그라운드에서 시작되었습니다. (트렌드 기반 개선된 시스템 적용)',
       config: {
         schoolLimit,
         postsPerSchool,
         delayBetweenPosts,
         expectedPosts: schoolLimit * postsPerSchool
       },
-      features: [
-        'JSON 스키마 기반 안정적 출력',
-        '다양성 옵션 (재미있는 썰 20%, 참여 질문 30%)',
-        '메타 로깅 (프롬프트 버전, 정책 통과 여부)',
-        '재시도 로직 및 안전장치'
+      improvements: [
+        '🔥 GPT-4o-mini 모델 사용으로 품질 향상',
+        '📊 실시간 트렌드 분석 및 주제 생성',
+        '💬 디시인사이드 스타일 말투 개선',
+        '🎯 주제 다양성 대폭 확장 (40+ 새로운 주제)',
+        '📝 토큰 수 증가 (500 → 800)로 더 풍부한 내용',
+        '🔧 JSON 구조화된 출력으로 안정성 향상',
+        '⚡ 트렌드 캐싱으로 성능 최적화'
       ]
     });
 

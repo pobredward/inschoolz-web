@@ -1,5 +1,6 @@
 import FirebaseService from './firebase-service';
 import { ContentTemplates } from './content-templates';
+import TrendService from './trend-service';
 
 // 타입 정의
 interface Bot {
@@ -75,6 +76,7 @@ export class PostService {
   private boardCode: string;
   private boardName: string;
   private contentTemplates: ContentTemplates;
+  private trendService: TrendService;
 
   constructor() {
     this.firebaseService = FirebaseService.getInstance();
@@ -83,6 +85,13 @@ export class PostService {
     this.boardCode = 'free';
     this.boardName = '자유';
     this.contentTemplates = new ContentTemplates();
+    
+    // TrendService 초기화
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API 키가 설정되지 않았습니다.');
+    }
+    this.trendService = new TrendService(openaiApiKey);
   }
 
   /**
@@ -235,7 +244,7 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
         styleGuide = `
 스타일 가이드:
 - 중학생 말투: 자연스러운 반말 ("~해", "~임", "~다")
-- 줄임말 적당히 사용 (ㅋㅋ, ㄹㅇ, 개, 진짜)
+- 건전한 줄임말 사용 (ㅋㅋ, ㄹㅇ, 진짜, 완전, 레알)
 - 이모티콘 거의 사용 안함
 - 솔직하고 현실적으로
 - 2-3줄로 간결하게`;
@@ -243,7 +252,7 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
         styleGuide = `
 스타일 가이드:
 - 고등학생 말투: 자연스러운 반말 ("~해", "~임", "~다")
-- 인터넷 슬랭 자연스럽게 (ㅋㅋ, ㄹㅇ, 개, 진짜, 갓)
+- 건전한 인터넷 슬랭 사용 (ㅋㅋ, ㄹㅇ, 진짜, 완전, 레알, 갓, 대박)
 - 이모티콘 거의 사용 안함
 - 솔직하고 직설적으로
 - 2-3줄로 간결하게`;
@@ -263,7 +272,51 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
   }
 
   /**
-   * 학교별 게시글 생성
+   * 트렌드 기반 개선된 게시글 생성
+   */
+  private async generateTrendBasedPost(schoolName: string, botNickname?: string, bulkSize?: number): Promise<PostData> {
+    try {
+      // 학교 타입 판별
+      let schoolType: 'elementary' | 'middle' | 'high' = 'middle';
+      if (schoolName.includes('초등학교')) {
+        schoolType = 'elementary';
+      } else if (schoolName.includes('고등학교') || schoolName.includes('고교')) {
+        schoolType = 'high';
+      }
+
+      // 트렌드 기반 주제 선택 (대량 생성 정보 전달)
+      const selectedTopic = await this.trendService.selectTopicForSchool(schoolType, 'free', bulkSize);
+      
+      // 디시인사이드 스타일 게시글 생성
+      const result = await this.trendService.generateDCInsideStylePost(
+        schoolName,
+        selectedTopic,
+        botNickname || '익명'
+      );
+
+      return {
+        title: result.title,
+        content: result.content,
+        meta: {
+          promptVersion: 'trend-based-v2.0',
+          diversity: {
+            funAnecdote: selectedTopic.tone === 'funny',
+            engagementQuestion: selectedTopic.tone === 'curious'
+          },
+          policyPass: true,
+          style: result.metadata?.style || 'dc-inside'
+        }
+      };
+
+    } catch (error) {
+      console.error('트렌드 기반 게시글 생성 실패, 기존 방식으로 대체:', error);
+      // 실패 시 기존 방식으로 대체
+      return this.generateSchoolPost(schoolName, botNickname);
+    }
+  }
+
+  /**
+   * 학교별 게시글 생성 (기존 방식)
    */
   private async generateSchoolPost(schoolName: string, botNickname?: string): Promise<PostData> {
     const userPayload = await this.createPrompt(schoolName, botNickname);
@@ -293,9 +346,10 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
       '자연스러운 학생 말투 필수:',
       '- 반말 위주 사용: "~해", "~야", "~임", "~다" (존댓말 금지)',
       '- 이모티콘 최대 1개까지만 허용 (없어도 됨)',
-      '- 줄임말 자연스럽게: ㅋㅋ, ㄹㅇ, 개, 진짜 등',
+      '- 건전한 줄임말 사용: ㅋㅋ, ㄹㅇ, 진짜, 완전, 레알, 갓 등',
       '- AI 같은 정중한 표현 금지: "~해요", "~입니다", "~하세요" 등',
       '- 과도한 감탄사나 의성어 금지',
+      '- 비속어 및 욕설 사용 금지: "존나", "개", "지랄", "ㅅㅂ", "ㅈㄴ" 등 및 초성 표현도 금지',
       '',
       '허용 및 권장사항:',
       '- 실제 콘텐츠명 언급 가능: "지금 우리 학교" 드라마, "원피스" 웹툰, "리그 오브 레전드" 게임 등',
@@ -529,6 +583,13 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
     try {
       console.log('🤖 AI 게시글 생성 시작...');
       console.log(`📊 설정: ${schoolLimit}개 학교, 학교당 ${postsPerSchool}개 게시글, 게시글간 ${delayBetweenPosts}ms 딜레이\n`);
+      
+      // 🔥 대량 생성 모드 활성화
+      const totalPosts = schoolLimit * postsPerSchool;
+      if (totalPosts >= 50) {
+        this.trendService.setBulkGenerationMode(true, totalPosts);
+        console.log(`🚀 [POST-SERVICE] 대량 생성 모드 활성화 (총 ${totalPosts}개 게시글)`);
+      }
 
       // 1단계: 봇이 있는 학교들 조회
       const botsQuery = await this.db
@@ -604,8 +665,8 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
               // 랜덤하게 봇 선택
               const randomBot = schoolBots[Math.floor(Math.random() * schoolBots.length)];
               
-              // 게시글 생성
-              const postData = await this.generateSchoolPost(schoolInfo.name, randomBot.nickname);
+              // 게시글 생성 (트렌드 기반, 대량 생성 정보 전달)
+              const postData = await this.generateTrendBasedPost(schoolInfo.name, randomBot.nickname, totalPosts);
               
               // 게시글 저장
               await this.savePost(postData, randomBot, schoolInfo);
@@ -613,9 +674,13 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
               totalGenerated++;
               summary[schoolType]++;
 
-              // 딜레이 (API 부하 방지)
+              // 딜레이 (API 부하 방지) - 대량 생성 시 최적화
               if (delayBetweenPosts > 0) {
-                await new Promise(resolve => setTimeout(resolve, delayBetweenPosts));
+                const totalPosts = schoolLimit * postsPerSchool;
+                const optimizedDelay = totalPosts >= 5000 ? Math.max(delayBetweenPosts * 0.3, 1000) : 
+                                     totalPosts >= 1000 ? Math.max(delayBetweenPosts * 0.5, 1500) : 
+                                     delayBetweenPosts;
+                await new Promise(resolve => setTimeout(resolve, optimizedDelay));
               }
 
             } catch (postError) {
@@ -645,6 +710,12 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
       console.log(`   - 고등학교 게시글: ${summary.high}개`);
       console.log(`   - 처리된 학교: ${schoolIds.length}개\n`);
 
+      // 🔥 대량 생성 모드 해제
+      if (totalPosts >= 50) {
+        this.trendService.setBulkGenerationMode(false);
+        console.log(`🛑 [POST-SERVICE] 대량 생성 모드 해제`);
+      }
+
       return {
         totalGenerated,
         schoolsProcessed: schoolIds.length,
@@ -653,6 +724,14 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
 
     } catch (error) {
       console.error('❌ AI 게시글 생성 프로세스 실패:', error);
+      
+      // 🔥 에러 시에도 대량 생성 모드 해제
+      const totalPosts = schoolLimit * postsPerSchool;
+      if (totalPosts >= 50) {
+        this.trendService.setBulkGenerationMode(false);
+        console.log(`🛑 [POST-SERVICE] 대량 생성 모드 해제 (에러)`);
+      }
+      
       throw error;
     }
   }
@@ -714,8 +793,8 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
           // 랜덤하게 봇 선택
           const randomBot = schoolBots[Math.floor(Math.random() * schoolBots.length)];
           
-          // 게시글 생성
-          const postData = await this.generateSchoolPost(schoolInfo.name, randomBot.nickname);
+          // 게시글 생성 (트렌드 기반)
+          const postData = await this.generateTrendBasedPost(schoolInfo.name, randomBot.nickname);
           
           // 게시글 저장
           await this.savePost(postData, randomBot, schoolInfo);
@@ -773,8 +852,8 @@ ${botNickname}의 개성 있는 말투: ${personalityStyle}`;
           // 랜덤하게 봇 선택
           const randomBot = schoolBots[Math.floor(Math.random() * schoolBots.length)];
           
-          // 게시글 생성
-          const postData = await this.generateSchoolPost(schoolInfo.name, randomBot.nickname);
+          // 게시글 생성 (트렌드 기반)
+          const postData = await this.generateTrendBasedPost(schoolInfo.name, randomBot.nickname);
           
           // 게시글 저장
           await this.savePost(postData, randomBot, schoolInfo);

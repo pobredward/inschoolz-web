@@ -95,8 +95,8 @@ export function useBulkOperations(): UseBulkOperationsReturn {
   ): Promise<string> => {
     const operationId = createOperation('create_bots', schoolCount);
     
-    // 배치 크기 (서버 제한 고려)
-    const BATCH_SIZE = 5; // 한 번에 5개 학교씩 처리
+    // 배치 크기 (서버 제한 고려) - 대량 생성 시 더 큰 배치 사용
+    const BATCH_SIZE = schoolCount >= 1000 ? 50 : schoolCount >= 100 ? 20 : 5;
     const batches = Math.ceil(schoolCount / BATCH_SIZE);
     
     updateOperation(operationId, { 
@@ -135,9 +135,10 @@ export function useBulkOperations(): UseBulkOperationsReturn {
             message: `배치 ${i + 1}/${batches} 완료`
           });
 
-          // 배치 간 딜레이 (서버 부하 방지)
+          // 배치 간 딜레이 (서버 부하 방지) - 대량 생성 시 딜레이 조정
           if (i < batches - 1) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const delay = schoolCount >= 5000 ? 1000 : schoolCount >= 1000 ? 1500 : 2000;
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
 
@@ -170,7 +171,8 @@ export function useBulkOperations(): UseBulkOperationsReturn {
     const totalPosts = schoolCount * postsPerSchool;
     const operationId = createOperation('generate_posts', totalPosts);
     
-    const BATCH_SIZE = 10; // 한 번에 10개 게시글씩 처리
+    // 배치 크기 (대량 생성 시 더 큰 배치 사용)
+    const BATCH_SIZE = totalPosts >= 5000 ? 100 : totalPosts >= 1000 ? 50 : totalPosts >= 100 ? 20 : 10;
     const batches = Math.ceil(totalPosts / BATCH_SIZE);
     
     updateOperation(operationId, { 
@@ -207,9 +209,10 @@ export function useBulkOperations(): UseBulkOperationsReturn {
             message: `배치 ${i + 1}/${batches} 완료`
           });
 
-          // 배치 간 딜레이
+          // 배치 간 딜레이 (OpenAI API 제한 고려) - 대량 생성 시 딜레이 조정
           if (i < batches - 1) {
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            const delay = totalPosts >= 5000 ? 2000 : totalPosts >= 1000 ? 2500 : 3000;
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
 

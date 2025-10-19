@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Bot, RefreshCw, Search, Plus, Trash2, Edit } from 'lucide-react';
+import { Bot, RefreshCw, Search, Plus, Trash2, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
 
@@ -37,6 +37,12 @@ export default function FakeBotsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
   
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalBots, setTotalBots] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const pageSize = 50;
+  
   // 편집 관련 상태
   const [editingBot, setEditingBot] = useState<BotAccount | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -49,11 +55,14 @@ export default function FakeBotsPage() {
     commentCount: 0
   });
 
-  // 봇 계정 목록 가져오기 (검색 포함)
-  const fetchBots = async (search?: string) => {
+  // 봇 계정 목록 가져오기 (검색 포함, 페이지네이션)
+  const fetchBots = async (search?: string, page: number = 1) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
+      params.append('limit', pageSize.toString());
+      params.append('page', page.toString());
+      
       if (search && search.trim()) {
         params.append('search', search.trim());
       }
@@ -70,9 +79,12 @@ export default function FakeBotsPage() {
       
       if (result.success) {
         setBots(result.data || []);
+        setTotalBots(result.total || 0);
+        setHasNextPage(result.hasNextPage || false);
+        
         const message = result.isSearchMode 
-          ? `검색 완료: 전체 ${result.totalScanned}개 중 ${result.data.length}개 결과`
-          : `${result.data.length}개의 봇 계정을 조회했습니다.`;
+          ? `검색 완료: 전체 ${result.totalScanned}개 중 ${result.data.length}개 결과 (${page}페이지)`
+          : `${result.data.length}개의 봇 계정을 조회했습니다. (${page}페이지, 총 ${result.total}개)`;
         toast.success(message);
       } else {
         throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
@@ -81,6 +93,8 @@ export default function FakeBotsPage() {
       console.error('봇 계정 조회 오류:', error);
       toast.error('봇 계정을 불러오는데 실패했습니다.');
       setBots([]);
+      setTotalBots(0);
+      setHasNextPage(false);
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +116,7 @@ export default function FakeBotsPage() {
       
       if (result.success) {
         toast.success('새 봇 계정이 생성되었습니다.');
-        await fetchBots(searchTerm);
+        await fetchBots(searchTerm, currentPage);
       } else {
         throw new Error(result.error || '봇 계정 생성 실패');
       }
@@ -139,7 +153,7 @@ export default function FakeBotsPage() {
       if (result.success) {
         console.log(`✅ [DELETE-BOT] 성공: ${result.deletedBotId}`);
         toast.success('봇 계정이 삭제되었습니다.');
-        await fetchBots(searchTerm);
+        await fetchBots(searchTerm, currentPage);
       } else {
         console.error(`❌ [DELETE-BOT] 실패:`, result.error);
         throw new Error(result.error || '봇 계정 삭제 실패');
@@ -219,7 +233,7 @@ export default function FakeBotsPage() {
         console.log(`✅ [UPDATE-BOT] 성공: ${result.updatedBot.uid}`);
         toast.success('봇 계정이 수정되었습니다.');
         cancelEditBot();
-        await fetchBots(searchTerm);
+        await fetchBots(searchTerm, currentPage);
       } else {
         console.error(`❌ [UPDATE-BOT] 실패:`, result.error);
         throw new Error(result.error || '봇 계정 수정 실패');
@@ -244,7 +258,7 @@ export default function FakeBotsPage() {
 
       if (result.success) {
         toast.success(`마이그레이션 완료: ${result.updatedBots}개 봇 계정 업데이트`);
-        await fetchBots(searchTerm);
+        await fetchBots(searchTerm, currentPage);
       } else {
         throw new Error(result.error || '마이그레이션 실패');
       }
@@ -258,17 +272,25 @@ export default function FakeBotsPage() {
 
 
   useEffect(() => {
-    fetchBots();
+    fetchBots('', 1);
   }, []);
 
-  // 검색어 변경 시 디바운스 적용
+  // 검색어 변경 시 디바운스 적용 (첫 페이지로 리셋)
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
-      fetchBots(searchTerm);
+      setCurrentPage(1);
+      fetchBots(searchTerm, 1);
     }, 500);
 
     return () => clearTimeout(delayedSearch);
   }, [searchTerm]);
+
+  // 페이지 변경 시
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchBots(searchTerm, currentPage);
+    }
+  }, [currentPage]);
 
   if (!user?.profile?.isAdmin) {
     return (
@@ -296,7 +318,7 @@ export default function FakeBotsPage() {
           <p className="text-muted-foreground">AI 봇 계정을 생성하고 관리하세요.</p>
         </div>
                <div className="flex gap-2">
-               <Button onClick={() => fetchBots(searchTerm)} disabled={isLoading} variant="outline">
+               <Button onClick={() => fetchBots(searchTerm, currentPage)} disabled={isLoading} variant="outline">
                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                  새로고침
                </Button>
@@ -330,7 +352,12 @@ export default function FakeBotsPage() {
       {/* 봇 계정 목록 */}
       <Card>
         <CardHeader>
-          <CardTitle>AI 봇 계정 ({bots.length}개)</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>AI 봇 계정 ({totalBots}개)</CardTitle>
+            <div className="text-sm text-muted-foreground">
+              {currentPage}페이지 / 총 {Math.ceil(totalBots / pageSize)}페이지 (페이지당 {pageSize}개)
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -407,6 +434,38 @@ export default function FakeBotsPage() {
                   </div>
                 </Link>
               ))}
+            </div>
+          )}
+          
+          {/* 페이지네이션 */}
+          {!isLoading && totalBots > 0 && (
+            <div className="flex justify-between items-center mt-6 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, totalBots)} / {totalBots}개 표시
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  이전
+                </Button>
+                <div className="flex items-center gap-2 px-3 py-1 text-sm">
+                  {currentPage} / {Math.ceil(totalBots / pageSize)}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  disabled={!hasNextPage || currentPage >= Math.ceil(totalBots / pageSize)}
+                >
+                  다음
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
