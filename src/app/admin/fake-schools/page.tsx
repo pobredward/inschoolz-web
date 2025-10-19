@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,13 +26,10 @@ interface SchoolStats {
 
 export default function FakeSchoolsPage() {
   const { user } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  
   const [schools, setSchools] = useState<SchoolStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
-  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedSchool, setSelectedSchool] = useState<SchoolStats | null>(null);
   const [isBotModalOpen, setIsBotModalOpen] = useState(false);
@@ -151,41 +147,14 @@ export default function FakeSchoolsPage() {
     window.open(`/community?tab=school/${schoolId}`, '_blank');
   };
 
-  // URL 파라미터 업데이트
-  const updateUrlParams = (page: number, search: string) => {
-    const params = new URLSearchParams();
-    if (page > 1) params.set('page', page.toString());
-    if (search) params.set('search', search);
-    
-    const newUrl = params.toString() ? `?${params.toString()}` : '/admin/fake-schools';
-    router.replace(newUrl, { scroll: false });
-  };
-
-  // 페이지 변경
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-    updateUrlParams(newPage, searchTerm);
-  };
-
-  // 검색어 변경
-  const handleSearchChange = (newSearchTerm: string) => {
-    setSearchTerm(newSearchTerm);
-    setCurrentPage(1);
-    updateUrlParams(1, newSearchTerm);
-  };
-
   useEffect(() => {
     fetchSchoolStats(currentPage);
   }, [currentPage, fetchSchoolStats]);
 
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
-      if (currentPage === 1) {
-        fetchSchoolStats(1);
-      } else {
-        setCurrentPage(1);
-        updateUrlParams(1, searchTerm);
-      }
+      setCurrentPage(1);
+      fetchSchoolStats(1);
     }, 500);
 
     return () => clearTimeout(delayedSearch);
@@ -283,7 +252,7 @@ export default function FakeSchoolsPage() {
             <Input
               placeholder="학교명으로 검색..."
               value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -399,7 +368,7 @@ export default function FakeSchoolsPage() {
               <div className="flex justify-center gap-2 mt-6">
                 <Button
                   variant="outline"
-                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                 >
                   이전
@@ -409,7 +378,7 @@ export default function FakeSchoolsPage() {
                 </span>
                 <Button
                   variant="outline"
-                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                 >
                   다음

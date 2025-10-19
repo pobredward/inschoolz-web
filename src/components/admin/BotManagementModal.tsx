@@ -175,8 +175,8 @@ export function BotManagementModal({
     }
   };
 
-  // 봇 프로필로 이동
-  const navigateToBotProfile = (botId: string) => {
+  // 유저 프로필로 이동
+  const navigateToUserProfile = (botId: string) => {
     window.open(`/users/${botId}`, '_blank');
   };
 
@@ -312,7 +312,7 @@ export function BotManagementModal({
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => navigateToBotProfile(bot.id)}
+                              onClick={() => navigateToUserProfile(bot.id)}
                               className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                             >
                               {bot.nickname}
@@ -320,6 +320,7 @@ export function BotManagementModal({
                             <Badge variant="secondary" className="text-xs">
                               {getSchoolTypeLabel(bot.schoolType)}
                             </Badge>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
                           </div>
                           
                           <div className="text-sm text-muted-foreground">
@@ -328,24 +329,13 @@ export function BotManagementModal({
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigateToBotProfile(bot.id)}
-                          title="프로필 보기"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleBotSelection(bot.id)}
-                          title="선택/해제"
-                        >
-                          <Bot className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleBotSelection(bot.id)}
+                      >
+                        <Bot className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
