@@ -24,6 +24,13 @@ interface SchoolStats {
   status: 'active' | 'inactive' | 'no_bots';
 }
 
+interface GlobalStats {
+  totalSchools: number;
+  schoolsWithBots: number;
+  totalBots: number;
+  totalPosts: number;
+}
+
 export default function FakeSchoolsPage() {
   const { user } = useAuth();
   const [schools, setSchools] = useState<SchoolStats[]>([]);
@@ -34,18 +41,30 @@ export default function FakeSchoolsPage() {
   const [selectedSchool, setSelectedSchool] = useState<SchoolStats | null>(null);
   const [isBotModalOpen, setIsBotModalOpen] = useState(false);
   const [isCreatingBot, setIsCreatingBot] = useState<string | null>(null);
+  const [globalStats, setGlobalStats] = useState<GlobalStats>({
+    totalSchools: 0,
+    schoolsWithBots: 0,
+    totalBots: 0,
+    totalPosts: 0
+  });
   const itemsPerPage = 20;
 
   // 학교 통계 가져오기
   const fetchSchoolStats = useCallback(async (page: number = 1) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/admin/school-stats?page=${page}&limit=${itemsPerPage}&search=${searchTerm}`);
+      const response = await fetch(`/api/admin/school-stats?page=${page}&limit=${itemsPerPage}&search=${searchTerm}&searchMode=startsWith&sortBy=botCount&sortOrder=desc`);
       const result = await response.json();
       
       if (result.success) {
         setSchools(result.data || []);
         setTotalPages(result.totalPages || Math.ceil((result.totalCount || result.total || 0) / itemsPerPage));
+        
+        // 글로벌 통계 업데이트
+        if (result.globalStats) {
+          setGlobalStats(result.globalStats);
+        }
+        
         toast.success(`${result.data?.length || 0}개 학교의 통계를 조회했습니다.`);
       } else {
         throw new Error(result.error || '알 수 없는 오류가 발생했습니다.');
@@ -160,10 +179,8 @@ export default function FakeSchoolsPage() {
     return () => clearTimeout(delayedSearch);
   }, [searchTerm, fetchSchoolStats]);
 
-  const totalSchools = schools.length;
-  const schoolsWithBots = schools.filter(s => (s.botCount || 0) > 0).length;
-  const totalBots = schools.reduce((sum, s) => sum + (s.botCount || 0), 0);
-  const totalPosts = schools.reduce((sum, s) => sum + (s.postCount || 0), 0);
+  // 글로벌 통계 사용 (전체 데이터 기준)
+  const { totalSchools, schoolsWithBots, totalBots, totalPosts } = globalStats;
 
   if (!user?.profile?.isAdmin) {
     return (
@@ -250,7 +267,7 @@ export default function FakeSchoolsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="학교명으로 검색..."
+              placeholder="학교명으로 검색... (예: 서울, 강남)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"

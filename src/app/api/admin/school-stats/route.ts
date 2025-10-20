@@ -24,9 +24,9 @@ async function getFirebaseAdmin() {
     universe_domain: 'googleapis.com'
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin.default.initializeApp({
-    credential: admin.default.credential.cert(serviceAccount as admin.default.ServiceAccount),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    credential: admin.default.credential.cert(serviceAccount as any),
     databaseURL: 'https://inschoolz-default-rtdb.asia-southeast1.firebasedatabase.app'
   });
 
@@ -55,39 +55,61 @@ export async function GET(request: NextRequest) {
     const schoolType = searchParams.get('schoolType') || 'all';
     const search = searchParams.get('search') || '';
     const searchMode = searchParams.get('searchMode') || 'contains'; // 'contains' 또는 'startsWith'
+    const sortBy = searchParams.get('sortBy') || 'name'; // 'name', 'botCount', 'postCount'
+    const sortOrder = searchParams.get('sortOrder') || 'asc'; // 'asc', 'desc'
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
 
-    console.log('🏫 학교별 통계 조회 시작:', { region, schoolType, search, searchMode, page, limit });
+    console.log('🏫 학교별 통계 조회 시작:', { region, schoolType, search, searchMode, sortBy, sortOrder, page, limit });
 
     const app = await getFirebaseAdmin();
     const db = app.firestore();
     
-    // 전체 카운트를 위한 쿼리 (필터 적용)
-    let countQuery = db.collection('schools');
-    if (region !== 'all') {
-      countQuery = countQuery.where('SIDO_NAME', '==', region);
-    }
-    
-    // 학교 쿼리 구성 (페이지네이션 적용)
-    let schoolsQuery = db.collection('schools').orderBy('KOR_NAME');
+    // 효율적인 학교 쿼리 구성
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let schoolsQuery: any = db.collection('schools');
     
     // 지역 필터
     if (region !== 'all') {
       schoolsQuery = schoolsQuery.where('SIDO_NAME', '==', region);
     }
     
-    // 페이지네이션 적용
-    const offset = (page - 1) * limit;
-    if (offset > 0) {
-      schoolsQuery = schoolsQuery.offset(offset);
+    // 검색 최적화: startsWith 검색만 지원하고 Firestore range query 사용
+    if (search) {
+      const searchUpper = search.toUpperCase();
+      const searchEnd = searchUpper.slice(0, -1) + String.fromCharCode(searchUpper.charCodeAt(searchUpper.length - 1) + 1);
+      
+      schoolsQuery = schoolsQuery
+        .where('KOR_NAME', '>=', searchUpper)
+        .where('KOR_NAME', '<', searchEnd)
+        .orderBy('KOR_NAME');
+        
+      console.log(`🔍 Range query: KOR_NAME >= "${searchUpper}" AND < "${searchEnd}"`);
+    } else {
+      // 검색이 없을 때는 봇 수 기준 정렬을 위해 이름순으로 정렬
+      schoolsQuery = schoolsQuery.orderBy('KOR_NAME');
     }
-    schoolsQuery = schoolsQuery.limit(limit);
     
-    // 병렬로 전체 카운트와 현재 페이지 데이터 조회
+    // 전체 카운트를 위한 별도 쿼리 (count만)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let countQuery: any = db.collection('schools');
+    if (region !== 'all') {
+      countQuery = countQuery.where('SIDO_NAME', '==', region);
+    }
+    if (search) {
+      const searchUpper = search.toUpperCase();
+      const searchEnd = searchUpper.slice(0, -1) + String.fromCharCode(searchUpper.charCodeAt(searchUpper.length - 1) + 1);
+      countQuery = countQuery
+        .where('KOR_NAME', '>=', searchUpper)
+        .where('KOR_NAME', '<', searchEnd);
+    }
+    
+    // 병렬로 전체 카운트와 학교 데이터 조회
     const [totalCountSnapshot, schoolsSnapshot] = await Promise.all([
       countQuery.count().get(),
-      schoolsQuery.get()
+      search ? 
+        schoolsQuery.limit(1000).get() : // 검색 시에는 최대 1000개로 제한
+        schoolsQuery.get() // 검색이 없으면 모든 학교 조회
     ]);
     
     const totalCount = totalCountSnapshot.data().count;
@@ -99,36 +121,21 @@ export async function GET(request: NextRequest) {
         total: 0,
         totalCount,
         page,
-        totalPages: Math.ceil(totalCount / limit),
-        filters: { region, schoolType, search, searchMode, page, limit }
+        totalPages: 0,
+        globalStats: { totalSchools: 0, schoolsWithBots: 0, totalBots: 0, totalPosts: 0 },
+        filters: { region, schoolType, search, searchMode, sortBy, sortOrder, page, limit }
       });
     }
 
     // 학교 데이터 처리
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const schools: any[] = [];
     const schoolIds: string[] = [];
     
-    schoolsSnapshot.docs.forEach(doc => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    schoolsSnapshot.docs.forEach((doc: any) => {
       const data = doc.data();
       const schoolName = data.KOR_NAME || '알 수 없는 학교';
-      
-      // 학교명 검색 필터 (최적화된 검색)
-      if (search) {
-        const searchLower = search.toLowerCase();
-        const schoolNameLower = schoolName.toLowerCase();
-        
-        if (searchMode === 'startsWith') {
-          // 시작하는 단어로 검색 (더 빠름)
-          if (!schoolNameLower.startsWith(searchLower)) {
-            return;
-          }
-        } else {
-          // 포함하는 단어로 검색 (기존 방식)
-          if (!schoolNameLower.includes(searchLower)) {
-            return;
-          }
-        }
-      }
       
       // 학교 유형 판단
       let type: 'elementary' | 'middle' | 'high' = 'middle';
@@ -165,8 +172,9 @@ export async function GET(request: NextRequest) {
         total: 0,
         totalCount,
         page,
-        totalPages: Math.ceil(totalCount / limit),
-        filters: { region, schoolType, search, searchMode, page, limit }
+        totalPages: 0,
+        globalStats: { totalSchools: 0, schoolsWithBots: 0, totalBots: 0, totalPosts: 0 },
+        filters: { region, schoolType, search, searchMode, sortBy, sortOrder, page, limit }
       });
     }
 
@@ -176,44 +184,61 @@ export async function GET(request: NextRequest) {
       schoolStatsMap.set(school.id, school);
     });
 
-    // 봇 수 조회 (배치로 처리)
-    const botsQuery = await db.collection('users')
-      .where('fake', '==', true)
-      .where('schoolId', 'in', schoolIds.slice(0, 10)) // Firestore 'in' 제한
-      .get();
-    
+    // 배치 처리로 봇 수와 게시글 수 조회 (Firestore 'in' 연산자 10개 제한 우회)
     const botCounts = new Map<string, number>();
-    botsQuery.docs.forEach(doc => {
-      const data = doc.data();
-      const schoolId = data.schoolId;
-      if (schoolId) {
-        botCounts.set(schoolId, (botCounts.get(schoolId) || 0) + 1);
-      }
-    });
-
-    // 게시글 수 조회 (배치로 처리)
-    const postsQuery = await db.collection('posts')
-      .where('fake', '==', true)
-      .where('schoolId', 'in', schoolIds.slice(0, 10)) // Firestore 'in' 제한
-      .get();
-    
     const postCounts = new Map<string, number>();
     const lastActivities = new Map<string, Date>();
     
-    postsQuery.docs.forEach(doc => {
-      const data = doc.data();
-      const schoolId = data.schoolId;
-      if (schoolId) {
-        postCounts.set(schoolId, (postCounts.get(schoolId) || 0) + 1);
-        
-        // 마지막 활동 시간 업데이트
-        const createdAt = data.createdAt?.toDate?.() || new Date();
-        const currentLast = lastActivities.get(schoolId);
-        if (!currentLast || createdAt > currentLast) {
-          lastActivities.set(schoolId, createdAt);
+    // schoolIds를 10개씩 배치로 나누어 처리
+    const batchSize = 10;
+    const batches = [];
+    for (let i = 0; i < schoolIds.length; i += batchSize) {
+      batches.push(schoolIds.slice(i, i + batchSize));
+    }
+    
+    console.log(`📦 배치 처리: ${batches.length}개 배치, 총 ${schoolIds.length}개 학교`);
+    
+    // 각 배치별로 병렬 처리
+    await Promise.all(batches.map(async (batch, batchIndex) => {
+      console.log(`🔄 배치 ${batchIndex + 1}/${batches.length} 처리 중... (${batch.length}개 학교)`);
+      
+      // 봇 수 조회
+      const botsQuery = await db.collection('users')
+        .where('fake', '==', true)
+        .where('schoolId', 'in', batch)
+        .get();
+      
+      botsQuery.docs.forEach(doc => {
+        const data = doc.data();
+        const schoolId = data.schoolId;
+        if (schoolId) {
+          botCounts.set(schoolId, (botCounts.get(schoolId) || 0) + 1);
         }
-      }
-    });
+      });
+      
+      // 게시글 수 조회
+      const postsQuery = await db.collection('posts')
+        .where('fake', '==', true)
+        .where('schoolId', 'in', batch)
+        .get();
+      
+      postsQuery.docs.forEach(doc => {
+        const data = doc.data();
+        const schoolId = data.schoolId;
+        if (schoolId) {
+          postCounts.set(schoolId, (postCounts.get(schoolId) || 0) + 1);
+          
+          // 마지막 활동 시간 업데이트
+          const createdAt = data.createdAt?.toDate?.() || new Date();
+          const currentLast = lastActivities.get(schoolId);
+          if (!currentLast || createdAt > currentLast) {
+            lastActivities.set(schoolId, createdAt);
+          }
+        }
+      });
+    }));
+    
+    console.log(`✅ 배치 처리 완료: 봇 ${Array.from(botCounts.values()).reduce((a, b) => a + b, 0)}개, 게시글 ${Array.from(postCounts.values()).reduce((a, b) => a + b, 0)}개`);
 
     // 통계 업데이트
     const schoolStats: SchoolStats[] = [];
@@ -252,28 +277,60 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    // 상태별 정렬 (활성 > 비활성 > 봇 없음)
+    // 정렬 적용
+    console.log(`🔄 정렬 적용: sortBy=${sortBy}, sortOrder=${sortOrder}`);
+    
     schoolStats.sort((a, b) => {
-      const statusOrder = { active: 0, inactive: 1, no_bots: 2 };
-      const statusDiff = statusOrder[a.status] - statusOrder[b.status];
-      if (statusDiff !== 0) return statusDiff;
+      let comparison = 0;
       
-      // 같은 상태면 게시글 수로 정렬
-      return b.postCount - a.postCount;
+      switch (sortBy) {
+        case 'botCount':
+          comparison = a.botCount - b.botCount;
+          break;
+        case 'postCount':
+          comparison = a.postCount - b.postCount;
+          break;
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        default:
+          // 기본 정렬: 상태별 정렬 (활성 > 비활성 > 봇 없음)
+          const statusOrder = { active: 0, inactive: 1, no_bots: 2 };
+          const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+          if (statusDiff !== 0) return statusDiff;
+          // 같은 상태면 게시글 수로 정렬
+          return b.postCount - a.postCount;
+      }
+      
+      return sortOrder === 'desc' ? -comparison : comparison;
     });
 
-    console.log(`✅ 학교별 통계 조회 완료: ${schoolStats.length}개 학교 (페이지 ${page}/${Math.ceil(totalCount / limit)})`);
+    // 글로벌 통계 계산 (현재 조회된 학교들 기준)
+    const globalStats = {
+      totalSchools: 0, // 계산하지 않음
+      schoolsWithBots: schoolStats.filter(s => s.botCount > 0).length,
+      totalBots: schoolStats.reduce((sum, s) => sum + s.botCount, 0),
+      totalPosts: 0 // 계산하지 않음
+    };
+
+    // 페이지네이션 적용 (정렬 후)
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedSchools = schoolStats.slice(startIndex, endIndex);
+
+    console.log(`✅ 학교별 통계 조회 완료: ${paginatedSchools.length}개 학교 (전체: ${schoolStats.length}개, 페이지 ${page}/${Math.ceil(schoolStats.length / limit)})`);
     
     return NextResponse.json({
       success: true,
-      data: schoolStats,
-      total: schoolStats.length,
-      totalCount,
+      data: paginatedSchools,
+      total: paginatedSchools.length,
+      totalCount: schoolStats.length,
       page,
-      totalPages: Math.ceil(totalCount / limit),
-      filters: { region, schoolType, search, page, limit },
+      totalPages: Math.ceil(schoolStats.length / limit),
+      globalStats,
+      filters: { region, schoolType, search, searchMode, sortBy, sortOrder, page, limit },
       lastUpdated: new Date().toISOString(),
-      source: 'firebase_direct_realtime'
+      source: 'firebase_optimized_batch'
     });
 
   } catch (error) {
