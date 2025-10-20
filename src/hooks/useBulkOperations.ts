@@ -271,7 +271,9 @@ export function useBulkOperations(): UseBulkOperationsReturn {
             throw new Error(result.error || '배치 실행 실패');
           }
 
-          completedComments += batchCommentCount;
+          // 실제 생성된 댓글 수 사용 (result.result.generatedCount)
+          const actualGenerated = result.result?.generatedCount || batchCommentCount;
+          completedComments += actualGenerated;
           
           updateOperation(operationId, {
             progress: completedComments,

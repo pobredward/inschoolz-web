@@ -125,10 +125,12 @@ async function executeCommentGenerationBatch(params: { commentCount: number }) {
   console.log(`💬 [COMMENT-BATCH] 댓글 생성 시작: ${commentCount}개`);
   
   const commentService = new CommentService();
+  
+  // 랜덤 게시글에 정확히 commentCount 개수만큼 댓글 생성
   const result = await commentService.generateCommentsForRandomPosts(commentCount);
   
   console.log('✅ [COMMENT-BATCH] 댓글 생성 완료:', result);
-  return result;
+  return { generatedCount: result };
 }
 
 /**

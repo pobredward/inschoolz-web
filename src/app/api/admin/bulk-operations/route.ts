@@ -639,13 +639,15 @@ async function executeCommentGeneration(operationId: string, params: any) {
     if (!operation) throw new Error('작업을 찾을 수 없습니다.');
 
     const { 
+      targetCommentCount,
+      useRandomPosts = false,
+      // 기존 방식 파라미터들 (하위 호환성)
       schoolLimit = 5, 
       commentsPerSchool = 3, 
-      maxCommentsPerPost = 2,
-      targetCommentCount 
+      maxCommentsPerPost = 2
     } = params;
     
-    // 예상 댓글 수 계산 (목표 댓글 수가 있으면 우선 사용)
+    // 댓글 수 설정
     const expectedComments = targetCommentCount || (schoolLimit * commentsPerSchool * maxCommentsPerPost);
     operation.total = expectedComments;
     operation.message = `${expectedComments}개 AI 댓글을 생성하는 중...`;
@@ -665,13 +667,25 @@ async function executeCommentGeneration(operationId: string, params: any) {
       }
     };
 
-    // 댓글 생성 실행
-    const generatedCount = await commentService.generateCommentsForPosts(
-      schoolLimit,
-      commentsPerSchool,
-      maxCommentsPerPost,
-      onProgress
-    );
+    let generatedCount: number;
+
+    if (useRandomPosts && targetCommentCount) {
+      // 새로운 방식: 랜덤 게시글에 정확한 개수만큼 댓글 생성
+      console.log(`🎯 랜덤 게시글 모드: ${targetCommentCount}개 댓글 생성`);
+      generatedCount = await commentService.generateCommentsForRandomPosts(
+        targetCommentCount,
+        onProgress
+      );
+    } else {
+      // 기존 방식: 학교별 게시글에 댓글 생성
+      console.log(`🏫 학교별 모드: ${schoolLimit}개 학교, 학교당 ${commentsPerSchool}개 게시글`);
+      generatedCount = await commentService.generateCommentsForPosts(
+        schoolLimit,
+        commentsPerSchool,
+        maxCommentsPerPost,
+        onProgress
+      );
+    }
 
     // 최종 상태 업데이트
     const finalOperation = operations.get(operationId);

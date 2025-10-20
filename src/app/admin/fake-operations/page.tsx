@@ -127,10 +127,7 @@ export default function FakeOperationsPage() {
   // 댓글 대량 생성
   const startCommentGeneration = async (commentCount: number) => {
     try {
-      // commentCount를 기반으로 적절한 파라미터 계산
-      const schoolLimit = Math.min(Math.ceil(commentCount / 6), 50); // 학교당 평균 6개 댓글
-      const commentsPerSchool = Math.ceil(commentCount / schoolLimit / 2); // 학교당 게시글 수
-      const maxCommentsPerPost = 2; // 게시글당 최대 댓글 수
+      console.log(`💬 [COMMENT-GEN] ${commentCount}개 댓글 생성 시작`);
       
       const response = await fetch('/api/admin/bulk-operations', {
         method: 'POST',
@@ -138,10 +135,8 @@ export default function FakeOperationsPage() {
         body: JSON.stringify({
           type: 'generate_comments',
           parameters: { 
-            schoolLimit,
-            commentsPerSchool,
-            maxCommentsPerPost,
-            targetCommentCount: commentCount // 참고용
+            targetCommentCount: commentCount, // 정확히 이 개수만큼 댓글 생성
+            useRandomPosts: true // 랜덤 게시글에 댓글 생성 모드
           }
         })
       });
@@ -149,7 +144,7 @@ export default function FakeOperationsPage() {
       const result = await response.json();
       
       if (result.success) {
-        toast.success('댓글 대량 생성이 시작되었습니다.');
+        toast.success(`${commentCount}개 댓글 대량 생성이 시작되었습니다.`);
         await fetchOperations();
       } else {
         throw new Error(result.error || '대량 작업 시작 실패');
@@ -634,10 +629,15 @@ export default function FakeOperationsPage() {
             AI 댓글 생성
           </CardTitle>
           <CardDescription>
-            기존 게시글에 자연스러운 AI 댓글을 대량 생성합니다.
+            기존 게시글에 자연스러운 AI 댓글을 대량 생성합니다. 각 댓글은 서로 다른 게시글에 작성됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-700">
+              💡 각 버튼은 서로 다른 게시글에 댓글을 하나씩 생성합니다. (20개 = 20개 게시글에 각각 1개 댓글)
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Button
               onClick={() => startCommentGeneration(20)}
