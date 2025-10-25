@@ -8,9 +8,7 @@ import {
   checkBlockStatus,
   getFollowersCount,
   getFollowingCount,
-  toggleFollow,
-  getUserPosts,
-  getUserComments
+  toggleFollow
 } from '@/lib/api/users';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,7 +17,6 @@ import { AlertTriangle, Users, MapPin, School, Trophy, MessageSquare, FileText, 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
@@ -33,7 +30,6 @@ import {
   getUserRole, 
   safeTimestampToDate
 } from '@/lib/type-guards';
-import { generatePostUrl, generateCommentPostUrl } from '@/lib/utils/post-url-generator';
 
 interface UserProfileContainerProps {
   user: User;
@@ -81,37 +77,6 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
   const [followingCount, setFollowingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [posts, setPosts] = useState<Array<{
-    id: string;
-    title: string;
-    content: string;
-    boardName: string;
-    type?: 'national' | 'regional' | 'school';
-    boardCode?: string;
-    schoolId?: string;
-    regions?: {
-      sido: string;
-      sigungu: string;
-    };
-    createdAt: unknown;
-  }>>([]);
-  const [comments, setComments] = useState<Array<{
-    id: string;
-    content: string;
-    postId: string;
-    postData?: {
-      title?: string;
-      type?: 'national' | 'regional' | 'school';
-      boardCode?: string;
-      schoolId?: string;
-      regions?: {
-        sido: string;
-        sigungu: string;
-      };
-    };
-    createdAt: unknown;
-  }>>([]);
-  const [activeTab, setActiveTab] = useState('posts');
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [followersModalType, setFollowersModalType] = useState<'followers' | 'following'>('followers');
 
@@ -142,21 +107,6 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       setError('사용자 정보를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // 사용자 게시글 및 댓글 조회
-  const fetchUserContent = async () => {
-    try {
-      const [postsResult, commentsResult] = await Promise.all([
-        getUserPosts(user.uid, 1, 10, 'latest').catch(() => ({ posts: [], totalCount: 0 })),
-        getUserComments(user.uid, 1, 10).catch(() => ({ comments: [], totalCount: 0 }))
-      ]);
-
-      setPosts(postsResult.posts || []);
-      setComments(commentsResult.comments || []);
-    } catch (error) {
-      console.error('사용자 콘텐츠 조회 오류:', error);
     }
   };
 
@@ -192,7 +142,6 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
     }
 
     fetchUserRelationship();
-    fetchUserContent();
   }, [currentUser, user.uid]);
 
   // 자신의 프로필인지 확인
@@ -221,7 +170,6 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
         onRetry={() => {
           setError(null);
           fetchUserRelationship();
-          fetchUserContent();
         }} 
       />
     );
@@ -238,7 +186,7 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-4 space-y-4 min-w-0">
+    <div className="w-full max-w-md mx-auto p-4 space-y-4">
       {/* 헤더 (뒤로가기, 더보기 메뉴) */}
       <ProfileHeader 
         user={user} 
@@ -248,8 +196,8 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       />
       
       {/* 0. 기본 정보 (프로필 이미지, 유저네임) */}
-      <Card className="min-w-0">
-        <CardContent className="p-6 text-center min-w-0">
+      <Card>
+        <CardContent className="p-6 text-center">
           <Avatar className="w-24 h-24 mx-auto mb-4">
             <AvatarImage 
               src={user.profile?.profileImageUrl} 
@@ -295,8 +243,8 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       </Card>
 
       {/* 1. 팔로워와 팔로잉 */}
-      <Card className="min-w-0">
-        <CardContent className="p-6 min-w-0">
+      <Card>
+        <CardContent className="p-6">
           <div className="grid grid-cols-2 gap-4">
             <button 
               onClick={() => handleFollowersClick('followers')}
@@ -320,8 +268,8 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       </Card>
 
       {/* 2. 레벨 및 경험치 */}
-      <Card className="min-w-0">
-        <CardContent className="p-6 min-w-0">
+      <Card>
+        <CardContent className="p-6">
           <div className="flex items-center gap-3 mb-3">
             <Trophy className="w-6 h-6 text-yellow-500" />
             <div>
@@ -344,17 +292,17 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
       </Card>
 
       {/* 3. 학교 및 주소 */}
-      <Card className="min-w-0">
-        <CardContent className="p-6 space-y-3 min-w-0">
+      <Card>
+        <CardContent className="p-6 space-y-3">
           {schoolInfo.name !== '소속 학교 없음' && (
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3">
               <School className="w-5 h-5 text-blue-500 flex-shrink-0" />
               <span className="truncate">{schoolInfo.fullInfo}</span>
             </div>
           )}
           
           {user.regions && (
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3">
               <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
               <span className="truncate">{user.regions.sido} {user.regions.sigungu}</span>
             </div>
@@ -367,102 +315,29 @@ export default function UserProfileContainer({ user }: UserProfileContainerProps
         </CardContent>
       </Card>
 
-      {/* 4. 게시글 및 댓글 */}
-      <Card className="min-w-0">
+      {/* 4. 활동 통계 */}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-lg">활동 내역</CardTitle>
+          <CardTitle className="text-lg">📊 활동 통계</CardTitle>
         </CardHeader>
-        <CardContent className="min-w-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="posts" className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                게시글 ({posts.length})
-              </TabsTrigger>
-              <TabsTrigger value="comments" className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                댓글 ({comments.length})
-              </TabsTrigger>
-            </TabsList>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <Link 
+              href={`/users/${user.uid}/posts`}
+              className="p-4 border rounded-lg hover:bg-gray-50 transition-colors flex flex-col items-center justify-center space-y-2"
+            >
+              <FileText className="w-6 h-6 text-blue-500" />
+              <span className="text-sm font-medium text-center">유저가 쓴 글</span>
+            </Link>
             
-            <TabsContent value="posts" className="mt-4 space-y-3">
-              {posts.length > 0 ? (
-                posts.slice(0, 5).map((post) => {
-                  const postUrl = generatePostUrl({
-                    id: post.id,
-                    type: post.type,
-                    boardCode: post.boardCode,
-                    schoolId: post.schoolId,
-                    regions: post.regions
-                  });
-                  
-                  return (
-                    <div key={post.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
-                      <Link href={postUrl} className="block min-w-0">
-                        <h4 className="font-medium line-clamp-1 mb-1 truncate">{post.title}</h4>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2 break-words">
-                          {post.content?.replace(/<[^>]*>/g, '')}
-                        </p>
-                        <div className="flex justify-between items-center text-xs text-muted-foreground min-w-0">
-                          <span className="truncate flex-shrink-0 max-w-[60%]">{post.boardName}</span>
-                          <span className="text-right flex-shrink-0 whitespace-nowrap">
-                            {(() => {
-                              try {
-                                const date = safeTimestampToDate(post.createdAt);
-                                return formatDistanceToNow(date, { 
-                                  addSuffix: true, 
-                                  locale: ko 
-                                });
-                              } catch {
-                                return '알 수 없음';
-                              }
-                            })()}
-                          </span>
-                        </div>
-                      </Link>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  작성한 게시글이 없습니다.
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="comments" className="mt-4 space-y-3">
-              {comments.length > 0 ? (
-                comments.slice(0, 5).map((comment) => {
-                  const commentPostUrl = generateCommentPostUrl(comment);
-                  
-                  return (
-                    <div key={comment.id} className="p-3 border rounded-lg hover:bg-gray-50 min-w-0">
-                      <Link href={commentPostUrl} className="block min-w-0">
-                        <p className="text-sm line-clamp-2 mb-2 break-words">{comment.content}</p>
-                        <div className="text-xs text-muted-foreground text-right">
-                          {(() => {
-                            try {
-                              const date = safeTimestampToDate(comment.createdAt);
-                              return formatDistanceToNow(date, { 
-                                addSuffix: true, 
-                                locale: ko 
-                              });
-                            } catch {
-                              return '알 수 없음';
-                            }
-                          })()}
-                        </div>
-                      </Link>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  작성한 댓글이 없습니다.
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+            <Link 
+              href={`/users/${user.uid}/comments`}
+              className="p-4 border rounded-lg hover:bg-gray-50 transition-colors flex flex-col items-center justify-center space-y-2"
+            >
+              <MessageSquare className="w-6 h-6 text-green-500" />
+              <span className="text-sm font-medium text-center">유저 댓글</span>
+            </Link>
+          </div>
         </CardContent>
       </Card>
 

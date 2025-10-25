@@ -15,7 +15,8 @@ import {
   getCountFromServer,
   Timestamp,
   FieldValue,
-  QueryConstraint
+  QueryConstraint,
+  collectionGroup
 } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes, deleteObject } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
@@ -245,7 +246,7 @@ export const getUserPosts = async (
 };
 
 /**
- * 사용자 작성 댓글 조회
+ * 사용자 작성 댓글 조회 (Collection Group Query 사용)
  */
 export const getUserComments = async (
   userId: string,
@@ -261,91 +262,98 @@ export const getUserComments = async (
       };
     }
     
-    // Firestore에서는 하위 컬렉션에 대한 전체 쿼리가 불가능하므로 
-    // 실제 구현에서는 별도의 comments 컬렉션을 만들거나 다른 방법 필요
-    // 여기서는 개념적으로 구현
+    // Collection Group Query를 사용하여 모든 posts의 comments 하위 컬렉션을 한 번에 조회
+    const commentsQuery = query(
+      collectionGroup(db, 'comments'),
+      where('authorId', '==', userId),
+      where('status.isDeleted', '==', false),
+      orderBy('createdAt', 'desc'),
+      limit(pageSize + 1) // hasMore 판단을 위해 1개 더 가져옴
+    );
     
-    // 모든 게시글의 comments 하위 컬렉션을 조회해야 함
-    // 실제로는 사용자의 댓글을 추적하는 별도 컬렉션을 사용하는 것이 좋음
-    const postsRef = collection(db, 'posts');
-    const postsSnapshot = await getDocs(postsRef);
+    const commentsSnapshot = await getDocs(commentsQuery);
     
-    const allComments: Comment[] = [];
+    // hasMore 판단
+    const hasMore = commentsSnapshot.docs.length > pageSize;
+    const comments = commentsSnapshot.docs.slice(0, pageSize);
     
-    // 각 게시글의 comments 하위 컬렉션 조회
-    for (const postDoc of postsSnapshot.docs) {
-      const commentsRef = collection(db, `posts/${postDoc.id}/comments`);
-      const commentsQuery = query(
-        commentsRef,
-        where('authorId', '==', userId),
-        where('status.isDeleted', '==', false),
-        orderBy('createdAt', 'desc')
-      );
+    // 게시글 정보 캐시 (중복 조회 방지)
+    const postCache: { [key: string]: any } = {};
+    
+    const processedComments: Comment[] = [];
+    
+    for (const commentDoc of comments) {
+      const commentData = commentDoc.data();
+      const postId = commentDoc.ref.parent.parent?.id;
       
-      const commentsSnapshot = await getDocs(commentsQuery);
+      if (!postId) continue;
       
-      for (const commentDoc of commentsSnapshot.docs) {
-        const postData = postDoc.data();
-        const commentData = commentDoc.data();
-        
-        // 게시판 이름 가져오기
-        let boardName = postData.boardName || '게시판';
-        
-        // postData에 boardName이 없는 경우에만 조회
-        if (!postData.boardName && postData.boardCode) {
-          try {
-            const boardRef = doc(db, 'boards', postData.boardCode);
-            const boardDoc = await getDoc(boardRef);
-            if (boardDoc.exists()) {
-              boardName = boardDoc.data()?.name || postData.boardCode;
-            } else {
-              boardName = postData.boardCode;
-            }
-          } catch (error) {
-            console.error('게시판 정보 조회 실패:', error);
-            boardName = postData.boardCode || '게시판';
+      // 게시글 정보 가져오기 (캐시 사용)
+      let postData = postCache[postId];
+      if (!postData) {
+        try {
+          const postRef = doc(db, 'posts', postId);
+          const postDoc = await getDoc(postRef);
+          if (postDoc.exists()) {
+            postData = postDoc.data();
+            postCache[postId] = postData;
+          } else {
+            postData = null;
           }
+        } catch (error) {
+          console.error('게시글 정보 조회 실패:', error);
+          postData = null;
         }
-        
-        allComments.push({ 
-          id: commentDoc.id, 
-          ...commentData,
-          postId: postDoc.id,  // 명시적으로 postId 추가
-          postData: {
-            title: postData.title,
-            type: postData.type,
-            boardCode: postData.boardCode,
-            boardName: boardName,
-            schoolId: postData.schoolId,
-            regions: postData.regions
-          }
-        } as Comment & { 
-          postData: {
-            title?: string;
-            type?: 'national' | 'regional' | 'school';
-            boardCode?: string;
-            boardName?: string;
-            schoolId?: string;
-            regions?: {
-              sido: string;
-              sigungu: string;
-            };
-          }
-        });
       }
+      
+      // 게시판 이름 가져오기
+      let boardName = postData?.boardName || '게시판';
+      if (!postData?.boardName && postData?.boardCode) {
+        try {
+          const boardRef = doc(db, 'boards', postData.boardCode);
+          const boardDoc = await getDoc(boardRef);
+          if (boardDoc.exists()) {
+            boardName = boardDoc.data()?.name || postData.boardCode;
+          }
+        } catch (error) {
+          console.error('게시판 정보 조회 실패:', error);
+        }
+      }
+      
+      processedComments.push({ 
+        id: commentDoc.id, 
+        ...commentData,
+        postId: postId,
+        postData: postData ? {
+          title: postData.title || '제목 없음',
+          type: postData.type,
+          boardCode: postData.boardCode,
+          boardName: boardName,
+          schoolId: postData.schoolId,
+          regions: postData.regions
+        } : {
+          title: '삭제된 게시글',
+          type: 'national' as const,
+          boardCode: '',
+          boardName: '게시판'
+        }
+      } as Comment & { 
+        postData: {
+          title?: string;
+          type?: 'national' | 'regional' | 'school';
+          boardCode?: string;
+          boardName?: string;
+          schoolId?: string;
+          regions?: {
+            sido: string;
+            sigungu: string;
+          };
+        }
+      });
     }
     
-    // 생성일 기준 정렬 (최신 댓글이 위에)
-    allComments.sort((a, b) => toTimestamp(b.createdAt) - toTimestamp(a.createdAt));
-    
-    // 페이징 처리
-    const totalCount = allComments.length;
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedComments = allComments.slice(startIndex, endIndex);
-    
     // Timestamp 직렬화
-    const serializedComments = paginatedComments.map(comment => ({
+    const serializedComments = processedComments.map(comment => ({
       ...comment,
       createdAt: toTimestamp(comment.createdAt),
       updatedAt: comment.updatedAt ? toTimestamp(comment.updatedAt) : undefined,
@@ -353,8 +361,8 @@ export const getUserComments = async (
     
     return {
       comments: serializedComments,
-      totalCount,
-      hasMore: totalCount > endIndex
+      totalCount: 0, // totalCount는 비용이 많이 들므로 제공하지 않음
+      hasMore: hasMore
     };
   } catch (error) {
     console.error('사용자 댓글 조회 오류:', error);
