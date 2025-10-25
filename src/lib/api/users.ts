@@ -52,12 +52,12 @@ interface PostData {
 }
 
 // 확장된 Post 타입
-interface ExtendedPost extends Omit<Post, 'boardName'> {
+interface ExtendedPost extends Omit<Post, 'boardName' | 'boardCode' | 'type'> {
   boardName: string;
   schoolName?: string;
   previewContent?: string;
-  type?: 'national' | 'regional' | 'school';
-  boardCode?: string;
+  type: 'national' | 'regional' | 'school';
+  boardCode: string;
   schoolId?: string;
   regions?: {
     sido: string;
@@ -143,7 +143,7 @@ export const getUserPosts = async (
         where('authorId', '==', userId),
         where('status.isDeleted', '==', false),
         orderBy('createdAt', 'desc'),
-        limit(pageSize * page)
+        limit(pageSize + 1) // hasMore 판단을 위해 1개 더 가져옴
       );
     } else {
       q = query(
@@ -151,7 +151,7 @@ export const getUserPosts = async (
         where('authorId', '==', userId),
         where('status.isDeleted', '==', false),
         orderBy('stats.likeCount', 'desc'),
-        limit(pageSize * page)
+        limit(pageSize + 1) // hasMore 판단을 위해 1개 더 가져옴
       );
     }
     
@@ -163,8 +163,14 @@ export const getUserPosts = async (
     // 학교 정보 캐시
     const schoolCache: { [key: string]: { name: string } } = {};
     
+    // hasMore 판단
+    const hasMore = querySnapshot.docs.length > pageSize;
+    
+    // 실제로는 pageSize만큼만 처리
+    const docsToProcess = querySnapshot.docs.slice(0, pageSize);
+    
     // 게시글 정보 처리
-    for (const doc of querySnapshot.docs) {
+    for (const doc of docsToProcess) {
       const postData = doc.data() as PostData; // PostData 타입 사용
       let boardName = (postData as Record<string, unknown>).boardName as string || '알 수 없는 게시판';
       let schoolName = undefined;
@@ -220,24 +226,10 @@ export const getUserPosts = async (
       } as ExtendedPost);
     }
     
-    // 전체 게시글 수 가져오기
-    const countQuery = query(
-      postsRef,
-      where('authorId', '==', userId),
-      where('status.isDeleted', '==', false)
-    );
-    
-    const countSnapshot = await getDocs(countQuery);
-    const totalCount = countSnapshot.size;
-    
-    // 페이징 처리
-    const startIndex = (page - 1) * pageSize;
-    const paginatedPosts = posts.slice(startIndex, startIndex + pageSize);
-    
     return {
-      posts: paginatedPosts,
-      totalCount,
-      hasMore: totalCount > page * pageSize
+      posts: posts,
+      totalCount: 0, // totalCount는 비용이 많이 들므로 제공하지 않음
+      hasMore: hasMore
     };
   } catch (error) {
     console.error('사용자 게시글 조회 오류:', error);

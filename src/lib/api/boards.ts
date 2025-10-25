@@ -111,7 +111,7 @@ export const getBoard = async (code: string): Promise<Board | null> => {
   }
 };
 
-// 게시글 목록 가져오기
+// 게시글 목록 가져오기 (최적화: totalCount 제거, limit(pageSize+1) 사용)
 export const getPosts = async (
   code: string,
   page = 1,
@@ -129,7 +129,7 @@ export const getPosts = async (
         where('status.isDeleted', '==', false),
         where('status.isHidden', '==', false),
         orderBy('createdAt', 'desc'),
-        limit(pageSize * page)
+        limit(pageSize + 1) // hasMore 판단을 위해 1개 더 가져옴
       );
     } else {
       q = query(
@@ -138,7 +138,7 @@ export const getPosts = async (
         where('status.isDeleted', '==', false),
         where('status.isHidden', '==', false),
         orderBy('stats.likeCount', 'desc'),
-        limit(pageSize * page)
+        limit(pageSize + 1) // hasMore 판단을 위해 1개 더 가져옴
       );
     }
     
@@ -149,25 +149,16 @@ export const getPosts = async (
       posts.push({ id: doc.id, ...doc.data() } as Post);
     });
     
-    // 전체 게시글 수 가져오기
-    const countQuery = query(
-      postsRef,
-      where('boardCode', '==', code),
-      where('status.isDeleted', '==', false),
-      where('status.isHidden', '==', false)
-    );
+    // hasMore 판단 (pageSize + 1개를 가져왔으므로)
+    const hasMore = posts.length > pageSize;
     
-    const countSnapshot = await getDocs(countQuery);
-    const totalCount = countSnapshot.size;
-    
-    // 페이징 처리
-    const startIndex = (page - 1) * pageSize;
-    const paginatedPosts = posts.slice(startIndex, startIndex + pageSize);
+    // 실제로는 pageSize만큼만 반환
+    const paginatedPosts = posts.slice(0, pageSize);
     
     return {
       posts: paginatedPosts,
-      totalCount,
-      hasMore: totalCount > page * pageSize
+      totalCount: 0, // totalCount는 비용이 많이 들므로 제공하지 않음
+      hasMore: hasMore
     };
   } catch (error) {
     console.error('게시글 목록 가져오기 오류:', error);
@@ -580,7 +571,7 @@ export const toggleLikePost = async (postId: string, userId: string): Promise<{ 
   }
 };
 
-// 댓글 목록 가져오기
+// 댓글 목록 가져오기 (최적화: totalCount 제거, limit(pageSize+1) 사용)
 export const getComments = async (
   postId: string,
   page = 1,
@@ -591,7 +582,7 @@ export const getComments = async (
     const q = query(
       commentsRef,
       orderBy('createdAt', 'asc'),
-      limit(pageSize * page)
+      limit(pageSize + 1) // hasMore 판단을 위해 1개 더 가져옴
     );
     
     const querySnapshot = await getDocs(q);
@@ -609,43 +600,31 @@ export const getComments = async (
       
       allComments.push(comment);
     });
-    
-    // 전체 댓글 수 가져오기 (삭제된 댓글 중 표시되는 것만 포함)
-    const countQuery = query(commentsRef);
-    const countSnapshot = await getDocs(countQuery);
-    let totalCount = 0;
-    
-    countSnapshot.forEach((doc) => {
-      const commentData = doc.data() as Comment;
-      // 삭제된 댓글이지만 대댓글이 없는 경우 제외
-      if (commentData.status.isDeleted && commentData.content !== '삭제된 댓글입니다.') {
-        return;
-      }
-      totalCount++;
-    });
 
     // 댓글을 시간순으로 명시적으로 정렬 (익명 댓글 포함)
     allComments.sort((a, b) => {
-              const aTime = toTimestamp(a.createdAt);
-        const bTime = toTimestamp(b.createdAt);
+      const aTime = toTimestamp(a.createdAt);
+      const bTime = toTimestamp(b.createdAt);
       return aTime - bTime;
     });
     
-    // 페이징 처리
-    const startIndex = (page - 1) * pageSize;
-    const paginatedComments = allComments.slice(startIndex, startIndex + pageSize);
+    // hasMore 판단 (pageSize + 1개를 가져왔으므로)
+    const hasMore = allComments.length > pageSize;
+    
+    // 실제로는 pageSize만큼만 반환
+    const paginatedComments = allComments.slice(0, pageSize);
     
     // Timestamp 직렬화
     const serializedComments = paginatedComments.map(comment => ({
       ...comment,
-              createdAt: comment.createdAt,
-        updatedAt: comment.updatedAt,
+      createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
     }));
     
     return {
       comments: serializedComments,
-      totalCount,
-      hasMore: totalCount > page * pageSize
+      totalCount: 0, // totalCount는 비용이 많이 들므로 제공하지 않음
+      hasMore: hasMore
     };
   } catch (error) {
     console.error('댓글 목록 가져오기 오류:', error);
