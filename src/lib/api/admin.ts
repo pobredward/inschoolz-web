@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, getDocs, addDoc, deleteDoc, query, where, getCountFromServer, orderBy, limit, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Board } from '@/types/board';
 import { School } from '@/types';
@@ -568,7 +568,13 @@ export const adminUpdateSchool = async (schoolId: string, schoolData: Partial<Sc
     if (schoolData.favoriteCount !== undefined) updateData.favoriteCount = schoolData.favoriteCount;
     if (schoolData.gameStats !== undefined) updateData.gameStats = schoolData.gameStats;
     
+    // schools 컬렉션 업데이트
     await updateDoc(schoolRef, updateData);
+    
+    // 학교 이름이 변경된 경우, 해당 학교를 선택한 모든 사용자의 데이터도 업데이트
+    if (schoolData.name !== undefined) {
+      await updateUsersSchoolName(schoolId, schoolData.name);
+    }
   } catch (error) {
     console.error('관리자 학교 수정 오류:', error);
     throw new Error('학교 정보 수정 중 오류가 발생했습니다.');
@@ -584,6 +590,66 @@ export const adminDeleteSchool = async (schoolId: string): Promise<void> => {
     throw new Error('학교 삭제 중 오류가 발생했습니다.');
   }
 };
+
+/**
+ * 특정 학교를 선택한 모든 사용자의 학교 이름을 업데이트합니다.
+ * 배치 처리를 통해 효율적으로 대량 업데이트를 수행합니다.
+ */
+async function updateUsersSchoolName(schoolId: string, newSchoolName: string): Promise<void> {
+  try {
+    console.log(`학교 이름 업데이트 시작: ${schoolId} -> ${newSchoolName}`);
+    
+    // 해당 학교를 선택한 모든 사용자 조회
+    const usersQuery = query(
+      collection(db, 'users'),
+      where('school.id', '==', schoolId)
+    );
+    
+    const usersSnapshot = await getDocs(usersQuery);
+    console.log(`업데이트 대상 사용자 수: ${usersSnapshot.size}명`);
+    
+    if (usersSnapshot.empty) {
+      console.log('업데이트할 사용자가 없습니다.');
+      return;
+    }
+    
+    // 배치 처리 (Firestore는 배치당 최대 500개 작업 제한)
+    let batch = writeBatch(db);
+    let batchCount = 0;
+    let totalUpdated = 0;
+    
+    for (const userDoc of usersSnapshot.docs) {
+      // school.name 필드 업데이트
+      batch.update(userDoc.ref, {
+        'school.name': newSchoolName,
+        'updatedAt': serverTimestamp()
+      });
+      
+      batchCount++;
+      totalUpdated++;
+      
+      // 500개마다 배치 커밋
+      if (batchCount === 500) {
+        await batch.commit();
+        console.log(`배치 커밋 완료: ${totalUpdated}명 업데이트됨`);
+        batch = writeBatch(db);
+        batchCount = 0;
+      }
+    }
+    
+    // 남은 배치 커밋
+    if (batchCount > 0) {
+      await batch.commit();
+      console.log(`최종 배치 커밋 완료`);
+    }
+    
+    console.log(`✅ 총 ${totalUpdated}명의 사용자 학교 이름 업데이트 완료`);
+  } catch (error) {
+    console.error('사용자 학교 이름 업데이트 오류:', error);
+    // 에러가 발생해도 학교 정보는 업데이트되었으므로 경고만 출력
+    console.warn('⚠️ 사용자 데이터 업데이트 중 일부 오류가 발생했습니다.');
+  }
+}
 
 // 헬퍼 함수들
 function getSchoolType(schoolName: string): '초등학교' | '중학교' | '고등학교' | '대학교' {

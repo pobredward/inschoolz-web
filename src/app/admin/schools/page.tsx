@@ -179,11 +179,25 @@ export default function AdminSchoolsPage() {
 
     try {
       setIsSubmitting(true);
+      
+      // 학교 이름이 변경되었는지 확인
+      const isNameChanged = formData.name !== editingSchool.name;
+      
+      if (isNameChanged) {
+        // 이름 변경 시 사용자에게 알림
+        toast({
+          title: "업데이트 중",
+          description: "학교 정보와 관련된 모든 사용자 데이터를 업데이트하고 있습니다. 잠시만 기다려주세요...",
+        });
+      }
+      
       await adminUpdateSchool(editingSchool.id, formData);
       
       toast({
         title: "성공",
-        description: "학교 정보가 성공적으로 수정되었습니다.",
+        description: isNameChanged 
+          ? "학교 정보와 모든 사용자의 학교 이름이 성공적으로 업데이트되었습니다." 
+          : "학교 정보가 성공적으로 수정되었습니다.",
       });
       
       setIsEditDialogOpen(false);
