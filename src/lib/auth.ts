@@ -342,11 +342,20 @@ export const loginWithGoogle = async (): Promise<User> => {
       return userDoc.data() as User;
     } else {
       // 신규 사용자: Firestore에 정보 저장
+      const userName = firebaseUser.displayName || '사용자';
+      
+      // 검색 토큰 생성
+      const searchTokens = generateUserSearchTokens(userName);
+      
       const newUser: User = {
         uid: firebaseUser.uid,
         email: firebaseUser.email || '',
+        role: 'student',
+        isVerified: true,
+        fake: false, // 실제 사용자 표시
+        searchTokens, // 검색 토큰 추가
         profile: {
-          userName: firebaseUser.displayName || '사용자',
+          userName,
           realName: '',
           gender: '',
           birthYear: 0,
@@ -357,8 +366,6 @@ export const loginWithGoogle = async (): Promise<User> => {
           createdAt: Timestamp.now(),
           isAdmin: false
         },
-        role: 'student',
-        isVerified: false,
         stats: {
           level: 1,
           currentExp: 0,
@@ -492,13 +499,20 @@ export const createKakaoUser = async (
   }
 ): Promise<User> => {
   try {
+    const userName = kakaoUserInfo.nickname || `카카오사용자${kakaoUserInfo.id}`;
+    
+    // 검색 토큰 생성
+    const searchTokens = generateUserSearchTokens(userName);
+    
     const newUser: User = {
       uid,
       email: kakaoUserInfo.email || '',
       role: 'student',
       isVerified: true,
+      fake: false, // 실제 사용자 표시
+      searchTokens, // 검색 토큰 추가
       profile: {
-        userName: kakaoUserInfo.nickname || `카카오사용자${kakaoUserInfo.id}`,
+        userName,
         realName: '',
         gender: kakaoUserInfo.gender === 'female' ? '여성' : 
                 kakaoUserInfo.gender === 'male' ? '남성' : '',

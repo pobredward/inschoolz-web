@@ -409,6 +409,14 @@ export const selectSchool = async (
     const userData = userDoc.data();
     const previousSchool = userData.school ? userData.school.id : null;
     
+    // 검색 토큰 업데이트 (학교명이 변경되므로)
+    const { generateUserSearchTokens } = await import('@/utils/search-tokens');
+    const newSearchTokens = generateUserSearchTokens(
+      userData?.profile?.userName,
+      userData?.profile?.realName,
+      schoolName
+    );
+    
     // 학교 정보 업데이트
     const schoolUpdate: {
       school: {
@@ -419,6 +427,7 @@ export const selectSchool = async (
         studentNumber: string | null;
         isGraduate: boolean;
       };
+      searchTokens: string[];
       updatedAt: FirebaseTimestamp;
     } = {
       school: {
@@ -430,6 +439,7 @@ export const selectSchool = async (
         studentNumber: schoolInfo.isGraduate ? null : schoolInfo.studentNumber || null,
         isGraduate: schoolInfo.isGraduate || false
       },
+      searchTokens: newSearchTokens,
       updatedAt: serverTimestamp()
     };
     

@@ -996,6 +996,24 @@ export const updateUserProfile = async (
       }
     }
     
+    // searchTokens 업데이트 (닉네임, 실명 변경 시)
+    if (profileData.userName !== undefined || profileData.realName !== undefined) {
+      const userData = userDoc.data();
+      const currentUserName = profileData.userName || userData?.profile?.userName;
+      const currentRealName = profileData.realName !== undefined ? profileData.realName : userData?.profile?.realName;
+      const currentSchoolName = userData?.school?.name;
+      
+      // 검색 토큰 재생성
+      const { generateUserSearchTokens } = await import('@/utils/search-tokens');
+      const newSearchTokens = generateUserSearchTokens(
+        currentUserName,
+        currentRealName,
+        currentSchoolName
+      );
+      
+      updates['searchTokens'] = newSearchTokens;
+    }
+    
     // 변경된 필드가 있는 경우에만 업데이트
     if (Object.keys(updates).length > 0) {
       updates.updatedAt = serverTimestamp();
@@ -1141,6 +1159,11 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
     // fake 필터 (봇 사용자만 서버에서 필터링)
     if (fake === 'fake') {
       constraints.push(where('fake', '==', true));
+    } else if (fake === 'real') {
+      // 실제 사용자: fake가 false이거나 존재하지 않는 경우
+      // Firestore 제약으로 서버에서는 fake == false만 쿼리하고
+      // fake가 없는 사용자는 클라이언트에서 추가로 가져옴
+      constraints.push(where('fake', '==', false));
     }
 
     // 검색 조건 (다중 필드 지원)
@@ -1225,7 +1248,7 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
     constraints.push(orderBy(sortField, sortOrder));
 
     // 클라이언트 사이드 필터링이 필요한지 확인
-    const needsClientFiltering = fake === 'real' || (search.trim() && searchType === 'all');
+    const needsClientFiltering = (search.trim() && searchType === 'all');
     
     // 클라이언트 필터링이 필요한 경우 더 많은 데이터를 가져옴
     const fetchLimit = needsClientFiltering ? Math.max(pageSize * 10, 200) : pageSize * 2;
@@ -1244,6 +1267,38 @@ export const getEnhancedUsersList = async (params: EnhancedAdminUserListParams =
 
     console.log('Before filtering - Total users fetched:', allUsers.length);
     console.log('Fake filter value:', fake);
+    
+    // fake === 'real'인 경우 fake 필드가 없는 사용자도 추가로 가져오기
+    if (fake === 'real') {
+      // fake 필드가 없는 사용자들 가져오기
+      const noFakeConstraints = constraints.filter(c => {
+        // where('fake', '==', false) 제약조건 제거
+        const constraintStr = JSON.stringify(c);
+        return !constraintStr.includes('"fake"');
+      });
+      
+      // fake 필드가 존재하지 않는 문서 찾기
+      // Firestore는 필드가 없는 문서를 직접 쿼리할 수 없으므로
+      // 모든 사용자를 가져와서 fake 필드 체크
+      const allUsersQuery = query(usersRef, orderBy(sortField, sortOrder), limit(500));
+      const allUsersSnapshot = await getDocs(allUsersQuery);
+      
+      allUsersSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        // fake 필드가 없거나 명시적으로 false인 경우만
+        if (userData.fake === undefined || userData.fake === null || userData.fake === false) {
+          const userExists = allUsers.some(u => u.uid === doc.id);
+          if (!userExists) {
+            allUsers.push({ 
+              uid: doc.id, 
+              ...userData 
+            } as User);
+          }
+        }
+      });
+      
+      console.log('After adding users without fake field - Total users:', allUsers.length);
+    }
 
     // 클라이언트 측 추가 필터링 (다중 필드 검색용)
     if (search.trim() && searchType === 'all') {
