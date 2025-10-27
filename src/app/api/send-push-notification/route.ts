@@ -197,7 +197,30 @@ export async function POST(request: NextRequest) {
     });
 
     if (!pushTokens || Object.keys(pushTokens).length === 0) {
-      console.error('❌ [SERVER] 푸시 토큰이 없음:', userId);
+      console.log('📱 [SERVER INFO] 푸시 토큰이 없음 (정상 - 토큰 미등록 사용자):', userId);
+      
+      // 개발 환경에서는 Mock 알림으로 처리
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔔 [SERVER MOCK] 가상 푸시 알림 생성:', {
+          userId,
+          userName: userData?.profile?.userName,
+          title,
+          body: messageBody,
+          message: '실제 기기가 없어 푸시를 보낼 수 없지만, Firestore에는 알림이 저장되었습니다.',
+          mockToken: 'ExponentPushToken[MOCK-TOKEN-FOR-DEVELOPMENT]'
+        });
+        
+        return NextResponse.json({ 
+          success: true,
+          results: [{
+            platform: 'mock',
+            success: true,
+            message: 'Mock push notification (development only)'
+          }]
+        });
+      }
+      
+      console.error('❌ [SERVER] 푸시 토큰이 없음 (프로덕션):', userId);
       return NextResponse.json(
         { error: 'No push tokens found' },
         { status: 404 }

@@ -224,7 +224,29 @@ export async function sendUnifiedPushNotification(
     });
 
     if (!pushTokens || Object.keys(pushTokens).length === 0) {
-      console.error('❌ [DEBUG] 푸시 토큰이 없음:', userId);
+      console.log('📱 [INFO] 푸시 토큰이 없음 (정상 - 토큰 미등록 사용자):', userId);
+      
+      // 개발 환경에서는 Mock 알림 로그 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔔 [MOCK] 가상 푸시 알림 생성:', {
+          userId,
+          userName: userData?.profile?.userName,
+          title,
+          body,
+          message: '실제 기기가 없어 푸시를 보낼 수 없지만, Firestore에는 알림이 저장되었습니다.',
+          mockToken: 'ExponentPushToken[MOCK-TOKEN-FOR-DEVELOPMENT]'
+        });
+        
+        return {
+          success: true, // Mock에서는 성공으로 처리
+          results: [{
+            platform: 'mock',
+            success: true,
+            message: 'Mock push notification (development only)'
+          }]
+        };
+      }
+      
       return { 
         success: false, 
         error: 'No push tokens found - user may not have app installed or push permission denied' 
