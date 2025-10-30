@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { loginWithEmail, loginWithGoogle } from '@/lib/auth';
 import { loginWithKakaoRedirect } from '@/lib/kakao';
+import { waitForCookies, getRecommendedWaitTime } from '@/lib/cookie-utils';
 import Link from 'next/link';
 // 스키마 정의
 const emailLoginSchema = z.object({
@@ -41,9 +42,16 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
       
       await loginWithEmail(validated.email, validated.password);
       
-      // 로그인 성공 후 리디렉션
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // ✅ 쿠키가 실제로 설정될 때까지 대기
+      console.log('🍪 쿠키 설정 대기 중...');
+      const cookiesReady = await waitForCookies(getRecommendedWaitTime());
+      
+      if (!cookiesReady) {
+        console.warn('⚠️ 쿠키 설정이 지연되고 있지만 진행합니다.');
+      }
+      
       const redirectUrl = searchParams.get('redirect') || '/';
+      console.log('🔄 리다이렉트:', redirectUrl);
       router.push(redirectUrl);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -74,13 +82,26 @@ export function LoginForm({ showTitle = false }: LoginFormProps) {
       setIsLoading(true);
       await loginWithGoogle();
       
-      // 로그인 성공 후 리디렉션
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // ✅ 쿠키가 실제로 설정될 때까지 대기
+      console.log('🍪 쿠키 설정 대기 중...');
+      const cookiesReady = await waitForCookies(getRecommendedWaitTime());
+      
+      if (!cookiesReady) {
+        console.warn('⚠️ 쿠키 설정이 지연되고 있지만 진행합니다.');
+      }
+      
       const redirectUrl = searchParams.get('redirect') || '/';
+      console.log('🔄 리다이렉트:', redirectUrl);
       router.push(redirectUrl);
     } catch (error) {
       console.error('Google 로그인 실패:', error);
-      toast.error(error instanceof Error ? error.message : 'Google 로그인 중 오류가 발생했습니다.');
+      
+      // 팝업 차단 감지
+      if (error instanceof Error && error.message.includes('popup')) {
+        toast.error('팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.');
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Google 로그인 중 오류가 발생했습니다.');
+      }
     } finally {
       setIsLoading(false);
     }

@@ -205,40 +205,59 @@ function KakaoSuccessContent() {
           console.warn('⚠️ 추가 쿠키 설정 실패 (무시하고 계속):', cookieError);
         }
 
-        setStatus('success');
-        
-        // AuthProvider가 인증 상태를 인식할 수 있도록 대기
-        console.log('⏳ AuthProvider 상태 업데이트 대기 중...');
-        
-        // onAuthStateChanged가 트리거될 때까지 대기 (더 확실한 방법)
+        // ✅ 최적화된 onAuthStateChanged 대기
+        console.log('⏳ Firebase Auth 동기화 대기 중...');
         await new Promise<void>((resolve) => {
           const unsubscribe = auth.onAuthStateChanged((user) => {
-            if (user && user.uid === firebaseUser.uid) {
-              console.log('✅ AuthProvider onAuthStateChanged 감지됨:', user.uid);
+            if (user) {
+              // 사용자가 로그인되면 즉시 완료
+              console.log('✅ Firebase Auth 동기화 완료');
               unsubscribe();
               resolve();
             }
           });
           
-          // 최대 3초 대기 후 강제 진행
+          // 최대 3초 타임아웃
           setTimeout(() => {
-            console.log('⏰ AuthProvider 대기 시간 초과, 강제 진행');
+            console.log('⏱️ Auth 동기화 타임아웃 (3초)');
             unsubscribe();
             resolve();
           }, 3000);
         });
         
+        // ✅ 쿠키 확인
+        const waitForCookies = async (maxWaitMs = 2000): Promise<boolean> => {
+          const startTime = Date.now();
+          
+          while (Date.now() - startTime < maxWaitMs) {
+            const cookies = document.cookie;
+            if (cookies.includes('authToken=') && cookies.includes('uid=')) {
+              return true;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          return false;
+        };
+        
+        console.log('🍪 쿠키 설정 확인 중...');
+        const cookiesReady = await waitForCookies(2000);
+        
+        if (!cookiesReady) {
+          console.warn('⚠️ 쿠키 설정이 지연되고 있지만 진행합니다.');
+        } else {
+          console.log('✅ 쿠키 설정 확인됨');
+        }
+        
+        setStatus('success');
+        
         // 메인 페이지로 이동 (기본값을 메인 페이지로 설정)
         const redirectUrl = sessionStorage.getItem('kakao_login_redirect') || '/';
         sessionStorage.removeItem('kakao_login_redirect');
         
-        console.log('🔄 리다이렉트 준비:', redirectUrl);
+        console.log('🔄 리다이렉트:', redirectUrl);
         
-        // 쿠키 설정 완료 후 페이지 새로고침으로 리다이렉트 (AuthProvider 상태 완전 동기화)
-        console.log('🔄 페이지 새로고침으로 리다이렉트:', redirectUrl);
-        setTimeout(() => {
-          window.location.href = redirectUrl;
-        }, 1000);
+        // ✅ 쿠키 확인 후 즉시 리다이렉트 (하드 리프레시)
+        window.location.href = redirectUrl;
 
       } catch (error) {
         console.error('❌ 카카오 로그인 처리 실패:', error);
