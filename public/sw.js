@@ -342,13 +342,21 @@ self.addEventListener('push', (event) => {
 function getNotificationUrl(data) {
   if (!data) return '/';
   
-  const { type, postId, boardCode, postType, schoolId } = data;
+  const { type, postId, boardCode, postType, schoolId, regions } = data;
   
   switch (type) {
     case 'post_comment':
     case 'comment_reply':
       if (postId && boardCode && postType) {
-        return `/board/${postType}/${boardCode}/${postId}`;
+        // 웹 버전 라우팅: /community/{type}/{...}/{boardCode}/{postId}
+        if (postType === 'national') {
+          return `/community/national/${boardCode}/${postId}`;
+        } else if (postType === 'regional' && regions) {
+          const { sido, sigungu } = regions;
+          return `/community/region/${sido}/${sigungu}/${boardCode}/${postId}`;
+        } else if (postType === 'school' && schoolId) {
+          return `/community/school/${schoolId}/${boardCode}/${postId}`;
+        }
       }
       return '/community';
     
