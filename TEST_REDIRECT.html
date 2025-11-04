@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>리다이렉트 테스트 - 인스쿨즈</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .value {
+            color: #333;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+            font-size: 14px;
+        }
+        
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        button {
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary {
+            background: #5b21b6;
+            color: white;
+        }
+        
+        .btn-ios {
+            background: #000;
+            color: white;
+        }
+        
+        .btn-android {
+            background: #34a853;
+            color: white;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            display: none;
+        }
+        
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 인스쿨즈 리다이렉트 테스트</h1>
+        
+        <div class="info-box">
+            <div class="info-row">
+                <span class="label">플랫폼</span>
+                <span class="value" id="platform">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">디바이스</span>
+                <span class="value" id="device">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">User Agent</span>
+                <span class="value" id="userAgent">-</span>
+            </div>
+            <div class="info-row">
+                <span class="label">권장 스토어</span>
+                <span class="value" id="store">-</span>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn-primary" onclick="autoRedirect()">
+                ✨ 자동 리다이렉트 테스트
+            </button>
+            
+            <button class="btn-ios" onclick="redirectToAppStore()">
+                🍎 App Store로 이동
+            </button>
+            
+            <button class="btn-android" onclick="redirectToPlayStore()">
+                🤖 Google Play로 이동
+            </button>
+        </div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="footer">
+            © 2025 OnMindLab. All rights reserved.
+        </div>
+    </div>
+    
+    <script>
+        // URL 상수
+        const APP_STORE_URL = 'https://apps.apple.com/kr/app/%EC%9D%B8%EC%8A%A4%EC%BF%A8%EC%A6%88-inschoolz/id6748880507?l=en-GB';
+        const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.onmindlab.inschoolz';
+        
+        // 디바이스 정보 감지
+        function detectDevice() {
+            const ua = navigator.userAgent || navigator.vendor;
+            
+            // iOS 감지
+            const isIOS = /iPad|iPhone|iPod/.test(ua);
+            const isAndroid = /android/i.test(ua);
+            
+            let platform = 'Desktop / Other';
+            let device = 'Unknown';
+            let store = 'Google Play Store';
+            
+            if (isIOS) {
+                platform = 'iOS';
+                store = 'App Store';
+                
+                if (/iPad/.test(ua)) device = 'iPad';
+                else if (/iPhone/.test(ua)) device = 'iPhone';
+                else if (/iPod/.test(ua)) device = 'iPod';
+            } else if (isAndroid) {
+                platform = 'Android';
+                store = 'Google Play Store';
+                device = 'Android Device';
+            }
+            
+            return { platform, device, store, isIOS, isAndroid };
+        }
+        
+        // 페이지 로드 시 정보 표시
+        window.onload = function() {
+            const info = detectDevice();
+            
+            document.getElementById('platform').textContent = info.platform;
+            document.getElementById('device').textContent = info.device;
+            document.getElementById('userAgent').textContent = navigator.userAgent.substring(0, 50) + '...';
+            document.getElementById('store').textContent = info.store;
+        };
+        
+        // 자동 리다이렉트
+        function autoRedirect() {
+            const info = detectDevice();
+            const status = document.getElementById('status');
+            
+            status.style.display = 'block';
+            status.className = 'status success';
+            
+            if (info.isIOS) {
+                status.textContent = '🍎 App Store로 이동 중...';
+                setTimeout(() => {
+                    window.location.href = APP_STORE_URL;
+                }, 1000);
+            } else if (info.isAndroid) {
+                status.textContent = '🤖 Google Play Store로 이동 중...';
+                setTimeout(() => {
+                    window.location.href = PLAY_STORE_URL;
+                }, 1000);
+            } else {
+                status.textContent = '🤖 Google Play Store로 이동 중... (기본값)';
+                setTimeout(() => {
+                    window.location.href = PLAY_STORE_URL;
+                }, 1000);
+            }
+        }
+        
+        // App Store로 직접 이동
+        function redirectToAppStore() {
+            window.location.href = APP_STORE_URL;
+        }
+        
+        // Play Store로 직접 이동
+        function redirectToPlayStore() {
+            window.location.href = PLAY_STORE_URL;
+        }
+    </script>
+</body>
+</html>
+
