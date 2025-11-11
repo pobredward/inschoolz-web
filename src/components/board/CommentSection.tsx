@@ -787,6 +787,9 @@ export default function CommentSection({
     setExperienceData(null);
   };
 
+  // 중복 제출 방지를 위한 ref
+  const isSubmittingRef = useRef(false);
+
   // 일반 댓글 작성 (로그인 사용자)
   const handleCreateComment = async (content: string, isAnonymous: boolean, parentId?: string) => {
     if (!user) {
@@ -803,6 +806,13 @@ export default function CommentSection({
       return;
     }
 
+    // 중복 제출 방지
+    if (isSubmittingRef.current || isSubmitting) {
+      console.log('중복 제출 차단됨');
+      return;
+    }
+
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
       await createCommentAPI(postId, content, user.uid, isAnonymous, parentId);
@@ -844,9 +854,13 @@ export default function CommentSection({
       console.error('댓글 작성 오류:', error);
       toast.error('댓글 작성에 실패했습니다.');
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
+
+  // 익명 댓글 작성용 ref (별도 관리)
+  const isAnonymousSubmittingRef = useRef(false);
 
   // 익명 댓글 작성 (비로그인 사용자)
   const handleCreateAnonymousComment = async (data: {
@@ -854,6 +868,13 @@ export default function CommentSection({
     password: string;
     content: string;
   }) => {
+    // 중복 제출 방지
+    if (isAnonymousSubmittingRef.current || isSubmitting) {
+      console.log('중복 제출 차단됨');
+      return;
+    }
+
+    isAnonymousSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
       const ipAddress = await getClientIP();
@@ -881,6 +902,7 @@ export default function CommentSection({
       console.error('익명 댓글 작성 오류:', error);
       toast.error('댓글 작성에 실패했습니다.');
     } finally {
+      isAnonymousSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

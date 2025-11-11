@@ -1067,6 +1067,7 @@ export default function CommunityPageClient() {
                   )}
                   
                   <div className="text-center mb-4">
+                    
                     <div className="flex items-center justify-center gap-2 mb-3">
                       <TrendingUp className="w-6 h-6 text-green-600" />
                       <h2 className="text-xl font-semibold text-gray-800">인기 지역 커뮤니티</h2>
