@@ -18,7 +18,7 @@ import {
   getAllPostsByRegionWithPagination
 } from '@/lib/api/board';
 import { getBlockedUserIds } from '@/lib/api/users';
-import { getPopularSchools, getSchoolById } from '@/lib/api/schools';
+import { getPopularSchools, getSchoolById, getPopularRegions, RegionInfo } from '@/lib/api/schools';
 import { BlockedUserContent } from '@/components/ui/blocked-user-content';
 import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
@@ -74,6 +74,9 @@ export default function CommunityPageClient() {
   const [currentSchoolInfo, setCurrentSchoolInfo] = useState<School | null>(null);
   const [popularSchools, setPopularSchools] = useState<School[]>([]);
   const [popularSchoolsLoading, setPopularSchoolsLoading] = useState(false);
+  const [popularRegions, setPopularRegions] = useState<RegionInfo[]>([]);
+  const [popularRegionsLoading, setPopularRegionsLoading] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState<{ sido?: string; sigungu?: string }>({});
   
   // 페이지네이션 관련 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -117,6 +120,19 @@ export default function CommunityPageClient() {
     }
   };
 
+  // 인기 지역 목록 로드
+  const loadPopularRegions = async () => {
+    try {
+      setPopularRegionsLoading(true);
+      const regions = await getPopularRegions(12); // 12개 지역 로드
+      setPopularRegions(regions);
+    } catch (error) {
+      console.error('인기 지역 목록 로드 실패:', error);
+    } finally {
+      setPopularRegionsLoading(false);
+    }
+  };
+
   // currentSchoolId 변경 시 학교 정보 로드
   useEffect(() => {
     if (currentSchoolId) {
@@ -126,7 +142,7 @@ export default function CommunityPageClient() {
     }
   }, [currentSchoolId]);
 
-  // URL 변경 감지하여 학교 ID 업데이트 (초기 로드 포함)
+  // URL 변경 감지하여 학교 ID 및 지역 정보 업데이트 (초기 로드 포함)
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
     console.log('URL 변경 감지 - tab:', tabFromUrl);
@@ -153,21 +169,56 @@ export default function CommunityPageClient() {
       // /community?tab=school (학교 ID 없음) - 인기 학교 목록 표시
       console.log('학교 탭이지만 특정 학교 ID 없음 - 인기 학교 목록 표시');
       setCurrentSchoolId(undefined);
+      setCurrentSchoolInfo(null);
       sessionStorage.removeItem('community-selected-school');
       
       if (selectedTab !== 'school') {
         setSelectedTab('school');
       }
+    } else if (tabFromUrl && tabFromUrl.startsWith('regional/')) {
+      // /community?tab=regional/sido/sigungu 형태
+      const parts = tabFromUrl.split('/');
+      if (parts.length >= 3) {
+        const sido = decodeURIComponent(parts[1]);
+        const sigungu = decodeURIComponent(parts[2]);
+        console.log('URL에서 추출한 지역:', sido, sigungu);
+        
+        if (sido !== currentRegion.sido || sigungu !== currentRegion.sigungu) {
+          console.log('지역 정보 업데이트:', currentRegion, '->', { sido, sigungu });
+          setCurrentRegion({ sido, sigungu });
+        }
+        
+        if (selectedTab !== 'regional') {
+          console.log('탭을 regional로 변경');
+          setSelectedTab('regional');
+        }
+      }
+    } else if (tabFromUrl === 'regional') {
+      // /community?tab=regional (지역 정보 없음) - 인기 지역 목록 표시
+      console.log('지역 탭이지만 특정 지역 없음 - 인기 지역 목록 표시');
+      setCurrentRegion({});
+      
+      if (selectedTab !== 'regional') {
+        setSelectedTab('regional');
+      }
     }
   }, [searchParams]);
 
-  // 학교 탭에서 로그인하지 않은 사용자를 위한 인기 학교 로드
+  // 학교 탭에서 특정 학교가 선택되지 않은 경우 인기 학교 로드
   useEffect(() => {
-    if (selectedTab === 'school' && !user && !authLoading && !currentSchoolId && popularSchools.length === 0) {
+    if (selectedTab === 'school' && !currentSchoolId && popularSchools.length === 0) {
       console.log('인기 학교 목록 로드 조건 충족');
       loadPopularSchools();
     }
-  }, [selectedTab, user, authLoading, currentSchoolId, popularSchools.length]);
+  }, [selectedTab, currentSchoolId, popularSchools.length]);
+
+  // 지역 탭에서 지역이 설정되지 않은 경우 인기 지역 로드
+  useEffect(() => {
+    if (selectedTab === 'regional' && !currentRegion.sido && !currentRegion.sigungu && popularRegions.length === 0) {
+      console.log('인기 지역 목록 로드 조건 충족');
+      loadPopularRegions();
+    }
+  }, [selectedTab, currentRegion, popularRegions.length]);
 
   // 페이지 로드 시 URL 파라미터와 세션에서 탭 상태 복원 (최초 로드만)
   useEffect(() => {
@@ -227,98 +278,14 @@ export default function CommunityPageClient() {
     
     // 새로운 라우팅 구조로 리다이렉트
     if (newTab === 'school') {
-      // 유저 정보가 로딩 중인 경우
-      if (user === null) {
-        // 로딩 중이면 일단 기본 URL로 이동 (자동 리다이렉트가 처리함)
-        console.log('User loading, setting basic school tab...');
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.set('tab', 'school');
-        window.history.replaceState({}, '', newUrl.toString());
-        return;
-      }
-      
-      // 로그인되지 않은 경우
-      if (!user?.uid) {
-        console.log('Not logged in, staying on page to show login prompt');
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.set('tab', 'school');
-        window.history.replaceState({}, '', newUrl.toString());
-        return;
-      }
-      
-      // 로그인된 사용자가 있으면 users 컬렉션에서 최신 정보 가져오기
-      try {
-        console.log('Fetching latest user info from users collection...');
-        const { getUserById } = await import('@/lib/api/users');
-        const latestUser = await getUserById(user.uid);
-        
-        if (latestUser?.school?.id) {
-          console.log('Redirecting to school:', latestUser.school.id);
-          router.push(`/community?tab=school/${latestUser.school.id}`);
-        } else {
-          // 로그인은 되어 있지만 학교 정보가 없는 경우
-          console.log('No school info in users collection, showing school setup modal');
-          setShowSchoolSetupModal(true);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user info:', error);
-        // API 호출 실패 시 기존 user 정보로 fallback
-        if (user?.school?.id) {
-          console.log('Fallback to cached school:', user.school.id);
-          router.push(`/community?tab=school/${user.school.id}`);
-        } else {
-          console.log('No cached school info, showing school setup modal');
-          setShowSchoolSetupModal(true);
-        }
-      }
+      // 학교 탭으로 이동 - 항상 학교 선택 UI 먼저 표시
+      console.log('학교 탭으로 이동 - 학교 선택 UI 표시');
+      router.push('/community?tab=school');
+      return;
     } else if (newTab === 'regional') {
-      console.log('=== 지역 탭 선택됨 ===');
-      // 유저 정보가 로딩 중인 경우
-      if (user === null) {
-        // 로딩 중이면 일단 기본 URL로 이동 (자동 리다이렉트가 처리함)
-        console.log('User loading, setting basic regional tab...');
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.set('tab', 'regional');
-        window.history.replaceState({}, '', newUrl.toString());
-        return;
-      }
-      
-      // 로그인되지 않은 경우
-      if (!user?.uid) {
-        console.log('Not logged in, staying on page to show login prompt');
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.set('tab', 'regional');
-        window.history.replaceState({}, '', newUrl.toString());
-        return;
-      }
-      
-      // 로그인된 사용자가 있으면 users 컬렉션에서 최신 정보 가져오기
-      try {
-        console.log('Fetching latest user info from users collection...');
-        const { getUserById } = await import('@/lib/api/users');
-        const latestUser = await getUserById(user.uid);
-        console.log('가져온 사용자 정보:', latestUser);
-        console.log('지역 정보:', latestUser?.regions);
-        
-        if (latestUser?.regions?.sido && latestUser?.regions?.sigungu) {
-          console.log('Redirecting to region:', latestUser.regions.sido, latestUser.regions.sigungu);
-          router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
-        } else {
-          // 로그인은 되어 있지만 지역 정보가 없는 경우
-          console.log('No region info in users collection, showing region setup modal');
-          setShowRegionSetupModal(true);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user info:', error);
-        // API 호출 실패 시 기존 user 정보로 fallback
-        if (user?.regions?.sido && user?.regions?.sigungu) {
-          console.log('Fallback to cached region:', user.regions.sido, user.regions.sigungu);
-          router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
-        } else {
-          console.log('No cached region info, showing region setup modal');
-          setShowRegionSetupModal(true);
-        }
-      }
+      // 지역 탭으로 이동 - 항상 지역 선택 UI 먼저 표시
+      console.log('지역 탭으로 이동 - 지역 선택 UI 표시');
+      router.push('/community?tab=regional');
     } else {
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('tab', newTab);
@@ -397,7 +364,7 @@ export default function CommunityPageClient() {
     if (boards.length > 0 && !isInitialLoading) {
       loadPosts();
     }
-  }, [selectedTab, selectedBoard, sortBy, boards, currentPage, currentSchoolId, isInitialLoading]);
+  }, [selectedTab, selectedBoard, sortBy, boards, currentPage, currentSchoolId, currentRegion.sido, currentRegion.sigungu, isInitialLoading]);
 
   // 사용자 정보 변경 시 차단된 사용자 목록 로드
   useEffect(() => {
@@ -526,11 +493,11 @@ export default function CommunityPageClient() {
             console.log('No currentSchoolId available');
           }
         } else if (selectedTab === 'regional') {
-          // 지역 탭: URL 파라미터 또는 사용자의 지역 사용
-          const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
-          const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
-          if (selectedSido && selectedSigungu) {
-            result = await getAllPostsByRegionWithPagination(selectedSido, selectedSigungu, currentPage, pageSize, sortBy);
+          // 지역 탭: currentRegion 상태 사용
+          if (currentRegion.sido && currentRegion.sigungu) {
+            result = await getAllPostsByRegionWithPagination(currentRegion.sido, currentRegion.sigungu, currentPage, pageSize, sortBy);
+          } else {
+            console.log('No region selected, skipping post load');
           }
         } else {
           // 전국 탭: 기존 로직 유지
@@ -567,11 +534,11 @@ export default function CommunityPageClient() {
             boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize, currentSchoolId);
           }
         } else if (selectedTab === 'regional') {
-          // 지역 탭: 해당 지역의 특정 게시판 게시글만 가져오기
-          const selectedSido = sessionStorage.getItem('community-selected-sido') || user?.regions?.sido;
-          const selectedSigungu = sessionStorage.getItem('community-selected-sigungu') || user?.regions?.sigungu;
-          if (selectedSido && selectedSigungu) {
-            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize, undefined, { sido: selectedSido, sigungu: selectedSigungu });
+          // 지역 탭: currentRegion 상태 사용
+          if (currentRegion.sido && currentRegion.sigungu) {
+            boardPosts = await getPostsByBoardType(selectedTab, selectedBoard, pageSize, undefined, { sido: currentRegion.sido, sigungu: currentRegion.sigungu });
+          } else {
+            console.log('No region selected, skipping post load');
           }
         } else {
           // 전국 탭: 기존 로직 유지
@@ -700,8 +667,8 @@ export default function CommunityPageClient() {
     }
   };
 
-  // 로그인이 필요한 탭인지 확인 (학교 탭은 로그인 없이도 접근 가능)
-  const isLoginRequired = selectedTab === 'regional' && !user && !authLoading;
+  // 로그인이 필요한 탭인지 확인 - 제거됨 (이제 지역 탭도 로그인 없이 인기 지역 목록 볼 수 있음)
+  // const isLoginRequired = selectedTab === 'regional' && !user && !authLoading;
 
   // 로딩 화면 렌더링 (인증 상태 확인 중)
   const renderAuthLoading = () => (
@@ -717,33 +684,6 @@ export default function CommunityPageClient() {
   );
 
   // 로그인 안내 화면 렌더링
-  const renderLoginRequired = () => (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-        <div className="text-4xl mb-4">🔒</div>
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">로그인이 필요합니다</h2>
-        <p className="text-gray-600 mb-6">
-          지역 게시판을 보려면 로그인해주세요.
-        </p>
-        <div className="flex gap-3 justify-center">
-          <Button 
-            onClick={() => router.push('/login')}
-            className="bg-green-500 hover:bg-green-600 text-white"
-          >
-            로그인하기
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={() => setSelectedTab('national')}
-            className="border-green-300 text-green-700 hover:bg-green-100"
-          >
-            전국 커뮤니티 보기
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -775,11 +715,9 @@ export default function CommunityPageClient() {
         </div>
       </div>
 
-      {/* 인증 로딩 중일 때는 로딩 화면 표시 (지역 탭만) */}
-      {authLoading && selectedTab === 'regional' ? (
+      {/* 인증 로딩 중일 때는 로딩 화면 표시 (지역 탭에서 로그인된 사용자만) */}
+      {authLoading && selectedTab === 'regional' && user ? (
         renderAuthLoading()
-      ) : isLoginRequired ? (
-        renderLoginRequired()
       ) : (
         <>
           {/* 학교 선택 (학교 탭일 때만 표시) */}
@@ -787,29 +725,71 @@ export default function CommunityPageClient() {
             <div className="bg-white border-b">
               <div className="container mx-auto px-4 py-3">
                 {user ? (
-                  // 로그인한 사용자: 기존 SchoolSelector
-                  <SchoolSelector 
-                    currentSchoolId={currentSchoolId}
-                    onSchoolChange={async (school) => {
-                      console.log('School changed to:', school.id, school.name);
-                      
-                      // URL 업데이트 - 새로운 학교 ID로 리다이렉트
-                      router.push(`/community?tab=school/${school.id}`);
-                      
-                      // 세션 스토리지에도 업데이트
-                      sessionStorage.setItem('community-selected-school', school.id);
-                      setCurrentSchoolId(school.id);
-                      
-                      // 게시판과 게시글 목록 새로고침
-                      await loadBoards();
-                      await loadPosts();
-                    }}
-                    className="max-w-sm"
-                  />
+                  // 로그인한 사용자
+                  currentSchoolId && currentSchoolInfo ? (
+                    // 특정 학교를 보고 있는 경우: 학교 정보와 뒤로가기 버튼 표시
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setCurrentSchoolId(undefined);
+                            setCurrentSchoolInfo(null);
+                            setPosts([]);
+                            setBoards([]);
+                            router.push('/community?tab=school');
+                          }}
+                          className="p-2"
+                        >
+                          <ChevronDown className="h-4 w-4 rotate-90" />
+                        </Button>
+                        <SchoolIcon className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <p className="font-medium text-sm text-gray-800">{currentSchoolInfo.name}</p>
+                          <p className="text-xs text-gray-600">
+                            {currentSchoolInfo.district}
+                            {user?.school?.id === currentSchoolId && ' • 내 학교'}
+                            {user?.school?.id !== currentSchoolId && ' • 다른 학교 방문 중'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // 학교를 선택하지 않은 경우: 기존 SchoolSelector
+                    <SchoolSelector 
+                      currentSchoolId={currentSchoolId}
+                      onSchoolChange={async (school) => {
+                        console.log('School changed to:', school.id, school.name);
+                        
+                        // URL 업데이트 - 새로운 학교 ID로 리다이렉트
+                        router.push(`/community?tab=school/${school.id}`);
+                        
+                        // 세션 스토리지에도 업데이트
+                        sessionStorage.setItem('community-selected-school', school.id);
+                        setCurrentSchoolId(school.id);
+                        
+                        // 게시판과 게시글 목록 새로고침
+                        await loadBoards();
+                        await loadPosts();
+                      }}
+                      className="max-w-sm"
+                    />
+                  )
                 ) : (
                   // 로그인하지 않은 사용자: 안내 메시지
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
+                      {currentSchoolInfo && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push('/community?tab=school')}
+                          className="p-2"
+                        >
+                          <ChevronDown className="h-4 w-4 rotate-90" />
+                        </Button>
+                      )}
                       <SchoolIcon className="h-5 w-5 text-blue-600" />
                       <div>
                         {currentSchoolInfo ? (
@@ -838,8 +818,51 @@ export default function CommunityPageClient() {
             </div>
           )}
 
-          {/* 카테고리 필터 - 인기 학교 목록이 아닐 때만 표시 */}
-          {!(selectedTab === 'school' && !user && !currentSchoolId) && (
+          {/* 지역 선택 (지역 탭일 때 지역이 설정된 경우만 표시) */}
+          {selectedTab === 'regional' && currentRegion.sido && currentRegion.sigungu && (
+            <div className="bg-white border-b">
+              <div className="container mx-auto px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setCurrentRegion({});
+                        router.push('/community?tab=regional');
+                      }}
+                      className="p-2"
+                    >
+                      <ChevronDown className="h-4 w-4 rotate-90" />
+                    </Button>
+                    <span className="text-xl">🏘️</span>
+                    <div>
+                      <p className="font-medium text-sm text-gray-800">{currentRegion.sigungu}</p>
+                      <p className="text-xs text-gray-600">
+                        {currentRegion.sido}
+                        {!user && ' • 게스트로 방문 중'}
+                        {user && user.regions?.sido === currentRegion.sido && user.regions?.sigungu === currentRegion.sigungu && ' • 내 지역'}
+                        {user && (user.regions?.sido !== currentRegion.sido || user.regions?.sigungu !== currentRegion.sigungu) && ' • 다른 지역 방문 중'}
+                      </p>
+                    </div>
+                  </div>
+                  {!user && (
+                    <Button 
+                      onClick={() => router.push('/login')}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      로그인하기
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 카테고리 필터 - 인기 학교/지역 목록이 아닐 때만 표시 */}
+          {!(selectedTab === 'school' && !currentSchoolId) && 
+           !(selectedTab === 'regional' && !currentRegion.sido && !currentRegion.sigungu) && (
             <div className="bg-white border-b">
               <div className="container mx-auto px-4 py-3">
                 {/* 가로 스크롤 카테고리와 화살표 버튼 */}
@@ -919,8 +942,9 @@ export default function CommunityPageClient() {
             </div>
           )}
 
-          {/* 게시글 리스트 헤더 - 인기 학교 목록이 아닐 때만 표시 */}
-          {!(selectedTab === 'school' && !user && !currentSchoolId) && (
+          {/* 게시글 리스트 헤더 - 인기 학교/지역 목록이 아닐 때만 표시 */}
+          {!(selectedTab === 'school' && !currentSchoolId) && 
+           !(selectedTab === 'regional' && !currentRegion.sido && !currentRegion.sigungu) && (
             <div className="container mx-auto px-4 pt-4 pb-2">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">게시글</h2>
@@ -950,8 +974,9 @@ export default function CommunityPageClient() {
             </div>
           )}
 
-          {/* 모바일 앱 리워드 광고 안내 - 인기 학교 목록이 아닐 때만 표시 */}
-          {!(selectedTab === 'school' && !user && !currentSchoolId) && (
+          {/* 모바일 앱 리워드 광고 안내 - 인기 학교/지역 목록이 아닐 때만 표시 */}
+          {!(selectedTab === 'school' && !currentSchoolId) && 
+           !(selectedTab === 'regional' && !currentRegion.sido && !currentRegion.sigungu) && (
             <div className="container mx-auto px-4 py-2">
               <div className="max-w-2xl mx-auto p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
                 <div className="text-center">
@@ -1006,9 +1031,142 @@ export default function CommunityPageClient() {
                 </div>
               </div>
             ) : posts.length === 0 ? (
-              // 학교 탭에서 로그인하지 않은 사용자이고 특정 학교가 선택되지 않은 경우 인기 학교 목록 표시
-              selectedTab === 'school' && !user && !currentSchoolId ? (
+              // 지역 탭에서 지역이 설정되지 않은 경우 인기 지역 목록 표시
+              selectedTab === 'regional' && !currentRegion.sido && !currentRegion.sigungu ? (
                 <div className="px-2 py-4">
+                  {/* 지역 선택 헤더 */}
+                  <div className="text-center mb-4">
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <TrendingUp className="w-6 h-6 text-green-600" />
+                      <h2 className="text-xl font-semibold text-gray-800">지역 선택</h2>
+                    </div>
+                  </div>
+
+                  {/* 로그인한 사용자의 본인 지역 바로가기 버튼 */}
+                  {user?.regions?.sido && user?.regions?.sigungu && (
+                    <div className="mb-4 mx-2">
+                      <Button
+                        onClick={() => router.push(`/community?tab=regional/${encodeURIComponent(user.regions!.sido)}/${encodeURIComponent(user.regions!.sigungu)}`)}
+                        className="w-full h-auto py-4 bg-white hover:bg-green-50 border-2 border-green-500 text-left justify-start shadow-sm hover:shadow-md transition-all"
+                        variant="outline"
+                      >
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100 flex-shrink-0">
+                            <span className="text-2xl">📍</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-green-600 mb-1">내 지역 커뮤니티</p>
+                            <p className="text-sm font-semibold text-gray-800">
+                              {user.regions.sigungu}, {user.regions.sido}
+                            </p>
+                          </div>
+                          <ChevronDown className="h-5 w-5 text-green-600 rotate-[-90deg] flex-shrink-0" />
+                        </div>
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <div className="text-center mb-4">
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <TrendingUp className="w-6 h-6 text-green-600" />
+                      <h2 className="text-xl font-semibold text-gray-800">인기 지역 커뮤니티</h2>
+                    </div>
+                  </div>
+                  
+                  {popularRegionsLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-muted-foreground">인기 지역을 불러오는 중...</p>
+                    </div>
+                  ) : popularRegions.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                      {popularRegions.map((region) => (
+                        <Card 
+                          key={`${region.sido}-${region.sigungu}`}
+                          className="hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-green-300"
+                          onClick={() => router.push(`/community?tab=regional/${encodeURIComponent(region.sido)}/${encodeURIComponent(region.sigungu)}`)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 flex-shrink-0">
+                                <span className="text-sm">🏘️</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-medium text-xs leading-tight">
+                                  {region.sigungu}
+                                </h3>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {region.sido}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>게시글 {region.postCount}개</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <span className="text-4xl mb-3 block">🏘️</span>
+                      <p className="text-muted-foreground">
+                        인기 지역 목록을 불러올 수 없습니다.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {!user && (
+                    <div className="text-center pt-4 border-t mx-4">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        더 많은 기능을 이용하려면 로그인하세요
+                      </p>
+                      <div className="flex gap-3 justify-center">
+                        <Button 
+                          onClick={() => router.push('/login')}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          로그인하기
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => setSelectedTab('national')}
+                          className="border-green-300 text-green-700 hover:bg-green-100"
+                        >
+                          전국 커뮤니티 보기
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // 학교 탭에서 특정 학교가 선택되지 않은 경우 인기 학교 목록 표시
+                selectedTab === 'school' && !currentSchoolId ? (
+                <div className="px-2 py-4">
+                  {/* 로그인한 사용자의 본인 학교 바로가기 버튼 */}
+                  {user?.school?.id && (
+                    <div className="mb-4 mx-2">
+                      <Button
+                        onClick={() => router.push(`/community?tab=school/${user.school!.id}`)}
+                        className="w-full h-auto py-4 bg-white hover:bg-blue-50 border-2 border-blue-500 text-left justify-start shadow-sm hover:shadow-md transition-all"
+                        variant="outline"
+                      >
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 flex-shrink-0">
+                            <span className="text-2xl">🏫</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-blue-600 mb-1">내 학교 커뮤니티</p>
+                            <p className="text-sm font-semibold text-gray-800">
+                              {user.school.name}
+                            </p>
+                          </div>
+                          <ChevronDown className="h-5 w-5 text-blue-600 rotate-[-90deg] flex-shrink-0" />
+                        </div>
+                      </Button>
+                    </div>
+                  )}
+                  
                   <div className="text-center mb-4">
                     <div className="flex items-center justify-center gap-2 mb-3">
                       <TrendingUp className="w-6 h-6 text-green-600" />
@@ -1063,26 +1221,28 @@ export default function CommunityPageClient() {
                     </div>
                   )}
                   
-                  <div className="text-center pt-4 border-t mx-4">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      더 많은 기능을 이용하려면 로그인하세요
-                    </p>
-                    <div className="flex gap-3 justify-center">
-                      <Button 
-                        onClick={() => router.push('/login')}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        로그인하기
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        onClick={() => setSelectedTab('national')}
-                        className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                      >
-                        전국 커뮤니티 보기
-                      </Button>
+                  {!user && (
+                    <div className="text-center pt-4 border-t mx-4">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        더 많은 기능을 이용하려면 로그인하세요
+                      </p>
+                      <div className="flex gap-3 justify-center">
+                        <Button 
+                          onClick={() => router.push('/login')}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          로그인하기
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => setSelectedTab('national')}
+                          className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                        >
+                          전국 커뮤니티 보기
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 // 기본 "게시글이 없습니다" 메시지
@@ -1091,11 +1251,11 @@ export default function CommunityPageClient() {
                   <p className="text-gray-500">게시글이 없습니다.</p>
                   <p className="text-sm text-gray-400 mt-1">첫 번째 게시글을 작성해보세요!</p>
                 </div>
-              )
+              ))
             ) : (
               <>
                 <div className="space-y-3">
-                  {posts.map((post, index) => (
+                  {posts.map((post) => (
                     <React.Fragment key={post.id}>
                       {renderPost(post)}
                       {/* 피드 광고 제거 - 리워디드 광고만 사용 */}
