@@ -293,68 +293,8 @@ export default function CommunityPageClient() {
     }
   };
 
-  // 사용자 정보 로딩 후 자동 리다이렉트 처리
-  useEffect(() => {
-    const handleAutoRedirect = async () => {
-      if (user !== null && user?.uid) { // 사용자 정보가 로딩 완료되고 로그인된 경우
-        const tabFromUrl = searchParams.get('tab');
-        
-        try {
-          // users 컬렉션에서 최신 정보 가져오기
-          const { getUserById } = await import('@/lib/api/users');
-          const latestUser = await getUserById(user.uid);
-          
-          if (selectedTab === 'school') {
-            // URL이 단순히 'school'인 경우 자동 리다이렉트
-            if (tabFromUrl === 'school') {
-              if (latestUser?.school?.id) {
-                console.log('Auto-redirecting to school with ID:', latestUser.school.id);
-                router.push(`/community?tab=school/${latestUser.school.id}`);
-              } else {
-                // 학교 정보가 없으면 모달 표시
-                console.log('No school info in users collection, showing school setup modal');
-                setShowSchoolSetupModal(true);
-              }
-            }
-          } else if (selectedTab === 'regional') {
-            // URL이 단순히 'regional'인 경우 자동 리다이렉트
-            if (tabFromUrl === 'regional') {
-              if (latestUser?.regions?.sido && latestUser?.regions?.sigungu) {
-                console.log('Auto-redirecting to region:', latestUser.regions.sido, latestUser.regions.sigungu);
-                router.push(`/community?tab=regional/${encodeURIComponent(latestUser.regions.sido)}/${encodeURIComponent(latestUser.regions.sigungu)}`);
-              } else {
-                // 지역 정보가 없으면 모달 표시
-                console.log('No region info in users collection, showing region setup modal');
-                setShowRegionSetupModal(true);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Failed to fetch user info for auto-redirect:', error);
-          // API 호출 실패 시 기존 user 정보로 fallback
-          if (selectedTab === 'school' && tabFromUrl === 'school') {
-            if (user?.school?.id) {
-              console.log('Fallback auto-redirect to cached school:', user.school.id);
-              router.push(`/community?tab=school/${user.school.id}`);
-            } else {
-              console.log('No cached school info, showing school setup modal');
-              setShowSchoolSetupModal(true);
-            }
-          } else if (selectedTab === 'regional' && tabFromUrl === 'regional') {
-            if (user?.regions?.sido && user?.regions?.sigungu) {
-              console.log('Fallback auto-redirect to cached region:', user.regions.sido, user.regions.sigungu);
-              router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
-            } else {
-              console.log('No cached region info, showing region setup modal');
-              setShowRegionSetupModal(true);
-            }
-          }
-        }
-      }
-    };
-
-    handleAutoRedirect();
-  }, [user, selectedTab, searchParams, router]);
+  // 자동 리다이렉트 제거 - 항상 학교/지역 선택 UI를 먼저 표시
+  // 사용자가 명시적으로 학교/지역을 선택해야만 해당 커뮤니티로 이동
 
   useEffect(() => {
     loadBoards();
