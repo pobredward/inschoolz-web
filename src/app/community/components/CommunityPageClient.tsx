@@ -133,14 +133,26 @@ export default function CommunityPageClient() {
     }
   };
 
-  // currentSchoolId 변경 시 학교 정보 로드
+  // currentSchoolId 변경 시 학교 정보, 게시판, 게시글 로드
   useEffect(() => {
     if (currentSchoolId) {
+      console.log('학교 변경 감지 - 데이터 로드 시작:', currentSchoolId);
       loadCurrentSchoolInfo(currentSchoolId);
+      // 게시판과 게시글도 다시 로드
+      loadBoards();
     } else {
       setCurrentSchoolInfo(null);
     }
   }, [currentSchoolId]);
+
+  // currentRegion 변경 시 게시판, 게시글 로드
+  useEffect(() => {
+    if (currentRegion.sido && currentRegion.sigungu) {
+      console.log('지역 변경 감지 - 데이터 로드 시작:', currentRegion);
+      // 게시판과 게시글 다시 로드
+      loadBoards();
+    }
+  }, [currentRegion.sido, currentRegion.sigungu]);
 
   // URL 변경 감지하여 학교 ID 및 지역 정보 업데이트 (초기 로드 포함)
   useEffect(() => {
@@ -301,10 +313,30 @@ export default function CommunityPageClient() {
   }, [selectedTab]);
 
   useEffect(() => {
-    if (boards.length > 0 && !isInitialLoading) {
+    // 학교/지역이 선택되지 않은 경우 게시글 로드하지 않음
+    if (selectedTab === 'school' && !currentSchoolId) {
+      console.log('학교가 선택되지 않음 - 게시글 로드 생략');
+      return;
+    }
+    if (selectedTab === 'regional' && (!currentRegion.sido || !currentRegion.sigungu)) {
+      console.log('지역이 선택되지 않음 - 게시글 로드 생략');
+      return;
+    }
+    
+    // boards가 로드되지 않았으면 대기 (단, currentSchoolId나 currentRegion이 설정된 경우는 boards 로드 중일 수 있으므로 허용)
+    const hasSchoolOrRegion = (selectedTab === 'school' && currentSchoolId) || 
+                              (selectedTab === 'regional' && currentRegion.sido && currentRegion.sigungu);
+    
+    if (boards.length === 0 && !isInitialLoading && !hasSchoolOrRegion) {
+      console.log('게시판 로드 대기 중...');
+      return;
+    }
+    
+    if (!isInitialLoading) {
+      console.log('게시글 로드 조건 충족 - loadPosts 호출');
       loadPosts();
     }
-  }, [selectedTab, selectedBoard, sortBy, boards, currentPage, currentSchoolId, currentRegion.sido, currentRegion.sigungu, isInitialLoading]);
+  }, [selectedTab, selectedBoard, sortBy, boards.length, currentPage, currentSchoolId, currentRegion.sido, currentRegion.sigungu, isInitialLoading]);
 
   // 사용자 정보 변경 시 차단된 사용자 목록 로드
   useEffect(() => {
@@ -901,7 +933,9 @@ export default function CommunityPageClient() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {user && (
+                  {user && 
+                   // 학교 탭에서는 메인 학교일 때만 글쓰기 버튼 표시
+                   !(selectedTab === 'school' && currentSchoolId && currentSchoolId !== user?.school?.id) && (
                     <Button 
                       onClick={handleWriteClick}
                       className="bg-green-500 hover:bg-green-600 text-white shadow-sm"
