@@ -8,7 +8,7 @@ import { updateGameScore, getUserGameStats } from '@/lib/api/games';
 import { getExperienceSettings } from '@/lib/api/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Home, Trophy, Medal, Zap } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, Zap } from 'lucide-react';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
@@ -337,7 +337,7 @@ export default function ReactionGamePage() {
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>
               <Link href="/games">
-                <Home className="w-4 h-4 mr-2" />
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 게임 홈
               </Link>
             </Button>

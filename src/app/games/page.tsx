@@ -35,12 +35,12 @@ const games: Game[] = [
     isActive: true
   },
   {
-    id: 'calculation',
-    name: '빠른 계산',
-    description: '곧 출시 예정입니다',
+    id: 'math',
+    name: '빠른 계산 릴레이',
+    description: '20초 동안 한 자리 수 덧셈/뺄셈 문제를 풀어보세요!',
     icon: Calculator,
-    route: '/games/calculation',
-    isActive: false
+    route: '/games/math',
+    isActive: true
   },
   {
     id: 'word',

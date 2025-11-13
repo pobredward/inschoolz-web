@@ -235,13 +235,15 @@ export default function Home() {
                     </CardContent>
                   </Card>
                 </Link>
-                <Card className="opacity-60 cursor-not-allowed">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl mb-2">🧮</div>
-                    <h4 className="font-medium text-sm mb-1">빠른 계산</h4>
-                    <p className="text-xs text-gray-500">곧 출시</p>
-                  </CardContent>
-                </Card>
+                <Link href="/games/math">
+                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl mb-2">🧮</div>
+                      <h4 className="font-medium text-sm mb-1">빠른 계산</h4>
+                      <p className="text-xs text-gray-500">+15 XP</p>
+                    </CardContent>
+                  </Card>
+                </Link>
               </div>
             </div>
 
