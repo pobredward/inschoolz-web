@@ -84,10 +84,10 @@ const updatePostAuthorInfo = async (post: any) => {
 
 // 여러 게시글의 authorInfo 일괄 업데이트
 const updatePostsAuthorInfo = async (posts: any[]) => {
-  // 프로필 이미지가 없는 게시글들의 사용자 ID 수집
+  // 익명이 아닌 모든 게시글의 사용자 ID 수집 (실시간 프로필 업데이트를 위해)
   const userIds = new Set<string>();
   posts.forEach(post => {
-    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+    if (!post.authorInfo?.isAnonymous && post.authorId) {
       userIds.add(post.authorId);
     }
   });
@@ -142,14 +142,14 @@ const updatePostsAuthorInfo = async (posts: any[]) => {
     }
   }
 
-  // 게시글에 사용자 정보 적용
+  // 게시글에 사용자 정보 적용 (익명이 아닌 모든 게시글)
   return posts.map(post => {
-    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+    if (!post.authorInfo?.isAnonymous && post.authorId) {
       const userData = userDataMap.get(post.authorId);
       if (userData) {
         post.authorInfo = {
           ...post.authorInfo,
-          displayName: post.authorInfo?.displayName || userData.displayName,
+          displayName: userData.displayName,
           profileImageUrl: userData.profileImageUrl,
           isAnonymous: userData.isAnonymous
         };
@@ -379,16 +379,16 @@ export const getPostBasicInfo = async (postId: string) => {
       throw new Error('게시글을 찾을 수 없습니다.');
     }
     
-    // authorInfo가 없거나 profileImageUrl이 없는 경우 사용자 정보 업데이트
-    if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
+    // 익명이 아닌 경우 항상 최신 사용자 정보로 업데이트 (실시간 프로필 변경 반영)
+    if (!post.authorInfo?.isAnonymous && post.authorId) {
       try {
         const userDoc = await getDocument('users', post.authorId);
         if (userDoc && (userDoc as any).profile) {
           post.authorInfo = {
             ...post.authorInfo,
-            displayName: post.authorInfo?.displayName || (userDoc as any).profile.userName || '사용자',
+            displayName: (userDoc as any).profile.userName || '사용자',
             profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
-            isAnonymous: post.authorInfo?.isAnonymous || false
+            isAnonymous: false
           };
         } else {
           // 사용자 문서가 존재하지 않는 경우 (계정 삭제됨)

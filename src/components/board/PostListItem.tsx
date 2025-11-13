@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { formatRelativeTime, getPostPreviewImages } from "@/lib/utils";
 import { FirebaseTimestamp } from "@/types";
+import { User } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -133,8 +134,8 @@ const PostListItem: React.FC<PostListItemProps> = ({
                   src={post.authorInfo?.profileImageUrl} 
                   alt={post.authorInfo?.displayName || '사용자'} 
                 />
-                <AvatarFallback className="text-xs">
-                  {post.authorInfo?.isAnonymous ? '익명' : post.authorInfo?.displayName?.substring(0, 2) || 'NA'}
+                <AvatarFallback className="text-xs bg-gray-100">
+                  <User className="h-3 w-3 text-gray-600" />
                 </AvatarFallback>
               </Avatar>
               <span className="truncate">
