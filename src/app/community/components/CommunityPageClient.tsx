@@ -284,6 +284,9 @@ export default function CommunityPageClient() {
     // 페이지네이션 리셋
     setCurrentPage(1);
     setSelectedBoard('all');
+    // 게시글과 게시판 초기화
+    setPosts([]);
+    setBoards([]);
     
     // 세션 스토리지와 URL 파라미터 모두 업데이트
     sessionStorage.setItem('community-selected-tab', newTab);
@@ -292,13 +295,19 @@ export default function CommunityPageClient() {
     if (newTab === 'school') {
       // 학교 탭으로 이동 - 항상 학교 선택 UI 먼저 표시
       console.log('학교 탭으로 이동 - 학교 선택 UI 표시');
+      // 이전 학교 정보 초기화
+      setCurrentSchoolId(undefined);
+      setCurrentSchoolInfo(null);
       router.push('/community?tab=school');
       return;
     } else if (newTab === 'regional') {
       // 지역 탭으로 이동 - 항상 지역 선택 UI 먼저 표시
       console.log('지역 탭으로 이동 - 지역 선택 UI 표시');
+      // 이전 지역 정보 초기화
+      setCurrentRegion({});
       router.push('/community?tab=regional');
     } else {
+      // 전국 탭의 경우 URL만 업데이트
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.set('tab', newTab);
       window.history.replaceState({}, '', newUrl.toString());
@@ -316,10 +325,12 @@ export default function CommunityPageClient() {
     // 학교/지역이 선택되지 않은 경우 게시글 로드하지 않음
     if (selectedTab === 'school' && !currentSchoolId) {
       console.log('학교가 선택되지 않음 - 게시글 로드 생략');
+      setPosts([]); // 게시글 초기화
       return;
     }
     if (selectedTab === 'regional' && (!currentRegion.sido || !currentRegion.sigungu)) {
       console.log('지역이 선택되지 않음 - 게시글 로드 생략');
+      setPosts([]); // 게시글 초기화
       return;
     }
     
