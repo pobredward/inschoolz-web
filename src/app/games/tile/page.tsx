@@ -133,20 +133,23 @@ export default function TileGamePage() {
   // 게임 시작
   const startGame = async () => {
     if (!user?.uid) {
+      toast.error('로그인이 필요합니다.');
       return;
     }
     
-    // 플레이 전 제한 재확인 (새 게임 시작시에만)
+    // 게임 시작 시 횟수 차감 (새 게임 시작시에만)
     if (gameState !== 'finished') {
       try {
-        const { checkDailyLimit } = await import('@/lib/experience');
-        const limitCheck = await checkDailyLimit(user.uid, 'games', 'tileGame');
-        if (!limitCheck.canEarnExp) {
-          toast.error(`오늘의 타일 게임 플레이 횟수를 모두 사용했습니다. (${limitCheck.currentCount}/${limitCheck.limit})`);
+        const { startGamePlay } = await import('@/lib/api/games');
+        const result = await startGamePlay(user.uid, 'tileGame');
+        
+        if (!result.success) {
+          toast.error(result.message || '게임을 시작할 수 없습니다.');
+          loadRemainingAttempts();
           return;
         }
       } catch (error) {
-        console.error('제한 확인 오류:', error);
+        console.error('게임 시작 오류:', error);
         toast.error('게임을 시작할 수 없습니다.');
         return;
       }

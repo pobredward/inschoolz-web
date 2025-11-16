@@ -135,21 +135,25 @@ export default function ReactionGamePage() {
   const startGame = async () => {
     if (gameState !== 'waiting' || remainingAttempts <= 0) return;
     
-    // 플레이 전 제한 재확인
-    if (user?.uid) {
-      try {
-        const { checkDailyLimit } = await import('@/lib/experience');
-        const limitCheck = await checkDailyLimit(user.uid, 'games', 'reactionGame');
-        if (!limitCheck.canEarnExp) {
-          toast.error(`오늘의 반응속도 게임 플레이 횟수를 모두 사용했습니다. (${limitCheck.currentCount}/${limitCheck.limit})`);
-          loadRemainingAttempts(); // 상태 새로고침
-          return;
-        }
-      } catch (error) {
-        console.error('제한 확인 오류:', error);
-        toast.error('게임을 시작할 수 없습니다.');
+    if (!user?.uid) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+    
+    // 게임 시작 시 횟수 차감
+    try {
+      const { startGamePlay } = await import('@/lib/api/games');
+      const result = await startGamePlay(user.uid, 'reactionGame');
+      
+      if (!result.success) {
+        toast.error(result.message || '게임을 시작할 수 없습니다.');
+        loadRemainingAttempts();
         return;
       }
+    } catch (error) {
+      console.error('게임 시작 오류:', error);
+      toast.error('게임을 시작할 수 없습니다.');
+      return;
     }
     
     setGameState('ready');
