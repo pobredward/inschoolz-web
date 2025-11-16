@@ -370,30 +370,30 @@ export default function ReactionGamePage() {
           <button
             onClick={handleGameClick}
             disabled={remainingAttempts <= 0}
-            className={`w-full h-48 rounded-lg text-white font-bold text-xl transition-colors duration-200 ${
+            className={`w-full h-64 rounded-2xl text-white font-bold text-2xl transition-all duration-200 shadow-lg hover:shadow-2xl transform hover:scale-[1.02] ${
               remainingAttempts <= 0 
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : gameState === 'waiting' 
-                ? 'bg-red-500 hover:bg-red-600' 
+                ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
                 : gameState === 'ready' 
-                ? 'bg-yellow-500' 
+                ? 'bg-gradient-to-br from-yellow-400 to-yellow-500 animate-pulse' 
                 : gameState === 'active' 
-                ? 'bg-green-500' 
-                : 'bg-blue-500 hover:bg-blue-600'
+                ? 'bg-gradient-to-br from-green-400 to-green-500 animate-pulse' 
+                : 'bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'
             }`}
           >
-            {getGameButtonText()}
+            <span className="drop-shadow-lg">{getGameButtonText()}</span>
           </button>
 
           {/* 게임 결과 */}
           {result && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4">게임 결과</h3>
+            <div className="mt-6 p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl border-2 border-orange-300 shadow-lg">
+              <h3 className="text-xl font-bold mb-6 text-center text-orange-600">🎯 게임 결과</h3>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-5xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent mb-3">
                   {result.reactionTime === -1 ? '-초' : `${(result.reactionTime / 1000).toFixed(3)}초`}
                 </div>
-                <div className="text-sm text-gray-600">반응 시간</div>
+                <div className="text-lg text-orange-700 font-semibold">반응 시간</div>
               </div>
             </div>
           )}
@@ -403,7 +403,7 @@ export default function ReactionGamePage() {
             {gameState === 'finished' && remainingAttempts > 0 && (
               <button
                 onClick={resetGame}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-bold transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
                 ▶ 다시 하기
               </button>
@@ -411,7 +411,7 @@ export default function ReactionGamePage() {
             
             <button
               onClick={resetAllAttempts}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
             >
               🔄 초기화
             </button>

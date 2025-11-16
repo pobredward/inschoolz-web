@@ -323,18 +323,18 @@ export default function TypingGamePage() {
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           {gameState === 'waiting' && (
             <div className="text-center py-12">
-              <Keyboard className="mx-auto h-16 w-16 text-purple-500 mb-4" />
-              <h2 className="text-2xl font-bold mb-4">영단어 타이핑 게임</h2>
-              <p className="text-gray-600 mb-6">
+              <Keyboard className="mx-auto h-20 w-20 text-purple-500 mb-6 animate-bounce" />
+              <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent">영단어 타이핑 게임</h2>
+              <p className="text-gray-600 mb-8 text-lg">
                 20초 동안 화면에 나타나는 영단어를 빠르게 입력하세요!
               </p>
               <Button
                 onClick={startGame}
                 disabled={remainingAttempts <= 0}
                 size="lg"
-                className="px-8"
+                className="px-10 py-6 text-lg font-bold bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               >
-                {remainingAttempts <= 0 ? '오늘의 기회 소진' : '게임 시작'}
+                {remainingAttempts <= 0 ? '오늘의 기회 소진' : '🎮 게임 시작'}
               </Button>
             </div>
           )}
@@ -356,11 +356,11 @@ export default function TypingGamePage() {
               </div>
 
               {/* 단어 표시 영역 */}
-              <div className="bg-purple-50 rounded-lg p-8 text-center">
-                <div className="text-5xl font-bold text-gray-900 mb-4 tracking-wider">
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-10 text-center shadow-lg">
+                <div className="text-6xl font-bold bg-gradient-to-r from-purple-600 to-purple-400 bg-clip-text text-transparent mb-6 tracking-wider animate-pulse">
                   {currentWord.english.toLowerCase()}
                 </div>
-                <div className="text-2xl text-gray-600 font-medium mb-6">
+                <div className="text-3xl text-gray-700 font-semibold mb-8">
                   {currentWord.korean}
                 </div>
                 <input
@@ -368,11 +368,11 @@ export default function TypingGamePage() {
                   value={userInput}
                   onChange={handleInputChange}
                   placeholder="여기에 입력하세요"
-                  className="w-full max-w-md mx-auto text-center text-2xl font-bold border-2 border-purple-300 rounded-lg p-4 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full max-w-md mx-auto text-center text-3xl font-bold border-3 border-purple-400 rounded-xl p-5 bg-white focus:outline-none focus:ring-4 focus:ring-purple-300 shadow-md transition-all duration-200"
                   autoFocus
                   autoComplete="off"
                 />
-                <p className="text-sm text-gray-500 mt-4">
+                <p className="text-sm text-purple-600 mt-5 font-medium">
                   💡 소문자로 입력해도 됩니다
                 </p>
               </div>

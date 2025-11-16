@@ -342,7 +342,7 @@ export default function TileGamePage() {
 
         {/* 게임 상태 */}
         {gameState === 'playing' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 max-w-lg mx-auto">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -359,25 +359,12 @@ export default function TileGamePage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-blue-500" />
+                  <Zap className="w-5 h-5 text-green-500" />
                   <div>
                     <p className="text-sm text-gray-600">움직임</p>
                     <p className="text-lg font-bold">{moves}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 text-green-500" />
-                  <div>
-                    <p className="text-sm text-gray-600">시간</p>
-                    <p className="text-lg font-bold">{timeElapsed}초</p>
-                  </div>
-                </div>
-                <Progress value={timeProgress} className="mt-2" />
               </CardContent>
             </Card>
           </div>
@@ -422,15 +409,15 @@ export default function TileGamePage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="text-6xl mb-4">🧩</div>
-                  <h2 className="text-2xl font-bold mb-4">타일 매칭 게임</h2>
-                  <p className="text-gray-600 mb-6">
+                  <div className="text-7xl mb-6 animate-bounce">🧩</div>
+                  <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-green-600 to-green-400 bg-clip-text text-transparent">타일 매칭 게임</h2>
+                  <p className="text-gray-600 mb-8 text-lg">
                     3x4 격자에서 6쌍의 타일을 모두 매칭하세요!<br />
                     적은 움직임으로 완료할수록 더 많은 경험치를 획득합니다.
                   </p>
                   <button
                     onClick={startGame}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors"
+                    className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-bold py-4 px-10 rounded-xl text-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     🎮 게임 시작 (클릭하세요!)
                   </button>
@@ -446,18 +433,18 @@ export default function TileGamePage() {
                     key={tile.id}
                     onClick={() => handleTileClick(tile.id)}
                     className={`
-                      aspect-square rounded-lg border-2 text-4xl font-bold transition-all duration-300 h-20 w-20
+                      aspect-square rounded-2xl border-3 text-5xl font-bold transition-all duration-300 h-24 w-24 shadow-lg
                       ${tile.isMatched 
-                        ? 'bg-green-100 border-green-300 text-green-600' 
+                        ? 'bg-gradient-to-br from-green-100 to-green-200 border-green-400 text-green-600 scale-95 opacity-80' 
                         : tile.isFlipped 
-                          ? 'bg-blue-100 border-blue-300 text-blue-600' 
-                          : 'bg-gray-100 border-gray-300 hover:bg-gray-200 text-gray-400'
+                          ? 'bg-gradient-to-br from-green-100 to-green-200 border-green-400 text-green-600 shadow-xl' 
+                          : 'bg-gradient-to-br from-gray-100 to-gray-200 border-gray-300 hover:bg-gradient-to-br hover:from-gray-200 hover:to-gray-300 text-gray-400 hover:shadow-2xl'
                       }
-                      ${!tile.isFlipped && !tile.isMatched ? 'hover:scale-105' : ''}
+                      ${!tile.isFlipped && !tile.isMatched ? 'hover:scale-110 active:scale-95' : ''}
                     `}
                     disabled={tile.isFlipped || tile.isMatched}
                   >
-                    {tile.isFlipped || tile.isMatched ? getEmojiForValue(tile.value) : '?'}
+                    {tile.isFlipped || tile.isMatched ? getEmojiForValue(tile.value) : '❓'}
                   </button>
                 ))}
               </div>
@@ -465,33 +452,37 @@ export default function TileGamePage() {
 
             {gameState === 'finished' && (
               <div className="text-center py-8">
-                <div className="text-6xl mb-4">🎉</div>
-                <h2 className="text-2xl font-bold mb-4">게임 완료!</h2>
+                <div className="text-7xl mb-6 animate-bounce">🎉</div>
+                <h2 className="text-4xl font-bold mb-6 bg-gradient-to-r from-green-600 to-green-400 bg-clip-text text-transparent">게임 완료!</h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-md mx-auto mb-6">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">최종 점수</p>
-                    <p className="text-2xl font-bold text-blue-600">{finalScore}점</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto mb-8">
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-2xl shadow-md border-2 border-blue-200">
+                    <p className="text-sm text-blue-700 font-semibold">최종 점수</p>
+                    <p className="text-3xl font-bold text-blue-600">{finalScore}점</p>
                   </div>
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">완료 시간</p>
-                    <p className="text-2xl font-bold text-green-600">{timeElapsed}초</p>
-                  </div>
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">총 움직임</p>
-                    <p className="text-2xl font-bold text-purple-600">{moves}회</p>
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-2xl shadow-md border-2 border-green-200">
+                    <p className="text-sm text-green-700 font-semibold">총 움직임</p>
+                    <p className="text-3xl font-bold text-green-600">{moves}회</p>
                   </div>
                 </div>
 
                 {/* Firebase 설정에서 실제 경험치 계산됨 */}
 
-                <div className="flex gap-3 justify-center">
-                  <Button onClick={startGame} className="gap-2">
-                    <RotateCcw className="w-4 h-4" />
+                <div className="flex gap-4 justify-center">
+                  <Button 
+                    onClick={startGame} 
+                    className="gap-2 px-8 py-6 text-lg font-bold bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  >
+                    <RotateCcw className="w-5 h-5" />
                     다시 플레이
                   </Button>
                   <Link href="/games">
-                    <Button variant="outline">게임 목록으로</Button>
+                    <Button 
+                      variant="outline"
+                      className="px-8 py-6 text-lg font-semibold border-2 border-gray-300 hover:border-gray-400 shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                    >
+                      게임 목록으로
+                    </Button>
                   </Link>
                 </div>
               </div>

@@ -361,18 +361,18 @@ export default function MathGamePage() {
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           {gameState === 'waiting' && (
             <div className="text-center py-12">
-              <Calculator className="mx-auto h-16 w-16 text-blue-500 mb-4" />
-              <h2 className="text-2xl font-bold mb-4">빠른 계산 릴레이</h2>
-              <p className="text-gray-600 mb-6">
+              <Calculator className="mx-auto h-20 w-20 text-blue-500 mb-6 animate-bounce" />
+              <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">빠른 계산 릴레이</h2>
+              <p className="text-gray-600 mb-8 text-lg">
                 20초 동안 한 자리 수 덧셈/뺄셈 문제를 풀어보세요!
               </p>
               <Button
                 onClick={startGame}
                 disabled={remainingAttempts <= 0}
                 size="lg"
-                className="px-8"
+                className="px-10 py-6 text-lg font-bold bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               >
-                {remainingAttempts <= 0 ? '오늘의 기회 소진' : '게임 시작'}
+                {remainingAttempts <= 0 ? '오늘의 기회 소진' : '🎮 게임 시작'}
               </Button>
             </div>
           )}
@@ -394,8 +394,8 @@ export default function MathGamePage() {
               </div>
 
               {/* 문제 */}
-              <div className="bg-blue-50 rounded-lg p-8 text-center">
-                <div className="text-5xl font-bold text-gray-900 mb-4">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-10 text-center shadow-lg">
+                <div className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent mb-6 animate-pulse">
                   {currentProblem.num1} {currentProblem.operator} {currentProblem.num2} = ?
                 </div>
                 <input
@@ -403,38 +403,38 @@ export default function MathGamePage() {
                   value={userAnswer}
                   readOnly
                   placeholder="답을 입력하세요"
-                  className="w-full max-w-xs mx-auto text-center text-3xl font-bold border-2 border-blue-300 rounded-lg p-4 bg-white"
+                  className="w-full max-w-xs mx-auto text-center text-4xl font-bold border-3 border-blue-400 rounded-xl p-5 bg-white shadow-md"
                   onKeyPress={handleKeyPress}
                 />
               </div>
 
               {/* 숫자 패드 */}
-              <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+              <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
                 {[7, 8, 9, 4, 5, 6, 1, 2, 3].map((num) => (
                   <button
                     key={num}
                     onClick={() => handleNumberClick(num)}
-                    className="bg-white border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 rounded-lg h-16 text-2xl font-bold transition-colors"
+                    className="bg-white border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 rounded-xl h-16 text-3xl font-bold transition-all duration-150 transform hover:scale-105 shadow-md hover:shadow-lg"
                   >
                     {num}
                   </button>
                 ))}
                 <button
                   onClick={handleBackspace}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-lg h-16 text-xl font-bold transition-colors"
+                  className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl h-16 text-2xl font-bold transition-all duration-150 transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
                   ←
                 </button>
                 <button
                   onClick={() => handleNumberClick(0)}
-                  className="bg-white border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 rounded-lg h-16 text-2xl font-bold transition-colors"
+                  className="bg-white border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 rounded-xl h-16 text-3xl font-bold transition-all duration-150 transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
                   0
                 </button>
                 <button
                   onClick={submitAnswer}
                   disabled={userAnswer === ''}
-                  className="bg-green-500 hover:bg-green-600 text-white rounded-lg h-16 text-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl h-16 text-2xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
                   ✓
                 </button>
