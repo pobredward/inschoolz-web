@@ -1432,24 +1432,24 @@ export default function CommentSection({
                 </div>
               );
             })}
+
+            {/* 댓글 더보기 버튼 */}
+            {allComments.length > displayedCount && (
+              <div className="mt-6 flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const newCount = displayedCount + 10;
+                    setDisplayedCount(newCount);
+                    setComments(allComments.slice(0, newCount));
+                  }}
+                  className="border-green-200 text-green-700 hover:bg-green-50"
+                >
+                  댓글 더보기 ({allComments.length - displayedCount}개 남음)
+                </Button>
+              </div>
+            )}
           </div>
-          
-          {/* 댓글 더보기 버튼 */}
-          {allComments.length > displayedCount && (
-            <div className="mt-6 flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const newCount = displayedCount + 10;
-                  setDisplayedCount(newCount);
-                  setComments(allComments.slice(0, newCount));
-                }}
-                className="border-green-200 text-green-700 hover:bg-green-50"
-              >
-                댓글 더보기 ({allComments.length - displayedCount}개 남음)
-              </Button>
-            </div>
-          )}
         )}
       </div>
 
