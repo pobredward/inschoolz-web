@@ -1453,34 +1453,34 @@ export default function CommentSection({
         )}
       </div>
 
-          {/* 익명 댓글 비밀번호 확인 모달 */}
-          <AnonymousPasswordModal
-            isOpen={!!showPasswordModal}
-            onClose={() => {
-              setShowPasswordModal(null);
-              // 삭제 작업일 때만 편집 상태 초기화, 수정 작업일 때는 유지
-              if (showPasswordModal?.action === 'delete') {
-                setEditingComment(null);
-              }
-            }}
-            onConfirm={handlePasswordConfirm}
-            title={showPasswordModal?.action === 'edit' ? '댓글 수정' : '댓글 삭제'}
-            description={
-              showPasswordModal?.action === 'edit' 
-                ? '댓글을 수정하려면 작성 시 입력한 비밀번호를 입력해주세요.'
-                : '댓글을 삭제하려면 작성 시 입력한 비밀번호를 입력해주세요.'
-            }
-            isLoading={isSubmitting}
-          />
+      {/* 익명 댓글 비밀번호 확인 모달 */}
+      <AnonymousPasswordModal
+        isOpen={!!showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(null);
+          // 삭제 작업일 때만 편집 상태 초기화, 수정 작업일 때는 유지
+          if (showPasswordModal?.action === 'delete') {
+            setEditingComment(null);
+          }
+        }}
+        onConfirm={handlePasswordConfirm}
+        title={showPasswordModal?.action === 'edit' ? '댓글 수정' : '댓글 삭제'}
+        description={
+          showPasswordModal?.action === 'edit' 
+            ? '댓글을 수정하려면 작성 시 입력한 비밀번호를 입력해주세요.'
+            : '댓글을 삭제하려면 작성 시 입력한 비밀번호를 입력해주세요.'
+        }
+        isLoading={isSubmitting}
+      />
 
-          {/* 경험치 획득 모달 */}
-          {showExperienceModal && experienceData && (
-            <ExperienceModal
-              isOpen={showExperienceModal}
-              onClose={handleExperienceModalClose}
-              data={experienceData}
-            />
-          )}
-        </div>
+      {/* 경험치 획득 모달 */}
+      {showExperienceModal && experienceData && (
+        <ExperienceModal
+          isOpen={showExperienceModal}
+          onClose={handleExperienceModalClose}
+          data={experienceData}
+        />
+      )}
+    </div>
   );
 } 
