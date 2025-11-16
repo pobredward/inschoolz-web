@@ -2,9 +2,11 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatRelativeTime, getPostPreviewImages } from "@/lib/utils";
 import { FirebaseTimestamp } from "@/types";
 import { User } from "lucide-react";
+import { usePostCacheStore } from "@/store/postCacheStore";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +42,8 @@ interface PostListItemProps {
   className?: string;
   typeBadgeText?: string;
   boardBadgeText?: string;
+  boardData?: any; // 게시판 데이터 (캐싱용)
+  onClickCapture?: () => void; // 클릭 시 추가 동작
 }
 
 const PostListItem: React.FC<PostListItemProps> = ({
@@ -48,12 +52,31 @@ const PostListItem: React.FC<PostListItemProps> = ({
   showBadges = true,
   className = '',
   typeBadgeText,
-  boardBadgeText
+  boardBadgeText,
+  boardData,
+  onClickCapture
 }) => {
+  const router = useRouter();
+  const { cachePost } = usePostCacheStore();
   const previewImages = getPostPreviewImages(post);
 
+  const handleClick = (e: React.MouseEvent) => {
+    // 게시글 데이터 캐싱 (즉시 표시용)
+    cachePost(post.id, post as any, boardData);
+    
+    // 추가 동작 실행
+    onClickCapture?.();
+    
+    // Next.js Link의 기본 동작은 유지
+  };
+
   return (
-    <Link key={post.id} href={`${href}/fast`} className={`block group ${className}`}>
+    <Link 
+      key={post.id} 
+      href={href} 
+      className={`block group ${className}`}
+      onClick={handleClick}
+    >
       <div className="bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-all duration-200">
         {/* 상단 뱃지들 */}
         {showBadges && (

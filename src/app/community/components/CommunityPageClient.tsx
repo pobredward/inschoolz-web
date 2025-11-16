@@ -401,6 +401,7 @@ export default function CommunityPageClient() {
             href={getPostUrl(post)}
             typeBadgeText={getTabName()}
             boardBadgeText={post.boardName}
+            boardData={boards.find(b => b.code === post.boardCode)}
           />
         </BlockedUserContent>
       );
@@ -413,6 +414,7 @@ export default function CommunityPageClient() {
         href={getPostUrl(post)}
         typeBadgeText={getTabName()}
         boardBadgeText={post.boardName}
+        boardData={boards.find(b => b.code === post.boardCode)}
       />
     );
   };

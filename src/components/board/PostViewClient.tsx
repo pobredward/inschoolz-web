@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePostCacheStore } from '@/store/postCacheStore';
 import { Button } from '@/components/ui/button';
 
 import { Badge } from '@/components/ui/badge';
@@ -65,21 +66,38 @@ interface PostViewClientProps {
   initialComments: Comment[];
 }
 
-export const PostViewClient = ({ post, initialComments }: PostViewClientProps) => {
+export const PostViewClient = ({ post: serverPost, initialComments }: PostViewClientProps) => {
   const router = useRouter();
   const { user } = useAuth();
+  const { getPost } = usePostCacheStore();
+  
+  // 캐시된 데이터 확인 (즉시 표시용)
+  const cachedData = getPost(serverPost.id);
+  const initialPost = cachedData?.post || serverPost;
+  
+  const [post, setPost] = useState<Post>(initialPost);
   const [isLiked, setIsLiked] = useState(false);
   const [isScrapped, setIsScrapped] = useState(false);
-  const [likeCount, setLikeCount] = useState(post.stats.likeCount);
-  const [scrapCount, setScrapCount] = useState(post.stats.scrapCount || 0);
-  const [commentCount, setCommentCount] = useState(post.stats.commentCount);
+  const [likeCount, setLikeCount] = useState(initialPost.stats.likeCount);
+  const [scrapCount, setScrapCount] = useState(initialPost.stats.scrapCount || 0);
+  const [commentCount, setCommentCount] = useState(initialPost.stats.commentCount);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [boardInfo, setBoardInfo] = useState<Board | null>(null);
+  const [boardInfo, setBoardInfo] = useState<Board | null>(cachedData?.board || null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [isUserBlocked, setIsUserBlocked] = useState(false);
+  
+  // 서버 데이터가 도착하면 최신 데이터로 업데이트
+  useEffect(() => {
+    if (serverPost && serverPost.id === post.id) {
+      setPost(serverPost);
+      setLikeCount(serverPost.stats.likeCount);
+      setScrapCount(serverPost.stats.scrapCount || 0);
+      setCommentCount(serverPost.stats.commentCount);
+    }
+  }, [serverPost]);
 
     useEffect(() => {
     // 조회수 증가 (백그라운드에서 처리, 실패해도 무시)

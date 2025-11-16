@@ -695,10 +695,13 @@ function CommentItem({
 // 메인 댓글 섹션 컴포넌트
 export default function CommentSection({ 
   postId, 
+  initialComments,
   onCommentCountChange 
 }: CommentSectionProps) {
   const { user, suspensionStatus } = useAuth();
   const [comments, setComments] = useState<CommentWithReplies[]>([]);
+  const [allComments, setAllComments] = useState<CommentWithReplies[]>([]); // 전체 댓글
+  const [displayedCount, setDisplayedCount] = useState(5); // 초기 표시 개수
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showAnonymousForm, setShowAnonymousForm] = useState(false);
@@ -739,7 +742,12 @@ export default function CommentSection({
     try {
       setIsLoading(true);
       const fetchedComments = await getCommentsByPost(postId);
-      setComments(fetchedComments);
+      
+      // 전체 댓글 저장
+      setAllComments(fetchedComments);
+      
+      // 초기에는 5개만 표시 (페이지네이션)
+      setComments(fetchedComments.slice(0, displayedCount));
       
       // 좋아요 상태 확인
       if (user && fetchedComments.length > 0) {
@@ -764,7 +772,7 @@ export default function CommentSection({
     } finally {
       setIsLoading(false);
     }
-  }, [postId, user, onCommentCountChange]);
+  }, [postId, user, onCommentCountChange, displayedCount]);
 
   // 컴포넌트 마운트 시 댓글 및 차단 사용자 목록 로드
   useEffect(() => {
@@ -818,6 +826,7 @@ export default function CommentSection({
       await createCommentAPI(postId, content, user.uid, isAnonymous, parentId);
 
       // 경험치 지급
+      let showedExpModal = false;
       if (user) {
         try {
           const expResult = await awardCommentExperience(user.uid);
@@ -835,13 +844,17 @@ export default function CommentSection({
               reason: expResult.reason
             });
             setShowExperienceModal(true);
+            showedExpModal = true;
           }
         } catch (expError) {
           console.error('경험치 지급 오류:', expError);
         }
       }
 
-      toast.success('댓글이 작성되었습니다.');
+      // 경험치 모달이 표시되지 않은 경우에만 toast 표시
+      if (!showedExpModal) {
+        toast.success('댓글이 작성되었습니다.');
+      }
       setReplyingTo(null);
       
       // 즉시 카운트 업데이트 (정확한 댓글 수 계산)
@@ -1420,6 +1433,23 @@ export default function CommentSection({
               );
             })}
           </div>
+          
+          {/* 댓글 더보기 버튼 */}
+          {allComments.length > displayedCount && (
+            <div className="mt-6 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const newCount = displayedCount + 10;
+                  setDisplayedCount(newCount);
+                  setComments(allComments.slice(0, newCount));
+                }}
+                className="border-green-200 text-green-700 hover:bg-green-50"
+              >
+                댓글 더보기 ({allComments.length - displayedCount}개 남음)
+              </Button>
+            </div>
+          )}
         )}
       </div>
 
