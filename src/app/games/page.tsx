@@ -4,7 +4,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Zap, Grid3X3, Calculator, BookOpen } from 'lucide-react';
+import { Zap, Grid3X3, Calculator, Keyboard } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 
@@ -43,12 +43,12 @@ const games: Game[] = [
     isActive: true
   },
   {
-    id: 'word',
-    name: '단어 맞추기',
-    description: '곧 출시 예정입니다',
-    icon: BookOpen,
-    route: '/games/word',
-    isActive: false
+    id: 'typing',
+    name: '영단어 타이핑',
+    description: '30초 동안 영단어를 빠르게 입력하세요!',
+    icon: Keyboard,
+    route: '/games/typing',
+    isActive: true
   }
 ];
 

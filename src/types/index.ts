@@ -103,6 +103,9 @@ export interface User {
     mathGame?: { 
       bestReactionTime?: number; // 최고 점수 (정답 개수)
     };
+    typingGame?: { 
+      bestReactionTime?: number; // 최고 점수 (정답 개수)
+    };
   };
   
   // 약관 동의 (통합)
@@ -153,6 +156,7 @@ export interface User {
         reactionGame: number;
         tileGame: number;
         mathGame: number;
+        typingGame: number;
       };
       adViewedCount: number;
     };
@@ -161,6 +165,7 @@ export interface User {
       reactionGame: number;
       tileGame: number;
       mathGame: number;
+      typingGame: number;
       lastRewardTime: FirebaseTimestamp;
     }
   };
@@ -519,6 +524,14 @@ export interface SystemSettings {
       rewardAmount: number;
     };
     mathGame?: {
+      enabled?: boolean;
+      dailyLimit?: number;
+      thresholds?: Array<{
+        minScore: number;
+        xpReward: number;
+      }>;
+    };
+    typingGame?: {
       enabled?: boolean;
       dailyLimit?: number;
       thresholds?: Array<{
