@@ -868,28 +868,23 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <h3 className="font-semibold text-blue-900">즐겨찾기 학교 ({favoriteSchools.length}/5)</h3>
-                    </div>
-                    <p className="text-sm text-blue-700">
-                      메인 학교는 커뮤니티와 랭킹에서 기본으로 표시됩니다
-                    </p>
-                  </div>
-                  
                   <div className="grid gap-3">
                     {favoriteSchools.map((school) => (
                       <div key={school.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
-                          <div className="flex-1">
+                          <button 
+                            className="flex-1 text-left"
+                            onClick={() => {
+                              window.location.href = `/community?tab=school/${school.id}`;
+                            }}
+                          >
                             <div className="flex items-center gap-3 mb-2">
                               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                                 <span className="text-blue-600 font-semibold text-sm">🏫</span>
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <h4 className="font-semibold text-gray-900">{school.name}</h4>
+                                  <h4 className="font-semibold text-gray-900 hover:text-blue-600 transition-colors">{school.name}</h4>
                                   {userData?.school?.id === school.id && (
                                     <Badge className="bg-green-500 text-white text-xs px-2 py-1">
                                       메인
@@ -909,14 +904,17 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                                 ⭐ 즐겨찾기 {school.favoriteCount || 0}명
                               </span>
                             </div>
-                          </div>
+                          </button>
                           
                           <div className="flex flex-col gap-2">
                             {userData?.school?.id !== school.id && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleSetMainSchool(school.id, school.name)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSetMainSchool(school.id, school.name);
+                                }}
                                 className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
                               >
                                 메인 설정
@@ -925,7 +923,10 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleToggleFavorite(school.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleFavorite(school.id);
+                              }}
                               className="text-red-500 hover:text-red-700 hover:bg-red-50"
                             >
                               삭제

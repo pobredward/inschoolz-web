@@ -28,6 +28,7 @@ import PostListItem from '@/components/board/PostListItem';
 import CommunityPagination, { PaginationInfo } from '@/components/ui/community-pagination';
 import { RegionSetupModal } from '@/components/community/RegionSetupModal';
 import { SchoolSetupModal } from '@/components/community/SchoolSetupModal';
+import { FavoriteSchoolsModal } from '@/components/community/FavoriteSchoolsModal';
 // 광고 제거: 리워디드 광고만 사용
 
 interface CommunityPost extends Post {
@@ -76,6 +77,7 @@ export default function CommunityPageClient() {
   const [popularSchoolsLoading, setPopularSchoolsLoading] = useState(false);
   const [popularRegions, setPopularRegions] = useState<RegionInfo[]>([]);
   const [popularRegionsLoading, setPopularRegionsLoading] = useState(false);
+  const [isFavoriteSchoolsModalOpen, setIsFavoriteSchoolsModalOpen] = useState(false);
   const [currentRegion, setCurrentRegion] = useState<{ sido?: string; sigungu?: string }>({});
   
   // 페이지네이션 관련 상태
@@ -1057,6 +1059,17 @@ export default function CommunityPageClient() {
                       <TrendingUp className="w-6 h-6 text-green-600" />
                       <h2 className="text-xl font-semibold text-gray-800">인기 지역 커뮤니티</h2>
                     </div>
+                    {user && (
+                      <div className="flex justify-center mt-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowRegionSetupModal(true)}
+                          className="border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400"
+                        >
+                          📍 내 지역 관리
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
                   {popularRegionsLoading ? (
@@ -1158,9 +1171,17 @@ export default function CommunityPageClient() {
                       <TrendingUp className="w-6 h-6 text-green-600" />
                       <h2 className="text-xl font-semibold text-gray-800">인기 학교 커뮤니티</h2>
                     </div>
-                    {/* <p className="text-gray-600">
-                      활발한 활동이 이루어지고 있는 학교 커뮤니티를 둘러보세요
-                    </p> */}
+                    {user && (
+                      <div className="flex justify-center mt-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsFavoriteSchoolsModalOpen(true)}
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
+                        >
+                          🏫 즐겨찾기 학교 관리
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
                   {popularSchoolsLoading ? (
@@ -1293,8 +1314,12 @@ export default function CommunityPageClient() {
         isOpen={showRegionSetupModal}
         onClose={() => setShowRegionSetupModal(false)}
         onComplete={() => {
-          // 지역 설정 완료 후 리프레시하여 업데이트된 정보 반영
-          window.location.reload();
+          // 지역 설정 완료 후 해당 지역 커뮤니티로 이동
+          if (user?.regions?.sido && user?.regions?.sigungu) {
+            router.push(`/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`);
+          } else {
+            window.location.reload();
+          }
         }}
       />
 
@@ -1303,8 +1328,22 @@ export default function CommunityPageClient() {
         isOpen={showSchoolSetupModal}
         onClose={() => setShowSchoolSetupModal(false)}
         onComplete={() => {
-          // 학교 설정 완료 후 리프레시하여 업데이트된 정보 반영
-          window.location.reload();
+          // 학교 설정 완료 후 해당 학교 커뮤니티로 이동
+          if (user?.school?.id) {
+            router.push(`/community?tab=school/${user.school.id}`);
+          } else {
+            window.location.reload();
+          }
+        }}
+      />
+
+      {/* 즐겨찾기 학교 관리 모달 */}
+      <FavoriteSchoolsModal
+        isOpen={isFavoriteSchoolsModalOpen}
+        onClose={() => setIsFavoriteSchoolsModalOpen(false)}
+        onUpdate={() => {
+          // 즐겨찾기 학교 업데이트 후 인기 학교 목록 새로고침
+          loadPopularSchools();
         }}
       />
     </div>
