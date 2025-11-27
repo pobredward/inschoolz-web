@@ -112,6 +112,9 @@ export const checkAttendance = async (
           monthCount: 1,
           lastAttendance: serverTimestamp(),
           monthlyLog: newMonthlyLog,
+          attendances: {
+            [todayStr]: true
+          },
           expGained: attendanceXP,
           leveledUp: expResult.leveledUp,
           oldLevel: expResult.oldLevel,
@@ -123,7 +126,8 @@ export const checkAttendance = async (
           streak: 0,
           totalCount: 0,
           monthCount: 0,
-          monthlyLog: {}
+          monthlyLog: {},
+          attendances: {}
         };
       }
     }
@@ -200,6 +204,7 @@ export const checkAttendance = async (
         monthCount,
         lastAttendance: serverTimestamp(),
         monthlyLog: updatedMonthlyLog,
+        attendances: updatedAttendances,
         expGained: totalXp,
         leveledUp: expResult.leveledUp,
         oldLevel: expResult.oldLevel,
@@ -217,7 +222,8 @@ export const checkAttendance = async (
       totalCount,
       monthCount,
       lastAttendance: attendanceData.lastAttendance,
-      monthlyLog
+      monthlyLog,
+      attendances
     };
     
   } catch (error) {

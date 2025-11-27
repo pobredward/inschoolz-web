@@ -396,6 +396,7 @@ export interface UserAttendance {
   monthCount: number;
   lastAttendance?: FirebaseTimestamp;
   monthlyLog?: AttendanceLog;
+  attendances?: AttendanceLog; // 전체 출석 기록 (달력 표시용)
   // 경험치 관련 정보 (출석체크 수행 시에만 포함)
   expGained?: number;
   leveledUp?: boolean;

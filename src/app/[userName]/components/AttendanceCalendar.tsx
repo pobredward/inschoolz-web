@@ -107,9 +107,16 @@ export default function AttendanceCalendar({ userId, isProfileOwner = false, onA
   
   // 출석 여부 확인
   const isAttended = (date: Date): boolean => {
-    if (!attendance?.monthlyLog) return false;
+    if (!attendance) return false;
     const dateString = formatDate(date);
-    return !!attendance.monthlyLog[dateString];
+    // attendances(전체 출석 기록)를 우선 확인하고, 없으면 monthlyLog 확인
+    if (attendance.attendances && attendance.attendances[dateString]) {
+      return true;
+    }
+    if (attendance.monthlyLog && attendance.monthlyLog[dateString]) {
+      return true;
+    }
+    return false;
   };
   
   // 오늘 날짜인지 확인 (한국 시간 기준)
