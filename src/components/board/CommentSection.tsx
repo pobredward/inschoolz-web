@@ -701,7 +701,7 @@ export default function CommentSection({
   const { user, suspensionStatus } = useAuth();
   const [comments, setComments] = useState<CommentWithReplies[]>([]);
   const [allComments, setAllComments] = useState<CommentWithReplies[]>([]); // 전체 댓글
-  const [displayedCount, setDisplayedCount] = useState(5); // 초기 표시 개수
+  const [displayedCount, setDisplayedCount] = useState(10); // 초기 표시 개수
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showAnonymousForm, setShowAnonymousForm] = useState(false);
@@ -746,7 +746,7 @@ export default function CommentSection({
       // 전체 댓글 저장
       setAllComments(fetchedComments);
       
-      // 초기에는 5개만 표시 (페이지네이션)
+      // 초기에는 10개만 표시 (페이지네이션)
       setComments(fetchedComments.slice(0, displayedCount));
       
       // 좋아요 상태 확인
