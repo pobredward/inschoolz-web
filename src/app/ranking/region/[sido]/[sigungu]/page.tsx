@@ -24,7 +24,8 @@ function RankingItem({ user, index }: {
   user: RankingUser; 
   index: number; 
 }) {
-  const rank = index + 1;
+  // 실제 랭킹 사용 (검색 시) 또는 index 기반 순위 (일반 리스트)
+  const rank = user.rank || (index + 1);
   
   const getRankIcon = (rank: number) => {
     switch (rank) {

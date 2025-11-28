@@ -20,6 +20,7 @@ export type RankingType = z.infer<typeof RankingTypeSchema>;
 export const RankingUserSchema = z.object({
   id: z.string(),
   userName: z.string(),
+  rank: z.number().optional(), // 실제 랭킹 순위
   stats: z.object({
     totalExperience: z.number(),
     level: z.number(),
@@ -150,6 +151,7 @@ export async function getRankings(options: RankingQueryOptions): Promise<Ranking
     if (!searchQuery) {
       constraints.push(orderBy('stats.totalExperience', 'desc'));
     } else {
+      // 검색 시에는 userName으로만 정렬 (복합 인덱스 회피)
       constraints.push(orderBy('profile.userName', 'asc'));
     }
 
@@ -163,7 +165,7 @@ export async function getRankings(options: RankingQueryOptions): Promise<Ranking
     const q = query(collection(db, 'users'), ...constraints);
     const querySnapshot = await getDocs(q);
 
-    const users = querySnapshot.docs.map(doc => {
+    const usersData = querySnapshot.docs.map(doc => {
       const data = doc.data();
       return RankingUserSchema.parse({
         id: doc.id,
@@ -188,8 +190,43 @@ export async function getRankings(options: RankingQueryOptions): Promise<Ranking
       });
     });
 
+    // 각 사용자의 실제 랭킹 계산
+    let users: RankingUser[];
+    if (searchQuery) {
+      // 검색 시: 각 사용자의 실제 전체 랭킹 계산
+      console.log('검색 결과에 대한 실제 랭킹 계산 시작');
+      users = await Promise.all(
+        usersData.map(async (user) => {
+          try {
+            const rank = await getUserRank(user.id, { type, schoolId, sido, sigungu });
+            return { ...user, rank };
+          } catch (error) {
+            console.error(`사용자 ${user.id} 랭킹 계산 실패:`, error);
+            return { ...user, rank: 999 };
+          }
+        })
+      );
+      // 랭킹 순으로 재정렬
+      users.sort((a, b) => (a.rank || 999) - (b.rank || 999));
+    } else {
+      // 일반 리스트: 각 사용자의 실제 랭킹을 경험치 기반으로 계산
+      users = await Promise.all(
+        usersData.map(async (user) => {
+          try {
+            const rank = await getUserRank(user.id, { type, schoolId, sido, sigungu });
+            return { ...user, rank };
+          } catch (error) {
+            console.error(`사용자 ${user.id} 랭킹 계산 실패:`, error);
+            return { ...user, rank: 999 };
+          }
+        })
+      );
+    }
+
     const hasMore = querySnapshot.docs.length === queryLimit;
     const newLastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+
+    console.log('getRankings 결과:', { userCount: users.length, hasMore, isSearch: !!searchQuery });
 
     return {
       users,
@@ -374,7 +411,7 @@ export async function getRankingPreview(
 /**
  * 지역별 집계 랭킹을 조회합니다.
  */
-export async function getAggregatedRegionalRankings(limit: number = 20): Promise<AggregatedRegion[]> {
+export async function getAggregatedRegionalRankings(limit: number = 20, offset: number = 0): Promise<AggregatedRegion[]> {
   try {
     // Firebase의 '!=' 제한을 피하기 위해 모든 사용자를 가져온 후 클라이언트에서 필터링
     // 필요한 필드만 선택하여 네트워크 사용량 최적화
@@ -422,7 +459,15 @@ export async function getAggregatedRegionalRankings(limit: number = 20): Promise
       averageExperience: Math.round(data.totalExperience / data.userCount),
     })).sort((a, b) => b.totalExperience - a.totalExperience);
 
-    return aggregatedRegions.slice(0, limit);
+    const result = aggregatedRegions.slice(offset, offset + limit);
+    console.log('getAggregatedRegionalRankings 결과:', { 
+      count: result.length, 
+      total: aggregatedRegions.length,
+      offset,
+      limit 
+    });
+    
+    return result;
   } catch (error) {
     console.error('Error fetching aggregated regional rankings:', error);
     throw error;
@@ -432,7 +477,7 @@ export async function getAggregatedRegionalRankings(limit: number = 20): Promise
 /**
  * 학교별 집계 랭킹을 조회합니다.
  */
-export async function getAggregatedSchoolRankings(limit: number = 20): Promise<AggregatedSchool[]> {
+export async function getAggregatedSchoolRankings(limit: number = 20, offset: number = 0): Promise<AggregatedSchool[]> {
   try {
     // 모든 사용자 데이터를 가져온 후 클라이언트에서 학교 정보가 있는 사용자만 필터링
     const usersQuery = query(collection(db, 'users'));
@@ -483,7 +528,15 @@ export async function getAggregatedSchoolRankings(limit: number = 20): Promise<A
       regions: data.regions,
     })).sort((a, b) => b.totalExperience - a.totalExperience);
 
-    return aggregatedSchools.slice(0, limit);
+    const result = aggregatedSchools.slice(offset, offset + limit);
+    console.log('getAggregatedSchoolRankings 결과:', { 
+      count: result.length,
+      total: aggregatedSchools.length,
+      offset,
+      limit
+    });
+    
+    return result;
   } catch (error) {
     console.error('Error fetching aggregated school rankings:', error);
     throw error;
@@ -493,16 +546,18 @@ export async function getAggregatedSchoolRankings(limit: number = 20): Promise<A
 /**
  * 집계된 랭킹 데이터를 조회합니다.
  */
-export async function getAggregatedRankings(type: 'regional_aggregated' | 'school_aggregated', limit: number = 20): Promise<AggregatedRankingResponse> {
+export async function getAggregatedRankings(type: 'regional_aggregated' | 'school_aggregated', limit: number = 20, offset: number = 0): Promise<AggregatedRankingResponse> {
   try {
+    console.log('getAggregatedRankings 호출:', { type, limit, offset });
+    
     if (type === 'regional_aggregated') {
-      const regions = await getAggregatedRegionalRankings(limit);
+      const regions = await getAggregatedRegionalRankings(limit, offset);
       return {
         regions,
         hasMore: regions.length === limit,
       };
     } else {
-      const schools = await getAggregatedSchoolRankings(limit);
+      const schools = await getAggregatedSchoolRankings(limit, offset);
       return {
         schools,
         hasMore: schools.length === limit,

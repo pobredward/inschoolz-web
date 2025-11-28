@@ -57,7 +57,8 @@ function RankingItem({ user, index, showSchool = true }: {
   index: number; 
   showSchool?: boolean;
 }) {
-  const rank = index + 1;
+  // 실제 랭킹 사용 (검색 시) 또는 index 기반 순위 (일반 리스트)
+  const rank = user.rank || (index + 1);
   
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -498,16 +499,27 @@ function AggregatedRankingList({
     },
   });
 
-  const loadAggregatedRankings = async () => {
+  const loadAggregatedRankings = async (reset = false) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: undefined }));
       
-      const result = await getAggregatedRankings(type, 20);
+      // 현재 offset 계산
+      const currentOffset = reset ? 0 : (
+        type === 'regional_aggregated' 
+          ? (state.regions?.length || 0)
+          : (state.schools?.length || 0)
+      );
+      
+      const result = await getAggregatedRankings(type, 20, currentOffset);
 
       setState(prev => ({
         ...prev,
-        regions: type === 'regional_aggregated' ? result.regions : undefined,
-        schools: type === 'school_aggregated' ? result.schools : undefined,
+        regions: type === 'regional_aggregated' 
+          ? (reset ? result.regions : [...(prev.regions || []), ...(result.regions || [])])
+          : prev.regions,
+        schools: type === 'school_aggregated' 
+          ? (reset ? result.schools : [...(prev.schools || []), ...(result.schools || [])])
+          : prev.schools,
         hasMore: result.hasMore,
         isLoading: false,
       }));
@@ -518,6 +530,12 @@ function AggregatedRankingList({
         isLoading: false, 
         error: '랭킹을 불러오는 중 오류가 발생했습니다.' 
       }));
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!state.isLoading && state.hasMore) {
+      loadAggregatedRankings(false);
     }
   };
 
@@ -571,7 +589,7 @@ function AggregatedRankingList({
   };
 
   useEffect(() => {
-    loadAggregatedRankings();
+    loadAggregatedRankings(true);
     // 타입 변경 시 검색 상태 초기화
     clearSearch();
   }, [type]);
@@ -644,37 +662,63 @@ function AggregatedRankingList({
       ) : state.error ? (
         <div className="text-center py-8 text-red-500 text-sm">{state.error}</div>
       ) : (
-        <div className="space-y-2 sm:space-y-3">
-          {type === 'regional_aggregated' && state.regions ? (
-            state.regions.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 text-sm">
-                지역 랭킹 데이터가 없습니다.
-              </div>
-            ) : (
-              state.regions.map((region, index) => (
-                <AggregatedRegionItem
-                  key={region.id}
-                  region={region}
-                  index={index}
-                />
-              ))
-            )
-          ) : type === 'school_aggregated' && state.schools ? (
-            state.schools.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 text-sm">
-                학교 랭킹 데이터가 없습니다.
-              </div>
-            ) : (
-              state.schools.map((school, index) => (
-                <AggregatedSchoolItem
-                  key={school.id}
-                  school={school}
-                  index={index}
-                />
-              ))
-            )
-          ) : null}
-        </div>
+        <>
+          <div className="space-y-2 sm:space-y-3">
+            {type === 'regional_aggregated' && state.regions ? (
+              state.regions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  지역 랭킹 데이터가 없습니다.
+                </div>
+              ) : (
+                state.regions.map((region, index) => (
+                  <AggregatedRegionItem
+                    key={region.id}
+                    region={region}
+                    index={index}
+                  />
+                ))
+              )
+            ) : type === 'school_aggregated' && state.schools ? (
+              state.schools.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  학교 랭킹 데이터가 없습니다.
+                </div>
+              ) : (
+                state.schools.map((school, index) => (
+                  <AggregatedSchoolItem
+                    key={school.id}
+                    school={school}
+                    index={index}
+                  />
+                ))
+              )
+            ) : null}
+          </div>
+
+          {/* 더 보기 버튼 */}
+          {state.hasMore && (
+            <div className="flex justify-center mt-4 sm:mt-6">
+              <Button
+                onClick={handleLoadMore}
+                disabled={state.isLoading}
+                variant="outline"
+                className="flex items-center gap-2 h-11 px-6"
+              >
+                {state.isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-pastel-green-600 rounded-full animate-spin" />
+                    로딩 중...
+                  </>
+                ) : (
+                  <>
+                    더 보기
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
