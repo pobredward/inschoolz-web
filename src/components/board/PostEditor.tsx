@@ -166,7 +166,7 @@ export default function PostEditor({ boardCode, boardType, board, schoolId, regi
       }
       
       if (communityUrl) {
-        router.push(communityUrl);
+        router.replace(communityUrl);
       }
     } catch (error) {
       console.error('게시글 작성 오류:', error);

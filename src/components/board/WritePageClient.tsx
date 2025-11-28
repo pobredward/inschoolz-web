@@ -390,7 +390,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
           }
           
           if (communityUrl) {
-            router.push(communityUrl);
+            router.replace(communityUrl);
           }
         }
       } catch (expError) {
@@ -485,7 +485,7 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
       }
       
       if (communityUrl) {
-        router.push(communityUrl);
+        router.replace(communityUrl);
       }
       setPendingPostId(null);
     }
