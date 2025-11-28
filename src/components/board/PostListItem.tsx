@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatRelativeTime, getPostPreviewImages } from "@/lib/utils";
+import { formatRelativeTime, getPostPreviewImages, stripHtmlTags } from "@/lib/utils";
 import { FirebaseTimestamp } from "@/types";
 import { User } from "lucide-react";
 import { usePostCacheStore } from "@/store/postCacheStore";
@@ -118,7 +118,7 @@ const PostListItem: React.FC<PostListItemProps> = ({
             {/* 내용 미리보기 */}
             {(post.previewContent || post.content) && (
               <div className="text-sm text-gray-600 mb-3 line-clamp-2 whitespace-pre-line break-words">
-                {post.previewContent || post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''}
+                {post.previewContent || stripHtmlTags(post.content || '').slice(0, 150) || ''}
               </div>
             )}
           </div>

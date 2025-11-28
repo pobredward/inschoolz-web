@@ -26,6 +26,7 @@ import {
   Board,
   User
 } from '@/types';
+import { stripHtmlTags } from '@/lib/utils';
 import { 
   BoardType,
   PopularPost,
@@ -259,14 +260,14 @@ export const getPopularPostsForHome = async (count = 10) => {
           return {
             ...post,
             boardName,
-            previewContent: post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''
+            previewContent: stripHtmlTags(post.content || '').slice(0, 150) || ''
           };
         } catch (error) {
           console.warn(`게시판 정보 조회 실패: ${post.boardCode}`, error);
           return {
             ...post,
             boardName: post.boardCode,
-            previewContent: post.content?.replace(/<[^>]*>/g, '').slice(0, 150) || ''
+            previewContent: stripHtmlTags(post.content || '').slice(0, 150) || ''
           };
         }
       })
