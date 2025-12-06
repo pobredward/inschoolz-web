@@ -22,12 +22,16 @@ export async function generateMetadata({ params }: WritePageProps): Promise<Meta
 }
 
 export default async function RegionalBoardWritePage({ params }: WritePageProps) {
-  const { boardCode } = await params;
+  const { sido, sigungu, boardCode } = await params;
   
   return (
     <WritePageClient 
       type={"regional" as BoardType} 
-      code={boardCode} 
+      code={boardCode}
+      regions={{
+        sido: decodeURIComponent(sido),
+        sigungu: decodeURIComponent(sigungu)
+      }}
     />
   );
 } 

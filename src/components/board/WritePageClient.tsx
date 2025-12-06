@@ -86,9 +86,13 @@ interface WritePageClientProps {
   type: BoardType;
   code: string;
   schoolId?: string;
+  regions?: {
+    sido: string;
+    sigungu: string;
+  };
 }
 
-export default function WritePageClient({ type, code, schoolId }: WritePageClientProps) {
+export default function WritePageClient({ type, code, schoolId, regions }: WritePageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, suspensionStatus } = useAuth();
@@ -99,10 +103,11 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
     console.log('type:', type);
     console.log('code:', code);
     console.log('schoolId:', schoolId);
+    console.log('regions:', regions);
     console.log('user:', user);
     console.log('suspensionStatus:', suspensionStatus);
     console.log('searchParams:', searchParams.toString());
-  }, [type, code, schoolId, user, suspensionStatus, searchParams]);
+  }, [type, code, schoolId, regions, user, suspensionStatus, searchParams]);
   
   // 로그인 상태 확인
   useEffect(() => {
@@ -292,12 +297,12 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
           displayName: getUserDisplayName(),
           isAnonymous: isAnonymous,
         },
-        // 학교와 지역 정보 추가 (URL 파라미터로 전달받은 schoolId 우선 사용)
+        // 학교와 지역 정보 추가 (URL 파라미터로 전달받은 정보 우선 사용)
         ...(type === 'school' && (schoolId || user.school?.id) && { schoolId: schoolId || user.school?.id }),
-        ...(type === 'regional' && user.regions && {
+        ...(type === 'regional' && (regions || user.regions) && {
           regions: {
-            sido: user.regions.sido,
-            sigungu: user.regions.sigungu
+            sido: regions?.sido || user.regions.sido,
+            sigungu: regions?.sigungu || user.regions.sigungu
           }
         }),
         createdAt: serverTimestamp(),
@@ -375,9 +380,11 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
               communityUrl = `/community?tab=national`;
               break;
             case 'regional':
-              // 사용자의 지역 정보 사용
-              if (user?.regions?.sido && user?.regions?.sigungu) {
-                communityUrl = `/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`;
+              // props로 받은 지역 정보 우선 사용, 없으면 사용자의 지역 정보 사용
+              const targetSido = regions?.sido || user?.regions?.sido;
+              const targetSigungu = regions?.sigungu || user?.regions?.sigungu;
+              if (targetSido && targetSigungu) {
+                communityUrl = `/community?tab=regional/${encodeURIComponent(targetSido)}/${encodeURIComponent(targetSigungu)}`;
               }
               break;
             case 'school':
@@ -403,9 +410,11 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
             communityUrl = `/community?tab=national`;
             break;
           case 'regional':
-            // 사용자의 지역 정보 사용
-            if (user?.regions?.sido && user?.regions?.sigungu) {
-              communityUrl = `/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`;
+            // props로 받은 지역 정보 우선 사용, 없으면 사용자의 지역 정보 사용
+            const targetSido2 = regions?.sido || user?.regions?.sido;
+            const targetSigungu2 = regions?.sigungu || user?.regions?.sigungu;
+            if (targetSido2 && targetSigungu2) {
+              communityUrl = `/community?tab=regional/${encodeURIComponent(targetSido2)}/${encodeURIComponent(targetSigungu2)}`;
             }
             break;
           case 'school':
@@ -470,9 +479,11 @@ export default function WritePageClient({ type, code, schoolId }: WritePageClien
           communityUrl = `/community?tab=national`;
           break;
         case 'regional':
-          // 사용자의 지역 정보 사용
-          if (user?.regions?.sido && user?.regions?.sigungu) {
-            communityUrl = `/community?tab=regional/${encodeURIComponent(user.regions.sido)}/${encodeURIComponent(user.regions.sigungu)}`;
+          // props로 받은 지역 정보 우선 사용, 없으면 사용자의 지역 정보 사용
+          const targetSido3 = regions?.sido || user?.regions?.sido;
+          const targetSigungu3 = regions?.sigungu || user?.regions?.sigungu;
+          if (targetSido3 && targetSigungu3) {
+            communityUrl = `/community?tab=regional/${encodeURIComponent(targetSido3)}/${encodeURIComponent(targetSigungu3)}`;
           }
           break;
         case 'school':
