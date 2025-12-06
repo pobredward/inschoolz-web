@@ -27,42 +27,68 @@ import { SuspensionBanner } from "@/components/ui/suspension-notice";
 
 // 이미지 압축 함수
 const compressImage = (file: File, quality: number = 0.8): Promise<File> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    // 파일 크기 제한 (20MB)
+    const MAX_SIZE = 20 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      reject(new Error('이미지 크기는 20MB 이하여야 합니다.'));
+      return;
+    }
+
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      reject(new Error('Canvas를 생성할 수 없습니다.'));
+      return;
+    }
+
     const img = new Image();
     
+    // 이미지 로드 실패 처리
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      reject(new Error('이미지를 로드할 수 없습니다. 파일이 손상되었을 수 있습니다.'));
+    };
+    
     img.onload = () => {
-      // 파일 크기에 따른 압축 비율 계산
-      const fileSize = file.size;
-      let compressionRatio = 1;
-      
-      if (fileSize > 4 * 1024 * 1024) { // 4MB 이상
-        compressionRatio = 0.25; // 4배 압축 (16배 압축은 너무 심하므로 4배로 조정)
-      } else if (fileSize > 1 * 1024 * 1024) { // 1MB 이상
-        compressionRatio = 0.5; // 2배 압축 (4배 압축은 너무 심하므로 2배로 조정)
+      try {
+        // 파일 크기에 따른 압축 비율 계산
+        const fileSize = file.size;
+        let compressionRatio = 1;
+        
+        if (fileSize > 4 * 1024 * 1024) { // 4MB 이상
+          compressionRatio = 0.25; // 4배 압축
+        } else if (fileSize > 1 * 1024 * 1024) { // 1MB 이상
+          compressionRatio = 0.5; // 2배 압축
+        }
+        
+        canvas.width = img.width * compressionRatio;
+        canvas.height = img.height * compressionRatio;
+        
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob(
+          (blob) => {
+            // URL 메모리 해제
+            URL.revokeObjectURL(img.src);
+            
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: file.type,
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              reject(new Error('이미지 압축에 실패했습니다.'));
+            }
+          },
+          file.type,
+          quality
+        );
+      } catch (error) {
+        URL.revokeObjectURL(img.src);
+        reject(error);
       }
-      
-      canvas.width = img.width * compressionRatio;
-      canvas.height = img.height * compressionRatio;
-      
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            const compressedFile = new File([blob], file.name, {
-              type: file.type,
-              lastModified: Date.now(),
-            });
-            resolve(compressedFile);
-          } else {
-            resolve(file);
-          }
-        },
-        file.type,
-        quality
-      );
     };
     
     img.src = URL.createObjectURL(file);
@@ -455,6 +481,20 @@ export default function WritePageClient({ type, code, schoolId, regions }: Write
   // 투표 옵션 이미지 업로드 (실제 업로드 구현 필요)
   const handlePollImageUpload = async (file: File): Promise<string> => {
     try {
+      // 파일 크기 검증 (10MB)
+      const MAX_SIZE = 10 * 1024 * 1024;
+      if (file.size > MAX_SIZE) {
+        toast.error('이미지 크기는 10MB 이하여야 합니다.');
+        throw new Error('파일 크기 초과');
+      }
+
+      // 파일 형식 검증
+      const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error('JPG, PNG, GIF, WebP 형식의 이미지만 업로드 가능합니다.');
+        throw new Error('지원하지 않는 파일 형식');
+      }
+
       // 이미지 압축
       const compressedFile = await compressImage(file);
       // Firebase Storage에 업로드
@@ -463,6 +503,9 @@ export default function WritePageClient({ type, code, schoolId, regions }: Write
       return imageUrl;
     } catch (error) {
       console.error('투표 이미지 업로드 실패:', error);
+      if (error instanceof Error && !error.message.includes('파일')) {
+        toast.error('이미지 업로드에 실패했습니다.');
+      }
       throw error;
     }
   };

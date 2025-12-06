@@ -42,11 +42,29 @@ if (typeof window !== 'undefined') {
 // 이미지 업로드 함수
 export const uploadImage = async (file: File): Promise<string> => {
   try {
+    // 파일 크기 검증 (10MB 제한)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error('이미지 크기는 10MB 이하여야 합니다.');
+    }
+
+    // 파일 형식 검증
+    const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      throw new Error('JPG, PNG, GIF, WebP 형식의 이미지만 업로드 가능합니다.');
+    }
+
     const fileName = `${uuidv4()}_${file.name}`;
     const storageRef = ref(storage, `images/${fileName}`);
     const uploadTask = uploadBytesResumable(storageRef, file);
 
     return new Promise((resolve, reject) => {
+      // 타임아웃 설정 (30초)
+      const timeoutId = setTimeout(() => {
+        uploadTask.cancel();
+        reject(new Error('업로드 시간이 초과되었습니다. 다시 시도해주세요.'));
+      }, 30000);
+
       uploadTask.on(
         'state_changed',
         (snapshot) => {
@@ -55,13 +73,32 @@ export const uploadImage = async (file: File): Promise<string> => {
           console.log(`Upload progress: ${progress}%`);
         },
         (error) => {
+          clearTimeout(timeoutId);
           console.error('Upload error:', error);
-          reject(error);
+          
+          // Firebase Storage 에러 메시지 변환
+          let errorMessage = '이미지 업로드에 실패했습니다.';
+          if (error.code === 'storage/unauthorized') {
+            errorMessage = '업로드 권한이 없습니다. 로그인을 확인해주세요.';
+          } else if (error.code === 'storage/canceled') {
+            errorMessage = '업로드가 취소되었습니다.';
+          } else if (error.code === 'storage/quota-exceeded') {
+            errorMessage = '저장 공간이 부족합니다. 관리자에게 문의해주세요.';
+          } else if (error.code === 'storage/retry-limit-exceeded') {
+            errorMessage = '업로드 재시도 횟수를 초과했습니다. 인터넷 연결을 확인해주세요.';
+          }
+          
+          reject(new Error(errorMessage));
         },
         async () => {
-          // 업로드 완료 후 URL 획득
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          resolve(downloadURL);
+          clearTimeout(timeoutId);
+          try {
+            // 업로드 완료 후 URL 획득
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(downloadURL);
+          } catch (error) {
+            reject(new Error('다운로드 URL을 가져오는데 실패했습니다.'));
+          }
         }
       );
     });
