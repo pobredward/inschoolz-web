@@ -90,19 +90,21 @@ function ExperienceDisplay({ user }: { user?: User }) {
 
   return (
     <div className="flex items-center gap-2" aria-label={`레벨 ${level}, 경험치 ${currentExp}/${currentLevelRequiredXp}`}>
-      <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold">
+      <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-md border-2 border-yellow-300">
         Lv.{level}
       </div>
       <div className="flex items-center gap-2">
-        <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner">
           <div 
-            className="h-full bg-green-500 transition-all duration-300 ease-out"
+            className="h-full bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 transition-all duration-300 ease-out relative overflow-hidden"
             style={{ width: `${Math.max(xpPercentage, 3)}%` }}
             aria-label={`경험치 진행률 ${xpPercentage.toFixed(1)}%`}
-          />
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
+          </div>
         </div>
-        <span className="text-xs text-gray-600 font-medium whitespace-nowrap">
-          {currentExp}/{currentLevelRequiredXp}
+        <span className="text-xs text-gray-700 font-semibold whitespace-nowrap">
+          {currentExp.toLocaleString()}/{currentLevelRequiredXp.toLocaleString()}
         </span>
       </div>
     </div>
@@ -241,13 +243,13 @@ export function Header() {
       {/* 에러 표시 */}
       {error && <ErrorAlert error={error} onDismiss={handleErrorDismiss} />}
 
-      {/* Sticky 헤더 - 웹 튜토리얼에서 배운 확실한 방법 */}
+      {/* Sticky 헤더 - 게임 스타일 */}
       <header 
         ref={stickyRef}
         className={`sticky top-0 left-0 w-full z-[99999] transition-all duration-300 ${
           sticky 
-            ? 'bg-white/98 backdrop-blur-xl shadow-lg border-b border-gray-200/50' 
-            : 'bg-white/95 backdrop-blur-lg shadow-sm'
+            ? 'bg-gradient-to-r from-emerald-50 via-white to-emerald-50 backdrop-blur-xl shadow-lg border-b-2 border-emerald-200' 
+            : 'bg-gradient-to-r from-emerald-50/80 via-white/95 to-emerald-50/80 backdrop-blur-lg shadow-md border-b border-emerald-100'
         }`}
         style={{
           backdropFilter: 'blur(12px)',
@@ -317,28 +319,29 @@ export function Header() {
               </SheetContent>
             </Sheet>
 
-            {/* 로고 */}
+            {/* 로고 - 게임 스타일 */}
             <Link 
               href="/" 
-              className="flex items-center hover:opacity-80 transition-opacity focus:outline-none focus:ring-2 focus:ring-pastel-green-400 focus:ring-offset-2 rounded-md"
+              className="flex items-center gap-2 group hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 rounded-lg px-2 py-1"
               aria-label="인스쿨즈 홈페이지로 이동"
             >
-              <span className="text-xl font-bold text-pastel-green-600 font-jammin">
+              <span className="text-2xl group-hover:rotate-12 transition-transform">📚</span>
+              <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent font-jammin group-hover:from-emerald-700 group-hover:to-green-700 transition-all">
                 InSchoolz
               </span>
             </Link>
           </div>
 
-          {/* 데스크탑 네비게이션 - 중간 사이즈 이상에서만 표시 */}
-          <nav className="hidden md:flex items-center space-x-1" role="navigation" aria-label="주 메뉴">
+          {/* 데스크탑 네비게이션 - 게임 스타일 */}
+          <nav className="hidden md:flex items-center space-x-2" role="navigation" aria-label="주 메뉴">
             {allMenuItems.map((item) => (
               <Link key={item.path} href={item.path}>
                 <Button
                   variant={pathname === item.path ? "default" : "ghost"}
-                  className={`flex items-center gap-1 px-3 transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
                     pathname === item.path 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300' 
-                      : 'hover:bg-pastel-green-100 hover:text-pastel-green-700'
+                      ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 hover:from-emerald-200 hover:to-green-200 border-2 border-emerald-300 shadow-md font-semibold scale-105' 
+                      : 'hover:bg-emerald-50 hover:text-emerald-700 border border-transparent hover:border-emerald-200 hover:scale-105'
                   }`}
                   aria-label={item.ariaLabel}
                   aria-current={pathname === item.path ? 'page' : undefined}
@@ -478,9 +481,9 @@ export function Header() {
         <div style={{ height: `${stickyRef.current?.clientHeight || 64}px` }} />
       )}
 
-      {/* 모바일 하단 네비게이션 - md 미만에서만 표시 */}
+      {/* 모바일 하단 네비게이션 - 게임 스타일 */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-[99999] bg-white/95 backdrop-blur-lg border-t border-pastel-green-200"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-[99999] bg-gradient-to-t from-emerald-50/98 via-white/95 to-white/95 backdrop-blur-lg border-t-2 border-emerald-200 shadow-2xl"
         style={{
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
@@ -488,7 +491,7 @@ export function Header() {
         role="navigation"
         aria-label="하단 네비게이션"
       >
-        <div className="flex justify-around items-center h-16 px-4 pb-2">
+        <div className="flex justify-around items-center h-16 px-2 pb-2">
           {allMenuItems.map((item) => {
             // 마이페이지 항목인 경우 특별한 처리
             if (item.path === '/my') {
@@ -539,22 +542,22 @@ export function Header() {
                 aria-label={item.ariaLabel}
               >
                 <div 
-                  className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 rounded-lg mx-1 ${
+                  className={`flex flex-col items-center justify-center py-2 px-1 transition-all duration-200 rounded-xl mx-0.5 ${
                     pathname === item.path 
-                      ? 'text-pastel-green-600 bg-pastel-green-50 scale-105 shadow-sm' 
-                      : 'text-gray-500 hover:text-pastel-green-500 hover:bg-pastel-green-50/50'
+                      ? 'text-emerald-700 bg-gradient-to-b from-emerald-100 to-emerald-50 scale-110 shadow-lg border-2 border-emerald-300' 
+                      : 'text-gray-500 hover:text-emerald-600 hover:bg-emerald-50/50'
                   }`}
                 >
-                  <div className={`transition-transform duration-200 ${pathname === item.path ? 'scale-110' : ''}`}>
+                  <div className={`transition-transform duration-200 ${pathname === item.path ? 'scale-125' : ''}`}>
                     {item.icon}
                   </div>
                   <span className={`text-xs mt-1 font-medium transition-all duration-200 ${
-                    pathname === item.path ? 'font-semibold' : ''
+                    pathname === item.path ? 'font-bold' : ''
                   }`}>
                     {item.name}
                   </span>
                   {pathname === item.path && (
-                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-pastel-green-600 rounded-full" />
+                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gradient-to-r from-emerald-400 to-green-400 rounded-full shadow-md" />
                   )}
                 </div>
               </Link>

@@ -5,6 +5,7 @@ import { Providers } from "@/providers/Providers";
 import { Header } from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
+import FloatingQuestButton from "@/components/quests/FloatingQuestButton";
 // import { PWAPrompt } from "@/components/ui/pwa-prompt";
 
 // 한글 폰트 - 잼민이체 스타일에 가까운 귀여운 폰트
@@ -202,10 +203,11 @@ export default function RootLayout({
             <main className="flex-grow flex flex-col pb-16 md:pb-0">{children}</main>
             <Footer />
           </div>
+          <FloatingQuestButton />
           <Toaster />
           {/* <PWAPrompt /> */}
         </Providers>
-      </body>
+      </body> 
     </html>
   )
 }

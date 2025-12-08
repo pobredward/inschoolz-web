@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { User, School } from '@/types';
 import { getUserById, getFollowersCount, getFollowingCount } from '@/lib/api/users';
 import { useAuth } from "@/providers/AuthProvider";
+import { useQuestTracker } from "@/hooks/useQuestTracker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { selectSchool, getUserFavoriteSchools, toggleFavoriteSchool, searchSchools } from '@/lib/api/schools';
 import { toast } from "sonner";
@@ -39,6 +40,21 @@ import { Input } from "@/components/ui/input";
 import { getDoc, doc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { deleteUserAccount } from '@/lib/api/auth';
+
+// Shimmer 애니메이션 스타일
+const shimmerStyles = `
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+`;
 
 // 경험치 포맷팅 함수
 const formatExp = (exp: number): string => {
@@ -89,6 +105,7 @@ interface MyPageClientProps {
 
 export default function MyPageClient({ userData: initialUserData }: MyPageClientProps) {
   const { user, refreshUser } = useAuth();
+  const { trackSchoolRegister } = useQuestTracker();
   const [loading, setLoading] = useState(!initialUserData);
   const [userData, setUserData] = useState<User | null>(initialUserData || null);
   const [isSchoolDialogOpen, setIsSchoolDialogOpen] = useState(false);
@@ -149,7 +166,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
   };
 
   // 학교 즐겨찾기 토글 함수
-  const handleToggleFavorite = async (schoolId: string) => {
+  const handleToggleFavorite = async (schoolId: string, isAdding: boolean = false) => {
     if (!user) return;
     
     try {
@@ -159,6 +176,12 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
         // 즐겨찾기 목록 갱신
         await fetchFavoriteSchools();
         toast.success(result.message);
+        
+        // 퀘스트 트래킹: 학교 추가 시에만 트래킹 (2단계)
+        if (isAdding || result.message?.includes('추가')) {
+          console.log('📍 퀘스트 트래킹: 학교 즐겨찾기 추가');
+          await trackSchoolRegister();
+        }
       } else {
         // 실패 시 에러 메시지 표시
         toast.error(result.message);
@@ -196,6 +219,10 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
         
         // AuthProvider의 글로벌 상태도 새로고침하여 실시간 반영
         await refreshUser();
+        
+        // 퀘스트 트래킹: 메인 학교 설정 (2단계)
+        console.log('📍 퀘스트 트래킹: 메인 학교 설정');
+        await trackSchoolRegister();
         
         toast.success(`${schoolName}이(가) 메인 학교로 설정되었습니다.`);
       }
@@ -304,104 +331,170 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
 
   return (
     <div className="px-3 sm:px-6 md:px-8 lg:px-12 py-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">마이페이지</h1>
+      <style>{shimmerStyles}</style>
       
       <div className="space-y-6">
         {/* 메인 컨텐츠 그리드 레이아웃 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 왼쪽 컬럼: 프로필 헤더 + 내 정보 + 활동 통계 + 설정 메뉴 */}
+          {/* 왼쪽 컬럼: 프로필 헤더 + 활동 통계 + 설정 메뉴 */}
           <div className="lg:col-span-2 space-y-6">
-            {/* 프로필 헤더 - 앱과 동일한 구조 */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                  <div className="flex flex-col items-center relative">
-                    <Avatar className="w-20 h-20 mb-3">
-                      <AvatarImage src={userData.profile?.profileImageUrl || ''} alt={userData.profile?.userName} />
-                      <AvatarFallback>{userData.profile?.userName?.substring(0, 2) || 'ME'}</AvatarFallback>
-                    </Avatar>
-                    <Badge className="absolute -bottom-1 -right-1 bg-green-500 text-white text-xs px-2 py-1">
-                      Lv.{userData.stats?.level || 1}
-                    </Badge>
+            {/* 게이미파이 프로필 카드 */}
+            <Card className="overflow-hidden bg-gradient-to-br from-slate-50 via-emerald-50 to-green-50">
+              <CardContent className="p-0">
+                {/* 상단 헤더 배경 */}
+                <div className="relative bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 px-6 pt-6 pb-20">
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => router.push('/my/edit')}
+                      className="bg-white/90 hover:bg-white shadow-md"
+                    >
+                      <span className="text-xs">✏️ 수정</span>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => router.push('/my/favorite-schools')}
+                      className="bg-white/90 hover:bg-white shadow-md"
+                    >
+                      <span className="text-xs">🏫 학교</span>
+                    </Button>
                   </div>
-                  
-                  <div className="flex-1 w-full">
-                    <div className="space-y-4">
-                      <div>
-                        <h2 className="text-xl font-bold">{userData.profile?.userName}</h2>
-                        <p className="text-sm text-muted-foreground">
+                </div>
+
+                {/* 프로필 정보 영역 */}
+                <div className="relative px-6 pb-6 -mt-14">
+                  <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                    {/* 아바타와 레벨 */}
+                    <div className="relative">
+                      <div className="relative">
+                        <Avatar className="w-24 h-24 border-4 border-white shadow-xl ring-2 ring-emerald-200">
+                          <AvatarImage src={userData.profile?.profileImageUrl || ''} alt={userData.profile?.userName} />
+                          <AvatarFallback className="text-xl font-bold bg-gradient-to-br from-emerald-400 to-green-500 text-white">
+                            {userData.profile?.userName?.substring(0, 2) || 'ME'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <Badge className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-sm px-3 py-1 shadow-lg border-2 border-white">
+                          Lv.{userData.stats?.level || 1}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {/* 프로필 정보 */}
+                    <div className="flex-1 w-full bg-white rounded-xl shadow-sm p-6 space-y-4">
+                      <div className="text-center md:text-left">
+                        <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                          {userData.profile?.userName}
+                        </h2>
+                        <p className="text-sm text-muted-foreground mt-1 flex items-center justify-center md:justify-start gap-2">
+                          <span>🏫</span>
                           {userData.school?.name || '학교 미설정'}
                           {userData.profile?.isAdmin && (
-                            <Badge variant="secondary" className="ml-2">관리자</Badge>
+                            <Badge variant="secondary" className="ml-1">관리자</Badge>
                           )}
                         </p>
                       </div>
                       
-                      {/* 팔로워/팔로잉 정보 */}
-                      <div className="flex items-center gap-6">
+                      {/* 팔로워/팔로잉 - 게임 스타일 */}
+                      <div className="flex items-center justify-center gap-4">
                         <Button
                           variant="ghost"
-                          size="sm"
                           onClick={() => {
                             setFollowersModalType('followers');
                             setIsFollowersModalOpen(true);
                           }}
-                          className="p-0 h-auto hover:bg-transparent"
+                          className="flex-1 max-w-[140px] h-auto p-0 hover:bg-transparent"
                         >
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-gray-900">{followersCount}</div>
-                            <div className="text-sm text-gray-500">팔로워</div>
+                          <div className="w-full bg-gradient-to-br from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-lg p-3 border-2 border-emerald-200 transition-all">
+                            <div className="text-xs text-emerald-600 font-medium mb-1">팔로워</div>
+                            <div className="text-2xl font-bold text-emerald-700">{followersCount}</div>
                           </div>
                         </Button>
                         <Button
                           variant="ghost"
-                          size="sm"
                           onClick={() => {
                             setFollowersModalType('following');
                             setIsFollowersModalOpen(true);
                           }}
-                          className="p-0 h-auto hover:bg-transparent"
+                          className="flex-1 max-w-[140px] h-auto p-0 hover:bg-transparent"
                         >
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-gray-900">{followingCount}</div>
-                            <div className="text-sm text-gray-500">팔로잉</div>
+                          <div className="w-full bg-gradient-to-br from-teal-50 to-teal-100 hover:from-teal-100 hover:to-teal-200 rounded-lg p-3 border-2 border-teal-200 transition-all">
+                            <div className="text-xs text-teal-600 font-medium mb-1">팔로잉</div>
+                            <div className="text-2xl font-bold text-teal-700">{followingCount}</div>
                           </div>
                         </Button>
                       </div>
                       
+                      {/* 경험치 바 - 게임 스타일 */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{formatExp(userData.stats?.currentExp || 0)} / {formatExp(getRequiredExpForLevel(userData.stats?.level || 1))} XP</span>
-                          </div>
+                          <span className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+                            <span>⚡</span> 경험치
+                          </span>
+                          <span className="text-xs font-bold text-emerald-600">
+                            {formatExp(userData.stats?.currentExp || 0)} / {formatExp(getRequiredExpForLevel(userData.stats?.level || 1))} XP
+                          </span>
                         </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div 
-                            className="bg-green-500 h-2 rounded-full transition-all" 
-                            style={{ width: `${Math.min(100, Math.floor(((userData.stats?.currentExp || 0) / getRequiredExpForLevel(userData.stats?.level || 1)) * 100))}%` }}
-                          ></div>
+                        <div className="relative">
+                          <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden border-2 border-gray-300 shadow-inner">
+                            <div 
+                              className="h-full bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 rounded-full transition-all duration-500 ease-out relative overflow-hidden"
+                              style={{ width: `${Math.min(100, Math.floor(((userData.stats?.currentExp || 0) / getRequiredExpForLevel(userData.stats?.level || 1)) * 100))}%` }}
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"></div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
-                      {/* 모바일 앱 리워드 광고 안내 */}
-                      <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">📱</span>
-                          <h4 className="font-semibold text-gray-800 text-sm">모바일 앱에서 경험치 받기</h4>
+                      {/* 기본 정보 - 컴팩트하게 */}
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">👤</span>
+                            <span className="text-gray-600 font-medium">{userData.profile?.realName || '미설정'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">
+                              {userData.profile?.gender === 'male' ? '👨' : 
+                               userData.profile?.gender === 'female' ? '👩' : '🧑'}
+                            </span>
+                            <span className="text-gray-600 font-medium">
+                              {userData.profile?.gender === 'male' ? '남성' : 
+                               userData.profile?.gender === 'female' ? '여성' :
+                               userData.profile?.gender === 'other' ? '기타' : '미설정'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">🎂</span>
+                            <span className="text-gray-600 font-medium">
+                              {userData.profile?.birthYear 
+                                ? `${userData.profile.birthYear}.${userData.profile.birthMonth}.${userData.profile.birthDay}` 
+                                : '미설정'}
+                            </span>
+                          </div>
                         </div>
-                        
-                        <div className="flex items-center gap-4 text-xs text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <span className="text-amber-500">🎁</span>
-                            <span>+50 XP</span>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">📧</span>
+                            <span className="text-gray-600 font-medium truncate">{userData.email || '미설정'}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-green-500">⏰</span>
-                            <span>15분 간격</span>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">📱</span>
+                            <span className="text-gray-600 font-medium">{formatPhoneNumber(userData.profile?.phoneNumber || '') || '미설정'}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-blue-500">🚀</span>
-                            <span>하루 5회</span>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500">📍</span>
+                            <span className="text-gray-600 font-medium truncate">
+                              {(() => {
+                                const parts = [
+                                  userData.regions?.sido,
+                                  userData.regions?.sigungu
+                                ].filter(Boolean);
+                                return parts.length > 0 ? parts.join(' ') : '미설정';
+                              })()}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -411,201 +504,171 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
               </CardContent>
             </Card>
 
-            {/* 내 정보 카드 - 앱과 동일한 구조 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  📋 내 정보
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">이름:</span>
-                      <span className="text-sm font-medium">{userData.profile?.realName || '미설정'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">성별:</span>
-                      <span className="text-sm font-medium">
-                        {userData.profile?.gender === 'male' ? '남성' : 
-                         userData.profile?.gender === 'female' ? '여성' :
-                         userData.profile?.gender === 'other' ? '기타' : '미설정'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">생년월일:</span>
-                      <span className="text-sm font-medium">
-                        {userData.profile?.birthYear 
-                          ? `${userData.profile.birthYear}년 ${userData.profile.birthMonth}월 ${userData.profile.birthDay}일` 
-                          : '미설정'}
-                      </span>
-                    </div>
+            {/* 출석체크 - 모바일에서만 표시 */}
+            <div className="lg:hidden">
+              {user?.uid ? (
+                <div className="border-2 border-emerald-100 rounded-xl overflow-hidden bg-gradient-to-br from-white to-emerald-50/30">
+                  <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-b-2 border-emerald-100 px-6 py-4">
+                    <h3 className="font-bold text-emerald-900 flex items-center gap-2">
+                      <span className="text-2xl">📅</span>
+                      <span>출석체크</span>
+                    </h3>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">이메일:</span>
-                      <span className="text-sm font-medium">{userData.email || '미설정'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">연락처:</span>
-                      <span className="text-sm font-medium">{formatPhoneNumber(userData.profile?.phoneNumber || '')}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">주소:</span>
-                      <span className="text-sm font-medium">
-                        {(() => {
-                          const parts = [
-                            userData.regions?.sido,
-                            userData.regions?.sigungu, 
-                            userData.regions?.address
-                          ].filter(Boolean);
-                          return parts.length > 0 ? parts.join(' ') : '미설정';
-                        })()}
-                      </span>
-                    </div>
-                  </div>
+                  <AttendanceCalendar 
+                    userId={user.uid} 
+                    isProfileOwner={true} 
+                    onAttendanceComplete={async () => {
+                      if (user) {
+                        const refreshedUserData = await getUserById(user.uid);
+                        setUserData(refreshedUserData);
+                      }
+                    }}
+                  />
                 </div>
-              </CardContent>
-            </Card>
+              ) : (
+                <Card className="border-2 border-gray-200">
+                  <CardHeader>
+                    <CardTitle>출석체크</CardTitle>
+                    <CardDescription>로그인 후 출석체크를 할 수 있습니다.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64 flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <p>로그인이 필요합니다</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
-            {/* 활동 통계 - 앱과 동일한 구조 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  📊 활동 통계
+            {/* 활동 통계 - 게임 스타일 */}
+            <Card className="overflow-hidden border-2 border-emerald-100 bg-gradient-to-br from-white to-emerald-50/30">
+              <CardHeader className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-b-2 border-emerald-100">
+                <CardTitle className="flex items-center gap-2 text-emerald-900">
+                  <span className="text-2xl">📊</span>
+                  <span>활동 통계</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4">
-                  <div 
-                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <button 
+                    className="group relative w-full bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-xl p-4 cursor-pointer transition-all duration-300 border border-emerald-200 hover:border-emerald-300 hover:shadow-lg flex items-center gap-4"
                     onClick={() => router.push('/my/posts')}
                   >
-                    <div className="text-2xl mb-2">📝</div>
-                    <div className="text-sm text-muted-foreground">내가 쓴 글</div>
-                  </div>
-                  <div 
-                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    <span className="text-xl group-hover:scale-110 transition-transform">📝</span>
+                    <span className="font-medium text-emerald-900 flex-1 text-left">내가 쓴 글</span>
+                    <span className="text-emerald-400 group-hover:text-emerald-600 transition-colors">›</span>
+                  </button>
+                  <button 
+                    className="group relative w-full bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-xl p-4 cursor-pointer transition-all duration-300 border border-emerald-200 hover:border-emerald-300 hover:shadow-lg flex items-center gap-4"
                     onClick={() => router.push('/my/comments')}
                   >
-                    <div className="text-2xl mb-2">💬</div>
-                    <div className="text-sm text-muted-foreground">내 댓글</div>
-                  </div>
-                  <div 
-                    className="bg-muted/30 rounded-lg p-4 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                    <span className="text-xl group-hover:scale-110 transition-transform">💬</span>
+                    <span className="font-medium text-emerald-900 flex-1 text-left">내 댓글</span>
+                    <span className="text-emerald-400 group-hover:text-emerald-600 transition-colors">›</span>
+                  </button>
+                  <button 
+                    className="group relative w-full bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 rounded-xl p-4 cursor-pointer transition-all duration-300 border border-emerald-200 hover:border-emerald-300 hover:shadow-lg flex items-center gap-4"
                     onClick={() => router.push('/my/scraps')}
                   >
-                    <div className="text-2xl mb-2">🔖</div>
-                    <div className="text-sm text-muted-foreground">스크랩한 글</div>
-                  </div>
+                    <span className="text-xl group-hover:scale-110 transition-transform">🔖</span>
+                    <span className="font-medium text-emerald-900 flex-1 text-left">스크랩한 글</span>
+                    <span className="text-emerald-400 group-hover:text-emerald-600 transition-colors">›</span>
+                  </button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* 설정 메뉴 - 앱과 동일한 구조 */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  ⚙️ 설정
+            {/* 설정 메뉴 - 게임 스타일 */}
+            <Card className="overflow-hidden border-2 border-emerald-100 bg-gradient-to-br from-white to-emerald-50/30">
+              <CardHeader className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 border-b-2 border-emerald-100">
+                <CardTitle className="flex items-center gap-2 text-emerald-900">
+                  <span className="text-2xl">⚙️</span>
+                  <span>설정</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
                 <div className="space-y-2">
                   <Button 
                     variant="ghost" 
-                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => router.push('/my/edit')}
-                  >
-                    <span className="mr-3">✏️</span>
-                    프로필 수정
-                    <span className="ml-auto">›</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    className="w-full justify-start h-auto py-3 px-4 bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 border border-emerald-200 hover:border-emerald-300 transition-all group"
                     onClick={() => router.push('/my/settings/notifications')}
                   >
-                    <span className="mr-3">🔔</span>
-                    알림 설정
-                    <span className="ml-auto">›</span>
+                    <span className="mr-3 text-xl group-hover:scale-110 transition-transform">🔔</span>
+                    <span className="font-medium text-emerald-900">알림 설정</span>
+                    <span className="ml-auto text-emerald-400 group-hover:text-emerald-600">›</span>
                   </Button>
                   
                   <Button 
                     variant="ghost" 
-                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
-                    onClick={() => setIsFavoriteSchoolsModalOpen(true)}
-                  >
-                    <span className="mr-3">🏫</span>
-                    즐겨찾기 학교 <span className="ml-2 text-xs text-muted-foreground">({favoriteSchools.length}/5)</span>
-                    <span className="ml-auto">›</span>
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    className="w-full justify-start h-auto py-3 px-4 bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 border border-emerald-200 hover:border-emerald-300 transition-all group"
                     onClick={() => router.push('/my/reports')}
                   >
-                    <span className="mr-3">🚨</span>
-                    신고 기록
-                    <span className="ml-auto">›</span>
+                    <span className="mr-3 text-xl group-hover:scale-110 transition-transform">🚨</span>
+                    <span className="font-medium text-emerald-900">신고 기록</span>
+                    <span className="ml-auto text-emerald-400 group-hover:text-emerald-600">›</span>
                   </Button>
                   
                   <Button 
                     variant="ghost" 
-                    className="w-full justify-start bg-muted/30 hover:bg-muted/50"
+                    className="w-full justify-start h-auto py-3 px-4 bg-gradient-to-r from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 border border-emerald-200 hover:border-emerald-300 transition-all group"
                     onClick={() => router.push('/my/blocked-users')}
                   >
-                    <span className="mr-3">🚫</span>
-                    차단된 사용자
-                    <span className="ml-auto">›</span>
+                    <span className="mr-3 text-xl group-hover:scale-110 transition-transform">🚫</span>
+                    <span className="font-medium text-emerald-900">차단된 사용자</span>
+                    <span className="ml-auto text-emerald-400 group-hover:text-emerald-600">›</span>
                   </Button>
                   
                   <Button 
                     variant="ghost" 
-                    className="w-full justify-start bg-red-50 hover:bg-red-100 text-red-700"
+                    className="w-full justify-start h-auto py-3 px-4 bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 border border-red-200 hover:border-red-300 text-red-700 hover:text-red-800 transition-all group"
                     onClick={() => setIsAccountDeleteDialogOpen(true)}
                   >
-                    <span className="mr-3">🗑️</span>
-                    계정 삭제
-                    <span className="ml-auto">›</span>
+                    <span className="mr-3 text-xl group-hover:scale-110 transition-transform">🗑️</span>
+                    <span className="font-medium">계정 삭제</span>
+                    <span className="ml-auto text-red-400 group-hover:text-red-600">›</span>
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
           
-          {/* 오른쪽 컬럼: 출석체크 */}
-          <div className="lg:col-span-1">
-            {user?.uid ? (
-              <AttendanceCalendar 
-                userId={user.uid} 
-                isProfileOwner={true} 
-                onAttendanceComplete={async () => {
-                  // 출석체크 완료 시 사용자 정보 새로고침
-                  if (user) {
-                    const refreshedUserData = await getUserById(user.uid);
-                    setUserData(refreshedUserData);
-                  }
-                }}
-              />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>출석체크</CardTitle>
-                  <CardDescription>로그인 후 출석체크를 할 수 있습니다.</CardDescription>
-                </CardHeader>
-                <CardContent className="h-64 flex items-center justify-center">
-                  <div className="text-center text-muted-foreground">
-                    <p>로그인이 필요합니다</p>
+          {/* 오른쪽 컬럼: 출석체크 - 데스크톱에서만 표시 */}
+          <div className="hidden lg:block lg:col-span-1">
+            <div className="sticky top-6">
+              {user?.uid ? (
+                <div className="border-2 border-emerald-100 rounded-xl overflow-hidden bg-gradient-to-br from-white to-emerald-50/30">
+                  <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-b-2 border-emerald-100 px-6 py-4">
+                    <h3 className="font-bold text-emerald-900 flex items-center gap-2">
+                      <span className="text-2xl">📅</span>
+                      <span>출석체크</span>
+                    </h3>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-            
-
+                  <AttendanceCalendar 
+                    userId={user.uid} 
+                    isProfileOwner={true} 
+                    onAttendanceComplete={async () => {
+                      // 출석체크 완료 시 사용자 정보 새로고침
+                      if (user) {
+                        const refreshedUserData = await getUserById(user.uid);
+                        setUserData(refreshedUserData);
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <Card className="border-2 border-gray-200">
+                  <CardHeader>
+                    <CardTitle>출석체크</CardTitle>
+                    <CardDescription>로그인 후 출석체크를 할 수 있습니다.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-64 flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <p>로그인이 필요합니다</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -733,7 +796,8 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                     const updatedUserData = await getUserById(user.uid);
                     setUserData(updatedUserData);
                     
-                    // 학교 상세 정보는 사용자 데이터에 포함되어 있음
+                    // 퀘스트 트래킹: 학교 등록 (2단계)
+                    await trackSchoolRegister();
                     
                     toast.success(`${selectedSchoolInfo.name}이(가) 내 학교로 설정되었습니다.`);
                   }
@@ -801,7 +865,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleToggleFavorite(school.id)}
+                        onClick={() => handleToggleFavorite(school.id, true)}
                       >
                         즐겨찾기
                       </Button>
@@ -1030,7 +1094,7 @@ export default function MyPageClient({ userData: initialUserData }: MyPageClient
                                 variant="outline"
                                 size="sm"
                                 onClick={async () => {
-                                  await handleToggleFavorite(school.id);
+                                  await handleToggleFavorite(school.id, true);
                                   setFavoriteSchoolsTab('manage');
                                 }}
                                 disabled={favoriteSchools.length >= 5}

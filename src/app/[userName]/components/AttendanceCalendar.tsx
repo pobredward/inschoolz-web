@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { UserAttendance } from '@/types';
 import { checkAttendance } from '@/lib/api/attendance';
 import { useExperience } from '@/providers/experience-provider';
+import { useQuestTracker } from '@/hooks/useQuestTracker';
 
 interface AttendanceCalendarProps {
   userId: string;
@@ -27,6 +28,7 @@ export default function AttendanceCalendar({ userId, isProfileOwner = false, onA
   });
   const [monthDates, setMonthDates] = useState<{date: Date, currentMonth: boolean}[]>([]);
   const { showExpGain, showLevelUp } = useExperience();
+  const { trackDailyAttendance } = useQuestTracker();
   
   // 현재 사용자가 프로필 소유자인지 확인
   const canCheckAttendance = isProfileOwner;
@@ -184,6 +186,10 @@ export default function AttendanceCalendar({ userId, isProfileOwner = false, onA
           `출석체크 완료! ${updatedAttendance.streak}일 연속 출석 중입니다.`
         );
       }
+      
+      // 퀘스트 트래킹: 출석체크 (8단계, 10단계)
+      // 연속 출석 일수를 함께 전달하여 10단계 조건도 체크
+      await trackDailyAttendance(updatedAttendance.streak);
       
       toast.success(`출석체크 완료! ${updatedAttendance.streak}일 연속 출석 중입니다.`);
       

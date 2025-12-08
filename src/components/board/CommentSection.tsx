@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 // Portal 없는 커스텀 드롭다운을 위해 Popover 제거
 import { useAuth } from '@/providers/AuthProvider';
+import { useQuestTracker } from '@/hooks/useQuestTracker';
 import { useRouter } from 'next/navigation';
 import { Comment } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
@@ -699,6 +700,7 @@ export default function CommentSection({
   onCommentCountChange 
 }: CommentSectionProps) {
   const { user, suspensionStatus } = useAuth();
+  const { trackCreateComment, trackGiveLike } = useQuestTracker();
   const [comments, setComments] = useState<CommentWithReplies[]>([]);
   const [allComments, setAllComments] = useState<CommentWithReplies[]>([]); // 전체 댓글
   const [displayedCount, setDisplayedCount] = useState(10); // 초기 표시 개수
@@ -851,6 +853,9 @@ export default function CommentSection({
         }
       }
 
+      // 퀘스트 트래킹: 댓글 작성 (5단계)
+      await trackCreateComment();
+      
       // 경험치 모달이 표시되지 않은 경우에만 toast 표시
       if (!showedExpModal) {
         toast.success('댓글이 작성되었습니다.');
@@ -1116,6 +1121,11 @@ export default function CommentSection({
         }
         return comment;
       }));
+      
+      // 퀘스트 트래킹: 좋아요 (6단계) - 좋아요 추가 시에만
+      if (result.liked) {
+        await trackGiveLike();
+      }
       
       toast.success(result.liked ? '댓글에 좋아요를 눌렀습니다.' : '댓글 좋아요를 취소했습니다.');
     } catch (error) {

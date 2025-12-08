@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { updateGameScore, getUserGameStats } from '@/lib/api/games';
 import { useAuth } from '@/providers/AuthProvider';
 import { useExperience } from '@/providers/experience-provider';
+import { useQuestTracker } from '@/hooks/useQuestTracker';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ interface RankingUser {
 export default function TileGamePage() {
   const { user, isLoading } = useAuth();
   const { showExpGain, showLevelUp, refreshUserStats } = useExperience();
+  const { trackPlayGame } = useQuestTracker();
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [flippedTiles, setFlippedTiles] = useState<number[]>([]);
@@ -241,6 +243,9 @@ export default function TileGamePage() {
         // 움직임 횟수를 점수로 전달 (경험치 계산용)
         const result = await updateGameScore(user.uid, 'tileGame', moves);
         if (result.success) {
+          // 퀘스트 트래킹: 게임 플레이 (7단계)
+          await trackPlayGame();
+          
           // 경험치 모달 표시
           if (result.leveledUp && result.oldLevel && result.newLevel) {
             showLevelUp(result.xpEarned || 0, result.oldLevel, result.newLevel);

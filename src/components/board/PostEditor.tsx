@@ -31,6 +31,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/providers/AuthProvider";
+import { useQuestTracker } from "@/hooks/useQuestTracker";
 import { useToast } from "@/components/ui/use-toast";
 
 interface PostEditorProps {
@@ -73,6 +74,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function PostEditor({ boardCode, boardType, board, schoolId, regions }: PostEditorProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { trackCreatePost } = useQuestTracker();
   const { toast } = useToast();
   const [tagInput, setTagInput] = useState("");
   const [isPollActive, setIsPollActive] = useState(false);
@@ -135,6 +137,18 @@ export default function PostEditor({ boardCode, boardType, board, schoolId, regi
       
       // 실제 저장 함수 호출
       const postId = await createPost(boardCode, boardType, postData, user.uid);
+      
+      console.log('📍 퀘스트 트래킹: 게시글 작성 완료', { boardCode, boardType, postId });
+      console.log('🔍 trackCreatePost 함수 존재 여부:', typeof trackCreatePost, trackCreatePost);
+      
+      // 퀘스트 트래킹: 게시글 작성 (4단계) - 에러와 관계없이 실행
+      try {
+        console.log('🎯 trackCreatePost() 호출 직전');
+        await trackCreatePost();
+        console.log('✅ 퀘스트 트래킹 성공');
+      } catch (questError) {
+        console.error('❌ 퀘스트 트래킹 오류 (게시글은 정상 작성됨):', questError);
+      }
       
       toast({
         title: "게시글 작성 완료",

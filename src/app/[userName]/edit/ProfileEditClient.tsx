@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { updateUserProfile, updateProfileImage } from '@/lib/api/users';
 import { getAllRegions, getDistrictsByRegion } from '@/lib/api/schools';
 import { useAuth } from "@/providers/AuthProvider";
+import { useQuestTracker } from "@/hooks/useQuestTracker";
 import {
   Select,
   SelectContent,
@@ -65,6 +66,7 @@ interface ProfileEditClientProps {
 export default function ProfileEditClient({ userData }: ProfileEditClientProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { trackNicknameChange } = useQuestTracker();
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [regionsLoading, setRegionsLoading] = useState(false);
@@ -242,10 +244,14 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
     try {
       // 유효성 검사
       if (!formData.userName) {
-        toast.error('사용자 이름은 필수입니다.');
+        toast.error('닉네임은 필수입니다.');
         setLoading(false);
         return;
       }
+
+      // 닉네임 변경 여부 확인 (기존 닉네임과 다르거나, 기존에 없었던 경우)
+      const originalUserName = userData.profile?.userName || '';
+      const isNicknameChanged = formData.userName !== originalUserName;
 
       // 생년월일 숫자 변환
       const birthYear = formData.birthYear ? parseInt(formData.birthYear) : undefined;
@@ -266,6 +272,18 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
         address: formData.address || undefined,
       });
       
+      // 퀘스트 트래킹: 닉네임 변경/설정 (1단계)
+      // 닉네임이 변경되었거나, 닉네임이 있는 상태에서 저장하면 트래킹
+      // (신규 유저: 닉네임 처음 설정, 기존 유저: 닉네임 변경)
+      if (isNicknameChanged || formData.userName.trim().length > 0) {
+        console.log('📍 퀘스트 트래킹: 닉네임 변경/설정', { 
+          isNicknameChanged, 
+          userName: formData.userName,
+          originalUserName 
+        });
+        await trackNicknameChange();
+      }
+      
       toast.success('프로필이 성공적으로 업데이트되었습니다.');
     } catch (error) {
       console.error('프로필 업데이트 오류:', error);
@@ -278,18 +296,16 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto">
       {/* 헤더 섹션 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={handleGoBack}
-            className="h-9 w-9 sm:h-10 sm:w-10"
-          >
-            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Button>
-          <h1 className="text-xl sm:text-2xl font-bold">프로필 수정</h1>
-        </div>
+      <div className="flex items-center gap-3">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={handleGoBack}
+          className="h-9 w-9 sm:h-10 sm:w-10"
+        >
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+        </Button>
+        <h1 className="text-xl sm:text-2xl font-bold">프로필 수정</h1>
       </div>
       
       {/* 프로필 이미지 섹션 */}
@@ -299,9 +315,9 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
           <CardDescription className="text-sm">프로필 사진을 변경할 수 있습니다.</CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center gap-3">
             <div className="relative group">
-              <Avatar className="w-24 h-24 sm:w-32 sm:h-32 mb-3">
+              <Avatar className="w-24 h-24 sm:w-32 sm:h-32">
                 <AvatarImage 
                   src={imagePreview || formData.profileImageUrl} 
                   alt={formData.userName} 
@@ -334,7 +350,7 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
             </div>
             
             <p className="text-sm text-muted-foreground text-center">
-              클릭하여 프로필 사진 변경
+              이미지를 클릭하여 프로필 사진 변경
             </p>
           </div>
         </CardContent>
@@ -346,126 +362,123 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
           <CardTitle className="text-lg sm:text-xl">기본 정보</CardTitle>
           <CardDescription className="text-sm">프로필 기본 정보를 수정합니다.</CardDescription>
         </CardHeader>
-        <CardContent className="px-4 sm:px-6 space-y-4 sm:space-y-6">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="userName" className="text-sm font-medium">사용자명 *</Label>
-                <Input
-                  id="userName"
-                  name="userName"
-                  value={formData.userName}
-                  onChange={handleChange}
-                  placeholder="사용자명을 입력하세요"
-                  className="h-11 sm:h-10 mt-1.5"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="realName" className="text-sm font-medium">실명</Label>
-                <Input
-                  id="realName"
-                  name="realName"
-                  value={formData.realName}
-                  onChange={handleChange}
-                  placeholder="실명을 입력하세요"
-                  className="h-11 sm:h-10 mt-1.5"
-                />
-              </div>
+        <CardContent className="px-4 sm:px-6 space-y-5">
+          {/* 닉네임과 실명 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="userName" className="text-sm font-medium flex items-center gap-1">
+                닉네임 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="userName"
+                name="userName"
+                value={formData.userName}
+                onChange={handleChange}
+                placeholder="닉네임을 입력하세요"
+                className="h-11 sm:h-10"
+              />
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="gender" className="text-sm font-medium">성별</Label>
-                <Select value={formData.gender} onValueChange={(value) => handleSelectChange('gender', value)}>
-                  <SelectTrigger className="h-11 sm:h-10 mt-1.5">
-                    <SelectValue placeholder="성별 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">남성</SelectItem>
-                    <SelectItem value="female">여성</SelectItem>
-                    <SelectItem value="other">기타</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="phoneNumber" className="text-sm font-medium">전화번호</Label>
-                <Input
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  type="text"
-                  inputMode="numeric"
-                  value={formatPhoneNumber(formData.phoneNumber)}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
-                    if (value.length <= 11) {
-                      handleChange({
-                        target: { name: 'phoneNumber', value }
-                      } as React.ChangeEvent<HTMLInputElement>);
-                    }
-                  }}
-                  placeholder="010-1234-5678"
-                  maxLength={13}
-                  className="h-11 sm:h-10 mt-1.5"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="realName" className="text-sm font-medium">실명</Label>
+              <Input
+                id="realName"
+                name="realName"
+                value={formData.realName}
+                onChange={handleChange}
+                placeholder="실명을 입력하세요"
+                className="h-11 sm:h-10"
+              />
+            </div>
+          </div>
+          
+          {/* 성별과 전화번호 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="gender" className="text-sm font-medium">성별</Label>
+              <Select value={formData.gender} onValueChange={(value) => handleSelectChange('gender', value)}>
+                <SelectTrigger className="h-11 sm:h-10">
+                  <SelectValue placeholder="성별 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">남성</SelectItem>
+                  <SelectItem value="female">여성</SelectItem>
+                  <SelectItem value="other">기타</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
-            <div>
-              <Label className="text-sm font-medium">생년월일</Label>
-              <div className="grid grid-cols-3 gap-3 mt-1.5">
-                <div>
-                  <Input
-                    id="birthYear"
-                    name="birthYear"
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.birthYear}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, ''); // 숫자만 허용
-                      if (value.length <= 4) {
-                        handleChange({
-                          target: { name: 'birthYear', value }
-                        } as React.ChangeEvent<HTMLInputElement>);
-                      }
-                    }}
-                    placeholder="YYYY"
-                    maxLength={4}
-                    className="h-11 sm:h-10"
-                  />
-                </div>
-                
-                <div>
-                  <Select value={formData.birthMonth} onValueChange={(value) => handleSelectChange('birthMonth', value)}>
-                    <SelectTrigger className="h-11 sm:h-10">
-                      <SelectValue placeholder="월" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                        <SelectItem key={month} value={month.toString()}>
-                          {month}월
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Select value={formData.birthDay} onValueChange={(value) => handleSelectChange('birthDay', value)}>
-                    <SelectTrigger className="h-11 sm:h-10">
-                      <SelectValue placeholder="일" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                        <SelectItem key={day} value={day.toString()}>
-                          {day}일
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber" className="text-sm font-medium">전화번호</Label>
+              <Input
+                id="phoneNumber"
+                name="phoneNumber"
+                type="text"
+                inputMode="numeric"
+                value={formatPhoneNumber(formData.phoneNumber)}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
+                  if (value.length <= 11) {
+                    handleChange({
+                      target: { name: 'phoneNumber', value }
+                    } as React.ChangeEvent<HTMLInputElement>);
+                  }
+                }}
+                placeholder="010-1234-5678"
+                maxLength={13}
+                className="h-11 sm:h-10"
+              />
+            </div>
+          </div>
+          
+          {/* 생년월일 */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">생년월일</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <Input
+                id="birthYear"
+                name="birthYear"
+                type="text"
+                inputMode="numeric"
+                value={formData.birthYear}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
+                  if (value.length <= 4) {
+                    handleChange({
+                      target: { name: 'birthYear', value }
+                    } as React.ChangeEvent<HTMLInputElement>);
+                  }
+                }}
+                placeholder="YYYY"
+                maxLength={4}
+                className="h-11 sm:h-10"
+              />
+              
+              <Select value={formData.birthMonth} onValueChange={(value) => handleSelectChange('birthMonth', value)}>
+                <SelectTrigger className="h-11 sm:h-10">
+                  <SelectValue placeholder="월" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                    <SelectItem key={month} value={month.toString()}>
+                      {month}월
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={formData.birthDay} onValueChange={(value) => handleSelectChange('birthDay', value)}>
+                <SelectTrigger className="h-11 sm:h-10">
+                  <SelectValue placeholder="일" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <SelectItem key={day} value={day.toString()}>
+                      {day}일
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -479,14 +492,14 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
         </CardHeader>
         <CardContent className="px-4 sm:px-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="sido" className="text-sm font-medium">시/도</Label>
               <Select 
                 value={formData.sido} 
                 onValueChange={(value) => handleSelectChange('sido', value)}
                 disabled={regionsLoading}
               >
-                <SelectTrigger className="h-11 sm:h-10 mt-1.5">
+                <SelectTrigger className="h-11 sm:h-10">
                   <SelectValue placeholder="시/도 선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -499,14 +512,14 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
               </Select>
             </div>
             
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="sigungu" className="text-sm font-medium">시/군/구</Label>
               <Select 
                 value={formData.sigungu} 
                 onValueChange={(value) => handleSelectChange('sigungu', value)}
                 disabled={regionsLoading || !formData.sido}
               >
-                <SelectTrigger className="h-11 sm:h-10 mt-1.5">
+                <SelectTrigger className="h-11 sm:h-10">
                   <SelectValue placeholder="시/군/구 선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -520,7 +533,7 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
             </div>
           </div>
           
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="address" className="text-sm font-medium">상세주소</Label>
             <Input
               id="address"
@@ -528,7 +541,7 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
               value={formData.address}
               onChange={handleChange}
               placeholder="상세주소를 입력하세요 (선택사항)"
-              className="h-11 sm:h-10 mt-1.5"
+              className="h-11 sm:h-10"
             />
           </div>
         </CardContent>
@@ -539,7 +552,7 @@ export default function ProfileEditClient({ userData }: ProfileEditClientProps) 
         <Button 
           onClick={handleSaveProfile} 
           disabled={loading}
-          className="w-full sm:w-auto h-12 sm:h-10 px-8 font-medium"
+          className="w-full sm:w-auto h-12 sm:h-10 px-8 font-medium shadow-lg sm:shadow-sm"
           size="lg"
         >
           {loading ? (

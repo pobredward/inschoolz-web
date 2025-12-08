@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/providers/AuthProvider';
 import { useExperience } from '@/providers/experience-provider';
+import { useQuestTracker } from '@/hooks/useQuestTracker';
 import { updateGameScore, getUserGameStats } from '@/lib/api/games';
 import { getExperienceSettings } from '@/lib/api/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ interface RankingUser {
 export default function ReactionGamePage() {
   const { user, isLoading } = useAuth();
   const { showExpGain, showLevelUp, refreshUserStats } = useExperience();
+  const { trackPlayGame } = useQuestTracker();
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [currentAttempt, setCurrentAttempt] = useState(1);
   const [remainingAttempts, setRemainingAttempts] = useState(5);
@@ -234,6 +236,9 @@ export default function ReactionGamePage() {
       console.log('finishGame - updateGameScore 결과:', result);
       
       if (result.success) {
+        // 퀘스트 트래킹: 게임 플레이 (7단계)
+        await trackPlayGame();
+        
         // 경험치 모달 표시
         if (result.leveledUp && result.oldLevel && result.newLevel) {
           showLevelUp(result.xpEarned || 0, result.oldLevel, result.newLevel);

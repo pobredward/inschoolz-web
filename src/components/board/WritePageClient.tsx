@@ -24,6 +24,7 @@ import { ExperienceModal } from "@/components/ui/experience-modal";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { SuspensionBanner } from "@/components/ui/suspension-notice";
+import { useQuestTracker } from "@/hooks/useQuestTracker";
 
 // 이미지 압축 함수
 const compressImage = (file: File, quality: number = 0.8): Promise<File> => {
@@ -122,6 +123,7 @@ export default function WritePageClient({ type, code, schoolId, regions }: Write
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, suspensionStatus } = useAuth();
+  const { trackCreatePost } = useQuestTracker();
   
   // 컴포넌트 마운트 시 상태 로깅
   useEffect(() => {
@@ -378,6 +380,17 @@ export default function WritePageClient({ type, code, schoolId, regions }: Write
       // 실제 Firestore에 저장
       const docRef = await addDoc(collection(db, "posts"), postData);
       const postId = docRef.id;
+      
+      console.log('✅ 게시글 작성 완료:', postId);
+      
+      // 퀘스트 트래킹: 게시글 작성 (4단계)
+      try {
+        console.log('🎯 퀘스트 트래킹 시작: 게시글 작성');
+        await trackCreatePost();
+        console.log('✅ 퀘스트 트래킹 완료');
+      } catch (questError) {
+        console.error('❌ 퀘스트 트래킹 오류 (게시글은 정상 작성됨):', questError);
+      }
       
       // 경험치 부여
       try {

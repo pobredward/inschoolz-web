@@ -26,6 +26,7 @@ import {
 import { Post, Comment, Board } from '@/types';
 import { ReportModal } from '@/components/ui/report-modal';
 import { useAuth } from '@/providers/AuthProvider';
+import { useQuestTracker } from '@/hooks/useQuestTracker';
 import { 
   togglePostScrap,
   checkLikeStatus,
@@ -69,6 +70,7 @@ interface PostViewClientProps {
 export const PostViewClient = ({ post: serverPost, initialComments }: PostViewClientProps) => {
   const router = useRouter();
   const { user } = useAuth();
+  const { trackGiveLike } = useQuestTracker();
   const { getPost } = usePostCacheStore();
   
   // 캐시된 데이터 확인 (즉시 표시용)
@@ -159,6 +161,11 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
       const result = await toggleLikePost(post.id, user.uid);
       setIsLiked(result.liked);
       setLikeCount(result.likeCount);
+      
+      // 퀘스트 트래킹: 좋아요 (6단계) - 좋아요 추가 시에만
+      if (result.liked) {
+        await trackGiveLike();
+      }
       
       toast.success(result.liked ? '좋아요를 눌렀습니다.' : '좋아요를 취소했습니다.');
     } catch (error) {

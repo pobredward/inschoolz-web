@@ -24,11 +24,11 @@ import BoardSelector from '@/components/board/BoardSelector';
 import SchoolSelector from '@/components/board/SchoolSelector';
 import { generatePreviewContent } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
+import { useQuestTracker } from '@/hooks/useQuestTracker';
 import PostListItem from '@/components/board/PostListItem';
 import CommunityPagination, { PaginationInfo } from '@/components/ui/community-pagination';
 import { RegionSetupModal } from '@/components/community/RegionSetupModal';
 import { SchoolSetupModal } from '@/components/community/SchoolSetupModal';
-import { FavoriteSchoolsModal } from '@/components/community/FavoriteSchoolsModal';
 // 광고 제거: 리워디드 광고만 사용
 
 interface CommunityPost extends Post {
@@ -49,6 +49,7 @@ export default function CommunityPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, suspensionStatus, isLoading: authLoading } = useAuth();
+  const { trackVisitBoard } = useQuestTracker();
   
   // 사용자 상태 디버깅
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function CommunityPageClient() {
   }, [user]);
   
   const [selectedTab, setSelectedTab] = useState<BoardType>('national');
+  const [hasTrackedVisit, setHasTrackedVisit] = useState(false);
   const [boards, setBoards] = useState<Board[]>([]);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [selectedBoard, setSelectedBoard] = useState<string>('all');
@@ -77,7 +79,6 @@ export default function CommunityPageClient() {
   const [popularSchoolsLoading, setPopularSchoolsLoading] = useState(false);
   const [popularRegions, setPopularRegions] = useState<RegionInfo[]>([]);
   const [popularRegionsLoading, setPopularRegionsLoading] = useState(false);
-  const [isFavoriteSchoolsModalOpen, setIsFavoriteSchoolsModalOpen] = useState(false);
   const [currentRegion, setCurrentRegion] = useState<{ sido?: string; sigungu?: string }>({});
   
   // 페이지네이션 관련 상태
@@ -171,6 +172,11 @@ export default function CommunityPageClient() {
           console.log('학교 ID 업데이트:', currentSchoolId, '->', schoolId);
           setCurrentSchoolId(schoolId);
           sessionStorage.setItem('community-selected-school', schoolId);
+          
+          // 퀘스트 트래킹: 학교 게시판 방문 (3단계, 9단계)
+          // 자기 학교가 아닌 경우 다른 학교 방문으로 처리
+          const isOtherSchool = user?.school?.id !== schoolId;
+          trackVisitBoard(schoolId, isOtherSchool);
         }
         
         // 학교 탭이 아닌 경우 학교 탭으로 변경
@@ -300,6 +306,14 @@ export default function CommunityPageClient() {
       // 이전 학교 정보 초기화
       setCurrentSchoolId(undefined);
       setCurrentSchoolInfo(null);
+      
+      // 퀘스트 트래킹: 학교 게시판 방문 (3단계)
+      // 자기 학교 게시판 방문으로 처리
+      if (user?.school?.id) {
+        trackVisitBoard(user.school.id, false);
+        setHasTrackedVisit(true);
+      }
+      
       router.push('/community?tab=school');
       return;
     } else if (newTab === 'regional') {
@@ -1177,7 +1191,7 @@ export default function CommunityPageClient() {
                       <div className="flex justify-center mt-3">
                         <Button
                           variant="outline"
-                          onClick={() => setIsFavoriteSchoolsModalOpen(true)}
+                          onClick={() => router.push('/my/favorite-schools')}
                           className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
                         >
                           🏫 즐겨찾기 학교 관리
@@ -1304,10 +1318,10 @@ export default function CommunityPageClient() {
         isOpen={showBoardSelector}
         onClose={() => setShowBoardSelector(false)}
         type={selectedTab}
-        schoolId={selectedTab === 'school' ? (sessionStorage?.getItem('community-selected-school') || user?.school?.id) : undefined}
+        schoolId={selectedTab === 'school' ? (currentSchoolId || user?.school?.id) : undefined}
         regions={selectedTab === 'regional' ? {
-          sido: sessionStorage?.getItem('community-selected-sido') || user?.regions?.sido || '',
-          sigungu: sessionStorage?.getItem('community-selected-sigungu') || user?.regions?.sigungu || ''
+          sido: currentRegion.sido || user?.regions?.sido || '',
+          sigungu: currentRegion.sigungu || user?.regions?.sigungu || ''
         } : undefined}
       />
 
@@ -1336,16 +1350,6 @@ export default function CommunityPageClient() {
           } else {
             window.location.reload();
           }
-        }}
-      />
-
-      {/* 즐겨찾기 학교 관리 모달 */}
-      <FavoriteSchoolsModal
-        isOpen={isFavoriteSchoolsModalOpen}
-        onClose={() => setIsFavoriteSchoolsModalOpen(false)}
-        onUpdate={() => {
-          // 즐겨찾기 학교 업데이트 후 인기 학교 목록 새로고침
-          loadPopularSchools();
         }}
       />
     </div>

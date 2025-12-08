@@ -15,6 +15,7 @@ import { collection, query, where, getDocs, doc, updateDoc, arrayUnion } from 'f
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
+import { useQuestTracker } from '@/hooks/useQuestTracker';
 import { School as SchoolType } from '@/types';
 
 interface SchoolSetupModalProps {
@@ -25,6 +26,7 @@ interface SchoolSetupModalProps {
 
 export function SchoolSetupModal({ isOpen, onClose, onComplete }: SchoolSetupModalProps) {
   const { user, refreshUser } = useAuth();
+  const { trackSchoolRegister } = useQuestTracker();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SchoolType[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -100,6 +102,10 @@ export function SchoolSetupModal({ isOpen, onClose, onComplete }: SchoolSetupMod
       });
       
       await refreshUser();
+      
+      // 퀘스트 트래킹: 학교 등록 (2단계)
+      console.log('📍 퀘스트 트래킹: SchoolSetupModal에서 학교 추가');
+      await trackSchoolRegister();
       
       toast.success(`${school.name}이 즐겨찾기에 추가되었습니다!`);
       onComplete();
