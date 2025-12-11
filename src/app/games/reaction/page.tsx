@@ -236,8 +236,8 @@ export default function ReactionGamePage() {
       console.log('finishGame - updateGameScore 결과:', result);
       
       if (result.success) {
-        // 퀘스트 트래킹: 게임 플레이 (7단계)
-        await trackPlayGame();
+        // 퀘스트 트래킹: 게임 플레이 (4단계) + 반응속도 커스텀 체크 (5, 9단계)
+        await trackPlayGame(reactionTime);
         
         // 경험치 모달 표시
         if (result.leveledUp && result.oldLevel && result.newLevel) {

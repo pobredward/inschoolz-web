@@ -856,6 +856,17 @@ export const createPost = async (boardCode: string, boardType: BoardType, data: 
 // 게시글 좋아요 토글
 export const togglePostLike = async (postId: string, userId: string) => {
   try {
+    // 게시글 정보 가져오기 (작성자 ID 필요)
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      throw new Error('게시글을 찾을 수 없습니다.');
+    }
+    
+    const postData = postDoc.data() as Post;
+    const postAuthorId = postData.authorId;
+    
     // 좋아요 중복 체크
     const likeRef = doc(db, 'posts', postId, 'likes', userId);
     const likeDoc = await getDoc(likeRef);
@@ -894,6 +905,17 @@ export const togglePostLike = async (postId: string, userId: string) => {
       } catch (expError) {
         console.error('좋아요 경험치 지급 오류:', expError);
         // 경험치 지급 실패는 좋아요 자체를 실패로 처리하지 않음
+      }
+      
+      // 🆕 퀘스트 트래킹: 좋아요 받기 (작성자에게)
+      if (postAuthorId && postAuthorId !== userId) {
+        try {
+          const { trackQuestAction } = await import('@/lib/quests/questService');
+          await trackQuestAction(postAuthorId, 'get_likes');
+          console.log('✅ 퀘스트 트래킹: 좋아요 받기 (게시글 작성자)');
+        } catch (questError) {
+          console.error('❌ 퀘스트 트래킹 오류:', questError);
+        }
       }
     }
     
@@ -1156,6 +1178,7 @@ export const toggleCommentLike = async (postId: string, commentId: string, userI
     
     const commentData = commentDoc.data();
     const currentLikeCount = commentData.stats?.likeCount || 0;
+    const commentAuthorId = commentData.authorId; // 댓글 작성자 ID
     
     const batch = writeBatch(db);
     let isLiked = false;
@@ -1198,6 +1221,17 @@ export const toggleCommentLike = async (postId: string, commentId: string, userI
       } catch (expError) {
         console.error('댓글 좋아요 경험치 지급 오류:', expError);
         // 경험치 지급 실패는 좋아요 자체를 실패로 처리하지 않음
+      }
+      
+      // 🆕 퀘스트 트래킹: 좋아요 받기 (댓글 작성자에게)
+      if (commentAuthorId && commentAuthorId !== userId) {
+        try {
+          const { trackQuestAction } = await import('@/lib/quests/questService');
+          await trackQuestAction(commentAuthorId, 'get_likes');
+          console.log('✅ 퀘스트 트래킹: 좋아요 받기 (댓글 작성자)');
+        } catch (questError) {
+          console.error('❌ 퀘스트 트래킹 오류:', questError);
+        }
       }
     }
     

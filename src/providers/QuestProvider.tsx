@@ -121,7 +121,7 @@ export function QuestProvider({ children }: QuestProviderProps) {
   // 퀘스트 액션 추적
   const trackAction = useCallback(async (
     actionType: QuestActionType,
-    metadata?: { boardId?: string; isOtherSchool?: boolean }
+    metadata?: { boardId?: string; isOtherSchool?: boolean; reactionTime?: number; tileGameMoves?: number }
   ) => {
     const userId = firebaseUser?.uid || user?.uid;
     if (!userId) {

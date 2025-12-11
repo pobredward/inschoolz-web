@@ -237,6 +237,17 @@ export default function TileGamePage() {
           // 퀘스트 트래킹: 게임 플레이 (7단계)
           await trackPlayGame();
           
+          // 🆕 타일 게임 10번 이하 클리어 퀘스트 트래킹
+          if (moves <= 10) {
+            try {
+              const { trackQuestAction } = await import('@/lib/quests/questService');
+              await trackQuestAction(user.uid, 'tile_game_clear', user, { tileGameMoves: moves });
+              console.log(`✅ 타일 게임 ${moves}번 클리어 - 퀘스트 트래킹 완료`);
+            } catch (questError) {
+              console.error('❌ 퀘스트 트래킹 오류:', questError);
+            }
+          }
+          
           // 경험치 모달 표시
           if (result.leveledUp && result.oldLevel && result.newLevel) {
             showLevelUp(result.xpEarned || 0, result.oldLevel, result.newLevel);

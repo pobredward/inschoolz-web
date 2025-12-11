@@ -108,10 +108,11 @@ export function useQuestTracker() {
   /**
    * 게임 플레이 체크
    * - 호출 시점: 게임 플레이 완료 후
+   * @param reactionTime 반응속도 게임의 경우 반응 시간 (ms)
    */
-  const trackPlayGame = useCallback(async () => {
+  const trackPlayGame = useCallback(async (reactionTime?: number) => {
     if (!user) return;
-    await trackAction('play_game');
+    await trackAction('play_game', { reactionTime });
   }, [trackAction, user]);
   
   /**

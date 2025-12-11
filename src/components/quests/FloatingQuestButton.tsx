@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { useQuest } from '@/providers/QuestProvider';
 import { tutorialChain } from '@/lib/quests/chains/tutorial';
-import { QUEST_GUIDES } from '@/lib/quests/questService';
+import { newbieGrowthChain } from '@/lib/quests/chains/newbie-growth';
+import { QUEST_GUIDES, questChains, chainOrder } from '@/lib/quests/questService';
 
 export default function FloatingQuestButton() {
   const router = useRouter();
@@ -23,9 +24,28 @@ export default function FloatingQuestButton() {
   const buttonRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
   
-  // 현재 단계 번호
-  const currentStepNum = questProgress?.chains?.tutorial?.currentStep || 1;
-  const isCompleted = questProgress?.chains?.tutorial?.status === 'completed';
+  // 현재 진행 중인 체인 찾기
+  const getActiveChain = () => {
+    if (!questProgress) return { chainId: 'tutorial', chain: tutorialChain, chainProgress: null };
+    
+    for (const chainId of chainOrder) {
+      const chainProgress = questProgress.chains[chainId];
+      if (chainProgress && chainProgress.status === 'in_progress') {
+        return {
+          chainId,
+          chain: questChains[chainId],
+          chainProgress,
+        };
+      }
+    }
+    
+    // 진행 중인 체인이 없으면 tutorial 반환
+    return { chainId: 'tutorial', chain: tutorialChain, chainProgress: questProgress.chains.tutorial };
+  };
+  
+  const { chainId: activeChainId, chain: activeChain, chainProgress: activeChainProgress } = getActiveChain();
+  const currentStepNum = activeChainProgress?.currentStep || 1;
+  const isCompleted = activeChainProgress?.status === 'completed';
   
   useEffect(() => {
     // 항상 표시 (로그인 여부 무관)
@@ -168,11 +188,11 @@ export default function FloatingQuestButton() {
           >
             {/* 헤더 */}
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
-              <span className="text-4xl">🎓</span>
+              <span className="text-4xl">{activeChain.icon}</span>
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">인스쿨즈 입학기</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">{activeChain.name}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {isCompleted ? '완료!' : `${currentStepNum} / ${tutorialChain.totalSteps} 단계`}
+                  {isCompleted ? '완료!' : `${currentStepNum} / ${activeChain.totalSteps} 단계`}
                 </p>
               </div>
               <button
@@ -191,7 +211,7 @@ export default function FloatingQuestButton() {
                   축하합니다!
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  인스쿨즈 입학기를 모두 완료했어요!
+                  {activeChain.name}를 모두 완료했어요!
                 </p>
               </div>
             ) : questLoading || authLoading ? (
@@ -398,7 +418,7 @@ export default function FloatingQuestButton() {
               <button
                 onClick={() => {
                   setShowPreview(false);
-                  router.push('/quests/tutorial');
+                  router.push(`/quests/${activeChainId}`);
                 }}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium rounded-xl transition-all shadow-lg"
               >
