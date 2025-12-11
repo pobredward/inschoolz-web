@@ -98,7 +98,7 @@ export interface User {
       bestReactionTime?: number; // ms 단위
     };
     tileGame?: { 
-      bestReactionTime?: number; // ms 단위 (최소 움직임 횟수)
+      bestMoves?: number; // 최소 움직임 횟수 (낮을수록 좋음)
     };
     mathGame?: { 
       bestReactionTime?: number; // 최고 점수 (정답 개수)

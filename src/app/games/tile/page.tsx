@@ -27,7 +27,7 @@ interface Tile {
 interface RankingUser {
   id: string;
   nickname: string;
-  bestMoves: number; // 최소 움직임 횟수
+  bestMoves: number; // 최소 움직임 횟수 (낮을수록 좋음)
   schoolName?: string;
 }
 
@@ -41,7 +41,6 @@ export default function TileGamePage() {
   const [moves, setMoves] = useState(0);
   const [matches, setMatches] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
-  const [finalScore, setFinalScore] = useState(0);
   const [gameStartTime, setGameStartTime] = useState<number>(0);
   const [remainingAttempts, setRemainingAttempts] = useState(5);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -78,8 +77,8 @@ export default function TileGamePage() {
       const usersRef = collection(db, 'users');
       const rankingQuery = query(
         usersRef,
-        where('gameStats.tileGame.bestReactionTime', '>', 0),
-        orderBy('gameStats.tileGame.bestReactionTime', 'asc'),
+        where('gameStats.tileGame.bestMoves', '>', 0),
+        orderBy('gameStats.tileGame.bestMoves', 'asc'),
         limit(10)
       );
       
@@ -88,7 +87,7 @@ export default function TileGamePage() {
       
       snapshot.forEach((doc) => {
         const userData = doc.data();
-        const bestMoves = userData.gameStats?.tileGame?.bestReactionTime;
+        const bestMoves = userData.gameStats?.tileGame?.bestMoves;
         
         if (bestMoves) {
           rankingData.push({
@@ -161,7 +160,6 @@ export default function TileGamePage() {
     setMoves(0);
     setMatches(0);
     setTimeElapsed(0);
-    setFinalScore(0);
     setGameStartTime(performance.now());
     
     initializeGame();
@@ -228,19 +226,12 @@ export default function TileGamePage() {
     const endTime = performance.now();
     const totalTime = Math.floor((endTime - gameStartTime) / 1000);
     setTimeElapsed(totalTime);
-    
-    // 움직임 횟수 기반 점수 계산 (시간 제거)
-    const optimalMoves = totalPairs; // 최적 움직임 = 쌍의 개수 (6번)
-    const moveScore = Math.max(0, (optimalMoves * 2 - moves + optimalMoves) * 100); // 움직임이 적을수록 높은 점수
-    const score = Math.max(100, moveScore);
-    
-    setFinalScore(score);
     setGameState('finished');
 
-    // Firebase에 점수 저장
+    // Firebase에 움직임 횟수 저장
     if (user?.uid) {
       try {
-        // 움직임 횟수를 점수로 전달 (경험치 계산용)
+        // 움직임 횟수를 score 파라미터로 전달
         const result = await updateGameScore(user.uid, 'tileGame', moves);
         if (result.success) {
           // 퀘스트 트래킹: 게임 플레이 (7단계)
@@ -252,10 +243,10 @@ export default function TileGamePage() {
           } else if (result.xpEarned && result.xpEarned > 0) {
             showExpGain(
               result.xpEarned, 
-              `타일 게임 완료! ${score}점 획득`
+              `타일 게임 완료! ${moves}번 움직임`
             );
           } else {
-            toast.info(`게임 완료! ${score}점 획득 (경험치 없음)`);
+            toast.info(`게임 완료! ${moves}번 움직임 (경험치 없음)`);
           }
           
           // 성공 시 남은 기회 업데이트
@@ -459,14 +450,10 @@ export default function TileGamePage() {
                 <div className="text-7xl mb-6 animate-bounce">🎉</div>
                 <h2 className="text-4xl font-bold mb-6 bg-gradient-to-r from-green-600 to-green-400 bg-clip-text text-transparent">게임 완료!</h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto mb-8">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-2xl shadow-md border-2 border-blue-200">
-                    <p className="text-sm text-blue-700 font-semibold">최종 점수</p>
-                    <p className="text-3xl font-bold text-blue-600">{finalScore}점</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-2xl shadow-md border-2 border-green-200">
-                    <p className="text-sm text-green-700 font-semibold">총 움직임</p>
-                    <p className="text-3xl font-bold text-green-600">{moves}회</p>
+                <div className="max-w-sm mx-auto mb-8">
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-2xl shadow-md border-2 border-green-200">
+                    <p className="text-sm text-green-700 font-semibold mb-2">총 움직임</p>
+                    <p className="text-5xl font-bold text-green-600">{moves}회</p>
                   </div>
                 </div>
 
