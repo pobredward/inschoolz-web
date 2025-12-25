@@ -210,9 +210,18 @@ export default function FloatingQuestButton() {
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                   축하합니다!
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
                   {activeChain.name}를 모두 완료했어요!
                 </p>
+                <button
+                  onClick={() => {
+                    setShowPreview(false);
+                    refreshProgress();
+                  }}
+                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  전체 보기
+                </button>
               </div>
             ) : questLoading || authLoading ? (
               // 로딩 상태
