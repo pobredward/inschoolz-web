@@ -977,7 +977,7 @@ export default function CommunityPageClient() {
             </div>
           )}
 
-          {/* 모바일 앱 리워드 광고 안내 - 인기 학교/지역 목록이 아닐 때만 표시 */}
+          {/* 모바일 앱 리워드 광고 안내 - 인기 학교/지역 목록이 아닐 때만 표시
           {!(selectedTab === 'school' && !currentSchoolId) && 
            !(selectedTab === 'regional' && !currentRegion.sido && !currentRegion.sigungu) && (
             <div className="container mx-auto px-4 py-2">
@@ -1005,7 +1005,7 @@ export default function CommunityPageClient() {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* 게시글 리스트 */}
           <div className="container mx-auto px-4 pb-4">

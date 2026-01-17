@@ -108,7 +108,7 @@ export default function LocationTermsPage() {
             <div className="bg-gray-50 p-6 rounded-lg">
               <ol className="list-decimal ml-6 space-y-3">
                 <li>회사는 위치정보를 적절히 관리·보호하고 개인위치정보주체의 불만을 원활히 처리할 수 있도록 위치정보관리책임자를 지정하여 운영하고 있습니다.</li>
-                <li>위치정보관리책임자는 위치기반서비스를 제공하는 부서의 부서장으로서 구체적인 사항은 회사의 고객센터(010-6711-7933) 또는 회사의 웹사이트를 통해 확인할 수 있습니다.</li>
+                <li>위치정보관리책임자는 위치기반서비스를 제공하는 부서의 부서장으로서 구체적인 사항은 회사의 고객센터 또는 회사의 웹사이트를 통해 확인할 수 있습니다.</li>
               </ol>
             </div>
           </section>
@@ -141,10 +141,10 @@ export default function LocationTermsPage() {
                 <h3 className="font-bold text-lg mb-2">▶ 위치정보관리책임자</h3>
                 <ul className="space-y-1">
                   <li><strong>상호:</strong> 온마인드랩</li>
-                  <li><strong>대표자:</strong> 신선웅</li>
+                  {/* <li><strong>대표자:</strong> 신선웅</li> */}
                   <li><strong>사업자등록번호:</strong> 166-22-02407</li>
-                  <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1</li>
-                  <li><strong>연락처:</strong> 010-7656-7933</li>
+                  {/* <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1</li> */}
+                  {/* <li><strong>연락처:</strong> 010-7656-7933</li> */}
                   <li><strong>이메일:</strong> inschoolz.official@gmail.com</li>
                 </ul>
               </div>

@@ -30,9 +30,9 @@ export default function PrivacyPage() {
               <h3 className="font-bold text-lg mb-2">🏢 사업자 정보</h3>
               <ul className="space-y-1 text-sm">
                 <li><strong>상호:</strong> 온마인드랩</li>
-                <li><strong>대표자:</strong> 신선웅</li>
+                {/* <li><strong>대표자:</strong> 신선웅</li> */}
                 <li><strong>사업자등록번호:</strong> 166-22-02407</li>
-                <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1</li>
+                {/* <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1</li> */}
                 <li><strong>업종:</strong> 도매 및 소매업 - 전자상거래 소매업</li>
               </ul>
             </div>
@@ -278,12 +278,12 @@ export default function PrivacyPage() {
                              <div className="bg-white p-4 rounded border">
                  <h3 className="font-bold text-lg mb-2">▶ 개인정보 보호책임자</h3>
                  <ul className="space-y-1">
-                   <li><strong>성명:</strong> 신선웅</li>
-                   <li><strong>직책:</strong> 대표</li>
+                   {/* <li><strong>성명:</strong> 신선웅</li> */}
+                   {/* <li><strong>직책:</strong> 대표</li> */}
                    <li><strong>상호:</strong> 온마인드랩</li>
                    <li><strong>사업자등록번호:</strong> 166-22-02407</li>
-                   <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1</li>
-                   <li><strong>연락처:</strong> 010-7656-7933, inschoolz.official@gmail.com</li>
+                   {/* <li><strong>주소:</strong> 경기도 성남시 분당구 야탑로139번길 5-1</li> */}
+                   <li><strong>연락처:</strong> inschoolz.official@gmail.com</li>
                  </ul>
                  <p className="text-sm text-gray-600 mt-2">
                    ※ 개인정보 보호 담당부서로 연결됩니다.
