@@ -21,6 +21,7 @@ export interface School {
     reactionGame?: { totalScore: number };
     tileGame?: { totalScore: number };
   };
+  isActive?: boolean; // 학교 활성화 상태 (기본값: true)
   createdAt: FirebaseTimestamp;
   updatedAt: FirebaseTimestamp;
   memberCount?: number;

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { 
   Search, 
@@ -20,7 +21,9 @@ import {
   School, 
   Users, 
   Heart,
-  Globe
+  Globe,
+  Power,
+  PowerOff
   // MapPin,
   // Calendar,
   // Save,
@@ -31,7 +34,8 @@ import {
   adminSearchSchools, 
   adminCreateSchool, 
   adminUpdateSchool, 
-  adminDeleteSchool 
+  adminDeleteSchool,
+  adminToggleSchoolStatus
 } from '@/lib/api/admin';
 import { School as SchoolType, FirebaseTimestamp } from '@/types';
 import { toTimestamp } from '@/lib/utils';
@@ -47,6 +51,7 @@ interface LocalSchool {
   logoUrl?: string;
   memberCount?: number;
   favoriteCount?: number;
+  isActive?: boolean;
   createdAt: FirebaseTimestamp;
 }
 
@@ -59,6 +64,7 @@ interface SchoolFormData {
   logoUrl: string;
   memberCount: number;
   favoriteCount: number;
+  isActive: boolean;
 }
 
 const initialFormData: SchoolFormData = {
@@ -69,7 +75,8 @@ const initialFormData: SchoolFormData = {
   websiteUrl: '',
   logoUrl: '',
   memberCount: 0,
-  favoriteCount: 0
+  favoriteCount: 0,
+  isActive: true
 };
 
 // API 타입을 로컬 타입으로 변환
@@ -83,6 +90,7 @@ const convertSchool = (apiSchool: SchoolType): LocalSchool => ({
   logoUrl: apiSchool.logoUrl,
   memberCount: apiSchool.memberCount,
   favoriteCount: apiSchool.favoriteCount,
+  isActive: apiSchool.isActive !== undefined ? apiSchool.isActive : true,
   createdAt: toTimestamp(apiSchool.createdAt)
 });
 
@@ -241,6 +249,33 @@ export default function AdminSchoolsPage() {
     }
   };
 
+  // 학교 활성화/비활성화 토글
+  const handleToggleSchoolStatus = async (schoolId: string, schoolName: string, currentStatus: boolean) => {
+    const action = currentStatus ? "비활성화" : "활성화";
+    
+    if (!confirm(`정말로 "${schoolName}" 학교를 ${action}하시겠습니까?${!currentStatus ? '' : '\n\n비활성화 시 해당 학교를 즐겨찾기하지 않은 사용자는 커뮤니티 페이지에서 이 학교를 볼 수 없습니다.'}`)) {
+      return;
+    }
+
+    try {
+      await adminToggleSchoolStatus(schoolId, !currentStatus);
+      
+      toast({
+        title: "성공",
+        description: `학교가 성공적으로 ${action}되었습니다.`,
+      });
+      
+      loadSchools();
+    } catch (error) {
+      console.error('학교 상태 변경 오류:', error);
+      toast({
+        title: "오류",
+        description: "학교 상태 변경 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // 수정 대화상자 열기
   const openEditDialog = (school: LocalSchool) => {
     setEditingSchool(school);
@@ -252,7 +287,8 @@ export default function AdminSchoolsPage() {
       websiteUrl: school.websiteUrl || '',
       logoUrl: school.logoUrl || '',
       memberCount: school.memberCount || 0,
-      favoriteCount: school.favoriteCount || 0
+      favoriteCount: school.favoriteCount || 0,
+      isActive: school.isActive !== undefined ? school.isActive : true
     });
     setIsEditDialogOpen(true);
   };
@@ -493,6 +529,7 @@ export default function AdminSchoolsPage() {
                   <TableHead>주소</TableHead>
                   <TableHead className="text-center">멤버</TableHead>
                   <TableHead className="text-center">즐겨찾기</TableHead>
+                  <TableHead className="text-center">상태</TableHead>
                   <TableHead>웹사이트</TableHead>
                   <TableHead className="text-center">작업</TableHead>
                 </TableRow>
@@ -508,6 +545,20 @@ export default function AdminSchoolsPage() {
                     <TableCell className="max-w-xs truncate">{school.address}</TableCell>
                     <TableCell className="text-center">{school.memberCount || 0}</TableCell>
                     <TableCell className="text-center">{school.favoriteCount || 0}</TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleSchoolStatus(school.id, school.name, school.isActive !== false)}
+                        className={school.isActive !== false ? 'text-green-600 hover:text-green-700' : 'text-gray-400 hover:text-gray-500'}
+                      >
+                        {school.isActive !== false ? (
+                          <Power className="h-4 w-4" />
+                        ) : (
+                          <PowerOff className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableCell>
                     <TableCell>
                       {school.websiteUrl ? (
                         <Button variant="ghost" size="sm" asChild>
@@ -626,6 +677,20 @@ export default function AdminSchoolsPage() {
                   onChange={(e) => updateFormData('favoriteCount', parseInt(e.target.value) || 0)}
                 />
               </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+              <div className="space-y-0.5">
+                <Label htmlFor="edit-isActive" className="text-base">학교 활성화 상태</Label>
+                <p className="text-sm text-muted-foreground">
+                  비활성화 시 즐겨찾기하지 않은 사용자는 커뮤니티에서 이 학교를 볼 수 없습니다.
+                </p>
+              </div>
+              <Switch
+                id="edit-isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => updateFormData('isActive', checked)}
+              />
             </div>
           </div>
           <DialogFooter>

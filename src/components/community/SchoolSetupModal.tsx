@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { School, Search } from 'lucide-react';
-import { collection, query, where, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
 import { useAuth } from '@/providers/AuthProvider';
@@ -53,13 +53,35 @@ export function SchoolSetupModal({ isOpen, onClose, onComplete }: SchoolSetupMod
       );
       const querySnapshot = await getDocs(q);
       
-      const results: SchoolType[] = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().KOR_NAME || doc.data().name || '',
-        address: doc.data().address || doc.data().ADDRESS || '',
-        schoolType: doc.data().schoolType || doc.data().SCHOOL_TYPE || '학교',
-        establishment: doc.data().establishment || doc.data().ESTABLISHMENT || ''
-      }));
+      // 사용자의 즐겨찾기 학교 목록 가져오기
+      let favoriteSchoolIds: string[] = [];
+      if (user?.uid) {
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            favoriteSchoolIds = userData.favorites?.schools || [];
+          }
+        } catch (error) {
+          console.error('즐겨찾기 학교 목록 조회 오류:', error);
+        }
+      }
+      
+      const results: SchoolType[] = querySnapshot.docs
+        .filter(doc => {
+          const isActive = doc.data().isActive !== undefined ? doc.data().isActive : true;
+          const isFavorited = favoriteSchoolIds.includes(doc.id);
+          // 활성화되었거나 즐겨찾기한 학교만 포함
+          return isActive || isFavorited;
+        })
+        .map(doc => ({
+          id: doc.id,
+          name: doc.data().KOR_NAME || doc.data().name || '',
+          address: doc.data().address || doc.data().ADDRESS || '',
+          schoolType: doc.data().schoolType || doc.data().SCHOOL_TYPE || '학교',
+          establishment: doc.data().establishment || doc.data().ESTABLISHMENT || ''
+        }));
       
       setSearchResults(results);
       

@@ -16,17 +16,33 @@ import { db } from '@/lib/firebase';
 import { School, FirebaseTimestamp } from '@/types';
 
 /**
- * 학교 목록 검색
+ * 학교 목록 검색 (사용자 즐겨찾기 고려)
  */
 export const searchSchools = async (
   searchTerm: string = '',
   region?: string,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  userId?: string // 사용자 ID를 받아서 즐겨찾기 확인
 ): Promise<{ schools: School[], totalCount: number, hasMore: boolean }> => {
   try {
     const schoolsRef = collection(db, 'schools');
     let q;
+
+    // 사용자의 즐겨찾기 학교 목록 가져오기
+    let favoriteSchoolIds: string[] = [];
+    if (userId) {
+      try {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          favoriteSchoolIds = userData.favorites?.schools || [];
+        }
+      } catch (error) {
+        console.error('즐겨찾기 학교 목록 조회 오류:', error);
+      }
+    }
 
     // 검색어 유무에 따른 쿼리 설정
     if (searchTerm) {
@@ -68,28 +84,34 @@ export const searchSchools = async (
     
     querySnapshot.forEach((doc: QueryDocumentSnapshot) => {
       const schoolData = doc.data();
+      const isActive = schoolData.isActive !== undefined ? schoolData.isActive : true;
+      const isFavorited = favoriteSchoolIds.includes(doc.id);
       
-      // 검색어가 있으면 includes로 한번 더 필터링하여 '각리초등학교'와 같이 중간에 검색어가 포함된 경우도 찾음
-      if (searchTerm && !schoolData.KOR_NAME.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return;
+      // 활성화되었거나 즐겨찾기한 학교만 포함
+      if (isActive || isFavorited) {
+        // 검색어가 있으면 includes로 한번 더 필터링하여 '각리초등학교'와 같이 중간에 검색어가 포함된 경우도 찾음
+        if (searchTerm && !schoolData.KOR_NAME.toLowerCase().includes(searchTerm.toLowerCase())) {
+          return;
+        }
+        
+        schools.push({
+          id: doc.id,
+          name: schoolData.KOR_NAME,
+          address: schoolData.ADDRESS,
+          district: schoolData.REGION,
+          type: getSchoolType(schoolData.KOR_NAME),
+          websiteUrl: schoolData.HOMEPAGE,
+          regions: {
+            sido: schoolData.REGION,
+            sigungu: getDistrict(schoolData.ADDRESS)
+          },
+          isActive,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          memberCount: schoolData.memberCount || 0,
+          favoriteCount: schoolData.favoriteCount || 0
+        } as School);
       }
-      
-      schools.push({
-        id: doc.id,
-        name: schoolData.KOR_NAME,
-        address: schoolData.ADDRESS,
-        district: schoolData.REGION,
-        type: getSchoolType(schoolData.KOR_NAME),
-        websiteUrl: schoolData.HOMEPAGE,
-        regions: {
-          sido: schoolData.REGION,
-          sigungu: getDistrict(schoolData.ADDRESS)
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        memberCount: schoolData.memberCount || 0,
-        favoriteCount: schoolData.favoriteCount || 0
-      } as School);
     });
     
     // 전체 결과 수
@@ -132,6 +154,7 @@ export const getSchoolById = async (schoolId: string): Promise<School | null> =>
           sido: schoolData.REGION,
           sigungu: getDistrict(schoolData.ADDRESS)
         },
+        isActive: schoolData.isActive !== undefined ? schoolData.isActive : true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         memberCount: schoolData.memberCount || 0,
@@ -241,12 +264,13 @@ export const getPopularSchools = async (limit = 10): Promise<School[]> => {
       .slice(0, limit)
       .map(([schoolId]) => schoolId);
     
-    // 학교 정보 조회
+    // 학교 정보 조회 (활성화된 학교만)
     const popularSchools: School[] = [];
     
     for (const schoolId of sortedSchoolIds) {
       const school = await getSchoolById(schoolId);
-      if (school) {
+      // 활성화된 학교만 추가
+      if (school && school.isActive !== false) {
         popularSchools.push(school);
       }
     }
@@ -254,7 +278,7 @@ export const getPopularSchools = async (limit = 10): Promise<School[]> => {
     return popularSchools;
   } catch (error) {
     console.error('인기 학교 목록 조회 오류:', error);
-    // 오류 발생 시 기본 학교 목록 반환
+    // 오류 발생 시 기본 학교 목록 반환 (활성화된 학교만)
     return await getAllSchools();
   }
 };
@@ -311,7 +335,7 @@ export const getPopularRegions = async (limit = 12): Promise<RegionInfo[]> => {
 };
 
 /**
- * 모든 학교 목록 가져오기
+ * 모든 학교 목록 가져오기 (활성화된 학교만)
  */
 export const getAllSchools = async (): Promise<School[]> => {
   try {
@@ -323,23 +347,28 @@ export const getAllSchools = async (): Promise<School[]> => {
     
     querySnapshot.forEach((doc) => {
       const schoolData = doc.data();
+      const isActive = schoolData.isActive !== undefined ? schoolData.isActive : true;
       
-      schools.push({
-        id: doc.id,
-        name: schoolData.KOR_NAME,
-        address: schoolData.ADDRESS,
-        district: schoolData.REGION,
-        type: getSchoolType(schoolData.KOR_NAME),
-        websiteUrl: schoolData.HOMEPAGE,
-        regions: {
-          sido: schoolData.REGION,
-          sigungu: getDistrict(schoolData.ADDRESS)
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        memberCount: schoolData.memberCount || 0,
-        favoriteCount: schoolData.favoriteCount || 0
-      } as School);
+      // 활성화된 학교만 추가
+      if (isActive) {
+        schools.push({
+          id: doc.id,
+          name: schoolData.KOR_NAME,
+          address: schoolData.ADDRESS,
+          district: schoolData.REGION,
+          type: getSchoolType(schoolData.KOR_NAME),
+          websiteUrl: schoolData.HOMEPAGE,
+          regions: {
+            sido: schoolData.REGION,
+            sigungu: getDistrict(schoolData.ADDRESS)
+          },
+          isActive,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          memberCount: schoolData.memberCount || 0,
+          favoriteCount: schoolData.favoriteCount || 0
+        } as School);
+      }
     });
     
     return schools;

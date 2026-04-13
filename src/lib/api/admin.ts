@@ -441,6 +441,7 @@ export const adminGetAllSchools = async (): Promise<School[]> => {
             sigungu: getDistrict(schoolData.ADDRESS || schoolData.address)
           },
           gameStats: schoolData.gameStats,
+          isActive: schoolData.isActive !== undefined ? schoolData.isActive : true,
           createdAt: schoolData.createdAt || serverTimestamp(),
           updatedAt: schoolData.updatedAt || serverTimestamp(),
           memberCount,
@@ -494,6 +495,7 @@ export const adminSearchSchools = async (searchTerm: string): Promise<School[]> 
           sigungu: getDistrict(schoolData.ADDRESS || schoolData.address || '')
         },
         gameStats: schoolData.gameStats || {},
+        isActive: schoolData.isActive !== undefined ? schoolData.isActive : true,
         createdAt: schoolData.createdAt || serverTimestamp(),
         updatedAt: schoolData.updatedAt || serverTimestamp(),
         memberCount: schoolData.memberCount || 0,
@@ -539,6 +541,7 @@ export const adminCreateSchool = async (schoolData: Omit<School, 'id' | 'created
       memberCount: schoolData.memberCount || 0,
       favoriteCount: schoolData.favoriteCount || 0,
       gameStats: schoolData.gameStats || {},
+      isActive: schoolData.isActive !== undefined ? schoolData.isActive : true,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -567,6 +570,7 @@ export const adminUpdateSchool = async (schoolId: string, schoolData: Partial<Sc
     if (schoolData.memberCount !== undefined) updateData.memberCount = schoolData.memberCount;
     if (schoolData.favoriteCount !== undefined) updateData.favoriteCount = schoolData.favoriteCount;
     if (schoolData.gameStats !== undefined) updateData.gameStats = schoolData.gameStats;
+    if (schoolData.isActive !== undefined) updateData.isActive = schoolData.isActive;
     
     // schools 컬렉션 업데이트
     await updateDoc(schoolRef, updateData);
@@ -588,6 +592,22 @@ export const adminDeleteSchool = async (schoolId: string): Promise<void> => {
   } catch (error) {
     console.error('관리자 학교 삭제 오류:', error);
     throw new Error('학교 삭제 중 오류가 발생했습니다.');
+  }
+};
+
+/**
+ * 학교 활성화/비활성화 토글 (관리자용)
+ */
+export const adminToggleSchoolStatus = async (schoolId: string, isActive: boolean): Promise<void> => {
+  try {
+    const schoolRef = doc(db, 'schools', schoolId);
+    await updateDoc(schoolRef, {
+      isActive,
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('학교 상태 변경 오류:', error);
+    throw new Error('학교 상태 변경 중 오류가 발생했습니다.');
   }
 };
 
