@@ -10,7 +10,6 @@ export function isValidUser(user: any): user is User {
     typeof user.uid === 'string' &&
     user.uid.length > 0 &&
     typeof user.email === 'string' &&
-    user.email.length > 0 &&
     user.profile &&
     typeof user.profile === 'object' &&
     typeof user.profile.userName === 'string' &&
