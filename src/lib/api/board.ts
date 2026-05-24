@@ -47,7 +47,6 @@ import {
   createCommentReplyNotification 
 } from './notifications';
 import { serializeObject, serializeTimestamp } from '@/lib/utils';
-import { unstable_cache } from 'next/cache';
 
 // 게시글의 authorInfo 업데이트 (프로필 이미지 포함)
 const updatePostAuthorInfo = async (post: any) => {
@@ -165,24 +164,20 @@ const updatePostsAuthorInfo = async (posts: any[]) => {
   });
 };
 
-// 게시판 목록 가져오기 (1시간 캐시 — 게시판 구성은 거의 변하지 않음)
-export const getBoardsByType = unstable_cache(
-  async (type: BoardType) => {
-    try {
-      const boards = await getDocuments<Board>('boards', [
-        where('type', '==', type),
-        where('isActive', '==', true),
-        orderBy('order', 'asc')
-      ]);
-      return boards.map(board => serializeObject(board as any, ['createdAt', 'updatedAt']));
-    } catch (error) {
-      console.error('게시판 목록 가져오기 오류:', error);
-      throw new Error('게시판 목록을 가져오는 중 오류가 발생했습니다.');
-    }
-  },
-  ['boards-by-type'],
-  { revalidate: 3600 }
-);
+// 게시판 목록 가져오기
+export const getBoardsByType = async (type: BoardType) => {
+  try {
+    const boards = await getDocuments<Board>('boards', [
+      where('type', '==', type),
+      where('isActive', '==', true),
+      orderBy('order', 'asc')
+    ]);
+    return boards.map(board => serializeObject(board as any, ['createdAt', 'updatedAt']));
+  } catch (error) {
+    console.error('게시판 목록 가져오기 오류:', error);
+    throw new Error('게시판 목록을 가져오는 중 오류가 발생했습니다.');
+  }
+};
 
 // 즐겨찾는 게시판 목록 가져오기
 export const getFavoriteBoards = async (userId: string, type: BoardType) => {

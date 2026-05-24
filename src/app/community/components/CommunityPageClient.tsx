@@ -95,8 +95,15 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
   const [popularRegionsLoading, setPopularRegionsLoading] = useState(false);
   const [currentRegion, setCurrentRegion] = useState<{ sido?: string; sigungu?: string }>({});
   
-  // 페이지네이션 관련 상태
-  const [currentPage, setCurrentPage] = useState(1);
+  // 페이지네이션 관련 상태 (탭 전환 없이 뒤로가기 복원을 위해 sessionStorage 참조)
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('community-current-page');
+      const parsed = saved ? parseInt(saved, 10) : NaN;
+      if (!isNaN(parsed) && parsed >= 1) return parsed;
+    }
+    return 1;
+  });
   const [totalCount, setTotalCount] = useState(initialData?.totalCount ?? 0);
   const [totalPages, setTotalPages] = useState(initialData?.totalPages ?? 1);
   const [pageSize] = useState(10); // 기본적으로 10개씩
@@ -249,6 +256,7 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
     setSelectedTab(newTab);
     // 페이지네이션 리셋
     setCurrentPage(1);
+    sessionStorage.setItem('community-current-page', '1');
     setSelectedBoard('all');
     // 게시글과 게시판 초기화
     setPosts([]);
@@ -542,7 +550,7 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
   // 페이지 변경 핸들러
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // 페이지 변경 시 스크롤을 맨 위로
+    sessionStorage.setItem('community-current-page', String(page));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -550,12 +558,14 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
   const handleBoardChange = (boardCode: string) => {
     setSelectedBoard(boardCode);
     setCurrentPage(1);
+    sessionStorage.setItem('community-current-page', '1');
   };
 
   // 정렬 변경 시 페이지 리셋
   const handleSortChange = (newSort: SortOption) => {
     setSortBy(newSort);
     setCurrentPage(1);
+    sessionStorage.setItem('community-current-page', '1');
   };
 
   const handleWriteClick = () => {
