@@ -1,7 +1,10 @@
 import { Suspense } from 'react';
 import CommunityPageClient from './components/CommunityPageClient';
+import { getInitialNationalCommunityData } from '@/lib/api/community-server';
 
-export default function CommunityPage() {
+export default async function CommunityPage() {
+  const initialData = await getInitialNationalCommunityData();
+
   return (
     <Suspense fallback={
       <div className="container mx-auto px-4 py-8">
@@ -11,7 +14,7 @@ export default function CommunityPage() {
         </div>
       </div>
     }>
-      <CommunityPageClient />
+      <CommunityPageClient initialData={initialData} />
     </Suspense>
   );
 } 

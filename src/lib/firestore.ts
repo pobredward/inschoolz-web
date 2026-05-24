@@ -12,6 +12,7 @@ import {
   orderBy,
   limit,
   startAfter,
+  getCountFromServer,
   QueryConstraint,
   DocumentData,
   QueryDocumentSnapshot,
@@ -134,38 +135,53 @@ export const getPaginatedDocumentsWithCount = async <T>(
 ): Promise<{ items: T[]; totalCount: number; totalPages: number; currentPage: number }> => {
   try {
     const collectionRef = collection(db, path);
-    
+
     // where 조건만 필터링하여 카운트 쿼리 생성
     const whereConstraints = constraints.filter(constraint => {
       const constraintType = (constraint as any).type;
       return constraintType === 'where';
     });
-    
-    // 총 개수를 구하기 위한 쿼리
+
+    // getCountFromServer: 실제 문서를 읽지 않고 집계 쿼리만 실행 (비용 절감)
     const countQuery = query(collectionRef, ...whereConstraints);
-    const countSnapshot = await getDocs(countQuery);
-    const totalCount = countSnapshot.size;
+    const countSnapshot = await getCountFromServer(countQuery);
+    const totalCount = countSnapshot.data().count;
     const totalPages = Math.ceil(totalCount / pageSize);
-    
+
     if (totalCount === 0) {
       return { items: [], totalCount: 0, totalPages: 1, currentPage: page };
     }
-    
-    // 실제 데이터를 가져오기 위한 쿼리 (페이지 크기를 늘려서 오프셋 적용)
+
+    // cursor 기반 페이지네이션: 1페이지는 바로 limit, 2페이지 이상은 startAfter로 오프셋 구현
     const offset = (page - 1) * pageSize;
-    const fetchSize = offset + pageSize;
-    
-    const dataQuery = query(collectionRef, ...constraints, limit(fetchSize));
+
+    if (offset === 0) {
+      // 1페이지: 단순 limit
+      const dataQuery = query(collectionRef, ...constraints, limit(pageSize));
+      const dataSnapshot = await getDocs(dataQuery);
+      const items: T[] = [];
+      dataSnapshot.forEach((doc) => {
+        items.push({ id: doc.id, ...doc.data() } as T);
+      });
+      return { items, totalCount, totalPages, currentPage: page };
+    }
+
+    // 2페이지 이상: startAfter 커서를 위해 오프셋 직전 문서를 조회한 뒤 startAfter 적용
+    const cursorQuery = query(collectionRef, ...constraints, limit(offset));
+    const cursorSnapshot = await getDocs(cursorQuery);
+    const lastCursorDoc = cursorSnapshot.docs[cursorSnapshot.docs.length - 1];
+
+    if (!lastCursorDoc) {
+      return { items: [], totalCount, totalPages, currentPage: page };
+    }
+
+    const dataQuery = query(collectionRef, ...constraints, startAfter(lastCursorDoc), limit(pageSize));
     const dataSnapshot = await getDocs(dataQuery);
-    
-    const allItems: T[] = [];
+    const items: T[] = [];
     dataSnapshot.forEach((doc) => {
-      allItems.push({ id: doc.id, ...doc.data() } as T);
+      items.push({ id: doc.id, ...doc.data() } as T);
     });
-    
-    // 페이지네이션 적용 (오프셋부터 pageSize만큼)
-    const items = allItems.slice(offset, offset + pageSize);
-    
+
     return { items, totalCount, totalPages, currentPage: page };
   } catch (error) {
     console.error('오프셋 기반 페이지네이션 오류:', error);
@@ -186,8 +202,8 @@ export const getDocumentCount = async (
   try {
     const collectionRef = collection(db, path);
     const q = query(collectionRef, ...constraints);
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.size;
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
   } catch (error) {
     console.error('문서 개수 가져오기 오류:', error);
     throw new Error('문서 개수를 가져오는 중 오류가 발생했습니다.');

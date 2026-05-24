@@ -125,8 +125,8 @@ export const config = {
     /*
      * 다음은 미들웨어가 적용되는 경로 패턴:
      * - 모든 경로에 적용됨
-     * - _next, api, public 등은 제외
+     * - _next, api, 정적 파일(이미지/폰트/아이콘 등)은 제외
      */
-    '/((?!_next/|api/|favicon.ico).*)',
+    '/((?!_next/|api/|.*\\.(?:ico|png|jpg|jpeg|gif|webp|svg|css|js|woff|woff2|ttf|eot|map|json|txt|xml)).*)',
   ],
 }; 

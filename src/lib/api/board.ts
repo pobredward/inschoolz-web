@@ -85,42 +85,36 @@ const updatePostAuthorInfo = async (post: any) => {
 
 // 여러 게시글의 authorInfo 일괄 업데이트
 const updatePostsAuthorInfo = async (posts: any[]) => {
-  // 익명이 아닌 모든 게시글의 사용자 ID 수집 (실시간 프로필 업데이트를 위해)
+  // profileImageUrl이 이미 있는 게시글은 users 조회 불필요
+  // 익명이거나 이미 프로필 이미지가 있는 게시글은 스킵
   const userIds = new Set<string>();
   posts.forEach(post => {
-    if (!post.authorInfo?.isAnonymous && post.authorId) {
+    if (!post.authorInfo?.isAnonymous && post.authorId && !post.authorInfo?.profileImageUrl) {
       userIds.add(post.authorId);
     }
   });
 
+  // 조회가 필요한 사용자가 없으면 바로 반환
+  if (userIds.size === 0) {
+    return posts;
+  }
+
   // 사용자 정보 일괄 조회
   const userDataMap = new Map<string, any>();
-  if (userIds.size > 0) {
-    try {
-      const userPromises = Array.from(userIds).map(async (userId) => {
-        try {
-          const userDoc = await getDocument('users', userId);
-          if (userDoc && (userDoc as any).profile) {
-            return {
-              userId,
-              userData: {
-                displayName: (userDoc as any).profile.userName || '사용자',
-                profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
-                isAnonymous: false
-              }
-            };
-          } else {
-            return {
-              userId,
-              userData: {
-                displayName: '삭제된 계정',
-                profileImageUrl: '',
-                isAnonymous: true
-              }
-            };
-          }
-        } catch (error) {
-          console.warn(`사용자 ${userId} 정보 조회 실패:`, error);
+  try {
+    const userPromises = Array.from(userIds).map(async (userId) => {
+      try {
+        const userDoc = await getDocument('users', userId);
+        if (userDoc && (userDoc as any).profile) {
+          return {
+            userId,
+            userData: {
+              displayName: (userDoc as any).profile.userName || '사용자',
+              profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
+              isAnonymous: false
+            }
+          };
+        } else {
           return {
             userId,
             userData: {
@@ -130,22 +124,32 @@ const updatePostsAuthorInfo = async (posts: any[]) => {
             }
           };
         }
-      });
+      } catch (error) {
+        console.warn(`사용자 ${userId} 정보 조회 실패:`, error);
+        return {
+          userId,
+          userData: {
+            displayName: '삭제된 계정',
+            profileImageUrl: '',
+            isAnonymous: true
+          }
+        };
+      }
+    });
 
-      const userResults = await Promise.all(userPromises);
-      userResults.forEach(result => {
-        if (result) {
-          userDataMap.set(result.userId, result.userData);
-        }
-      });
-    } catch (error) {
-      console.warn('사용자 정보 일괄 조회 실패:', error);
-    }
+    const userResults = await Promise.all(userPromises);
+    userResults.forEach(result => {
+      if (result) {
+        userDataMap.set(result.userId, result.userData);
+      }
+    });
+  } catch (error) {
+    console.warn('사용자 정보 일괄 조회 실패:', error);
   }
 
-  // 게시글에 사용자 정보 적용 (익명이 아닌 모든 게시글)
+  // 게시글에 사용자 정보 적용 (profileImageUrl이 없는 게시글만)
   return posts.map(post => {
-    if (!post.authorInfo?.isAnonymous && post.authorId) {
+    if (!post.authorInfo?.isAnonymous && post.authorId && !post.authorInfo?.profileImageUrl) {
       const userData = userDataMap.get(post.authorId);
       if (userData) {
         post.authorInfo = {
@@ -500,17 +504,10 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
       throw new Error('게시글을 찾을 수 없습니다.');
     }
     
-    console.log('=== getPostDetailOptimized 디버깅 ===');
-    console.log('게시글 ID:', postId);
-    console.log('작성자 ID:', post.authorId);
-    console.log('기존 authorInfo:', post.authorInfo);
-    
-    // authorInfo 처리 (getPostBasicInfo와 동일한 로직)
+    // authorInfo 처리: profileImageUrl이 이미 있거나 익명이면 users 조회 스킵
     if (!post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && post.authorId) {
-      console.log('사용자 정보 업데이트 시도...');
       try {
         const userDoc = await getDocument('users', post.authorId);
-        console.log('사용자 문서:', userDoc);
         if (userDoc && (userDoc as any).profile) {
           post.authorInfo = {
             ...post.authorInfo,
@@ -518,7 +515,6 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
             profileImageUrl: (userDoc as any).profile.profileImageUrl || '',
             isAnonymous: post.authorInfo?.isAnonymous || false
           };
-          console.log('업데이트된 authorInfo:', post.authorInfo);
         } else {
           post.authorInfo = {
             ...post.authorInfo,
@@ -526,7 +522,6 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
             profileImageUrl: '',
             isAnonymous: true
           };
-          console.log('삭제된 계정으로 처리:', post.authorInfo);
         }
       } catch (userError) {
         console.warn('사용자 정보 업데이트 실패:', userError);
@@ -537,12 +532,6 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
           isAnonymous: true
         };
       }
-    } else {
-      console.log('사용자 정보 업데이트 건너뜀 - 이유:', {
-        hasProfileImage: !!post.authorInfo?.profileImageUrl,
-        isAnonymous: !!post.authorInfo?.isAnonymous,
-        hasAuthorId: !!post.authorId
-      });
     }
     
     const serializedPost = serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']);

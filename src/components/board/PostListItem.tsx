@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { formatRelativeTime, getPostPreviewImages, stripHtmlTags } from "@/lib/utils";
 import { FirebaseTimestamp } from "@/types";
 import { User } from "lucide-react";
@@ -56,7 +56,6 @@ const PostListItem: React.FC<PostListItemProps> = ({
   boardData,
   onClickCapture
 }) => {
-  const router = useRouter();
   const { cachePost } = usePostCacheStore();
   const previewImages = getPostPreviewImages(post);
 
@@ -129,15 +128,15 @@ const PostListItem: React.FC<PostListItemProps> = ({
               {previewImages.map((imageUrl, index) => (
                 <div
                   key={index}
-                  className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
+                  className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0"
                 >
-                  <img
+                  <Image
                     src={imageUrl}
                     alt={`미리보기 ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    fill
+                    sizes="64px"
+                    className="object-cover"
                     onError={(e) => {
-                      // 이미지 로드 실패 시 숨김 처리
                       e.currentTarget.style.display = 'none';
                     }}
                   />
