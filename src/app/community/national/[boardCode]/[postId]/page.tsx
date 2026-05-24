@@ -1,8 +1,9 @@
 import React from "react";
+import { cache } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getPostDetail, getPostBasicInfo, getBoardsByType, getPostDetailOptimized } from "@/lib/api/board";
+import { getPostDetailOptimized, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { ArticleStructuredData, BreadcrumbStructuredData } from "@/components/seo/StructuredData";
@@ -13,6 +14,11 @@ import {
   categorizePost
 } from "@/lib/seo-utils";
 
+// React cache()로 감싸면 동일 요청 내에서 generateMetadata와 page()가
+// 각각 호출하더라도 Firestore를 한 번만 읽고 결과를 공유한다.
+const getPostDetailCached = cache(getPostDetailOptimized);
+const getBoardsCached = cache(getBoardsByType);
+
 interface PostViewPageProps {
   params: Promise<{
     boardCode: string;
@@ -22,13 +28,21 @@ interface PostViewPageProps {
 
 export async function generateMetadata({ params }: PostViewPageProps): Promise<Metadata> {
   const { boardCode, postId } = await params;
+  // #region agent log
+  const _metaStart = Date.now();
+  fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:meta_entry',message:'generateMetadata start',data:{postId,boardCode},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   
   try {
-    // 게시글과 게시판 정보를 병렬로 가져오기 (댓글은 메타데이터에 불필요)
+    // cache()로 감싼 함수를 사용해 page()와 결과를 공유
+    // includeComments:true 로 통일해야 cache() 키가 일치함
     const [{ post }, boards] = await Promise.all([
-      getPostDetailOptimized(postId, false), // 댓글 제외하고 가져오기
-      getBoardsByType('national')
+      getPostDetailCached(postId, true),
+      getBoardsCached('national')
     ]);
+    // #region agent log
+    fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:meta_fetch_done',message:'generateMetadata fetch done',data:{elapsedMs:Date.now()-_metaStart,postId},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const boardInfo = (boards as Board[]).find((board: Board) => board.code === boardCode);
     
     if (!boardInfo || !post) {
@@ -117,13 +131,21 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
 
 export default async function NationalPostDetailPage({ params }: PostViewPageProps) {
   const { boardCode, postId } = await params;
+  // #region agent log
+  const _pageStart = Date.now();
+  fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:page_entry',message:'page fn start',data:{postId,boardCode},hypothesisId:'A,D',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   
   try {
     // 게시글 정보와 게시판 정보를 병렬로 가져오기
+    // cache()로 감싼 함수를 사용해 generateMetadata와 결과를 공유
     const [{ post, comments }, boards] = await Promise.all([
-      getPostDetailOptimized(postId, true),
-      getBoardsByType('national')
+      getPostDetailCached(postId, true),
+      getBoardsCached('national')
     ]);
+    // #region agent log
+    fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:after_data_fetch',message:'data fetch done',data:{elapsedMs:Date.now()-_pageStart,postId,hasPost:!!post,commentsCount:Array.isArray(comments)?comments.length:0},hypothesisId:'A,C,D',timestamp:Date.now()})}).catch(()=>{})
+    // #endregion
     
     const board = boards.find(b => b.code === boardCode);
     
