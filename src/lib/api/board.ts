@@ -567,18 +567,17 @@ export const incrementPostViewCount = async (postId: string): Promise<void> => {
 // 게시글에 달린 댓글 가져오기 (최적화된 버전 - N+1 쿼리 문제 해결)
 export const getCommentsByPost = async (postId: string) => {
   try {
-    // 1. 서브컬렉션에서 기존 댓글 조회
+    // 서브컬렉션과 최상위 컬렉션을 병렬로 조회
     const commentsRef = collection(db, 'posts', postId, 'comments');
     const subCollectionQuery = query(commentsRef, orderBy('createdAt', 'asc'));
-    const subCollectionSnapshot = await getDocs(subCollectionQuery);
     
-    // 2. 최상위 컬렉션에서 AI 댓글 조회 (인덱스 문제 방지)
     const topLevelCommentsRef = collection(db, 'comments');
-    const topLevelQuery = query(
-      topLevelCommentsRef, 
-      where('postId', '==', postId)
-    );
-    const topLevelSnapshot = await getDocs(topLevelQuery);
+    const topLevelQuery = query(topLevelCommentsRef, where('postId', '==', postId));
+
+    const [subCollectionSnapshot, topLevelSnapshot] = await Promise.all([
+      getDocs(subCollectionQuery),
+      getDocs(topLevelQuery),
+    ]);
     
     const allComments: any[] = [];
     const allReplies: any[] = [];

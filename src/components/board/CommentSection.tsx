@@ -701,8 +701,12 @@ export default function CommentSection({
 }: CommentSectionProps) {
   const { user, suspensionStatus } = useAuth();
   const { trackCreateComment, trackGiveLike } = useQuestTracker();
-  const [comments, setComments] = useState<CommentWithReplies[]>([]);
-  const [allComments, setAllComments] = useState<CommentWithReplies[]>([]); // 전체 댓글
+  const [comments, setComments] = useState<CommentWithReplies[]>(
+    initialComments ? (initialComments as CommentWithReplies[]).slice(0, 10) : []
+  );
+  const [allComments, setAllComments] = useState<CommentWithReplies[]>(
+    initialComments ? (initialComments as CommentWithReplies[]) : []
+  );
   const [displayedCount, setDisplayedCount] = useState(10); // 초기 표시 개수
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -777,10 +781,27 @@ export default function CommentSection({
   }, [postId, user, onCommentCountChange, displayedCount]);
 
   // 컴포넌트 마운트 시 댓글 및 차단 사용자 목록 로드
+  // initialComments가 서버에서 전달된 경우 초기 fetch 스킵
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetchComments();
+    if (!initialComments || initialComments.length === 0) {
+      fetchComments();
+    }
     loadBlockedUsers();
-  }, [fetchComments, loadBlockedUsers]);
+  }, []); // 마운트 시 1회만 실행
+
+  // user가 로드된 후 initialComments 기반으로 좋아요 상태만 확인
+  useEffect(() => {
+    if (!user || !initialComments || initialComments.length === 0) return;
+    const allCommentIds = initialComments.flatMap((comment: Comment) => [
+      comment.id,
+      ...((comment as any).replies || []).map((reply: Comment) => reply.id)
+    ]);
+    if (allCommentIds.length === 0) return;
+    checkMultipleCommentLikeStatus(postId, allCommentIds, user.uid)
+      .then(setLikeStatuses)
+      .catch(() => {});
+  }, [user?.uid]);
 
   // 차단 해제 시 상태 업데이트
   const handleUnblock = (userId: string) => {

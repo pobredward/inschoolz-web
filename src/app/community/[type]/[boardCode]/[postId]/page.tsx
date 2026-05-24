@@ -1,10 +1,13 @@
 import { notFound } from 'next/navigation';
-import { getPostDetail, getPostBasicInfo } from '@/lib/api/board';
-import { getBoardsByType } from '@/lib/api/board';
+import { cache } from 'react';
+import { getPostDetailOptimized, getBoardsByType } from '@/lib/api/board';
 import { PostViewClient } from '@/components/board/PostViewClient';
 import type { BoardType } from '@/types/board';
 import { Post, Comment } from '@/types';
-import { stripHtmlTags, serializeTimestamp } from '@/lib/utils';
+import { stripHtmlTags } from '@/lib/utils';
+
+const getPostDetailCached = cache(getPostDetailOptimized);
+const getBoardsCached = cache(getBoardsByType);
 
 interface PostDetailPageProps {
   params: Promise<{
@@ -18,11 +21,8 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
   const { type, boardCode, postId } = await params;
 
   try {
-    // 게시글 상세 정보 가져오기 (이미 직렬화됨)
-    const { post, comments } = await getPostDetail(postId);
-    
-    // 게시판 정보 가져오기
-    const boards = await getBoardsByType(type);
+    const { post, comments } = await getPostDetailCached(postId, true);
+    const boards = await getBoardsCached(type);
     const board = boards.find(b => b.code === boardCode);
     
     if (!board) {
@@ -51,15 +51,15 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
   const { postId } = await params;
   
   try {
-    const post = await getPostBasicInfo(postId);
+    const { post } = await getPostDetailCached(postId, true);
     
     return {
-      title: `${post.title} - Inschoolz`,
-      description: stripHtmlTags(post.content).slice(0, 150) + '...',
+      title: `${(post as Post).title} - Inschoolz`,
+      description: stripHtmlTags((post as Post).content).slice(0, 150) + '...',
       openGraph: {
-        title: post.title,
-        description: stripHtmlTags(post.content).slice(0, 150) + '...',
-        images: post.attachments?.length > 0 ? [post.attachments[0].url] : [],
+        title: (post as Post).title,
+        description: stripHtmlTags((post as Post).content).slice(0, 150) + '...',
+        images: (post as Post).attachments?.length > 0 ? [(post as Post).attachments[0].url] : [],
       },
     };
   } catch {

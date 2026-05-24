@@ -1,8 +1,9 @@
 import React from "react";
+import { cache } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getPostDetail, getPostBasicInfo, getBoardsByType, getPostDetailOptimized } from "@/lib/api/board";
+import { getBoardsByType, getPostDetailOptimized } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { 
@@ -11,6 +12,9 @@ import {
   generateSeoKeywords,
   categorizePost
 } from "@/lib/seo-utils";
+
+const getPostDetailCached = cache(getPostDetailOptimized);
+const getBoardsCached = cache(getBoardsByType);
 
 interface PostViewPageProps {
   params: Promise<{
@@ -34,10 +38,10 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   const { schoolId, boardCode, postId } = await params;
   
   try {
-    // 게시글과 게시판 정보를 병렬로 가져오기 (댓글은 메타데이터에 불필요)
+    // cache()로 감싼 함수를 사용해 generateMetadata와 결과를 공유
     const [{ post }, boards] = await Promise.all([
-      getPostDetailOptimized(postId, false), // 댓글 제외하고 가져오기
-      getBoardsByType('school')
+      getPostDetailCached(postId, true),
+      getBoardsCached('school')
     ]);
     const boardInfo = boards.find(board => board.code === boardCode);
     const schoolInfo = getSchoolInfo(schoolId);
@@ -131,12 +135,13 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
 
 export default async function SchoolPostDetailPage({ params }: PostViewPageProps) {
   const { boardCode, postId } = await params;
+  // #endregion
   
   try {
-    // 게시글 정보와 게시판 정보를 병렬로 가져오기
+    // cache()로 감싼 함수를 사용해 generateMetadata와 결과를 공유
     const [{ post, comments }, boards] = await Promise.all([
-      getPostDetailOptimized(postId, true),
-      getBoardsByType('school')
+      getPostDetailCached(postId, true),
+      getBoardsCached('school')
     ]);
     
     const board = boards.find(b => b.code === boardCode);
