@@ -127,6 +127,7 @@ export default function TileGamePage() {
     setMoves(0);
     setMatches(0);
     setTimeElapsed(0);
+    setFinalScore(0);
   }, [totalPairs]);
 
   // 게임 시작
