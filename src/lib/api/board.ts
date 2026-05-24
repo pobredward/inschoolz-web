@@ -164,7 +164,8 @@ const updatePostsAuthorInfo = async (posts: any[]) => {
   });
 };
 
-// 게시판 목록 가져오기
+// 게시판 목록 가져오기 (클라이언트/서버 공용)
+// 서버 캐시(unstable_cache)는 RSC 페이지에서 getBoardsByTypeCached()를 사용하세요
 export const getBoardsByType = async (type: BoardType) => {
   try {
     const boards = await getDocuments<Board>('boards', [
@@ -499,7 +500,11 @@ export const getPostDocument = async (postId: string): Promise<Post | null> => {
 };
 
 // 최적화된 게시글 상세 정보 가져오기 (메타데이터용, 댓글 제외)
-export const getPostDetailOptimized = async (postId: string, includeComments = true) => {
+export const getPostDetailOptimized = async (
+  postId: string,
+  includeComments = true,
+  commentLimit?: number
+) => {
   try {
     const post = await getDocument<Post>('posts', postId);
     
@@ -509,7 +514,7 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
 
     // post 조회 완료 후 user 조회와 comments 조회를 병렬로 실행
     const needsUserFetch = !post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && !!post.authorId;
-    const [userDoc, comments] = await Promise.all([
+    const [userDoc, allComments] = await Promise.all([
       needsUserFetch ? getDocument('users', post.authorId!) : Promise.resolve(null),
       includeComments ? getCommentsByPost(postId) : Promise.resolve([]),
     ]);
@@ -544,8 +549,18 @@ export const getPostDetailOptimized = async (postId: string, includeComments = t
     }
     
     const serializedPost = serializeObject(post as any, ['createdAt', 'updatedAt', 'deletedAt']);
+
+    // commentLimit이 있으면 초기 N개만 반환하고 hasMoreComments 플래그 포함
+    if (commentLimit !== undefined && allComments.length > commentLimit) {
+      return {
+        post: serializedPost,
+        comments: allComments.slice(0, commentLimit),
+        hasMoreComments: true,
+        totalCommentCount: allComments.length,
+      };
+    }
     
-    return { post: serializedPost, comments };
+    return { post: serializedPost, comments: allComments, hasMoreComments: false, totalCommentCount: allComments.length };
   } catch (error) {
     console.error('최적화된 게시글 정보 가져오기 오류:', error);
     throw new Error('게시글 정보를 가져오는 중 오류가 발생했습니다.');

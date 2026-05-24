@@ -385,6 +385,50 @@ export function serializeComment(comment: Record<string, unknown>) {
 }
 
 /**
+ * 서버에서 HTML을 안전하게 sanitize (sanitize-html 사용)
+ * 이미지·링크·서식 태그를 보존하고 XSS 위험 요소만 제거
+ * img 태그에 lazy loading 속성 자동 추가
+ */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const _sanitizeHtml = typeof window === 'undefined' ? require('sanitize-html') : null;
+
+export function sanitizeHtmlServer(content: string): string {
+  if (!content) return '';
+  const sanitizeHtml = _sanitizeHtml;
+  if (!sanitizeHtml) return content;
+  return sanitizeHtml(content, {
+    allowedTags: [
+      'b', 'i', 'em', 'strong', 'u', 'strike', 's',
+      'p', 'br', 'div', 'span',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'ul', 'ol', 'li',
+      'blockquote', 'pre', 'code',
+      'a', 'img',
+    ],
+    allowedAttributes: {
+      a: ['href', 'target', 'rel'],
+      img: ['src', 'alt', 'width', 'height', 'style', 'loading', 'decoding'],
+      span: ['class', 'style'],
+      div: ['class', 'style'],
+      p: ['class', 'style'],
+    },
+    allowedSchemes: ['http', 'https', 'data'],
+    transformTags: {
+      a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer', target: '_blank' }),
+      img: (_tagName: string, attribs: Record<string, string>) => ({
+        tagName: 'img',
+        attribs: {
+          ...attribs,
+          loading: 'lazy',
+          decoding: 'async',
+          style: `max-width:100%;height:auto;${attribs.style || ''}`,
+        },
+      }),
+    },
+  }) as string;
+}
+
+/**
  * HTML 태그를 파싱하여 안전한 HTML로 변환
  */
 export async function parseHtmlContent(content: string): Promise<string> {

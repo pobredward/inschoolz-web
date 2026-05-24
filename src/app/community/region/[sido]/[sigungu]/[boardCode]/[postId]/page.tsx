@@ -1,11 +1,12 @@
 import React from "react";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getBoardsByType, getPostDetailOptimized, getPostDocument } from "@/lib/api/board";
+import { getPostDetailAdmin } from "@/lib/api/community-server";
 import { Post, Comment } from "@/types";
-import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
+import { stripHtmlTags, serializeTimestamp, sanitizeHtmlServer } from "@/lib/utils";
 import { 
   generateSeoTitle, 
   generateSeoDescription, 
@@ -13,11 +14,9 @@ import {
   categorizePost
 } from "@/lib/seo-utils";
 
-// generateMetadata: post 문서만 필요 → getPostDocumentCached
-// page(): 댓글까지 필요 → getPostDetailCached
-// getBoardsByType: unstable_cache(1시간) 적용
-const getPostDocumentCached = cache(getPostDocument);
-const getPostDetailCached = cache(getPostDetailOptimized);
+const getPostDetailAdminCached = cache(
+  (postId: string, uid: string) => getPostDetailAdmin(postId, 'regional', uid, 30)
+);
 
 interface PostViewPageProps {
   params: Promise<{
@@ -32,13 +31,10 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   const { sido, sigungu, boardCode, postId } = await params;
   
   try {
-    const [post, boards] = await Promise.all([
-      getPostDocumentCached(postId),
-      getBoardsByType('regional')
-    ]);
-    const boardInfo = boards.find(board => board.code === boardCode);
+    const result = await getPostDetailAdminCached(postId, '');
+    const boardInfo = result?.boards?.find(board => board.code === boardCode);
     
-    if (!boardInfo || !post) {
+    if (!boardInfo || !result?.post) {
       return {
         title: '게시글을 찾을 수 없습니다 - 인스쿨즈',
         description: '요청하신 게시글을 찾을 수 없습니다.',
@@ -46,6 +42,7 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
       };
     }
 
+    const post = result.post as unknown as Post;
     const isAnonymous = post.authorInfo?.isAnonymous;
     const cleanContent = stripHtmlTags(post.content);
     const authorName = isAnonymous ? '익명' : (post.authorInfo?.displayName || '사용자');
@@ -118,25 +115,28 @@ export default async function RegionalPostDetailPage({ params }: PostViewPagePro
   const { boardCode, postId } = await params;
   
   try {
-    const [{ post, comments }, boards] = await Promise.all([
-      getPostDetailCached(postId, true),
-      getBoardsByType('regional')
-    ]);
+    const cookieStore = await cookies();
+    const uid = cookieStore.get('uid')?.value || '';
+
+    // Admin SDK 단일 호출: post + comments + boards + userState 완전 병렬
+    const result = await getPostDetailAdminCached(postId, uid);
+    
+    if (!result) notFound();
+
+    const { post, comments, hasMoreComments, boards, userState } = result;
     
     const board = boards.find(b => b.code === boardCode);
-    
-    if (!board) {
-      notFound();
-    }
+    if (!board) notFound();
 
-    if ((post as Post).boardCode !== boardCode) {
-      notFound();
-    }
+    if ((post as unknown as Post).boardCode !== boardCode) notFound();
 
     return (
       <PostViewClient
         post={post as unknown as Post}
         initialComments={comments as unknown as Comment[]}
+        hasMoreComments={hasMoreComments}
+        sanitizedContent={sanitizeHtmlServer((post as unknown as Post).content)}
+        initialUserState={userState}
       />
     );
   } catch (error) {

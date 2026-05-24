@@ -1,11 +1,12 @@
 import React from "react";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getPostDetailOptimized, getPostDocument, getBoardsByType } from "@/lib/api/board";
+import { getPostDetailAdmin } from "@/lib/api/community-server";
 import { Post, Comment, Board } from "@/types";
-import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
+import { stripHtmlTags, serializeTimestamp, sanitizeHtmlServer } from "@/lib/utils";
 import { ArticleStructuredData, BreadcrumbStructuredData } from "@/components/seo/StructuredData";
 import { 
   generateSeoTitle, 
@@ -14,11 +15,10 @@ import {
   categorizePost
 } from "@/lib/seo-utils";
 
-// generateMetadata: post 문서만 필요 → getPostDocumentCached (댓글 쿼리 없음)
-// page(): 댓글까지 필요 → getPostDetailCached
-// getBoardsByType: unstable_cache(1시간) 적용 → 동일 요청 내 중복 호출해도 캐시 히트
-const getPostDocumentCached = cache(getPostDocument);
-const getPostDetailCached = cache(getPostDetailOptimized);
+// generateMetadata와 page()가 동일한 React cache를 공유 → Admin SDK 1번만 호출
+const getPostDetailAdminCached = cache(
+  (postId: string, uid: string) => getPostDetailAdmin(postId, 'national', uid, 30)
+);
 
 interface PostViewPageProps {
   params: Promise<{
@@ -31,13 +31,11 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   const { boardCode, postId } = await params;
   
   try {
-    const [post, boards] = await Promise.all([
-      getPostDocumentCached(postId),
-      getBoardsByType('national')
-    ]);
-    const boardInfo = (boards as Board[]).find((board: Board) => board.code === boardCode);
+    // metadata용: uid 없이 호출 — boards는 result 안에 포함됨
+    const result = await getPostDetailAdminCached(postId, '');
+    const boardInfo = (result?.boards as Board[] | undefined)?.find((board: Board) => board.code === boardCode);
     
-    if (!boardInfo || !post) {
+    if (!boardInfo || !result?.post) {
       return {
         title: '게시글을 찾을 수 없습니다 - 인스쿨즈',
         description: '요청하신 게시글을 찾을 수 없습니다.',
@@ -45,7 +43,7 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
       };
     }
 
-    const postData = post as Post;
+    const postData = result.post as unknown as Post;
     const isAnonymous = postData.authorInfo?.isAnonymous;
     const cleanContent = stripHtmlTags(postData.content);
     const authorName = isAnonymous ? '익명' : (postData.authorInfo?.displayName || '사용자');
@@ -110,29 +108,29 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
   const { boardCode, postId } = await params;
   
   try {
-    const [{ post, comments }, boards] = await Promise.all([
-      getPostDetailCached(postId, true),
-      getBoardsByType('national')
-    ]);
+    const cookieStore = await cookies();
+    const uid = cookieStore.get('uid')?.value || '';
+
+    // Admin SDK 단일 호출: post + comments + boards + userState 완전 병렬
+    const result = await getPostDetailAdminCached(postId, uid);
+    
+    if (!result) notFound();
+
+    const { post, comments, hasMoreComments, boards, userState } = result;
     
     const board = (boards as Board[]).find(b => b.code === boardCode);
-    
-    if (!board) {
-      notFound();
-    }
+    if (!board) notFound();
 
-    if ((post as Post).boardCode !== boardCode) {
-      notFound();
-    }
+    if ((post as unknown as Post).boardCode !== boardCode) notFound();
 
     const postUrl = `https://inschoolz.com/community/national/${boardCode}/${postId}`;
-    const categories = categorizePost((post as Post).title, (post as Post).content);
-    const seoKeywords = generateSeoKeywords(post as Post, board.name, 'national');
+    const categories = categorizePost((post as unknown as Post).title, (post as unknown as Post).content);
+    const seoKeywords = generateSeoKeywords(post as unknown as Post, board.name, 'national');
 
     return (
       <>
         <ArticleStructuredData
-          post={post as Post}
+          post={post as unknown as Post}
           url={postUrl}
           boardName={board.name}
           communityType="national"
@@ -142,13 +140,16 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
         <BreadcrumbStructuredData 
           boardCode={boardCode}
           boardName={board.name}
-          postTitle={(post as Post).title}
+          postTitle={(post as unknown as Post).title}
           communityType="national"
         />
         
         <PostViewClient
           post={post as unknown as Post}
           initialComments={comments as unknown as Comment[]}
+          hasMoreComments={hasMoreComments}
+          sanitizedContent={sanitizeHtmlServer((post as unknown as Post).content)}
+          initialUserState={userState}
         />
       </>
     );

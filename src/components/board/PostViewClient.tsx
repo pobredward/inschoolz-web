@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import NextImage from 'next/image';
 import { usePostCacheStore } from '@/store/postCacheStore';
 import { Button } from '@/components/ui/button';
 
@@ -37,7 +38,6 @@ import {
   deletePost,
   toggleLikePost
 } from '@/lib/api/boards';
-import { getBoardsByType } from '@/lib/api/board';
 import { toggleBlock, checkBlockStatus } from '@/lib/api/users';
 import { toast } from 'react-hot-toast';
 import CommentSection from './CommentSection';
@@ -62,12 +62,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+interface PostUserState {
+  isLiked: boolean;
+  isScrapped: boolean;
+  isBlocked: boolean;
+}
+
 interface PostViewClientProps {
   post: Post;
   initialComments: Comment[];
+  hasMoreComments?: boolean;
+  sanitizedContent?: string;
+  initialUserState?: PostUserState;
 }
 
-export const PostViewClient = ({ post: serverPost, initialComments }: PostViewClientProps) => {
+export const PostViewClient = ({ post: serverPost, initialComments, hasMoreComments = false, sanitizedContent, initialUserState }: PostViewClientProps) => {
   const router = useRouter();
   const { user } = useAuth();
   const { trackGiveLike } = useQuestTracker();
@@ -78,8 +87,8 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
   const initialPost = cachedData?.post || serverPost;
   
   const [post, setPost] = useState<Post>(initialPost);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isScrapped, setIsScrapped] = useState(false);
+  const [isLiked, setIsLiked] = useState(initialUserState?.isLiked ?? false);
+  const [isScrapped, setIsScrapped] = useState(initialUserState?.isScrapped ?? false);
   const [likeCount, setLikeCount] = useState(initialPost.stats.likeCount);
   const [scrapCount, setScrapCount] = useState(initialPost.stats.scrapCount || 0);
   const [commentCount, setCommentCount] = useState(initialPost.stats.commentCount);
@@ -89,7 +98,7 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
   const [showReportModal, setShowReportModal] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
-  const [isUserBlocked, setIsUserBlocked] = useState(false);
+  const [isUserBlocked, setIsUserBlocked] = useState(initialUserState?.isBlocked ?? false);
   
   // 서버 데이터가 도착하면 최신 데이터로 업데이트
   useEffect(() => {
@@ -111,11 +120,11 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
     sessionStorage.setItem('from-post-detail', 'true');
   }, [post.id]);
 
-  // 사용자 관련 상태는 지연 로딩
+  // 사용자 관련 상태 — 서버에서 initialUserState를 받은 경우 클라이언트 읽기 스킵
   useEffect(() => {
     if (!user) return;
+    if (initialUserState) return; // 서버 SSR 상태가 있으면 재조회 불필요
     
-    // 좋아요/스크랩/차단 상태 확인 (지연 로딩)
     const checkStatuses = async () => {
       try {
         const [likeStatus, scrapStatus, blockStatus] = await Promise.all([
@@ -132,7 +141,7 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
     };
     
     checkStatuses();
-  }, [user, post.id, post.authorId]);
+  }, [user, post.id, post.authorId, initialUserState]);
 
   // board 정보는 서버에서 이미 제공되므로 클라이언트에서 별도 로딩 불필요
   // useEffect(() => {
@@ -416,10 +425,19 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
                 className="flex items-center gap-2 sm:gap-3 hover:bg-gray-50 rounded-lg p-1 sm:p-2 -m-1 sm:-m-2 transition-colors min-w-0 min-h-touch"
               >
                 <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
-                  <AvatarImage src={post.authorInfo?.profileImageUrl} />
-                  <AvatarFallback className="text-xs sm:text-sm">
-                    {post.authorInfo?.displayName?.substring(0, 2) || 'U'}
-                  </AvatarFallback>
+                  {post.authorInfo?.profileImageUrl ? (
+                    <NextImage
+                      src={post.authorInfo.profileImageUrl}
+                      alt={post.authorInfo.displayName || '프로필'}
+                      width={40}
+                      height={40}
+                      className="rounded-full object-cover"
+                    />
+                  ) : (
+                    <AvatarFallback className="text-xs sm:text-sm">
+                      {post.authorInfo?.displayName?.substring(0, 2) || 'U'}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1 sm:gap-2 mb-1">
@@ -499,7 +517,21 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
 
         {/* 게시글 내용 */}
         <div className="mb-4 md:mb-6 text-sm md:text-base leading-relaxed">
-          <HtmlContent content={post.content} />
+          {sanitizedContent !== undefined ? (
+            <div
+              className="prose prose-sm max-w-none whitespace-pre-wrap break-words overflow-wrap-anywhere"
+              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+              onClick={(e) => {
+                const target = e.target as HTMLElement;
+                if (target.tagName === 'IMG') {
+                  window.open((target as HTMLImageElement).src, '_blank');
+                }
+              }}
+              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+            />
+          ) : (
+            <HtmlContent content={post.content} />
+          )}
         </div>
 
         {/* 투표 */}
@@ -585,6 +617,7 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
           <CommentSection 
             postId={post.id} 
             initialComments={initialComments}
+            hasMoreComments={hasMoreComments}
             onCommentCountChange={handleCommentCountChange}
           />
         </div>

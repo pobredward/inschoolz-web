@@ -51,6 +51,7 @@ import { isAdmin, canEditAIComment } from '@/lib/admin-utils';
 interface CommentSectionProps {
   postId: string;
   initialComments?: Comment[];
+  hasMoreComments?: boolean;
   onCommentCountChange?: (count: number) => void;
 }
 
@@ -697,6 +698,7 @@ function CommentItem({
 export default function CommentSection({ 
   postId, 
   initialComments,
+  hasMoreComments = false,
   onCommentCountChange 
 }: CommentSectionProps) {
   const { user, suspensionStatus } = useAuth();
@@ -782,9 +784,13 @@ export default function CommentSection({
 
   // 컴포넌트 마운트 시 댓글 및 차단 사용자 목록 로드
   // initialComments가 서버에서 전달된 경우 초기 fetch 스킵
+  // 단, SSR에서 댓글을 일부만 내려보낸 경우(hasMoreComments) 백그라운드에서 전체 로드
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!initialComments || initialComments.length === 0) {
+      fetchComments();
+    } else if (hasMoreComments) {
+      // SSR에서 일부만 내려온 경우 백그라운드에서 나머지 로드
       fetchComments();
     }
     loadBlockedUsers();
