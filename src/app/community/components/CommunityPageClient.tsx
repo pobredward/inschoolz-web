@@ -293,27 +293,14 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
     loadBoards();
   }, [selectedTab]);
 
+  // school/regional 탭에서 선택 없으면 posts 초기화
   useEffect(() => {
     if (selectedTab === 'school' && !currentSchoolId) {
       setPosts([]);
-      return;
-    }
-    if (selectedTab === 'regional' && (!currentRegion.sido || !currentRegion.sigungu)) {
+    } else if (selectedTab === 'regional' && (!currentRegion.sido || !currentRegion.sigungu)) {
       setPosts([]);
-      return;
     }
-
-    const hasSchoolOrRegion = (selectedTab === 'school' && currentSchoolId) ||
-                              (selectedTab === 'regional' && currentRegion.sido && currentRegion.sigungu);
-
-    if (boards.length === 0 && !isInitialLoading && !hasSchoolOrRegion) {
-      return;
-    }
-
-    if (!isInitialLoading) {
-      loadPosts();
-    }
-  }, [selectedTab, selectedBoard, sortBy, boards.length, currentPage, currentSchoolId, currentRegion.sido, currentRegion.sigungu, isInitialLoading]);
+  }, [selectedTab, currentSchoolId, currentRegion.sido, currentRegion.sigungu]);
 
   // 사용자 정보 변경 시 차단된 사용자 목록 로드
   useEffect(() => {
@@ -322,20 +309,25 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
     }
   }, [user?.uid]);
 
-  // 브라우저 탭이 포커스될 때마다 게시글 목록 새로고침 (5분 쿨다운 적용)
+  // 브라우저 탭이 포커스될 때 게시글 목록 새로고침 (5분 쿨다운 + 뒤로가기는 제외)
   useEffect(() => {
     const handleWindowFocus = () => {
-      if (posts.length > 0 && Date.now() - lastFetchedAt.current > REFETCH_INTERVAL) {
-        loadPosts();
+      // 상세 페이지에서 뒤로가기 후 focus인 경우 스킵 (sessionStorage로 판별)
+      const fromPostDetail = sessionStorage.getItem('from-post-detail');
+      if (fromPostDetail) {
+        sessionStorage.removeItem('from-post-detail');
+        return;
+      }
+      if (Date.now() - lastFetchedAt.current > REFETCH_INTERVAL) {
+        refetchPosts();
       }
     };
 
     window.addEventListener('focus', handleWindowFocus);
-
-    return () => {
-      window.removeEventListener('focus', handleWindowFocus);
-    };
-  }, [posts.length]);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  // refetchPosts는 안정적인 참조이므로 의존배열에서 제거 가능하지 않지만, posts.length 의존 제거로 리스너 재등록 방지
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refetchPosts]);
 
   // 차단 해제 시 상태 업데이트
   const handleUnblock = (userId: string) => {
@@ -485,20 +477,21 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
   }, [selectedTab, selectedBoard, sortBy, currentPage, pageSize, currentSchoolId, currentRegion, boards]);
 
   // 게시글 쿼리: 동일 queryKey면 캐시 히트 (stale-while-revalidate)
+  // boards.length 조건 제거 — boards가 아직 없어도 national은 바로 fetch 가능
   const postsQueryEnabled =
     !isInitialLoading &&
     !(selectedTab === 'school' && !currentSchoolId) &&
-    !(selectedTab === 'regional' && (!currentRegion.sido || !currentRegion.sigungu)) &&
-    (boards.length > 0 || selectedTab === 'school' || selectedTab === 'regional');
+    !(selectedTab === 'regional' && (!currentRegion.sido || !currentRegion.sigungu));
 
   const {
     data: postsData,
     isFetching: isPostsFetching,
+    refetch: refetchPosts,
   } = useQuery({
     queryKey: ['community-posts', selectedTab, selectedBoard, sortBy, currentPage, pageSize, currentSchoolId, currentRegion.sido, currentRegion.sigungu],
     queryFn: fetchPostsData,
     enabled: postsQueryEnabled,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
   });
 
@@ -509,6 +502,8 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
       setTotalCount(postsData.totalCount);
       setTotalPages(postsData.totalPages);
       lastFetchedAt.current = Date.now();
+      // 첫 데이터 수신 시 초기 로딩 완료 처리
+      setIsInitialLoading(false);
     }
   }, [postsData]);
 
@@ -516,21 +511,15 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
     setIsLoading(isPostsFetching);
   }, [isPostsFetching]);
 
+  // loadPosts: school selector에서 직접 호출하는 경우를 위해 유지 (refetchPosts 래퍼)
   const loadPosts = async () => {
     try {
       setIsLoading(true);
-      const result = await fetchPostsData();
-      setPosts(result.items);
-      setTotalCount(result.totalCount);
-      setTotalPages(result.totalPages);
+      await refetchPosts();
     } catch (error) {
       console.error('게시글 로드 실패:', error);
-      setPosts([]);
-      setTotalCount(0);
-      setTotalPages(1);
     } finally {
       setIsLoading(false);
-      setIsInitialLoading(false);
       lastFetchedAt.current = Date.now();
     }
   };
@@ -708,7 +697,7 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
                         
                         // 게시판과 게시글 목록 새로고침
                         await loadBoards();
-                        await loadPosts();
+                        refetchPosts();
                       }}
                       className="max-w-sm"
                     />
