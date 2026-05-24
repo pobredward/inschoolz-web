@@ -3,7 +3,7 @@ import { cache } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getPostDetailOptimized, getBoardsByType } from "@/lib/api/board";
+import { getPostDetailOptimized, getPostDocument, getBoardsByType } from "@/lib/api/board";
 import { Post, Comment, Board } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { ArticleStructuredData, BreadcrumbStructuredData } from "@/components/seo/StructuredData";
@@ -14,10 +14,11 @@ import {
   categorizePost
 } from "@/lib/seo-utils";
 
-// React cache()로 감싸면 동일 요청 내에서 generateMetadata와 page()가
-// 각각 호출하더라도 Firestore를 한 번만 읽고 결과를 공유한다.
+// generateMetadata: post 문서만 필요 → getPostDocumentCached (댓글 쿼리 없음)
+// page(): 댓글까지 필요 → getPostDetailCached
+// getBoardsByType: unstable_cache(1시간) 적용 → 동일 요청 내 중복 호출해도 캐시 히트
+const getPostDocumentCached = cache(getPostDocument);
 const getPostDetailCached = cache(getPostDetailOptimized);
-const getBoardsCached = cache(getBoardsByType);
 
 interface PostViewPageProps {
   params: Promise<{
@@ -30,11 +31,9 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
   const { boardCode, postId } = await params;
   
   try {
-    // cache()로 감싼 함수를 사용해 page()와 결과를 공유
-    // includeComments:true 로 통일해야 cache() 키가 일치함
-    const [{ post }, boards] = await Promise.all([
-      getPostDetailCached(postId, true),
-      getBoardsCached('national')
+    const [post, boards] = await Promise.all([
+      getPostDocumentCached(postId),
+      getBoardsByType('national')
     ]);
     const boardInfo = (boards as Board[]).find((board: Board) => board.code === boardCode);
     
@@ -47,31 +46,16 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
     }
 
     const postData = post as Post;
-    
-    // 익명 게시글은 검색엔진에서 제외
     const isAnonymous = postData.authorInfo?.isAnonymous;
-    
-    // 게시글 내용 정리 및 작성 정보 추가
     const cleanContent = stripHtmlTags(postData.content);
     const authorName = isAnonymous ? '익명' : (postData.authorInfo?.displayName || '사용자');
     const createdDate = serializeTimestamp(postData.createdAt).toLocaleDateString('ko-KR');
-    
-    // 첨부 이미지 추출
     const images = postData.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
     const firstImage = images.length > 0 ? images[0] : undefined;
     
-    // SEO 최적화된 메타데이터 생성
     const seoTitle = generateSeoTitle(postData, boardInfo.name, 'national');
-    const seoDescription = generateSeoDescription(
-      postData, 
-      cleanContent, 
-      authorName, 
-      createdDate, 
-      'national'
-    );
+    const seoDescription = generateSeoDescription(postData, cleanContent, authorName, createdDate, 'national');
     const seoKeywords = generateSeoKeywords(postData, boardInfo.name, 'national');
-    
-    // 게시글 카테고리 분류
     const categories = categorizePost(postData.title, postData.content);
 
     return {
@@ -108,8 +92,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
         'article:section': `전국 ${boardInfo.name}`,
         'article:tag': categories.join(','),
         'article:author': authorName,
-        'article:published_time': serializeTimestamp((post as Post).createdAt).toISOString(),
-        'article:modified_time': serializeTimestamp((post as Post).updatedAt || (post as Post).createdAt).toISOString(),
+        'article:published_time': serializeTimestamp(postData.createdAt).toISOString(),
+        'article:modified_time': serializeTimestamp(postData.updatedAt || postData.createdAt).toISOString(),
       },
     };
   } catch (error) {
@@ -126,11 +110,9 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
   const { boardCode, postId } = await params;
   
   try {
-    // 게시글 정보와 게시판 정보를 병렬로 가져오기
-    // cache()로 감싼 함수를 사용해 generateMetadata와 결과를 공유
     const [{ post, comments }, boards] = await Promise.all([
       getPostDetailCached(postId, true),
-      getBoardsCached('national')
+      getBoardsByType('national')
     ]);
     
     const board = (boards as Board[]).find(b => b.code === boardCode);
@@ -139,20 +121,16 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
       notFound();
     }
 
-    // 게시글이 해당 게시판에 속하는지 확인
     if ((post as Post).boardCode !== boardCode) {
       notFound();
     }
 
     const postUrl = `https://inschoolz.com/community/national/${boardCode}/${postId}`;
-    
-    // SEO 최적화 데이터 생성
     const categories = categorizePost((post as Post).title, (post as Post).content);
     const seoKeywords = generateSeoKeywords(post as Post, board.name, 'national');
 
     return (
       <>
-        {/* SEO 구조화 데이터 */}
         <ArticleStructuredData
           post={post as Post}
           url={postUrl}

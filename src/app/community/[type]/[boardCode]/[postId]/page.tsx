@@ -1,13 +1,16 @@
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
-import { getPostDetailOptimized, getBoardsByType } from '@/lib/api/board';
+import { getPostDetailOptimized, getPostDocument, getBoardsByType } from '@/lib/api/board';
 import { PostViewClient } from '@/components/board/PostViewClient';
 import type { BoardType } from '@/types/board';
 import { Post, Comment } from '@/types';
 import { stripHtmlTags } from '@/lib/utils';
 
+// generateMetadata: post 문서만 필요 → getPostDocumentCached
+// page(): 댓글까지 필요 → getPostDetailCached
+// getBoardsByType: unstable_cache(1시간) 적용
+const getPostDocumentCached = cache(getPostDocument);
 const getPostDetailCached = cache(getPostDetailOptimized);
-const getBoardsCached = cache(getBoardsByType);
 
 interface PostDetailPageProps {
   params: Promise<{
@@ -21,15 +24,16 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
   const { type, boardCode, postId } = await params;
 
   try {
-    const { post, comments } = await getPostDetailCached(postId, true);
-    const boards = await getBoardsCached(type);
+    const [{ post, comments }, boards] = await Promise.all([
+      getPostDetailCached(postId, true),
+      getBoardsByType(type)
+    ]);
     const board = boards.find(b => b.code === boardCode);
     
     if (!board) {
       notFound();
     }
 
-    // 게시글이 해당 게시판에 속하는지 확인
     if ((post as Post).boardCode !== boardCode) {
       notFound();
     }
@@ -46,20 +50,26 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
   }
 }
 
-// 메타데이터 생성
 export async function generateMetadata({ params }: PostDetailPageProps) {
   const { postId } = await params;
   
   try {
-    const { post } = await getPostDetailCached(postId, true);
+    const post = await getPostDocumentCached(postId);
     
+    if (!post) {
+      return {
+        title: '게시글을 찾을 수 없습니다 - Inschoolz',
+        description: '요청하신 게시글을 찾을 수 없습니다.',
+      };
+    }
+
     return {
-      title: `${(post as Post).title} - Inschoolz`,
-      description: stripHtmlTags((post as Post).content).slice(0, 150) + '...',
+      title: `${post.title} - Inschoolz`,
+      description: stripHtmlTags(post.content).slice(0, 150) + '...',
       openGraph: {
-        title: (post as Post).title,
-        description: stripHtmlTags((post as Post).content).slice(0, 150) + '...',
-        images: (post as Post).attachments?.length > 0 ? [(post as Post).attachments[0].url] : [],
+        title: post.title,
+        description: stripHtmlTags(post.content).slice(0, 150) + '...',
+        images: post.attachments?.length > 0 ? [post.attachments[0].url] : [],
       },
     };
   } catch {
@@ -68,4 +78,4 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
       description: '요청하신 게시글을 찾을 수 없습니다.',
     };
   }
-} 
+}

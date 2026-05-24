@@ -3,7 +3,7 @@ import { cache } from "react";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
-import { getBoardsByType, getPostDetailOptimized } from "@/lib/api/board";
+import { getBoardsByType, getPostDetailOptimized, getPostDocument } from "@/lib/api/board";
 import { Post, Comment } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { 
@@ -13,8 +13,11 @@ import {
   categorizePost
 } from "@/lib/seo-utils";
 
+// generateMetadata: post 문서만 필요 → getPostDocumentCached
+// page(): 댓글까지 필요 → getPostDetailCached
+// getBoardsByType: unstable_cache(1시간) 적용
+const getPostDocumentCached = cache(getPostDocument);
 const getPostDetailCached = cache(getPostDetailOptimized);
-const getBoardsCached = cache(getBoardsByType);
 
 interface PostViewPageProps {
   params: Promise<{
@@ -25,16 +28,13 @@ interface PostViewPageProps {
   }>;
 }
 
-
-
 export async function generateMetadata({ params }: PostViewPageProps): Promise<Metadata> {
   const { sido, sigungu, boardCode, postId } = await params;
   
   try {
-    // cache()로 감싼 함수를 사용해 generateMetadata와 결과를 공유
-    const [{ post }, boards] = await Promise.all([
-      getPostDetailCached(postId, true),
-      getBoardsCached('regional')
+    const [post, boards] = await Promise.all([
+      getPostDocumentCached(postId),
+      getBoardsByType('regional')
     ]);
     const boardInfo = boards.find(board => board.code === boardCode);
     
@@ -46,37 +46,21 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
       };
     }
 
-    // 익명 게시글은 검색엔진에서 제외
     const isAnonymous = post.authorInfo?.isAnonymous;
-    
-    // 게시글 내용 정리 및 작성 정보 추가
     const cleanContent = stripHtmlTags(post.content);
     const authorName = isAnonymous ? '익명' : (post.authorInfo?.displayName || '사용자');
     const createdDate = serializeTimestamp(post.createdAt).toLocaleDateString('ko-KR');
-    
-    // 첨부 이미지 추출
     const images = post.attachments?.filter(att => att.type === 'image').map(att => att.url) || [];
     const firstImage = images.length > 0 ? images[0] : undefined;
     
-    // 지역 정보 구성
     const decodedSido = decodeURIComponent(sido);
     const decodedSigungu = decodeURIComponent(sigungu);
     const fullAddress = `${decodedSido} ${decodedSigungu}`;
     
-    // SEO 최적화된 메타데이터 생성
     const locationInfo = { name: decodedSigungu, address: fullAddress };
     const seoTitle = generateSeoTitle(post, boardInfo.name, 'regional', locationInfo);
-    const seoDescription = generateSeoDescription(
-      post, 
-      cleanContent, 
-      authorName, 
-      createdDate, 
-      'regional',
-      locationInfo
-    );
+    const seoDescription = generateSeoDescription(post, cleanContent, authorName, createdDate, 'regional', locationInfo);
     const seoKeywords = generateSeoKeywords(post, boardInfo.name, 'regional', locationInfo);
-    
-    // 게시글 카테고리 분류
     const categories = categorizePost(post.title, post.content);
 
     return {
@@ -134,10 +118,9 @@ export default async function RegionalPostDetailPage({ params }: PostViewPagePro
   const { boardCode, postId } = await params;
   
   try {
-    // cache()로 감싼 함수를 사용해 generateMetadata와 결과를 공유
     const [{ post, comments }, boards] = await Promise.all([
       getPostDetailCached(postId, true),
-      getBoardsCached('regional')
+      getBoardsByType('regional')
     ]);
     
     const board = boards.find(b => b.code === boardCode);
@@ -146,7 +129,6 @@ export default async function RegionalPostDetailPage({ params }: PostViewPagePro
       notFound();
     }
 
-    // 게시글이 해당 게시판에 속하는지 확인
     if ((post as Post).boardCode !== boardCode) {
       notFound();
     }
@@ -161,4 +143,4 @@ export default async function RegionalPostDetailPage({ params }: PostViewPagePro
     console.error('Regional 게시글 상세 페이지 오류:', error);
     notFound();
   }
-} 
+}
