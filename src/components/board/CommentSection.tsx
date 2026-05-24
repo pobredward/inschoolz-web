@@ -515,7 +515,7 @@ function CommentItem({
       </div>
       
       {/* 댓글 내용 */}
-      <div className="ml-8">
+      <div className="ml-8 min-w-0 overflow-hidden">
         {isEditing && !isDeleted ? (
           <div className="space-y-2">
             <Textarea
@@ -599,7 +599,7 @@ function CommentItem({
           </div>
         ) : (
           <>
-            <div className={`text-sm leading-relaxed whitespace-pre-wrap ${isDeleted ? 'text-slate-500 italic' : 'text-slate-700'}`}>
+            <div className={`text-sm leading-relaxed whitespace-pre-wrap break-all ${isDeleted ? 'text-slate-500 italic' : 'text-slate-700'}`}>
               {isDeleted ? '삭제된 댓글입니다.' : renderCommentWithLinks(comment.content)}
             </div>
             
