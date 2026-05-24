@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import NextImage from 'next/image';
 import { usePostCacheStore } from '@/store/postCacheStore';
 import { Button } from '@/components/ui/button';
 
@@ -426,18 +425,14 @@ export const PostViewClient = ({ post: serverPost, initialComments, hasMoreComme
               >
                 <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                   {post.authorInfo?.profileImageUrl ? (
-                    <NextImage
+                    <AvatarImage
                       src={post.authorInfo.profileImageUrl}
                       alt={post.authorInfo.displayName || '프로필'}
-                      width={40}
-                      height={40}
-                      className="rounded-full object-cover"
                     />
-                  ) : (
-                    <AvatarFallback className="text-xs sm:text-sm">
-                      {post.authorInfo?.displayName?.substring(0, 2) || 'U'}
-                    </AvatarFallback>
-                  )}
+                  ) : null}
+                  <AvatarFallback className="text-xs sm:text-sm">
+                    {post.authorInfo?.displayName?.substring(0, 2) || 'U'}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1 sm:gap-2 mb-1">

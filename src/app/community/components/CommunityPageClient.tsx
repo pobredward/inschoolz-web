@@ -309,26 +309,6 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
     }
   }, [user?.uid]);
 
-  // 브라우저 탭이 포커스될 때 게시글 목록 새로고침 (5분 쿨다운 + 뒤로가기는 제외)
-  useEffect(() => {
-    const handleWindowFocus = () => {
-      // 상세 페이지에서 뒤로가기 후 focus인 경우 스킵 (sessionStorage로 판별)
-      const fromPostDetail = sessionStorage.getItem('from-post-detail');
-      if (fromPostDetail) {
-        sessionStorage.removeItem('from-post-detail');
-        return;
-      }
-      if (Date.now() - lastFetchedAt.current > REFETCH_INTERVAL) {
-        refetchPosts();
-      }
-    };
-
-    window.addEventListener('focus', handleWindowFocus);
-    return () => window.removeEventListener('focus', handleWindowFocus);
-  // refetchPosts는 안정적인 참조이므로 의존배열에서 제거 가능하지 않지만, posts.length 의존 제거로 리스너 재등록 방지
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refetchPosts]);
-
   // 차단 해제 시 상태 업데이트
   const handleUnblock = (userId: string) => {
     setBlockedUserIds(prev => {
@@ -510,6 +490,24 @@ export default function CommunityPageClient({ initialData }: CommunityPageClient
   useEffect(() => {
     setIsLoading(isPostsFetching);
   }, [isPostsFetching]);
+
+  // 브라우저 탭이 포커스될 때 게시글 목록 새로고침 (5분 쿨다운 + 뒤로가기는 제외)
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      const fromPostDetail = sessionStorage.getItem('from-post-detail');
+      if (fromPostDetail) {
+        sessionStorage.removeItem('from-post-detail');
+        return;
+      }
+      if (Date.now() - lastFetchedAt.current > REFETCH_INTERVAL) {
+        refetchPosts();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refetchPosts]);
 
   // loadPosts: school selector에서 직접 호출하는 경우를 위해 유지 (refetchPosts 래퍼)
   const loadPosts = async () => {
