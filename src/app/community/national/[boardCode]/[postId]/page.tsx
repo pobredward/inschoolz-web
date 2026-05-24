@@ -4,7 +4,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PostViewClient } from "@/components/board/PostViewClient";
 import { getPostDetailOptimized, getBoardsByType } from "@/lib/api/board";
-import { Post, Comment } from "@/types";
+import { Post, Comment, Board } from "@/types";
 import { stripHtmlTags, serializeTimestamp } from "@/lib/utils";
 import { ArticleStructuredData, BreadcrumbStructuredData } from "@/components/seo/StructuredData";
 import { 
@@ -28,10 +28,6 @@ interface PostViewPageProps {
 
 export async function generateMetadata({ params }: PostViewPageProps): Promise<Metadata> {
   const { boardCode, postId } = await params;
-  // #region agent log
-  const _metaStart = Date.now();
-  fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:meta_entry',message:'generateMetadata start',data:{postId,boardCode},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   
   try {
     // cache()로 감싼 함수를 사용해 page()와 결과를 공유
@@ -40,9 +36,6 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
       getPostDetailCached(postId, true),
       getBoardsCached('national')
     ]);
-    // #region agent log
-    fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:meta_fetch_done',message:'generateMetadata fetch done',data:{elapsedMs:Date.now()-_metaStart,postId},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const boardInfo = (boards as Board[]).find((board: Board) => board.code === boardCode);
     
     if (!boardInfo || !post) {
@@ -115,8 +108,8 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
         'article:section': `전국 ${boardInfo.name}`,
         'article:tag': categories.join(','),
         'article:author': authorName,
-        'article:published_time': serializeTimestamp(post.createdAt).toISOString(),
-        'article:modified_time': serializeTimestamp(post.updatedAt || post.createdAt).toISOString(),
+        'article:published_time': serializeTimestamp((post as Post).createdAt).toISOString(),
+        'article:modified_time': serializeTimestamp((post as Post).updatedAt || (post as Post).createdAt).toISOString(),
       },
     };
   } catch (error) {
@@ -131,10 +124,6 @@ export async function generateMetadata({ params }: PostViewPageProps): Promise<M
 
 export default async function NationalPostDetailPage({ params }: PostViewPageProps) {
   const { boardCode, postId } = await params;
-  // #region agent log
-  const _pageStart = Date.now();
-  fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:page_entry',message:'page fn start',data:{postId,boardCode},hypothesisId:'A,D',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   
   try {
     // 게시글 정보와 게시판 정보를 병렬로 가져오기
@@ -143,11 +132,8 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
       getPostDetailCached(postId, true),
       getBoardsCached('national')
     ]);
-    // #region agent log
-    fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'national/page.tsx:after_data_fetch',message:'data fetch done',data:{elapsedMs:Date.now()-_pageStart,postId,hasPost:!!post,commentsCount:Array.isArray(comments)?comments.length:0},hypothesisId:'A,C,D',timestamp:Date.now()})}).catch(()=>{})
-    // #endregion
     
-    const board = boards.find(b => b.code === boardCode);
+    const board = (boards as Board[]).find(b => b.code === boardCode);
     
     if (!board) {
       notFound();
@@ -192,4 +178,4 @@ export default async function NationalPostDetailPage({ params }: PostViewPagePro
     console.error('National 게시글 상세 페이지 오류:', error);
     notFound();
   }
-} 
+}

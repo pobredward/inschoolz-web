@@ -118,18 +118,11 @@ export const PostViewClient = ({ post: serverPost, initialComments }: PostViewCl
     // 좋아요/스크랩/차단 상태 확인 (지연 로딩)
     const checkStatuses = async () => {
       try {
-        // #region agent log
-        const _t = Date.now();
-        fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'PostViewClient.tsx:checkStatuses_start',message:'client status checks start',data:{postId:post.id},hypothesisId:'E',timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         const [likeStatus, scrapStatus, blockStatus] = await Promise.all([
           checkLikeStatus(post.id, user.uid),
           checkScrapStatus(post.id, user.uid),
           post.authorId ? checkBlockStatus(user.uid, post.authorId) : Promise.resolve(false)
         ]);
-        // #region agent log
-        fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'PostViewClient.tsx:checkStatuses_done',message:'client status checks done',data:{elapsedMs:Date.now()-_t},hypothesisId:'E',timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         setIsLiked(likeStatus);
         setIsScrapped(scrapStatus);
         setIsUserBlocked(blockStatus);

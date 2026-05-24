@@ -497,29 +497,19 @@ export const getPostDetail = async (postId: string) => {
 
 // 최적화된 게시글 상세 정보 가져오기 (메타데이터용, 댓글 제외)
 export const getPostDetailOptimized = async (postId: string, includeComments = true) => {
-  // #region agent log
-  const _t0 = Date.now();
-  fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'board.ts:getPostDetailOptimized_start',message:'start',data:{postId,includeComments},hypothesisId:'B,C',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   try {
     const post = await getDocument<Post>('posts', postId);
-    // #region agent log
-    fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'board.ts:after_post_doc',message:'post doc fetched',data:{elapsedMs:Date.now()-_t0,hasPost:!!post,hasProfileImage:!!post?.authorInfo?.profileImageUrl,isAnonymous:!!post?.authorInfo?.isAnonymous},hypothesisId:'B',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     
     if (!post) {
       throw new Error('게시글을 찾을 수 없습니다.');
     }
 
-    // post 조회와 병렬로 user 조회, comments 조회를 동시에 실행 (가설 B 수정)
+    // post 조회 완료 후 user 조회와 comments 조회를 병렬로 실행
     const needsUserFetch = !post.authorInfo?.profileImageUrl && !post.authorInfo?.isAnonymous && !!post.authorId;
     const [userDoc, comments] = await Promise.all([
       needsUserFetch ? getDocument('users', post.authorId!) : Promise.resolve(null),
       includeComments ? getCommentsByPost(postId) : Promise.resolve([]),
     ]);
-    // #region agent log
-    fetch('http://127.0.0.1:7552/ingest/b71c011a-dfbe-4e10-a180-c13406684f80',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'09a906'},body:JSON.stringify({sessionId:'09a906',location:'board.ts:after_parallel_fetch',message:'user+comments parallel done',data:{elapsedMs:Date.now()-_t0,needsUserFetch,hasUser:!!userDoc,commentsCount:Array.isArray(comments)?comments.length:0},hypothesisId:'B,C',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     // authorInfo 처리
     if (needsUserFetch) {
